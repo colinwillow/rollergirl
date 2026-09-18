@@ -15,8 +15,14 @@
      with CAPTURE, because a failed subresource fires `error` at its own element. City lost
      six builds to a page that could not report its own exceptions. -->
 <style>
+  /* iOS SAFARI HAS IGNORED `user-scalable=no` SINCE iOS 10, so the viewport meta is not the
+     fix and never was -- `touch-action` is. It is not inherited, but the browser intersects
+     the values from the hit element up through its ancestors, so `none` on the root covers
+     every descendant that does not override it. Double-tap zoom, pinch zoom and the 300 ms
+     tap delay all go with it, and clicks still fire. */
   html,body{margin:0;height:100%;background:#14121c;overflow:hidden;overscroll-behavior:none;
-    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    touch-action:none;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;
     font-family:'Barlow Condensed',system-ui,-apple-system,sans-serif}
   canvas{display:block;width:100%;height:100%;touch-action:none}
   #crash{position:fixed;inset:0;z-index:999;display:none;padding:18px;box-sizing:border-box;
@@ -56,6 +62,7 @@
     border:0;border-bottom:3px solid #00000066;background:#ffffff1c;color:#e8e4f2;
     touch-action:none;-webkit-appearance:none}
   .key:active{border-bottom-width:0;transform:translateY(3px)}
+  .key,#newer{touch-action:manipulation}   /* taps yes, double-tap zoom no */
   #resetB{right:calc(14px + env(safe-area-inset-right))}
   #newer{position:fixed;left:50%;transform:translateX(-50%);z-index:9;display:none;
     top:calc(12px + env(safe-area-inset-top));padding:7px 14px;border-radius:999px;border:0;
@@ -80,6 +87,11 @@
       paint((e.message || 'error') + '\n  @' + (e.filename || '?') + ':' + (e.lineno || '?') +
             (e.error && e.error.stack ? '\n' + e.error.stack : ''));
     }, true);
+    // AND THE PINCH GESTURE IS A SEPARATE EVENT FAMILY THAT `touch-action` DOES NOT COVER on
+    // iOS -- Safari fires its own non-standard `gesture*` events for two fingers, and they zoom
+    // the page whatever the CSS says. `dblclick` is belt and braces for the desktop.
+    for (var i = 0, G = ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']; i < G.length; i++)
+      addEventListener(G[i], function (e) { e.preventDefault(); }, { passive: false });
     addEventListener('unhandledrejection', function (e) {
       var r = e && e.reason;
       paint('UNHANDLED PROMISE\n' + ((r && (r.stack || r.message)) || String(r)));
@@ -98,7 +110,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r3</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r4</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button id="newer">build ready &middot; tap</button>
@@ -112,7 +124,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r3';
+const BUILD = 'r4';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -656,12 +668,27 @@ function measureRig(model) {
 // AND EVERY CLIP HERE STARTS AT 1/24 s RATHER THAN AT ZERO, which is one held frame at the
 // top of every loop. Shifting the track times back is cheaper than living with the hitch.
 const DROP = /^CINEMA_4D|Action$/;
+// A BONE POSITION TRACK IS A LANDMINE, AND `jump_start` IS A LIVE ONE.
+// Measured over every clip in the file with `npm run clips`: ONLY THE HIPS legitimately
+// translates -- 1 cm in `coasting`, 11 in `skate_fwd`, 19 in `Idle` -- and that one is the
+// body's height off the ground, which every crouch and landing needs. `jump_start` carries
+// FIFTY-FOUR more of them, travelling up to TWENTY-FIVE METRES: both shoulders, an arm, most
+// of the fingers. Its rotation tracks on those same bones have TWO keys and do not move, so
+// this is an exporter writing noise into channels that should not exist rather than anything
+// authored. Played, it tears her apart on the frame she jumps.
+// Stripping every non-Hips position track is a NO-OP on the four clean clips -- their keys
+// hold the rest value, which is what the bone falls back to anyway -- and is the whole fix for
+// the broken one. Delete this the day the export stops emitting them, not before.
+const KEEPPOS = /Hips\.position$/;
 function normaliseClips(clips) {
   const out = [];
   for (const c of clips) {
     if (DROP.test(c.name)) continue;
     // a clip with no BONE track is a Blender action, not an animation
     if (!c.tracks.some(t => /\.(position|quaternion|scale)$/.test(t.name))) continue;
+    const n0 = c.tracks.length;
+    c.tracks = c.tracks.filter(t => !/\.position$/.test(t.name) || KEEPPOS.test(t.name));
+    if (n0 - c.tracks.length > 1) console.warn(`[clip] ${c.name}: dropped ${n0 - c.tracks.length} bone position tracks`);
     let t0 = Infinity;
     for (const t of c.tracks) if (t.times.length) t0 = Math.min(t0, t.times[0]);
     if (t0 > 1e-6 && t0 < Infinity) for (const t of c.tracks) for (let i = 0; i < t.times.length; i++) t.times[i] -= t0;
@@ -714,7 +741,15 @@ function buildGirl(gltf) {
 // damping crosses between them. A `crossFadeFrom` state machine has to know what it is coming
 // FROM, which breaks the first time two transitions overlap.
 const ONCE = ['jump_start', 'jump_in_air'];
-const ANIM = { pushFit: 1, coastLo: 0.85, coastHi: 1.3, airFill: 1, blend: 0.055, snap: 0.035 };
+// `skate_fwd` IS ONE PUSH, NOT A CYCLE, AND STRETCHING IT OVER THE STRIDE PERIOD IS WHY IT
+// READ AS A HELD POSE. Measured: 0.208 s, six keys, fourteen bones turning up to 106 degrees --
+// a leg going out and back while the arm sweeps through. Fitted to `pushPeriod` that plays at
+// **x0.20** at a cruise, which is five times slow motion, and what you see is a slow drift into
+// a pose rather than a stride. Worse, it is NOT cyclic: the arm ends 106 degrees round and the
+// hips 19, so looping it snaps them back every time.
+// So it plays ONCE per stride at its own honest rate and `coasting` carries the GLIDE between
+// pushes -- which is what skating actually is: a push, then a long roll, then another push.
+const ANIM = { pushT: 0.34, coastLo: 0.85, coastHi: 1.3, airFill: 1, blend: 0.055, snap: 0.035 };
 function clipLen(name, fb) { return (girl.clipLen && girl.clipLen[name]) || fb; }
 function clipScale(name, s) { const a = girl.actions[name]; if (a) a.setEffectiveTimeScale(s); }
 function setWeights(t, dt, snap) {
@@ -757,15 +792,19 @@ function girlAnim(dt) {
     clipScale('jump_in_air', clamp(clipLen('jump_in_air', .75) / est * ANIM.airFill, .45, 2.2));
   } else {
     const roll = clamp((p.speed - 0.35) / 1.7, 0, 1);
-    const push = p.pushing ? 1 : 0;
+    // HOW LONG SINCE THE FOOT WENT DOWN, in seconds -- `pushT` is a phase in [0,1) and the
+    // period moves with speed, so the two have to be multiplied to mean anything. The clip is
+    // up for `pushT` seconds of that and the glide has the rest, which is why a standstill
+    // (period .52) is nearly all push and a cruise (period 1.05) is mostly roll.
+    const since = ((((p.pushT - SK.plant) % 1) + 1) % 1) * p.pushPeriod;
+    const push = (p.pushing && since < ANIM.pushT) ? 1 : 0;
     t.skate_fwd = push;
     t.Idle = (1 - roll) * (1 - push);
     t.coasting = roll * (1 - push);
-    // THE CLIP IS THE CLOCK'S PARTNER, NOT ITS MASTER. The stride period moves with speed --
-    // quick hard strides from a standstill, long lazy ones at a cruise -- so the clip is scaled
-    // to the period and the foot meets the ground on the frame the stroke fires.
-    if (ANIM.pushFit) clipScale('skate_fwd', clipLen('skate_fwd', .25) / Math.max(.2, p.pushPeriod));
-    else clipScale('skate_fwd', clamp(0.6 + p.speed * 0.12, .6, 2.4));
+    // ITS OWN RATE, NOT THE PERIOD'S. `setWeights` rewinds a clip whose weight comes up off the
+    // floor, so each push replays it from the first frame and it never reaches the wrap that
+    // would snap the arm back.
+    clipScale('skate_fwd', clipLen('skate_fwd', .21) / Math.max(.1, ANIM.pushT));
     clipScale('coasting', lerp(ANIM.coastLo, ANIM.coastHi, roll));
   }
   setWeights(t, dt, p.landHard > 4);

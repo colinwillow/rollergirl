@@ -8,7 +8,8 @@
     "check:boot": "node tools/boot.mjs",
     "check": "npm run check:syntax && npm run check:boot",
     "rig": "node tools/rig.mjs",
-    "sim": "node tools/sim.mjs"
+    "sim": "node tools/sim.mjs",
+    "clips": "node tools/clips.mjs"
   },
   "type": "module"
 }

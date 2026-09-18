@@ -55,7 +55,15 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   of every loop; `normaliseClips` shifts the track times back.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
-- `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`.
+- `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`.
+
+**`npm run clips` READS WHAT IS ACTUALLY IN EACH ANIMATION**, straight out of the GLB's samplers
+— they are NOT draco compressed, draco only touches mesh primitives — so "she holds the pose" is
+answerable in a second. It reports how many bones genuinely MOVE and by how much. **A QUATERNION
+COMPONENT DELTA IS NOT A ROTATION**: `q` and `-q` are the same rotation, so a component swinging
+from −1 to +1 reads as a delta of 2 and is a sign flip that three's interpolant takes the short
+way round. Measuring components made a six-frame stride and a static clip look identical; the
+honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
@@ -181,13 +189,49 @@ Each of these cost a round in the build that found it.
   the stick is a HEADING — she turns onto it and skates straight, so the number worth having is
   the turn response.
 
+- **A BONE POSITION TRACK IS A LANDMINE, AND `jump_start` IS A LIVE ONE.** Measured over every
+  clip in the file: **only the HIPS legitimately translates** — 1 cm in `coasting`, 11 in
+  `skate_fwd`, 19 in `Idle` — and that one is the body's height off the ground, which every
+  crouch and landing needs. `jump_start` carries **fifty-four more of them, travelling up to
+  twenty-five metres**: both shoulders, an arm, most of the fingers. Its ROTATION tracks on those
+  same bones have two keys and do not move, so this is an exporter writing noise into channels
+  that should not exist rather than anything authored — and played, it tears her apart on the
+  frame she jumps. `normaliseClips` strips every non-Hips position track, which is a **no-op on
+  the four clean clips** (their keys hold the rest value the bone falls back to anyway) and is
+  the whole fix for the broken one. Delete it the day the export stops emitting them, not before.
+- **`skate_fwd` IS ONE PUSH, NOT A CYCLE, AND STRETCHING IT OVER THE STRIDE PERIOD IS WHY IT READ
+  AS A HELD POSE.** *"She holds the pose instead of looping when you hold stick."* Measured:
+  0.208 s, six keys, fourteen bones turning up to 106 degrees — a leg going out and back with the
+  arm sweeping through, which is a real and quite violent stride. Fitted to `pushPeriod` it
+  played at **×0.20** at a cruise, five times slow motion, and what you see is a slow drift into
+  a pose. **And it is not cyclic**: the arm ends 106 degrees round and the hips 19, so looping it
+  snapped them back every time.
+  It plays ONCE per stride at its own honest rate (`ANIM.pushT`, ×0.61) and **`coasting` carries
+  the GLIDE between pushes** — which is what skating is: a push, a long roll, another push.
+  Measured after: replayed once per stride, up for 32% of a cruising stride and 80% of a standing
+  start. `setWeights` rewinding on the weight leaving the floor is what replays it, and it never
+  reaches the wrap that would snap the arm.
+  **THE PROBE COULD NOT HAVE FOUND THIS AND THE CLIP READER COULD NOT EITHER.** `npm run sim anim`
+  said the weight sat at 1.0 and the clip was rewound once in seven seconds — looping correctly,
+  exactly as written. The fault was in the NUMBER it was being played at, which only means
+  anything next to what is inside the clip. Two tools, one answer.
+- **iOS SAFARI HAS IGNORED `user-scalable=no` SINCE iOS 10**, so the viewport meta is not the fix
+  for double-tap zoom and never was. `touch-action: none` on the root is — it is not inherited,
+  but the browser intersects the values from the hit element up through its ancestors, so it
+  covers every descendant that does not override, and clicks still fire. The buttons take
+  `manipulation` instead (taps yes, double-tap zoom no). **And the PINCH gesture is a separate
+  event family `touch-action` does not cover**: Safari fires its own non-standard `gesturestart`
+  / `gesturechange` / `gestureend` for two fingers and they zoom the page whatever the CSS says.
+
 ## Not there yet
 
 - No grinds, no tricks, no spins scored — **the right pad's FLICK is deliberately unspent** and
   `FLICK` is already wired for it.
 - No audio at all.
-- `skate_fwd` is six frames and is time-scaled to the push period, so it is soft at a cruise.
-  `ANIM.pushFit = 0` plays it at a speed-scaled rate instead. A longer stride clip drops
-  straight in.
+- `skate_fwd` is six frames of ONE push. It plays once per stride with `coasting` under it for
+  the glide; `ANIM.pushT` is how long that push takes. A longer or cyclic stride clip drops
+  straight in — raise `pushT` to its length, or go back to fitting it to `pushPeriod`.
+- `jump_start` is only usable with its position tracks stripped (see above). It is also the
+  clip with the most to gain from a re-export.
 - No `landing` clip, no `coasting_fakie`, no grind pose. `girlAnim` is a weight table; naming a
   clip is all a new one needs.

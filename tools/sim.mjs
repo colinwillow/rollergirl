@@ -233,6 +233,51 @@ CASES.solid = () => {
   return bad === 0 && worst < 40;
 };
 
+// ---------------------------------------------------------------- what the mixer is asked for
+// NO HARNESS HERE CAN BUILD A SKIN -- her GLB is draco and `DRACOLoader` wants a Worker -- so
+// the actions are FABRICATED, carrying the real clip durations read out of the file. That is
+// enough, because the question is not what the clip looks like: it is what `girlAnim` ASKS the
+// mixer for. A weight table and a time scale are numbers, and "she holds the pose" is a claim
+// about numbers.
+CASES.anim = () => {
+  const LEN = { Idle: 17.667, coasting: 5.333, skate_fwd: 0.208, jump_start: 0.583, jump_in_air: 0.708 };
+  const log = {};
+  rg.girl.actions = {}; rg.girl.cw = {};
+  for (const nm of Object.keys(LEN)) {
+    const a = { w: 0, ts: 1, running: 0, resets: 0,
+      reset() { this.resets++; this.running = 1; return this; }, play() { this.running = 1; return this; },
+      stop() { this.running = 0; return this; }, isRunning() { return !!this.running; },
+      setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; },
+      setEffectiveTimeScale(v) { this.ts = v; return this; } };
+    rg.girl.actions[nm] = log[nm] = a;
+  }
+  rg.girl.clipLen = LEN; rg.girl.ready = true;
+  place(60, 1, -60, 0, 0);
+  const rows = [];
+  let resets0 = 0, dutyUp = 0, dutyN = 0;
+  run(7, (t, i) => {
+    follow(); rg.stick.L.y = -1; rg.stick.L.x = 0;
+    rg.girlAnim(DT);
+    if (i % 60 === 0) rows.push(`${fix(t,1)}s v${fix(P.speed,1)} push${P.pushing ? 1 : 0} ` +
+      `[idle ${fix(log.Idle.w)} coast ${fix(log.coasting.w)} skate ${fix(log.skate_fwd.w)}] ` +
+      `x${fix(log.skate_fwd.ts)} period ${fix(P.pushPeriod)}`);
+    // how much of each stride the push clip is actually up for -- it should be most of a
+    // standing start and a minority of a cruise, because that is what a glide is
+    if (t > 4) { dutyN++; if (log.skate_fwd.w > .5) dutyUp++; }
+  });
+  resets0 = log.skate_fwd.resets;
+  for (const r of rows) console.log('  ' + r);
+  const ts = log.skate_fwd.ts, cyc = LEN.skate_fwd / ts;
+  console.log(`  skate_fwd: ${LEN.skate_fwd}s of clip played over ${fix(cyc)}s (x${fix(ts)}), ` +
+              `replayed ${resets0} times in 7 s, up for ${fix(dutyUp / Math.max(1, dutyN) * 100, 0)}% of a cruising stride`);
+  // A CLIP PLAYED AT A FIFTH SPEED AND LOOPED IS A SLOW DRIFT INTO A POSE, not a stride. It has
+  // to run near its authored rate, and it has to be REPLAYED once per push rather than wrapped.
+  if (ts < 0.45) { console.log('  -> slow motion'); return false; }
+  if (resets0 < 3) { console.log('  -> not being replayed per push'); return false; }
+  // A CLIP REWOUND EVERY FRAME NEVER GETS PAST ITS FIRST KEY, which is a held pose exactly.
+  return resets0 < 20;
+};
+
 const only = process.argv[2];
 let fail = 0;
 for (const k of Object.keys(CASES)) {

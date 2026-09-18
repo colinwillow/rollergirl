@@ -23,7 +23,8 @@ npm run sim      # ~3s: drives the SHIPPED physics over the REAL park, headless.
 npm run bump     # raises BUILD, hashes the assets, writes version.json. Run before every push.
 ```
 
-`npm run sim <case>` runs one of `push brake carve jump pipe pump kicker bowl solid`.
+`npm run sim <case>` runs one of `push brake carve jump pipe pump kicker bowl solid anim`.
+`npm run clips` reads what is actually in each animation — how many bones move, and by how much.
 
 Everything tunable is on `window.rg` — `rg.SK`, `rg.AIR`, `rg.CAM`, `rg.RIG` — live, from the
 console. `rg.pipe()`, `rg.bowl()` and `rg.tp(x, z)` drop her where you want to look.
