@@ -1,0 +1,14 @@
+{
+  "name": "rollergirl",
+  "private": true,
+  "description": "Tooling for the rollergirl game. The game itself needs none of this.",
+  "scripts": {
+    "bump": "node tools/bump.mjs",
+    "check:syntax": "node tools/syntax.mjs index.html",
+    "check:boot": "node tools/boot.mjs",
+    "check": "npm run check:syntax && npm run check:boot",
+    "rig": "node tools/rig.mjs",
+    "sim": "node tools/sim.mjs"
+  },
+  "type": "module"
+}

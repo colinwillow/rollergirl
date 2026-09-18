@@ -1,0 +1,1356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,maximum-scale=1">
+<meta name="theme-color" content="#14121c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Rollergirl</title>
+<link rel="manifest" href="manifest.webmanifest">
+<!-- THE CRASH TRAP IS THE FIRST THING IN THE HEAD, before the import map and before the
+     module -- an error the trap is not installed for is an error nobody sees, and that
+     includes a module that fails to PARSE and an import that never resolves. Registered
+     with CAPTURE, because a failed subresource fires `error` at its own element. City lost
+     six builds to a page that could not report its own exceptions. -->
+<style>
+  html,body{margin:0;height:100%;background:#14121c;overflow:hidden;overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    font-family:'Barlow Condensed',system-ui,-apple-system,sans-serif}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  #crash{position:fixed;inset:0;z-index:999;display:none;padding:18px;box-sizing:border-box;
+    background:rgba(20,10,14,.96);color:#ffb4c4;font:12px/1.45 ui-monospace,Menlo,monospace;
+    white-space:pre-wrap;overflow:auto;-webkit-user-select:text;user-select:text}
+  #boot{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:14px;background:linear-gradient(170deg,#241c33 0%,#14121c 60%,#0d0b13 100%);
+    color:#e8e4f2;transition:opacity .5s}
+  #boot.gone{opacity:0;pointer-events:none}
+  #boot h1{margin:0;font-size:34px;letter-spacing:.06em;font-weight:800;color:#ff6fa5;
+    text-shadow:0 3px 0 #6d2a49}
+  #boot .msg{font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
+  #boot .bar{width:min(62vw,300px);height:4px;border-radius:2px;background:#ffffff22;overflow:hidden}
+  #boot .bar i{display:block;height:100%;width:0;background:#ff6fa5;transition:width .25s}
+  #boot .bn{font-size:11px;letter-spacing:.2em;opacity:.45}
+  .pad{position:fixed;bottom:26px;width:132px;height:132px;border-radius:50%;
+    border:2px solid #ffffff2b;background:#ffffff0f;touch-action:none;z-index:5;
+    bottom:calc(26px + env(safe-area-inset-bottom))}
+  #stkL{left:calc(20px + env(safe-area-inset-left))}
+  #stkR{right:calc(20px + env(safe-area-inset-right))}
+  .pad.act{border-color:#ffffff55;background:#ffffff1a}
+  .knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;
+    border-radius:50%;background:#ffffff3d;border:2px solid #ffffff55;pointer-events:none}
+  #stkR .knob{background:#ff6fa53d;border-color:#ff6fa588}
+  .chip{position:fixed;z-index:4;font-size:12px;letter-spacing:.08em;color:#e8e4f2;
+    background:#00000055;padding:4px 9px;border-radius:7px;pointer-events:none}
+  #build{top:calc(12px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));
+    max-width:calc(100vw - var(--chipW,150px))}
+  #build b{font-size:19px;color:#5fe1ff;letter-spacing:.04em}
+  #build b.pulse{animation:pp .45s ease-out 3}
+  @keyframes pp{0%,100%{opacity:1}50%{opacity:.25}}
+  #build i{font-style:normal;opacity:.7;margin-left:7px}
+  #speed{top:calc(44px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left))}
+  #speed b{font-size:17px;color:#ff6fa5}
+  .key{position:fixed;z-index:6;top:calc(12px + env(safe-area-inset-top));width:44px;height:38px;
+    display:flex;align-items:center;justify-content:center;font-size:17px;border-radius:9px;
+    border:0;border-bottom:3px solid #00000066;background:#ffffff1c;color:#e8e4f2;
+    touch-action:none;-webkit-appearance:none}
+  .key:active{border-bottom-width:0;transform:translateY(3px)}
+  #resetB{right:calc(14px + env(safe-area-inset-right))}
+  #newer{position:fixed;left:50%;transform:translateX(-50%);z-index:9;display:none;
+    top:calc(12px + env(safe-area-inset-top));padding:7px 14px;border-radius:999px;border:0;
+    background:#5fe1ff;color:#0d0b13;font-weight:700;letter-spacing:.06em;font-size:13px}
+</style>
+<script>
+  // ---- the crash overlay. It has to exist before anything can throw. ----
+  (function () {
+    var box = null;
+    function paint(msg) {
+      try {
+        if (!box) { box = document.getElementById('crash'); }
+        if (!box) return;
+        box.style.display = 'block';
+        box.textContent = (box.textContent ? box.textContent + '\n\n' : '') + msg;
+      } catch (e) {}
+    }
+    window.__crash = paint;
+    addEventListener('error', function (e) {
+      if (e && e.target && e.target !== window && e.target.src !== undefined)
+        return paint('FAILED TO LOAD\n' + (e.target.src || e.target.href || e.target.tagName));
+      paint((e.message || 'error') + '\n  @' + (e.filename || '?') + ':' + (e.lineno || '?') +
+            (e.error && e.error.stack ? '\n' + e.error.stack : ''));
+    }, true);
+    addEventListener('unhandledrejection', function (e) {
+      var r = e && e.reason;
+      paint('UNHANDLED PROMISE\n' + ((r && (r.stack || r.message)) || String(r)));
+    });
+  })();
+</script>
+</head>
+<body>
+<div id="crash"></div>
+<canvas id="gl"></canvas>
+
+<div id="boot">
+  <h1>ROLLERGIRL</h1>
+  <div class="msg" id="bootMsg">loading</div>
+  <div class="bar"><i id="bootBar"></i></div>
+  <div class="bn">build <span id="bootB">r1</span></div>
+</div>
+
+<div class="chip" id="build"><b id="buildN">r3</b><i id="buildI"></i></div>
+<div class="chip" id="speed"><b>0.0</b> m/s</div>
+<button class="key" id="resetB" aria-label="respawn">&#8635;</button>
+<button id="newer">build ready &middot; tap</button>
+
+<div class="pad" id="stkL"><div class="knob"></div></div>
+<div class="pad" id="stkR"><div class="knob"></div></div>
+
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/GLTFLoader.js';
+import { DRACOLoader } from './vendor/DRACOLoader.js';
+
+const BUILD = 'r3';
+const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
+
+// ---------- helpers ----------
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+// FRAME-RATE INDEPENDENT SMOOTHING, ALWAYS. Never scrub a value with a bare `*= k` per
+// frame: that is an exponential whose half life depends on the frame rate, so the same
+// code behaves differently on a 120 Hz phone and a 30 Hz one.
+const damp = (cur, tgt, half, dt) => lerp(cur, tgt, 1 - Math.pow(0.5, dt / half));
+const decay = (v, k, dt) => v * Math.exp(-k * dt);
+const wrapAngle = a => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI; };
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+
+// ASSET URLS CARRY A CONTENT HASH, written by `npm run bump`. He replaces files in place --
+// re-exports the same GLB under the same name -- and a phone that already has that URL keeps
+// what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
+// its URL and stays cached. Every runtime asset URL goes through A().
+/* ASSETS:START */
+const ASSETS = {"models/roller_girl.glb":"7efbefe3"};
+/* ASSETS:END */
+const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
+
+// ---------- tunables ----------
+// Everything worth arguing about is a number here, and every one of them is on `window.rg`.
+const RIG = {
+  height: 1.70,        // metres, crown to soles. Everything else is tuned to this.
+  spin: 0,             // extra yaw on the model if the export faces some other way
+  foot: 0.02,          // sink the soles this far so the wheels bite rather than float
+  alphaTest: 0.5,      // her material exports as BLEND+doubleSided; a cutout sorts, alpha does not
+};
+
+// THE SKATE MODEL. Velocity lives in world space and is decomposed against the SURFACE she
+// is on, not against the world -- which is the whole reason transitions work: on a quarter
+// pipe "forward" is up the wall, and gravity's component along that wall is what slows her
+// down on the way up and gives it back on the way down.
+const SK = {
+  g: 20,               // gravity. Games are not 9.81; this is the number the jumps are tuned to.
+  roll: 0.04,          // rolling resistance along the wheels (per second, exponential).
+                       // 0.16 was a 4.3 s half life, which is a third of her energy per
+                       // swing of a transition -- the half pipe visibly died under her.
+  grip: 7.0,           // how fast a SLIDE is scrubbed off once the edges have lost it
+  // THE WHEELS REDIRECT HER SPEED, THEY DO NOT DELETE IT -- and this is the single number
+  // that decides whether carving feels like skating or like sandpaper. `gripA` is the most
+  // lateral acceleration the edges can supply, so the fastest the VELOCITY can be turned is
+  // `gripA / v` rad/s. Ask for less and she carves with no loss at all; ask for more and the
+  // surplus is a slide, which `grip` then scrubs. One number, both behaviours, and the drift
+  // at the limit falls out rather than being a second system.
+  gripA: 18,
+  // STEERING. Skates turn tighter than a skateboard and can pivot on the spot, so the rate
+  // falls with speed rather than being a flat number.
+  turn: 5.2,           // rad/s at a standstill
+  turnV: 1.35,         // rad/s at turnRef and above
+  turnRef: 14,         // m/s where the turn rate has fallen all the way
+  turnBrake: 0.16,     // a hard carve costs speed -- this is what plants the edge
+  // THE PUSH IS A STROKE, NOT A STEP. Each stride used to land its whole delta-v on ONE
+  // frame, which reads as a staircase on the speedometer and not as a foot hitting tarmac.
+  // The same total is spread over `strokeDur` on a half sine: the integral of
+  // (pi/2)sin(pi*u) over one cycle is exactly 1, so the top speed is unchanged.
+  pushV: 5.4,          // delta-v per stride at a standstill
+  taper: 0.86,         // how much of that is lost as she approaches pushMax
+  pushMax: 15.5,       // no more pushing past this -- legs cannot keep up
+  pushFast: 0.52,      // stride period at a standstill (quick, hard strides)
+  pushDur: 1.05,       // stride period at cruising speed (long, lazy glides)
+  pushEase: 9,         // speed at which the period has fully stretched
+  strokeDur: 0.34,     // how long one stroke's impulse is spread over
+  plant: 0.30,         // where in the cycle the foot is actually on the ground
+  grace: 0.45,         // a thumb off and back on inside this is ONE cycle, not two
+  ahead: 0.35,         // how squarely the thumb must point along her to count as a push
+  // BRAKING is a latch: a thumb held behind her is a brake until the thumb LEAVES it.
+  // Without the latch she carves round to face the thumb and the brake becomes a push,
+  // which is "it should slow me down but instead it turns me".
+  back: -0.35,
+  brake: 12.0,
+  fakieAt: 1.2,      // below this she always turns to face the thumb rather than riding backwards
+  // PUMPING. On anything steeper than `pumpAt` the stride stops being a stride and becomes
+  // a pump -- energy put in along the slope, which is how you get up a transition.
+  pumpAt: 0.22,        // 1 - n.y, so about 12 degrees
+  pump: 9.0,
+  // GROUND TRACKING. `stick` is how far the surface may fall away under her in one frame
+  // before she is airborne; on a 2 m transition at 10 m/s that gap is under a centimetre,
+  // and off the lip of a kicker it is a metre, so one number separates them cleanly.
+  step: 0.42,          // how high a lip she rolls straight over
+  stick: 0.14,
+  smoothAng: 0.62,     // a direction change under this is a transition and costs no speed;
+                       // anything sharper is an impact and loses the component into the face
+  // A LANDING THAT GRAZES THE SURFACE KEEPS NEARLY EVERYTHING AND A SLAM KEEPS ALMOST
+  // NOTHING, which is one number rather than two cases. Dropping back into a transition at
+  // the angle of the wall is the whole sport; taxing it the way a flat slam is taxed is
+  // what makes a ramp feel like glue.
+  landKeep: 0.85,
+  lean: 0.085,         // radians of bank per (rad/s x m/s) of carve
+  leanMax: 0.62,
+  leanHL: 0.12,
+  dead: 0.14,          // stick dead zone
+  curve: 1.35,         // stick response curve
+  max: 26,             // hard speed ceiling, so nothing can run away
+};
+
+const AIR = {
+  jump: 8.4,           // straight up, from flat
+  popNorm: 0.55,       // ...and this much of it along the SURFACE NORMAL instead, which is
+                       // what turns riding up a quarter pipe into real air off the lip
+  coyote: 0.11,        // grace after rolling off an edge
+  spin: 3.4,           // rad/s -- IN THE AIR THE STICK IS A RATE, NOT A TARGET. Held as a
+                       // target it is a 45 degree turn and then nothing; what was asked for
+                       // was to keep spinning.
+  drift: 3.2,          // a little steering of the trajectory, so a jump is not a rail
+  startT: 0.16,        // how long `jump_start` holds before `jump_in_air` takes over
+  tapT: 0.26,          // a tap is a tap; a hold is a camera drag and is NOT a jump
+};
+
+const CAM = {
+  el: 0.20,            // downward pitch, FIXED -- the right pad orbits in a circle only
+  look: 1.05,          // how far up her body the lens aims
+  dist: 6.0, distV: 0.17, min: 1.7, max: 13,
+  yawRate: 2.9,        // how fast the right pad swings the shot
+  idle: 0.55,          // how long after letting go before the lens comes back behind her
+  follow: 2.6,
+  followAir: 0.5,      // ...and it nearly lets go in the air, or a spin is unreadable
+  half: 0.09,          // position damping half life
+  outHL: 0.30,         // boom: snap IN, ease OUT
+  clear: 0.55,         // never let the lens through the floor
+  rise: 3.2,
+  fov: 62, fovRush: 11, rush0: 8, rushSpan: 14,
+};
+
+const PARK = { S: 70, cell: 5, wallR: 4.5, wallSweep: 72 * Math.PI / 180 };
+const LIGHT = { sun: 2.5, hemi: 1.15, dir: new THREE.Vector3(0.45, 0.78, 0.42).normalize() };
+
+// ---------- renderer & scene ----------
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, MOBILE ? 2 : 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x3a3350, 70, 300);
+const camera = new THREE.PerspectiveCamera(CAM.fov, 1, 0.1, 900);
+
+const hemi = new THREE.HemisphereLight(0xbfd4ff, 0x6a5a52, LIGHT.hemi);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff0dd, LIGHT.sun);
+sun.castShadow = true;
+sun.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 140;
+sun.shadow.camera.left = -34; sun.shadow.camera.right = 34;
+sun.shadow.camera.top = 34; sun.shadow.camera.bottom = -34;
+sun.shadow.bias = -0.0009; sun.shadow.normalBias = 0.035;
+// A SHADOW IS NOT ALLOWED TO BE A HOLE. A projected map removes the WHOLE of the sun, which
+// against a bright key light reads as a hole cut in the picture rather than as shade.
+// r180 carries `shadowIntensity` as a real uniform, so this needs no shader patch.
+sun.shadow.intensity = 0.42;
+scene.add(sun); scene.add(sun.target);
+
+// A gradient dome rather than a flat clear colour -- it costs one draw call and it is the
+// difference between "a 3D scene" and "outside".
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(500, 24, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { uTop: { value: new THREE.Color(0x2b2a5e) }, uMid: { value: new THREE.Color(0x6f5a95) },
+                uBot: { value: new THREE.Color(0xffb188) } },
+    vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `varying vec3 vP; uniform vec3 uTop, uMid, uBot;
+      void main(){ float h = normalize(vP).y;
+        vec3 c = mix(uBot, uMid, smoothstep(-0.08, 0.30, h));
+        c = mix(c, uTop, smoothstep(0.22, 0.85, h));
+        gl_FragColor = vec4(c, 1.0); }`,
+  }));
+sky.frustumCulled = false; scene.add(sky);
+
+// ---------- the collider: real triangles, in a grid ----------
+// EVERY RIDEABLE SURFACE IN THIS GAME IS PROCEDURAL, AND ITS COLLIDER COMES FROM THE SAME
+// TRIANGLES THE PICTURE DOES. That is the whole reason half pipes work here: there is no
+// second description of the ramp to drift out of agreement with the one on screen, and no
+// analytic special case for a curve. A transition is a floor she rolls up, exactly like the
+// flat, and the slope term in `stepGround` does the rest with no new code.
+const TRI = { cell: 4, x0: -200, z0: -200, w: 100, h: 100, cells: null, v: null, n: 0, up: 0.06 };
+let _triRaw = [];
+function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz) {
+  const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const nl = Math.hypot(nx, ny, nz);
+  // A VERT WALL IS NOT A FLOOR, and this is the one number that decides how steep a
+  // transition she can still be ON rather than fly off. .12 is about 83 degrees, which is
+  // most of a vert wall -- a skateboard game wants that, and so does this.
+  if (nl < 1e-9 || ny / nl < TRI.up) return;
+  _triRaw.push(ax, ay, az, bx, by, bz, cx, cy, cz, nx / nl, ny / nl, nz / nl);
+}
+function triBuild() {
+  TRI.n = _triRaw.length / 12;
+  TRI.v = new Float32Array(_triRaw); _triRaw = null;
+  TRI.cells = new Array(TRI.w * TRI.h);
+  const V = TRI.v;
+  for (let t = 0; t < TRI.n; t++) {
+    const o = t * 12;
+    const i0 = clamp(Math.floor((Math.min(V[o], V[o+3], V[o+6]) - TRI.x0) / TRI.cell), 0, TRI.w - 1);
+    const i1 = clamp(Math.floor((Math.max(V[o], V[o+3], V[o+6]) - TRI.x0) / TRI.cell), 0, TRI.w - 1);
+    const k0 = clamp(Math.floor((Math.min(V[o+2], V[o+5], V[o+8]) - TRI.z0) / TRI.cell), 0, TRI.h - 1);
+    const k1 = clamp(Math.floor((Math.max(V[o+2], V[o+5], V[o+8]) - TRI.z0) / TRI.cell), 0, TRI.h - 1);
+    for (let k = k0; k <= k1; k++) for (let i = i0; i <= i1; i++) {
+      const c = k * TRI.w + i; (TRI.cells[c] || (TRI.cells[c] = [])).push(t);
+    }
+  }
+  let used = 0, big = 0;
+  for (const c of TRI.cells) if (c) { used++; if (c.length > big) big = c.length; }
+  console.log(`collider: ${TRI.n} triangles, ${used} cells, worst ${big}`);
+}
+// Two answers, never one: the highest surface at or below her feet, and the lowest above
+// them. That is what lets her stand on a deck and also roll under it.
+const _gr = { floor: -Infinity, ceil: Infinity, nx: 0, ny: 1, nz: 0, hit: false };
+function groundAt(x, z, y, step) {
+  _gr.floor = -Infinity; _gr.ceil = Infinity; _gr.nx = 0; _gr.ny = 1; _gr.nz = 0; _gr.hit = false;
+  if (!TRI.cells) return _gr;
+  const i = Math.floor((x - TRI.x0) / TRI.cell), k = Math.floor((z - TRI.z0) / TRI.cell);
+  if (i < 0 || k < 0 || i >= TRI.w || k >= TRI.h) return _gr;
+  const list = TRI.cells[k * TRI.w + i]; if (!list) return _gr;
+  const V = TRI.v, top = y + step + 0.02;
+  for (let a = 0; a < list.length; a++) {
+    const o = list[a] * 12;
+    const ax = V[o], ay = V[o+1], az = V[o+2];
+    const ux = V[o+3] - ax, uy = V[o+4] - ay, uz = V[o+5] - az;
+    const vx = V[o+6] - ax, vy = V[o+7] - ay, vz = V[o+8] - az;
+    const det = ux * vz - uz * vx; if (det > -1e-9 && det < 1e-9) continue;
+    const wx = x - ax, wz = z - az;
+    const sc = (wx * vz - wz * vx) / det, tc = (ux * wz - uz * wx) / det;
+    if (sc < -1e-4 || tc < -1e-4 || sc + tc > 1 + 1e-4) continue;
+    const h = ay + sc * uy + tc * vy;
+    if (h <= top) { if (h > _gr.floor) { _gr.floor = h; _gr.nx = V[o+9]; _gr.ny = V[o+10]; _gr.nz = V[o+11]; _gr.hit = true; } }
+    else if (h < _gr.ceil) _gr.ceil = h;
+  }
+  return _gr;
+}
+
+
+// ---------- the park ----------
+// Every piece is generated from a PROFILE -- a polyline in (along, up) extruded across a
+// width -- or from a profile REVOLVED about a point, which is a bowl. The same triangles go
+// into the picture and into the collider, so there is exactly one description of every ramp
+// and nothing to keep in step. Placing a ramp by eye off a screenshot is how you get a half
+// pipe inside a bank; placing it by construction is how you do not.
+//
+// A RAMP IS A FLOOR, NOT A SOLID, AND THAT IS ON PURPOSE. `triAdd` throws away a face too
+// steep to stand on, so a ramp's SIDE WALLS are not in the collider: meet one side-on and you
+// pass through it, roll at it up the slope and you ride it. The alternative is a box you stop
+// dead against, which is worse.
+//
+// A SEGMENT'S COLOUR IS THE COLOUR OF THE POINT IT STARTS AT. One rule, so the coping band is
+// a real segment of real geometry rather than a duplicated point that draws nothing.
+const MESH = { pos: [], nrm: [], col: [] };
+const _c = new THREE.Color();
+function pushTri(ax, ay, az, bx, by, bz, cx, cy, cz, hex, solid) {
+  const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+  let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl;
+  // A SINGLE NaN VERTEX IS AN INVISIBLE WORLD, AND NOTHING ON SCREEN SAYS SO: the geometry's
+  // bounding sphere comes back NaN and three culls the whole park. `plaza` shipped one for an
+  // afternoon because it read `hole.r` off an object that spelt it `rim` -- undefined
+  // propagates silently through arithmetic and only the picture knows. So it is loud.
+  if (!(Number.isFinite(ax + ay + az + bx + by + bz + cx + cy + cz))) {
+    if (!pushTri.warned) { pushTri.warned = 1; console.error('[park] NaN vertex -- geometry rejected'); }
+    MESH.bad = (MESH.bad || 0) + 1; return;
+  }
+  MESH.pos.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+  MESH.nrm.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
+  _c.setHex(hex).convertSRGBToLinear();
+  for (let i = 0; i < 3; i++) MESH.col.push(_c.r, _c.g, _c.b);
+  if (solid !== false) triAdd(ax, ay, az, bx, by, bz, cx, cy, cz);
+}
+const quad = (a, b, c, d, hex, solid) => {
+  pushTri(a[0],a[1],a[2], b[0],b[1],b[2], c[0],c[1],c[2], hex, solid);
+  pushTri(a[0],a[1],a[2], c[0],c[1],c[2], d[0],d[1],d[2], hex, solid);
+};
+const CONC = 0x8d919c, RAMP = 0xc0ae95, COPE = 0x5fe1ff, DECK = 0x757b8a, SIDE = 0x4a4f5c;
+
+// A piece: origin, yaw, and a profile [{u, y, c}] extruded from w=-halfW to +halfW.
+function extrude(ox, oz, yaw, halfW, prof, skirt) {
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw);
+  const P = (u, y, w) => [ox + fx * u + sx * w, y, oz + fz * u + sz * w];
+  for (let i = 0; i < prof.length - 1; i++) {
+    const a = prof[i], b = prof[i + 1];
+    if (Math.abs(a.u - b.u) < 1e-6 && Math.abs(a.y - b.y) < 1e-6) continue;
+    quad(P(a.u, a.y, -halfW), P(b.u, b.y, -halfW), P(b.u, b.y, halfW), P(a.u, a.y, halfW), a.c || CONC);
+    // The sides are SCENERY: a vertical face can never be a floor, so they are drawn and not
+    // collided with. Without them you see straight through into the inside of the ramp.
+    if (skirt !== false && (a.y > 0.02 || b.y > 0.02)) {
+      quad(P(a.u, 0, halfW), P(b.u, 0, halfW), P(b.u, b.y, halfW), P(a.u, a.y, halfW), SIDE, false);
+      quad(P(b.u, 0, -halfW), P(a.u, 0, -halfW), P(a.u, a.y, -halfW), P(b.u, b.y, -halfW), SIDE, false);
+    }
+  }
+}
+// A BOWL IS THE SAME PROFILE, REVOLVED -- `u` is the distance from the centre. Nothing about
+// the physics knows the difference: it is a floor with a normal, like everything else.
+function revolve(ox, oz, prof, seg, from, to) {
+  const A0 = from || 0, span = (to == null ? Math.PI * 2 : to) - A0;
+  // WINDING FOLLOWS THE PROFILE'S DIRECTION, AND IT HAS TO BE ASKED. A profile marching
+  // OUTWARD and one marching INWARD produce opposite windings out of the same angular sweep --
+  // so the bowl (inward) came out right and the perimeter corners (outward) came out UPSIDE
+  // DOWN. A floor wound the wrong way is thrown away by `triAdd` as "not a floor" AND drawn
+  // facing down, which is a hole in the world that still looks like concrete from above.
+  const out = prof[prof.length - 1].u > prof[0].u;
+  for (let s = 0; s < seg; s++) {
+    let a0 = A0 + s / seg * span, a1 = A0 + (s + 1) / seg * span;
+    if (out) { const t = a0; a0 = a1; a1 = t; }
+    const c0 = Math.cos(a0), n0 = Math.sin(a0), c1 = Math.cos(a1), n1 = Math.sin(a1);
+    for (let i = 0; i < prof.length - 1; i++) {
+      const p = prof[i], q = prof[i + 1];
+      const A = [ox + p.u * c0, p.y, oz + p.u * n0], B = [ox + q.u * c0, q.y, oz + q.u * n0];
+      const C = [ox + q.u * c1, q.y, oz + q.u * n1], D = [ox + p.u * c1, p.y, oz + p.u * n1];
+      // AND THE POLE IS A TRIANGLE WITH THREE DISTINCT CORNERS. Taking (A,B,C) at the inner
+      // pole takes the SAME point twice -- zero area, `det` rounds to nothing, point-in-triangle
+      // never matches, and the entire flat bottom of the bowl is missing from the collider while
+      // still being drawn. She fell straight through it.
+      if (q.u < 1e-4) pushTri(A[0],A[1],A[2], B[0],B[1],B[2], D[0],D[1],D[2], p.c || CONC);
+      else if (p.u < 1e-4) pushTri(A[0],A[1],A[2], B[0],B[1],B[2], C[0],C[1],C[2], p.c || CONC);
+      else quad(A, B, C, D, p.c || CONC);
+    }
+  }
+}
+// An arc tangent to the flat at its low end, sweeping up to `sweep` radians. Pushed points
+// carry the colour of the segment that STARTS at them.
+function arcUp(out, u0, y0, r, sweep, seg, col) {
+  for (let i = 1; i <= seg; i++) {
+    const a = sweep * i / seg;
+    out.push({ u: u0 + r * Math.sin(a), y: y0 + r * (1 - Math.cos(a)), c: col });
+  }
+}
+function arcDown(out, u0, y0, r, sweep, seg, col) {
+  for (let i = 1; i <= seg; i++) {
+    const a = sweep * (1 - i / seg);
+    out.push({ u: u0 + r * (Math.sin(sweep) - Math.sin(a)), y: y0 - r * (Math.cos(a) - Math.cos(sweep)), c: col });
+  }
+}
+const COPEW = 0.10;      // how wide the coping band is drawn
+// A HALF PIPE WITH ITS OWN WAY IN. The back of each deck is a shallow bank to ground level,
+// so the whole thing is ONE profile you can ride from either end -- up the back, across the
+// deck, drop in, up the far transition, out the other side. Without it the decks are
+// unreachable and the ramp is a pit you can only fall into.
+function halfPipe(ox, oz, yaw, halfW, r, sweep, flat, deck, bank) {
+  const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
+  const L = flat + lip + deck + bank, p = [];
+  p.push({ u: -L - 3, y: 0, c: CONC });
+  p.push({ u: -L, y: 0, c: RAMP });                                    // roll-in
+  p.push({ u: -L + bank, y: H, c: DECK });                             // deck
+  p.push({ u: -(flat + lip) - COPEW, y: H, c: COPE });                 // coping
+  p.push({ u: -(flat + lip), y: H, c: RAMP });
+  arcDown(p, -(flat + lip), H, r, sweep, 16, RAMP);                    // transition, down
+  p.push({ u: flat, y: 0, c: RAMP });                                  // flat bottom
+  arcUp(p, flat, 0, r, sweep, 16, RAMP);                               // transition, up
+  p[p.length - 1].c = COPE;
+  p.push({ u: flat + lip + COPEW, y: H, c: DECK });
+  p.push({ u: L - bank, y: H, c: RAMP });
+  p.push({ u: L, y: 0, c: CONC });
+  p.push({ u: L + 3, y: 0, c: CONC });
+  extrude(ox, oz, yaw, halfW, p);
+  return H;
+}
+function quarterPipe(ox, oz, yaw, halfW, r, sweep, deck, bank) {
+  const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
+  const p = [{ u: -6, y: 0, c: CONC }, { u: 0, y: 0, c: RAMP }];
+  arcUp(p, 0, 0, r, sweep, 16, RAMP);
+  p[p.length - 1].c = COPE;
+  p.push({ u: lip + COPEW, y: H, c: DECK });
+  p.push({ u: lip + deck, y: H, c: RAMP });
+  p.push({ u: lip + deck + bank, y: 0, c: CONC });
+  p.push({ u: lip + deck + bank + 2, y: 0, c: CONC });
+  extrude(ox, oz, yaw, halfW, p);
+  return H;
+}
+// A funbox: bank up, flat top, bank down. Flat enough to land on and long enough to cross.
+function funBox(ox, oz, yaw, halfW, len, h, rise) {
+  const p = [{ u: -(len / 2 + rise + 2), y: 0, c: CONC }, { u: -(len / 2 + rise), y: 0, c: RAMP },
+             { u: -len / 2, y: h, c: DECK }, { u: len / 2, y: h, c: RAMP },
+             { u: len / 2 + rise, y: 0, c: CONC }, { u: len / 2 + rise + 2, y: 0, c: CONC }];
+  extrude(ox, oz, yaw, halfW, p);
+}
+// A kicker ENDS ABRUPTLY, and that is the point: the drop at the lip is what makes the launch
+// test fire and puts her in the air carrying the velocity she rode up with.
+function kicker(ox, oz, yaw, halfW, r, sweep, len) {
+  const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
+  const p = [{ u: -len, y: 0, c: CONC }, { u: 0, y: 0, c: RAMP }];
+  arcUp(p, 0, 0, r, sweep, 12, RAMP);
+  // NO FLAT COPING BAND HERE, and that is not cosmetic: a ten-centimetre flat on top of a 38
+  // degree lip is a LANDING PAD. She meets it with her velocity pointing 38 degrees up, the
+  // re-projection takes the whole normal component, and she leaves the ramp with no vertical
+  // speed at all -- 0.28 s of air at 8 m/s and 0.28 s at 20. The lip IS the end of the arc.
+  p[p.length - 2].c = COPE;
+  extrude(ox, oz, yaw, halfW, p);
+  return H;
+}
+// A bowl, revolved. The profile runs from OUTSIDE the rim inward and down: rim deck, coping,
+// the transition, then the flat bottom.
+function bowlPit(ox, oz, rim, r, sweep, seg) {
+  const D = r * (1 - Math.cos(sweep)), run = r * Math.sin(sweep), inner = rim - run;
+  const p = [{ u: rim + 3, y: 0, c: CONC }, { u: rim + COPEW, y: 0, c: COPE }, { u: rim, y: 0, c: RAMP }];
+  for (let i = 1; i <= 16; i++) {
+    const a = sweep * (1 - i / 16);
+    p.push({ u: inner + r * Math.sin(a), y: -D + r * (1 - Math.cos(a)), c: RAMP });
+  }
+  p.push({ u: 0, y: -D, c: RAMP });
+  // the profile runs outside-in, and `revolve` walks it in order
+  revolve(ox, oz, p, seg);
+  return { d: D, rim, inner };
+}
+
+// The plaza. A grid of quads with a circular bite taken out of it for the bowl -- and the
+// bite is FANNED to the rim rather than approximated, because a gap in the floor is a hole
+// she falls through and a coplanar overlap is a sheet of z-fighting. Snapping the cut to the
+// grid and fanning from it to the circle leaves neither.
+function plaza(S, cell, hole) {
+  const n = Math.round(S / cell), cut = hole ? {
+    i0: Math.floor((hole.x - hole.r - cell) / cell), i1: Math.ceil((hole.x + hole.r + cell) / cell),
+    k0: Math.floor((hole.z - hole.r - cell) / cell), k1: Math.ceil((hole.z + hole.r + cell) / cell) } : null;
+  for (let i = -n; i < n; i++) for (let k = -n; k < n; k++) {
+    if (cut && i >= cut.i0 && i < cut.i1 && k >= cut.k0 && k < cut.k1) continue;
+    const x0 = i * cell, x1 = x0 + cell, z0 = k * cell, z1 = z0 + cell;
+    const tint = ((i + k) & 1) ? 0x8d919c : 0x838792;
+    quad([x0, 0, z0], [x0, 0, z1], [x1, 0, z1], [x1, 0, z0], tint);
+  }
+  if (!cut) return;
+  // fan: the snapped square boundary out to the circle, one wedge per bowl segment
+  const bx0 = cut.i0 * cell, bx1 = cut.i1 * cell, bz0 = cut.k0 * cell, bz1 = cut.k1 * cell;
+  const boxPt = a => {
+    const cx = Math.cos(a), cz = Math.sin(a);
+    // ray from the hole centre to the snapped square
+    let t = Infinity;
+    if (cx > 1e-6) t = Math.min(t, (bx1 - hole.x) / cx); else if (cx < -1e-6) t = Math.min(t, (bx0 - hole.x) / cx);
+    if (cz > 1e-6) t = Math.min(t, (bz1 - hole.z) / cz); else if (cz < -1e-6) t = Math.min(t, (bz0 - hole.z) / cz);
+    return [hole.x + cx * t, 0, hole.z + cz * t];
+  };
+  // THE SQUARE'S OWN CORNERS HAVE TO BE SAMPLES, or every wedge that straddles one is a
+  // straight chord cutting the corner off and there are four triangular HOLES in the floor --
+  // which is a fall to the respawn plane, from a patch of ground that looks exactly like the
+  // rest of it. With the corners in the list every chord lies flat along a wall.
+  const angs = [];
+  for (let i = 0; i < 48; i++) angs.push(i / 48 * Math.PI * 2);
+  for (const [cx, cz] of [[bx1, bz1], [bx0, bz1], [bx0, bz0], [bx1, bz0]]) {
+    let a = Math.atan2(cz - hole.z, cx - hole.x); if (a < 0) a += Math.PI * 2;
+    angs.push(a);
+  }
+  angs.sort((a, b) => a - b); angs.push(angs[0] + Math.PI * 2);
+  for (let i = 0; i < angs.length - 1; i++) {
+    const a0 = angs[i], a1 = angs[i + 1];
+    if (a1 - a0 < 1e-6) continue;
+    const r0 = [hole.x + Math.cos(a0) * hole.r, 0, hole.z + Math.sin(a0) * hole.r];
+    const r1 = [hole.x + Math.cos(a1) * hole.r, 0, hole.z + Math.sin(a1) * hole.r];
+    quad(boxPt(a0), r0, r1, boxPt(a1), 0x8d919c);
+  }
+}
+
+// THE PARK HAS A WALL ROUND IT, AND IT IS A BANK RATHER THAN A FENCE. A skater who can leave
+// the world does, at fourteen metres a second, within twenty seconds -- the probe walked off
+// the edge on six runs out of six. A fence would stop her; a bank sends her back, which is the
+// same job done by something worth riding.
+//
+// FOUR STRAIGHT EDGES AND FOUR QUARTER FANS, and they meet EXACTLY. The straight bank's height
+// is a function of how far past the edge you are; the corner fan's is a function of the
+// distance from the corner POINT -- and along the seam those are the same number, so there is
+// no gap to fall through and no overlap to z-fight. The square plaza and the four quadrants
+// outside it tile the whole ground between them by construction.
+function perimeter(S, r, sweep) {
+  const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
+  const prof = [{ u: 0, y: 0, c: RAMP }];
+  arcUp(prof, 0, 0, r, sweep, 12, RAMP);
+  prof[prof.length - 2].c = COPE;
+  prof.push({ u: lip + 4.0, y: H, c: DECK });
+  // the four edges: origin on the edge, the profile running outward
+  for (let i = 0; i < 4; i++) {
+    const yaw = i * Math.PI / 2;
+    extrude(Math.sin(yaw) * S, Math.cos(yaw) * S, yaw, S, prof, false);
+  }
+  // the four corners: the same profile, revolved a quarter turn about the corner POINT, each
+  // covering exactly the quadrant its two edges leave behind
+  const Q = Math.PI / 2;
+  for (const [cx, cz, a0] of [[S, S, 0], [S, -S, -Q], [-S, -S, Math.PI], [-S, S, Q]])
+    revolve(cx, cz, prof, 10, a0, a0 + Q);
+}
+
+const SPAWN = new THREE.Vector3(0, 0.2, -6);
+const BOWL = { x: -28, z: -26, r: 9 };
+let parkMesh = null;
+function buildPark() {
+  plaza(PARK.S, PARK.cell, BOWL);
+  perimeter(PARK.S, PARK.wallR, PARK.wallSweep);
+  // Everything below is placed by construction, on a grid, with its own footprint known --
+  // nothing is eyeballed and nothing overlaps.
+  halfPipe(0, 30, 0, 7.5, 2.6, 85 * Math.PI / 180, 3.0, 1.8, 5.5);      // ride it along +Z
+  quarterPipe(-22, 2, -Math.PI / 2, 6, 3.1, 78 * Math.PI / 180, 2.0, 5.0);
+  quarterPipe(22, 2, Math.PI / 2, 6, 3.1, 78 * Math.PI / 180, 2.0, 5.0);
+  funBox(0, 8, 0, 3.5, 6, 1.0, 3.0);
+  kicker(-11, 14, 0, 2.6, 4.0, 38 * Math.PI / 180, 5);
+  kicker(11, 14, Math.PI, 2.6, 4.0, 38 * Math.PI / 180, 5);
+  funBox(14, -16, Math.PI / 2, 4.0, 8, 1.6, 4.5);
+  bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
+  triBuild();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(MESH.pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(MESH.nrm, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(MESH.col, 3));
+  g.computeBoundingSphere();
+  parkMesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.93, metalness: 0.0 }));
+  parkMesh.receiveShadow = true; parkMesh.castShadow = true;
+  scene.add(parkMesh);
+  console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
+  MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
+}
+
+// ---------- her ----------
+const loader = new GLTFLoader();
+const draco = new DRACOLoader(); draco.setDecoderPath('./vendor/draco/'); loader.setDRACOLoader(draco);
+const girl = { root: new THREE.Group(), model: null, mixer: null, actions: {}, cw: {}, ready: false, scale: 1, lift: 0 };
+scene.add(girl.root);
+const tilt = new THREE.Group(), yawG = new THREE.Group(), leanG = new THREE.Group();
+girl.root.add(tilt); tilt.add(yawG); yawG.add(leanG);
+
+function loadGLB(url, onProg) {
+  return new Promise((res, rej) => loader.load(A(url), res, onProg, rej));
+}
+// MEASURE HER WITH GEOMETRY BOUNDS, NEVER `Box3.setFromObject`. A skinned mesh ignores its
+// node transform but `setFromObject` applies it anyway -- her armature is scaled 0.01 and
+// turned a quarter turn, so the box comes back a hundredth of her size and on its side. And
+// GLTFLoader binds every skin with the IDENTITY matrix, so at rest a vertex's world position
+// IS its geometry position: the bounds are metres already, with nothing typed per rig.
+function measureRig(model) {
+  let lo = Infinity, hi = -Infinity, any = false;
+  model.traverse(o => {
+    if (!o.isSkinnedMesh || !o.geometry) return;
+    o.geometry.computeBoundingBox(); const b = o.geometry.boundingBox;
+    lo = Math.min(lo, b.min.y); hi = Math.max(hi, b.max.y); any = true;
+  });
+  return any ? { lo, hi, h: hi - lo } : { lo: 0, hi: 1, h: 1 };
+}
+// A ONE-FRAME CLIP IS NOT AN ANIMATION. `CINEMA_4D_Main` is exporter residue -- one key on
+// every channel -- and nothing names it, so nothing plays it. It is dropped rather than left
+// lying about where a future fallback could reach for it.
+// AND EVERY CLIP HERE STARTS AT 1/24 s RATHER THAN AT ZERO, which is one held frame at the
+// top of every loop. Shifting the track times back is cheaper than living with the hitch.
+const DROP = /^CINEMA_4D|Action$/;
+function normaliseClips(clips) {
+  const out = [];
+  for (const c of clips) {
+    if (DROP.test(c.name)) continue;
+    // a clip with no BONE track is a Blender action, not an animation
+    if (!c.tracks.some(t => /\.(position|quaternion|scale)$/.test(t.name))) continue;
+    let t0 = Infinity;
+    for (const t of c.tracks) if (t.times.length) t0 = Math.min(t0, t.times[0]);
+    if (t0 > 1e-6 && t0 < Infinity) for (const t of c.tracks) for (let i = 0; i < t.times.length; i++) t.times[i] -= t0;
+    c.resetDuration();
+    out.push(c);
+  }
+  return out;
+}
+function buildGirl(gltf) {
+  const model = gltf.scene;
+  const m = measureRig(model);
+  girl.scale = RIG.height / Math.max(1e-6, m.h);
+  model.scale.setScalar(girl.scale);
+  model.position.y = -m.lo * girl.scale - RIG.foot;
+  model.traverse(o => {
+    if (!o.isMesh && !o.isSkinnedMesh) return;
+    o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const mat of mats) {
+      if (!mat) continue;
+      // HER EXPORT IS `BLEND` + `doubleSided`, which is the Blender default whenever the
+      // texture carries an alpha channel -- and a transparent double-sided skin sorts against
+      // itself, so her far side draws over her near side and she reads as see-through. A
+      // CUTOUT does the same job for hair and eyelashes and sorts correctly, because it writes
+      // depth like anything else.
+      if (mat.transparent) { mat.transparent = false; mat.alphaTest = RIG.alphaTest; mat.depthWrite = true; }
+      mat.side = THREE.FrontSide;
+      if (mat.map) mat.map.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+    }
+  });
+  leanG.add(model);
+  girl.model = model;
+  girl.mixer = new THREE.AnimationMixer(model);
+  const clips = normaliseClips(gltf.animations || []);
+  for (const c of clips) {
+    const a = girl.mixer.clipAction(c);
+    if (ONCE.includes(c.name)) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
+    a.enabled = true; a.setEffectiveWeight(0); a.play();
+    girl.actions[c.name] = a;
+  }
+  girl.clipLen = {};
+  for (const c of clips) girl.clipLen[c.name] = c.duration;
+  girl.ready = true;
+  console.log(`girl: ${(m.h).toFixed(3)} units -> x${girl.scale.toFixed(3)} = ${RIG.height} m; clips ` +
+              clips.map(c => `${c.name}(${c.duration.toFixed(2)}s)`).join(' '));
+}
+
+// ---------- animation ----------
+// ANIMATION IS WEIGHTS, NOT CROSSFADES. Every frame asks for a table of clip weights and the
+// damping crosses between them. A `crossFadeFrom` state machine has to know what it is coming
+// FROM, which breaks the first time two transitions overlap.
+const ONCE = ['jump_start', 'jump_in_air'];
+const ANIM = { pushFit: 1, coastLo: 0.85, coastHi: 1.3, airFill: 1, blend: 0.055, snap: 0.035 };
+function clipLen(name, fb) { return (girl.clipLen && girl.clipLen[name]) || fb; }
+function clipScale(name, s) { const a = girl.actions[name]; if (a) a.setEffectiveTimeScale(s); }
+function setWeights(t, dt, snap) {
+  const acts = girl.actions, cw = girl.cw;
+  let tot = 0; for (const k in t) if (acts[k]) tot += t[k];
+  // THE T-POSE. If nothing in the table names a clip that actually exists, every bone ends
+  // the frame with a total weight of zero -- and a zero-weight bone is blended back to its
+  // BIND value by the mixer, which is the T-pose exactly. One missing clip is enough.
+  if (tot < 0.01) { if (!acts.Idle) return; t = { Idle: 1 }; }
+  for (const nm in acts) {
+    const a = acts[nm], want = t[nm] || 0, cur = cw[nm] || 0;
+    // RE-ENTERING A `ONCE` CLIP HAS TO REWIND IT, AND THE WEIGHT CANNOT BE WHAT DECIDES.
+    // three ends a LoopOnce clip with `clampWhenFinished ? paused = true`, so the action sits
+    // on its last frame applying it for ever. Gating the rewind on the DAMPED weight having
+    // fallen to zero is right for a clip you left alone and wrong for one you are re-entering
+    // immediately -- jump, land, jump again and the second jump never plays.
+    if (cur < 0.01 && want > 0.01) { a.reset(); a.play(); }
+    const w = cw[nm] = damp(cur, want, snap ? ANIM.snap : ANIM.blend, dt);
+    if (w > 0.002) { if (!a.isRunning()) a.play(); a.setEffectiveWeight(w); }
+    // NEVER ASK `isRunning()` WHETHER A CLIP STILL MATTERS -- ASK ITS WEIGHT. A finished
+    // LoopOnce action is PAUSED, and `isRunning()` is false for a paused action, so gating the
+    // shutdown on it skips it for exactly the clips that need it: the clip keeps the 1.0 it was
+    // last given and goes on applying its final frame for the rest of the session.
+    else if (cur > 0.002 || a.getEffectiveWeight() > 0.002 || a.isRunning()) { a.setEffectiveWeight(0); a.stop(); }
+  }
+}
+function girlAnim(dt) {
+  if (!girl.ready) return;
+  const p = player, t = {};
+  if (!p.grounded) {
+    // NO WIND-UP CLIP IN THE AIR FOR LONGER THAN THE POP. `jump_start` is a crouch and a push
+    // off the floor; played through the whole flight it is a pose that does not follow from
+    // itself. It covers the takeoff and `jump_in_air` has the rest.
+    const st = girl.actions.jump_start && p.airT < AIR.startT;
+    t.jump_start = st ? 1 : 0; t.jump_in_air = st ? 0 : 1;
+    if (st) clipScale('jump_start', clipLen('jump_start', .6) / Math.max(.05, AIR.startT));
+    // the flight clip is stretched to the air she actually has, so it is not finished and
+    // held for two thirds of a big jump
+    const est = Math.max(.3, (p.vel.y + Math.sqrt(Math.max(0, p.vel.y * p.vel.y + 2 * SK.g * 2.5))) / SK.g);
+    clipScale('jump_in_air', clamp(clipLen('jump_in_air', .75) / est * ANIM.airFill, .45, 2.2));
+  } else {
+    const roll = clamp((p.speed - 0.35) / 1.7, 0, 1);
+    const push = p.pushing ? 1 : 0;
+    t.skate_fwd = push;
+    t.Idle = (1 - roll) * (1 - push);
+    t.coasting = roll * (1 - push);
+    // THE CLIP IS THE CLOCK'S PARTNER, NOT ITS MASTER. The stride period moves with speed --
+    // quick hard strides from a standstill, long lazy ones at a cruise -- so the clip is scaled
+    // to the period and the foot meets the ground on the frame the stroke fires.
+    if (ANIM.pushFit) clipScale('skate_fwd', clipLen('skate_fwd', .25) / Math.max(.2, p.pushPeriod));
+    else clipScale('skate_fwd', clamp(0.6 + p.speed * 0.12, .6, 2.4));
+    clipScale('coasting', lerp(ANIM.coastLo, ANIM.coastHi, roll));
+  }
+  setWeights(t, dt, p.landHard > 4);
+  p.landHard = 0;
+}
+
+// ---------- input ----------
+const stick = { L: { x: 0, y: 0, down: 0, far: 0 }, R: { x: 0, y: 0, down: 0, far: 0 } };
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = 1;
+  if (e.key === ' ') { player.jump = 1; e.preventDefault(); }
+  if (e.key.toLowerCase() === 'r') respawn();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = 0; });
+
+// A FLICK IS A FAST MOVE *AND THEN A RELEASE*, and both halves are the gate -- kept here
+// unused by any verb yet, because the right pad's flick is the one gesture still free and the
+// tap must not fire on the same lift once something claims it.
+const FLICK = { at: .72, within: .28, let: .26, gap: .10 };
+// A STUCK STICK IS ALWAYS A MISSING `pointerup`. The thumb has gone and the pad never heard,
+// so `down` stays 1 and `x/y` keep whatever they last were -- and the game goes on steering
+// for ever. There is no single cause to find: there are several ways an up goes missing on a
+// phone, so all of them are closed here.
+const STICKS = [];
+function bindStick(el, out, onTap, onFlick, onRel) {
+  const knob = el.querySelector('.knob');
+  let id = null, t0 = 0, far = 0, lx = 0, ly = 0; const RAD = 52;
+  let hist = [], lastFlick = -1e9, pend = null;
+  const set = (cx, cy) => {
+    const r = el.getBoundingClientRect();
+    let dx = cx - (r.left + r.width / 2), dy = cy - (r.top + r.height / 2);
+    const d = Math.hypot(dx, dy); if (d > RAD) { dx *= RAD / d; dy *= RAD / d; }
+    out.x = lx = dx / RAD; out.y = ly = dy / RAD;
+    out.far = Math.max(out.far || 0, Math.hypot(out.x, out.y));
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    if (!onFlick) return;
+    const now = performance.now();
+    hist.push({ x: lx, y: ly, t: now });
+    while (hist.length > 1 && now - hist[0].t > FLICK.within * 1000) hist.shift();
+    const r0 = hist[0], ddx = lx - r0.x, ddy = ly - r0.y;
+    // ARM ONLY. A later sweep in the same touch re-arms with its own direction and clock, so
+    // the flick that counts is the last one before the thumb came off.
+    if (Math.hypot(ddx, ddy) > FLICK.at) { pend = { x: ddx, y: ddy, t: now }; hist = [{ x: lx, y: ly, t: now }]; }
+  };
+  el.addEventListener('pointerdown', e => {
+    // ONE THUMB PER PAD. A second finger landing on the same pad used to overwrite `id`, after
+    // which the FIRST finger's up no longer matched and was thrown away.
+    if (id !== null) { e.stopPropagation(); e.preventDefault(); return; }
+    id = e.pointerId; t0 = performance.now();
+    // GUARDED, because it throws if the pointer has already gone -- and it used to be called
+    // AFTER `id` was set, which left the pad tracking an id whose up had been and gone.
+    try { el.setPointerCapture(id); } catch (err) {}
+    out.down = 1; out.far = 0;
+    // seeded at the CENTRE: on an absolute pad a thumb slammed onto the top edge IS a flick,
+    // and a delta measured from where it landed says the stick never moved.
+    hist = [{ x: 0, y: 0, t: performance.now() }];
+    el.classList.add('act'); set(e.clientX, e.clientY); far = Math.hypot(out.x, out.y);
+    e.stopPropagation(); e.preventDefault();
+  });
+  el.addEventListener('pointermove', e => {
+    if (e.pointerId !== id) return; set(e.clientX, e.clientY);
+    far = Math.max(far, Math.hypot(out.x, out.y)); e.stopPropagation();
+  });
+  const end = e => {
+    if (e.pointerId !== id) return;
+    const now = performance.now(), held = now - t0;
+    let fired = 0;
+    if (pend && onFlick && now - pend.t < FLICK.let * 1000 && now - lastFlick > FLICK.gap * 1000) {
+      lastFlick = now; fired = 1; onFlick(pend.x, pend.y);
+    }
+    if (!fired && onTap && far < .42 && held < 260) onTap();
+    if (!fired && onRel) onRel(far, held / 1000);
+    id = null; pend = null; out.down = 0; out.x = out.y = 0; out.far = 0; hist = [];
+    knob.style.transform = 'translate(0,0)'; el.classList.remove('act'); e.stopPropagation();
+  };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('lostpointercapture', end);
+  // THE NET. `release` is `end` with no gesture fired -- letting go because the thumb is gone
+  // is not a tap, and firing one on the way out is a jump nobody asked for.
+  STICKS.push({ el, out, end, id: () => id, release: () => {
+    if (id === null && !out.down) return;
+    id = null; pend = null; out.down = 0; out.x = out.y = 0; out.far = 0; hist = [];
+    knob.style.transform = 'translate(0,0)'; el.classList.remove('act');
+  } });
+}
+// 1. THE UP WENT SOMEWHERE ELSE. Capture can be lost without `lostpointercapture` reaching us,
+//    so the WINDOW hears every up and cancel in the CAPTURE phase -- which runs before any
+//    target handler and cannot be stopped by one -- and hands it to whichever pad owns that id.
+for (const t of ['pointerup', 'pointercancel']) addEventListener(t, e => {
+  for (const s of STICKS) if (s.id() === e.pointerId) s.end(e);
+}, { capture: true });
+// 2. THE APP WENT AWAY MID-TOUCH. Backgrounding a phone with a thumb down delivers nothing on
+//    the way out and nothing on the way back, which is the one that leaves a stick parked at
+//    full deflection with no finger anywhere near it.
+for (const t of ['blur', 'pagehide', 'visibilitychange']) addEventListener(t, () => {
+  if (t === 'visibilitychange' && document.visibilityState === 'visible') return;
+  for (const s of STICKS) s.release();
+});
+bindStick(document.getElementById('stkL'), stick.L, null, null, null);
+// THE RIGHT PAD: a TAP jumps, a DRAG orbits the camera. Those separate themselves -- a drag
+// travels past `far` .42 or is held past `tapT`, and a tap is neither -- so one thumb does
+// both with no mode to be in and nothing to learn. The flick is left unclaimed.
+bindStick(document.getElementById('stkR'), stick.R, null, null, (far, held) => {
+  if (far >= .42 || held > AIR.tapT) return;      // a look, not a jump
+  player.jump = 1;
+});
+function stickWorld() {
+  let lx = stick.L.x, ly = stick.L.y;
+  if (keys.a || keys.arrowleft) lx -= 1; if (keys.d || keys.arrowright) lx += 1;
+  if (keys.w || keys.arrowup) ly -= 1; if (keys.s || keys.arrowdown) ly += 1;
+  lx = clamp(lx, -1, 1); ly = clamp(ly, -1, 1);
+  const mag = Math.min(1, Math.hypot(lx, ly));
+  if (mag < SK.dead) return { x: 0, z: 0, mag: 0 };
+  // THE PAD IS IN SCREEN SPACE AND THE CAMERA CAN BE ANYWHERE, so it goes through `cam.az`.
+  const sa = Math.sin(cam.az), ca = Math.cos(cam.az);
+  let dx = -ly * sa - lx * ca, dz = -ly * ca + lx * sa; const d = Math.hypot(dx, dz) || 1;
+  return { x: dx / d, z: dz / d, mag: Math.pow(clamp((mag - SK.dead) / (1 - SK.dead), 0, 1), SK.curve) };
+}
+
+// ---------- her, moving ----------
+const player = {
+  pos: SPAWN.clone(), vel: new THREE.Vector3(),
+  heading: 0, faceH: 0, grounded: true, speed: 0, along: 0,
+  n: new THREE.Vector3(0, 1, 0),
+  airT: 0, coyote: 0, jump: 0, landHard: 0, rHold: 0,
+  pushing: false, pushT: 0, pushOff: 9, pushPeriod: SK.pushFast,
+  shoveT: 0, shoveDur: 0, shoveV: 0,
+  braked: 0, lean: 0, steer: 0,
+};
+const _F = new THREE.Vector3(), _R = new THREE.Vector3(), _N = new THREE.Vector3(), _q = new THREE.Quaternion();
+const UP = new THREE.Vector3(0, 1, 0);
+
+function respawn() {
+  const p = player;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0;
+  p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0;
+  const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
+  if (g.hit) { p.pos.y = g.floor; p.n.set(g.nx, g.ny, g.nz); }
+}
+document.getElementById('resetB').addEventListener('click', respawn);
+
+// THE SURFACE IS THE FRAME, NOT THE WORLD. Her velocity is decomposed against the face she is
+// standing on -- forward along the wheels, sideways across them, and nothing into the surface.
+// That one choice is what makes transitions work with no special case: on a quarter pipe
+// "forward" is up the wall, the wheels roll freely along it, the edges still bite across it,
+// and gravity's component ALONG the wall is what slows her on the way up and hands it back on
+// the way down. A half pipe is not a feature here; it is the flat ground at a different angle.
+function surfaceFrame(n, heading) {
+  const fx = Math.sin(heading), fz = Math.cos(heading);
+  const d = fx * n.x + fz * n.z;
+  _F.set(fx - d * n.x, -d * n.y, fz - d * n.z);
+  if (_F.lengthSq() < 1e-8) _F.set(fx, 0, fz);           // she is dead flat against a wall
+  _F.normalize();
+  // HER RIGHT IS F x n. On the flat that is (-fz, 0, fx), which is this game's convention
+  // everywhere else -- forward is (sin h, cos h) and right is (-fz, fx).
+  _R.crossVectors(_F, n).normalize();
+}
+
+function doJump() {
+  const p = player, n = p.n;
+  // POP ALONG A BLEND OF WORLD UP AND THE SURFACE NORMAL. On the flat that is straight up; on
+  // a transition it throws her OUT over the coping, which is what air off a quarter pipe is.
+  // Straight up from a wall would just press her back into it.
+  _N.set(n.x * AIR.popNorm, lerp(1, n.y, AIR.popNorm), n.z * AIR.popNorm).normalize();
+  p.vel.addScaledVector(_N, AIR.jump);
+  p.grounded = false; p.airT = 0; p.coyote = 0;
+}
+
+function stepGround(dt) {
+  const p = player, s = stickWorld(), n = p.n;
+  p.pushOff = p.pushing ? 0 : p.pushOff + dt;
+  // DECOMPOSED IN THE FRAME SHE STARTS THE FRAME IN, steered, and then REBUILT in the frame
+  // she ends it in. The gap between those two is the whole of the carve.
+  surfaceFrame(n, p.heading);
+  let along = p.vel.dot(_F), lat = p.vel.dot(_R);
+  const spd = Math.abs(along);
+  let braking = false, go = false, lead = 1;
+  p.steer = 0;
+
+  // FAKIE IS A DIRECTION OF TRAVEL, NOT A MISTAKE -- AND IN A HALF PIPE IT IS HALF OF EVERY
+  // RUN. She rides up the far wall, stops, and comes back down BACKWARDS. If the controls are
+  // written against her nose, every one of them is inverted for that whole half: the thumb
+  // pointing where she is already rolling reads as a brake, and steering swings her round to
+  // face it in the middle of the transition.
+  // So the thumb is measured against the LEADING END, whichever that is:
+  //   lead  which way she is actually travelling (+1 nose first, -1 fakie)
+  //   rel   the thumb's angle off that end, which is what steering has always wanted
+  // AND `lead` ONLY GOES NEGATIVE PAST `fakieAt`. Below that she always turns to face the
+  // thumb and skates away forwards -- so she can never be left trickling backwards with the
+  // controls mirrored and no clip to sell it, which is a state you cannot get out of.
+  if (s.mag > 0) {
+    const ang = wrapAngle(Math.atan2(s.x, s.z) - p.heading);
+    lead = along < -SK.fakieAt ? -1 : 1;
+    const rel = lead > 0 ? ang : wrapAngle(ang - Math.PI);
+    const fwdR = Math.cos(rel) * s.mag;
+    // A HELD BRAKE IS A BRAKE UNTIL THE THUMB LEAVES IT. Without the latch she carves round to
+    // face the thumb, `fwdR` flips positive, the brake becomes a PUSH, and a held brake reads
+    // as a 180 into an acceleration -- *"it should slow me down, instead it turns me"*.
+    // AND THE LATCH NEEDS A REAL ZONE, NOT A SIGN TEST: a thumb held exactly sideways puts
+    // `fwdR` at +/-1e-17, so whether she is "leading with her back" would be decided by
+    // rounding, and one frame of that kills the steering for the rest of the session.
+    const back = fwdR < SK.back;
+    if (!back) p.braked = 0;
+    braking = back && (Math.abs(along) > 0.55 || p.braked);
+    // ...AND IT STOPS BEING A BRAKE ONCE SHE HAS STOPPED, so the same held thumb turns her
+    // round and pushes off the other way. On skates that is one input, not two.
+    if (braking && Math.abs(along) < 0.55) { braking = false; p.braked = 0; }
+    if (braking) p.braked = 1;
+    go = fwdR > SK.ahead;
+    if (!braking && !p.braked) {
+      // SKATES TURN TIGHTER THAN A BOARD AND CAN PIVOT ON THE SPOT, so the rate falls with
+      // speed rather than being flat -- and it is a RATE, so the heading eases onto the thumb
+      // instead of snapping to it.
+      const rate = lerp(SK.turn, SK.turnV, clamp(spd / SK.turnRef, 0, 1));
+      const d = clamp(rel, -rate * dt, rate * dt);
+      p.heading += d; p.steer = d / Math.max(1e-4, dt);
+    }
+  } else { p.braked = 0; }
+
+  // ---- the edges take the turn ----
+  // The heading has moved; now the VELOCITY follows it, by as much as the edges can hold. At
+  // full grip the pair is unchanged in the new frame, which is a velocity rotated with its
+  // magnitude intact -- a carve that costs nothing but `turnBrake`. Past the limit the
+  // remainder `e` is the slip angle, and she is sideways to that extent.
+  const turned = p.steer * dt;
+  if (turned) {
+    const v = Math.hypot(along, lat);
+    const maxRot = v > 0.05 ? (SK.gripA / v) * dt : Math.abs(turned);
+    const rot = clamp(turned, -maxRot, maxRot);
+    const e = rot - turned;
+    if (e) {
+      const ce = Math.cos(e), se = Math.sin(e);
+      const a2 = along * ce + lat * se; lat = -along * se + lat * ce; along = a2;
+    }
+  }
+
+  if (braking) along -= Math.sign(along) * Math.min(Math.abs(along), SK.brake * dt);
+
+  // ---- the stride ----
+  // A PUSH IS A STROKE, NOT A STEP. Each shove used to land its whole delta-v on ONE frame, so
+  // the speedometer read 9, 9, 9, 13, 13, 13 -- a staircase, which is not what a foot hitting
+  // tarmac does. The same total is spread over `strokeDur` on a half sine: the integral of
+  // (pi/2)sin(pi u) over one cycle is exactly 1, so the top speed is untouched.
+  if (!braking && !p.braked && go && lead > 0 && along < SK.pushMax) {
+    p.pushPeriod = lerp(SK.pushFast, SK.pushDur, clamp(spd / SK.pushEase, 0, 1));
+    const shove = () => {
+      p.shoveV = SK.pushV * (1 - SK.taper * spd / SK.pushMax);
+      p.shoveDur = Math.min(SK.strokeDur, p.pushPeriod * 0.7);
+      p.shoveT = p.shoveDur;
+    };
+    // ONE CLOCK, AND A PHASE RATHER THAN A STOPWATCH. `pushT` is the phase in [0,1), not raw
+    // seconds -- the period MOVES with speed, and `T / P(now)` and the integral of `dt / P(t)`
+    // are the same number only while P is constant, which it never is while she is speeding up.
+    if (!p.pushing) {
+      // A THUMB THAT CAME OFF AND WENT BACK ON IS ONE CYCLE, NOT TWO. Every release used to
+      // restart the cycle at the plant and fire a stroke on the frame the stick came forward,
+      // so a jiggled thumb was four strokes and a new rhythm each time.
+      const warm = p.pushOff < SK.grace && p.pushT > 0;
+      p.pushing = true;
+      if (!warm) { p.pushT = SK.plant; shove(); }
+    } else {
+      const was = p.pushT;
+      p.pushT += dt / Math.max(0.2, p.pushPeriod);
+      if (was < SK.plant && p.pushT >= SK.plant) shove();
+      if (p.pushT >= 1) p.pushT -= 1;
+    }
+  } else p.pushing = false;
+
+  if (p.shoveT > 0) {
+    const u = clamp(1 - p.shoveT / p.shoveDur, 0, 1);
+    along += p.shoveV * (Math.PI / 2) * Math.sin(Math.PI * u) * (dt / p.shoveDur);
+    p.shoveT -= dt;
+  }
+  // PUMPING IS WHAT GETS YOU UP A TRANSITION, and it is a separate term from the stride: a
+  // stride is a foot on flat ground and stops at `pushMax`, a pump is a body extending against
+  // a curve and works at any speed. Anything steeper than `pumpAt` is a transition.
+  const steep = 1 - n.y;
+  if (go && !braking && steep > SK.pumpAt) along += SK.pump * lead * smooth(SK.pumpAt, 0.62, steep) * s.mag * dt;
+
+  // A HARD CARVE COSTS SPEED -- that is what plants the edge and stops a turn being free.
+  along = decay(along, Math.abs(p.steer) * SK.turnBrake, dt);
+  along = decay(along, SK.roll, dt);
+  // THE EDGES BITE ACROSS THE WHEELS. Not a hard lock: letting a little through is the
+  // difference between carving and running on a rail.
+  lat = decay(lat, SK.grip, dt);
+
+  // REBUILT IN THE FRAME OF THE NEW HEADING, which is what makes the redirect above mean
+  // anything: the `along` she keeps is along where she is NOW pointing.
+  surfaceFrame(n, p.heading);
+  p.vel.set(0, 0, 0).addScaledVector(_F, along).addScaledVector(_R, lat);
+  // GRAVITY'S COMPONENT ALONG THE SURFACE: G - (G.n)n, with G = (0,-g,0).
+  p.vel.x += SK.g * n.y * n.x * dt;
+  p.vel.y += SK.g * (n.y * n.y - 1) * dt;
+  p.vel.z += SK.g * n.y * n.z * dt;
+
+  const h = Math.hypot(p.vel.x, p.vel.z);
+  if (h > SK.max) { p.vel.x *= SK.max / h; p.vel.z *= SK.max / h; }
+
+  const y0 = p.pos.y;
+  p.pos.addScaledVector(p.vel, dt);
+
+  // ---- stay on it, or leave it ----
+  // `stick` is how far the surface may fall away under her in one frame before she is in the
+  // air. On a 2.6 m transition at 10 m/s that gap is under a centimetre; off the lip of a
+  // kicker it is a metre. ONE NUMBER separates them, and the ballistic term is what makes a
+  // fast launch leave cleanly instead of being sucked back down.
+  const g2 = groundAt(p.pos.x, p.pos.z, Math.max(y0, p.pos.y), SK.step);
+  if (!g2.hit) { p.grounded = false; p.airT = 0; p.coyote = AIR.coyote; return; }
+  const drop = p.pos.y - g2.floor;
+  if (drop > SK.stick + Math.max(0, -p.vel.y) * dt) { p.grounded = false; p.airT = 0; p.coyote = AIR.coyote; return; }
+  p.pos.y = g2.floor;
+  _N.set(g2.nx, g2.ny, g2.nz);
+  const bend = Math.acos(clamp(_N.dot(n), -1, 1));
+  const sp0 = p.vel.length();
+  p.vel.addScaledVector(_N, -p.vel.dot(_N));
+  const sp1 = p.vel.length();
+  // A SMOOTH TRANSITION COSTS NOTHING AND AN IMPACT COSTS THE COMPONENT INTO THE FACE. Riding
+  // up a curve is a few degrees of bend per frame and must not be taxed, or a half pipe eats
+  // your speed a sliver at a time and nothing ever gets to the coping.
+  if (bend < SK.smoothAng && sp1 > 1e-4) p.vel.multiplyScalar(sp0 / sp1);
+  n.copy(_N);
+}
+
+function stepAir(dt) {
+  const p = player;
+  p.airT += dt; p.coyote -= dt;
+  // IN THE AIR THE STICK IS A RATE, NOT A TARGET. Held as a target it is a 45 degree turn and
+  // then nothing, when what was asked for was to keep spinning. The pad's OWN x axis, because
+  // a spin is relative to her body and not to the lens.
+  let sx = stick.L.x; if (keys.a || keys.arrowleft) sx -= 1; if (keys.d || keys.arrowright) sx += 1;
+  // NEGATED: heading grows from +Z toward +X, which turns her LEFT, so a thumb pushed right
+  // has to DECREASE it. Checked rather than derived -- the handedness argument comes out
+  // backwards half the time.
+  p.heading -= clamp(sx, -1, 1) * AIR.spin * dt;
+  const s = stickWorld();
+  if (s.mag > 0) { p.vel.x += s.x * AIR.drift * s.mag * dt; p.vel.z += s.z * AIR.drift * s.mag * dt; }
+  p.vel.y -= SK.g * dt;
+  if (p.vel.y < -34) p.vel.y = -34;
+  const h = Math.hypot(p.vel.x, p.vel.z);
+  if (h > SK.max) { p.vel.x *= SK.max / h; p.vel.z *= SK.max / h; }
+
+  const y0 = p.pos.y;
+  p.pos.addScaledVector(p.vel, dt);
+  // SWEPT FROM THE HIGHER OF THE TWO. A fast fall can put her under the deck between two
+  // frames, and a query at her NEW position then finds that deck ABOVE her, reports no floor
+  // at all, and lets her carry on down. It only ever bites at speed, which is the worst time.
+  const g2 = groundAt(p.pos.x, p.pos.z, Math.max(y0, p.pos.y), SK.step);
+  if (g2.hit && p.vel.y <= 0 && p.pos.y <= g2.floor + 0.02) {
+    p.pos.y = g2.floor;
+    _N.set(g2.nx, g2.ny, g2.nz);
+    const v0 = p.vel.length();
+    const into = Math.max(0, -p.vel.dot(_N));    // how much of her speed is INTO the face
+    p.landHard = into;
+    // A LANDING THAT MATCHES THE SURFACE COSTS NOTHING, which is the whole reason dropping
+    // back into a transition keeps your speed and a flat slam does not. The normal component
+    // is what the concrete takes; the tangential is hers -- and how much of the normal part
+    // she gets back is how much of the landing was a GRAZE, which the angle already says.
+    p.vel.addScaledVector(_N, into);
+    const v1 = p.vel.length();
+    if (v1 > 1e-4 && v0 > 1e-4) {
+      const graze = clamp(1 - into / v0, 0, 1);
+      p.vel.multiplyScalar(lerp(1, v0 / v1, SK.landKeep * graze * graze));
+    }
+    p.n.copy(_N);
+    p.grounded = true; p.airT = 0; p.pushT = 0; p.pushOff = 9; p.braked = 0;
+  }
+  if (p.pos.y < -40) respawn();
+}
+
+function stepPlayer(dt) {
+  const p = player;
+  p.rHold = stick.R.down ? p.rHold + dt : 0;
+  if (p.jump) { p.jump = 0; if (p.grounded || p.coyote > 0) doJump(); }
+  if (p.grounded) stepGround(dt); else stepAir(dt);
+  // TWO SPEEDS, AND THE CAMERA NEEDS THE HORIZONTAL ONE. Straight up a vert wall her
+  // horizontal speed is nearly zero while she is doing fifteen -- so a bearing taken from
+  // the horizontal velocity there is pure noise, and the lens would spin.
+  p.speed = p.vel.length();
+  p.hSpeed = Math.hypot(p.vel.x, p.vel.z);
+  // the body comes round onto the heading rather than snapping to it
+  p.faceH += wrapAngle(p.heading - p.faceH) * Math.min(1, 18 * dt);
+  // SHE LEANS INTO THE TURN. Positive `steer` rotates her LEFT (heading grows +Z toward +X and
+  // her right is (-fz, fx)), and a rotation about her local +Z tips her to the RIGHT -- so the
+  // bank is the negative of the carve.
+  const want = clamp(-p.steer * p.speed * SK.lean, -SK.leanMax, SK.leanMax);
+  p.lean = damp(p.lean, p.grounded ? want : 0, SK.leanHL, dt);
+}
+
+function poseGirl(dt) {
+  if (!girl.ready) return;
+  const p = player;
+  girl.root.position.copy(p.pos);
+  // SHE STANDS ON THE SURFACE, NOT ON THE WORLD. Upright on a transition is a woman levitating
+  // past a wall; perpendicular to it is a skater. Damped, because the normal steps from
+  // triangle to triangle and she must not.
+  _q.setFromUnitVectors(UP, p.grounded ? p.n : UP);
+  tilt.quaternion.slerp(_q, Math.min(1, 9 * dt));
+  yawG.rotation.y = p.faceH;
+  leanG.rotation.z = p.lean;
+  // WHICH WAY HER EXPORT FACES IS THE ONE THING NO OFFLINE CHECK HERE CAN SETTLE, so it is
+  // applied every frame rather than baked in at load: `rg.RIG.spin = Math.PI` turns her
+  // round on the phone, with no rebuild and no push.
+  girl.model.rotation.y = RIG.spin;
+  girl.mixer.update(dt);
+}
+
+// ---------- camera ----------
+const cam = { az: 0, el: CAM.el, dist: CAM.dist, idle: 9, rush: 0,
+              pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
+// WALKED, NOT RAYCAST, AND COARSE ON PURPOSE. The whole world is a triangle grid, so a dozen
+// lookups beat any ray structure -- and a lens clipping a coping for an instant is not the
+// failure a lens INSIDE a ramp is.
+function camBlocked(x, y, z) {
+  const g = groundAt(x, z, y, 12);
+  return g.hit && g.floor > y - CAM.clear;
+}
+function camFree(tx, ty, tz, dx, dy, dz, want) {
+  const step = 0.55, n = Math.ceil(want / step);
+  for (let i = 1; i <= n; i++) {
+    const d = Math.min(want, i * step);
+    if (!camBlocked(tx + dx * d, ty + dy * d, tz + dz * d)) continue;
+    let lo = d - step, hi = d;
+    // BISECT. A quantised probe only ever takes values `step` apart, so the boom jumps half a
+    // metre at a time as the shot sways past a wall -- fine for a yes/no, wrong the moment
+    // something continuous is drawn from it.
+    for (let k = 0; k < 4; k++) {
+      const m = (lo + hi) * 0.5;
+      if (camBlocked(tx + dx * m, ty + dy * m, tz + dz * m)) hi = m; else lo = m;
+    }
+    return Math.max(CAM.min, lo);
+  }
+  return want;
+}
+function stepCam(dt) {
+  const p = player;
+  // THE RIGHT PAD ORBITS IN A CIRCLE AND NOTHING ELSE. `cam.el` is a constant: there is no
+  // pitch on this stick, by design -- a skating camera that can be pointed at the sky is a
+  // camera you spend the whole session putting back.
+  const rx = stick.R.x;
+  const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
+  if (yaw) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
+  // AND THEN IT COMES BACK BEHIND HER. A skater goes where she points, so the lens wants to be
+  // behind her and letting go of the pad should not leave you looking at her side. In the AIR
+  // it nearly lets go: if the camera chases a spin, the lens comes round with her and nothing
+  // appears to have happened except that you are dizzy.
+  const sp = p.speed, hs = p.hSpeed;
+  if (cam.idle > CAM.idle && hs > 0.8) {
+    const want = hs > 1.4 ? Math.atan2(p.vel.x, p.vel.z) : p.faceH;
+    const rate = p.grounded ? CAM.follow : CAM.followAir;
+    cam.az += wrapAngle(want - cam.az) * Math.min(1, rate * dt * clamp(hs / 5, 0.3, 1.4));
+  }
+  cam.tgt.set(p.pos.x, p.pos.y + CAM.look, p.pos.z);
+  const ce = Math.cos(cam.el);
+  const bx = -Math.sin(cam.az) * ce, by = Math.sin(cam.el), bz = -Math.cos(cam.az) * ce;
+  const want = clamp(CAM.dist + sp * CAM.distV, CAM.min, CAM.max);
+  const free = camFree(cam.tgt.x, cam.tgt.y, cam.tgt.z, bx, by, bz, want);
+  // SNAP IN, EASE OUT. Coming in has to be immediate or the lens spends those frames inside
+  // the ramp; going back out is eased, or every coping makes the shot lurch.
+  cam.dist = free < (cam.dist || want) ? free : damp(cam.dist || want, free, CAM.outHL, dt);
+  const wx = cam.tgt.x + bx * cam.dist, wy = cam.tgt.y + by * cam.dist, wz = cam.tgt.z + bz * cam.dist;
+  if (cam.pos.lengthSq() === 0) cam.pos.set(wx, wy, wz);
+  cam.pos.x = damp(cam.pos.x, wx, CAM.half, dt);
+  cam.pos.y = damp(cam.pos.y, wy, CAM.half, dt);
+  cam.pos.z = damp(cam.pos.z, wz, CAM.half, dt);
+  const cg = groundAt(cam.pos.x, cam.pos.z, cam.pos.y, 1.2);
+  if (cg.hit && cam.pos.y < cg.floor + CAM.clear)
+    cam.pos.y = Math.min(cg.floor + CAM.clear, cam.tgt.y + CAM.rise);
+  camera.position.copy(cam.pos); camera.lookAt(cam.tgt);
+  cam.rush = damp(cam.rush, clamp((sp - CAM.rush0) / CAM.rushSpan, 0, 1), 0.25, dt);
+  camera.fov = CAM.fov + cam.rush * CAM.fovRush; camera.updateProjectionMatrix();
+  sky.position.copy(camera.position);
+  sun.position.copy(p.pos).addScaledVector(LIGHT.dir, 60); sun.target.position.copy(p.pos);
+}
+
+// ---------- HUD ----------
+const buildEl = document.getElementById('build'), buildN = document.getElementById('buildN');
+const buildI = document.getElementById('buildI'), speedB = document.getElementById('speed').querySelector('b');
+buildN.textContent = BUILD; buildN.classList.add('pulse');
+document.getElementById('bootB').textContent = BUILD;
+// THE TOP-LEFT GUTTER BELONGS TO THE BUILD CHIP, and a constant somebody has to remember to
+// update when a key is added is not a mechanism. The keys are all `position: fixed`, so the
+// browser already knows where they are.
+function hudGutter() {
+  let w = 0;
+  for (const k of document.querySelectorAll('.key')) {
+    const r = k.getBoundingClientRect(); if (!r.width) continue;
+    w = Math.max(w, innerWidth - r.left + 14);
+  }
+  document.documentElement.style.setProperty('--chipW', Math.max(60, w) + 'px');
+}
+addEventListener('resize', hudGutter); addEventListener('orientationchange', hudGutter);
+
+let fps = 60, fpsT = 0, fpsN = 0;
+function hud(dt) {
+  speedB.textContent = player.speed.toFixed(1);
+  fpsT += dt; fpsN++;
+  if (fpsT > 0.5) { fps = fpsN / fpsT; fpsT = 0; fpsN = 0;
+    buildI.textContent = `${Math.round(fps)} fps · ${renderer.info.render.calls} dc` +
+      (girl.ready ? '' : ' · NO GIRL GLB'); }
+}
+function setBoot(msg, frac) {
+  const m = document.getElementById('bootMsg'), b = document.getElementById('bootBar');
+  if (msg && m) m.textContent = msg;
+  // MONOTONE AND CLAMPED: a bar that retreats reads as a failure, and one that runs past its
+  // own track reads as a bug. `e.loaded / e.total` is neither -- `total` is the COMPRESSED
+  // length and the stream hands back decompressed bytes, so it happily reports 150%.
+  if (b && frac != null) { const w = Math.round(clamp(frac, 0, 1) * 100); if (w > (setBoot._w || 0)) { setBoot._w = w; b.style.width = w + '%'; } }
+}
+
+// ---------- the loop ----------
+let last = performance.now(), ready = false;
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120));
+
+function frame() {
+  requestAnimationFrame(frame);
+  const now = performance.now();
+  // CLAMPED, because a tab that was backgrounded hands back a two-second dt and she would be
+  // launched through the far side of the park by a single step.
+  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!ready) { renderer.render(scene, camera); return; }
+  stepPlayer(dt);
+  girlAnim(dt);
+  poseGirl(dt);
+  stepCam(dt);
+  hud(dt);
+  renderer.render(scene, camera);
+}
+
+// ---------- a running copy finds out it is the old build ----------
+// Pages caches index.html for ten minutes and an iOS home-screen app caches it harder, so a
+// fix that has not arrived and a fix that did not work are the same picture from the phone.
+(function poll() {
+  const pill = document.getElementById('newer');
+  pill.addEventListener('click', () => location.reload());
+  setInterval(() => {
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.json())
+      .then(v => { if (v && v.build && v.build !== BUILD) { pill.textContent = `build ${v.build} ready · tap`; pill.style.display = 'block'; } })
+      .catch(() => {});
+  }, 15000);
+})();
+
+// ---------- boot ----------
+// EVERY STEP IS NAMED, AND ONE STEP CANNOT KILL THE WHOLE BOOT. A throw anywhere in here used
+// to take the card down with it and leave a game that is unreachable over a feature it does
+// not need to be playable. The CITY and the GIRL are the two there is no game without.
+async function init() {
+  setBoot('building the park', 0.05);
+  buildPark();
+  setBoot('loading rollergirl', 0.15);
+  try {
+    const gltf = await loadGLB('models/roller_girl.glb', e => {
+      if (e && e.total) setBoot(null, 0.15 + 0.7 * clamp(e.loaded / e.total, 0, 1));
+    });
+    buildGirl(gltf);
+  } catch (e) {
+    console.warn('[boot] rollergirl did not arrive', e);
+    if (window.__crash) window.__crash('rollergirl.glb did not load\n' + ((e && (e.stack || e.message)) || e));
+  }
+  setBoot('drop in', 1);
+  respawn();
+  hudGutter(); resize();
+  ready = true;
+  document.getElementById('boot').classList.add('gone');
+  setTimeout(() => { const b = document.getElementById('boot'); if (b && b.parentNode) b.parentNode.removeChild(b); }, 700);
+}
+
+// THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
+window.rg = { SK, AIR, CAM, RIG, ANIM, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+  groundAt, respawn, BUILD, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
+  ready: () => ready,
+  tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
+  bowl() { this.tp(BOWL.x, BOWL.z + BOWL.r - 1); },
+  pipe() { this.tp(0, 30); },
+};
+
+resize();
+frame();
+init();
+</script>
+</body>
+</html>
