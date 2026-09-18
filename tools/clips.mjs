@@ -5,32 +5,10 @@
 // compressed, draco only touches mesh primitives -- and reports, per clip, how many bones
 // genuinely MOVE and by how much. A channel with two identical keys is a channel that animates
 // nothing, and a clip made almost entirely of those is a held pose however it is played.
-import fs from 'fs';
+import { readGLB } from './glb.mjs';
 const file = process.argv[2] || 'models/roller_girl.glb';
-const b = fs.readFileSync(file);
-const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
-let off = 12, g = null, bin = null;
-while (off < b.byteLength) {
-  const len = dv.getUint32(off, true), type = dv.getUint32(off + 4, true);
-  if (type === 0x4E4F534A) g = JSON.parse(b.slice(off + 8, off + 8 + len).toString('utf8'));
-  else if (type === 0x004E4942) bin = b.subarray(off + 8, off + 8 + len);
-  off += 8 + len;
-}
-const COMP = { 5120: [Int8Array, 1], 5121: [Uint8Array, 1], 5122: [Int16Array, 2], 5123: [Uint16Array, 2], 5125: [Uint32Array, 4], 5126: [Float32Array, 4] };
-const NUM = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
-function read(i) {
-  const a = g.accessors[i], n = NUM[a.type], [T, sz] = COMP[a.componentType];
-  if (a.bufferView == null) return new Float32Array(a.count * n);
-  const bv = g.bufferViews[a.bufferView];
-  const base = (bv.byteOffset || 0) + (a.byteOffset || 0);
-  const stride = bv.byteStride || n * sz;
-  const out = new Float32Array(a.count * n);
-  for (let k = 0; k < a.count; k++) {
-    const v = new T(bin.buffer, bin.byteOffset + base + k * stride, n);
-    for (let c = 0; c < n; c++) out[k * n + c] = v[c];
-  }
-  return out;
-}
+const G = readGLB(file);
+const g = G.json, read = G.read;
 const short = s => (s || '').replace(/^mixamorig_/, '');
 console.log(`${file}\n`);
 for (const a of g.animations) {

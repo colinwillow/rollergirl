@@ -11,6 +11,7 @@
 // measures a page the game does not have is the oldest mistake there is.
 import fs from 'fs'; import os from 'os'; import path from 'path';
 import { pathToFileURL } from 'url';
+import { readGLB, buildClips } from './glb.mjs';
 
 if (!fs.existsSync('node_modules/three/package.json')) {
   fs.mkdirSync('node_modules/three', { recursive: true });
@@ -50,6 +51,7 @@ await import(pathToFileURL(f).href + '?t=' + Date.now());
 for (let i = 0; i < 400 && !globalThis.rg.ready(); i++) await new Promise(r => setTimeout(r, 10));
 console.warn = quiet;
 const rg = globalThis.rg;
+const THREE = await import(pathToFileURL(path.join(TMP, 'three-shim.mjs')).href);
 if (!rg.ready()) { console.error('the module never became ready'); process.exit(1); }
 
 // ---- driving ----
@@ -233,6 +235,37 @@ CASES.solid = () => {
   return bad === 0 && worst < 40;
 };
 
+// ---------------------------------------------------------------- the clips survive loading
+// THE ONE CASE THAT RUNS THE REAL CLIPS. Her GLB's mesh is draco so no harness here can build
+// her SKIN -- but the animation samplers are not compressed, so the clips themselves are
+// readable, and `normaliseClips` is the shipped function that decides what the mixer ever sees.
+// It is built the way GLTFLoader builds it, SHARED TIME ARRAYS AND ALL, because that sharing is
+// the entire bug: 198 channels reference two time accessors, the loader hands every track the
+// same Float32Array, and shifting the start offset once per TRACK shifted it 183 times. The
+// times went to -7.6, the duration came back NEGATIVE, and every track then evaluates past its
+// last key and returns it -- a character frozen on the last frame of whatever clip is up.
+// Three rounds of fixes to playback rates and loop modes could not touch it.
+CASES.clips = () => {
+  const AUTH = { coasting: 5.333, Idle: 17.667, jump_in_air: 0.708, jump_start: 0.583, skate_fwd: 0.208 };
+  const g = readGLB('models/roller_girl.glb');
+  const raw = buildClips(g, THREE);
+  const shared = new Set(raw.flatMap(c => c.tracks.map(t => t.times))).size;
+  console.log(`  ${raw.length} clips, ${raw[0].tracks.length} tracks each, ` +
+              `${shared} distinct time arrays across the lot -- they SHARE`);
+  const out = rg.normaliseClips(raw);
+  let ok = true;
+  for (const c of out) {
+    const want = AUTH[c.name];
+    const scale = c.tracks.filter(t => /\.scale$/.test(t.name)).length;
+    const pos = c.tracks.filter(t => /\.position$/.test(t.name)).length;
+    const bad = !(c.duration > 0.01) || (want && Math.abs(c.duration - want) > 0.06) || scale || pos > 1;
+    if (bad) ok = false;
+    console.log(`  ${c.name.padEnd(13)} dur ${fix(c.duration, 3)} (authored ${want ? fix(want, 3) : '?'})  ` +
+                `${c.tracks.length} tracks, ${pos} position, ${scale} scale${bad ? '   <- WRONG' : ''}`);
+  }
+  if (out.some(c => c.name === 'CINEMA_4D_Main')) { console.log('  -> the one-frame residue clip survived'); ok = false; }
+  return ok;
+};
 // ---------------------------------------------------------------- what the mixer is asked for
 // NO HARNESS HERE CAN BUILD A SKIN -- her GLB is draco and `DRACOLoader` wants a Worker -- so
 // the actions are FABRICATED, carrying the real clip durations read out of the file. That is

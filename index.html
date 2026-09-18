@@ -110,7 +110,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r5</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r6</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button id="newer">build ready &middot; tap</button>
@@ -124,7 +124,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r5';
+const BUILD = 'r6';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -665,8 +665,16 @@ function measureRig(model) {
 // A ONE-FRAME CLIP IS NOT AN ANIMATION. `CINEMA_4D_Main` is exporter residue -- one key on
 // every channel -- and nothing names it, so nothing plays it. It is dropped rather than left
 // lying about where a future fallback could reach for it.
-// AND EVERY CLIP HERE STARTS AT 1/24 s RATHER THAN AT ZERO, which is one held frame at the
-// top of every loop. Shifting the track times back is cheaper than living with the hitch.
+// AND EVERY CLIP HERE STARTS AT 1/24 s RATHER THAN AT ZERO, which is one held frame at the top
+// of every loop. Shifting the track times back is cheaper than living with the hitch -- **BUT
+// THE TIME ARRAY IS SHARED BETWEEN TRACKS AND MUST BE CLONED FIRST.**
+// This file's 198 channels reference only TWO distinct time accessors; GLTFLoader resolves each
+// accessor once and caches it, and `KeyframeTrack` keeps a Float32Array by REFERENCE rather than
+// copying it. So subtracting `t0` once per TRACK subtracted it 183 times from one array: the
+// times went to -7.6, `resetDuration()` came back NEGATIVE, and every track then evaluates past
+// its last key and returns it. **That is a character frozen on the last frame of whatever clip
+// is up, for ever, and it was every clip in the file.** Three rounds of fixes to rates and loop
+// modes could not touch it because none of them was the layer that was broken.
 const DROP = /^CINEMA_4D|Action$/;
 // A BONE POSITION TRACK IS A LANDMINE, AND `jump_start` IS A LIVE ONE.
 // Measured over every clip in the file with `npm run clips`: ONLY THE HIPS legitimately
@@ -680,6 +688,14 @@ const DROP = /^CINEMA_4D|Action$/;
 // hold the rest value, which is what the bone falls back to anyway -- and is the whole fix for
 // the broken one. Delete this the day the export stops emitting them, not before.
 const KEEPPOS = /Hips\.position$/;
+// AND THE SCALE TRACKS GO ENTIRELY. *"Before the jump_in_air animation her upper half body
+// shrinks to 0."* Exactly that: `jump_start` carries 54 scale tracks pinned at **0.00** --
+// Spine, Spine1, Spine2, both shoulders, both arms, both hands and every finger. Two keys each,
+// both zero, so a metric that asks whether a track CHANGES says it does not move: it is
+// constantly nothing. Every other clip in the file has all 66 scale tracks at a flat 1.000, so
+// they are no-ops and dropping them costs nothing and saves the work.
+// **A SKELETON DOES NOT WANT SCALE TRACKS.** Keep quaternions, and the Hips translation because
+// that is the body's height off the ground.
 function normaliseClips(clips) {
   const out = [];
   for (const c of clips) {
@@ -687,12 +703,20 @@ function normaliseClips(clips) {
     // a clip with no BONE track is a Blender action, not an animation
     if (!c.tracks.some(t => /\.(position|quaternion|scale)$/.test(t.name))) continue;
     const n0 = c.tracks.length;
-    c.tracks = c.tracks.filter(t => !/\.position$/.test(t.name) || KEEPPOS.test(t.name));
-    if (n0 - c.tracks.length > 1) console.warn(`[clip] ${c.name}: dropped ${n0 - c.tracks.length} bone position tracks`);
+    c.tracks = c.tracks.filter(t =>
+      !/\.scale$/.test(t.name) &&                                     // see SCALE below
+      (!/\.position$/.test(t.name) || KEEPPOS.test(t.name)));
+    if (n0 - c.tracks.length) console.warn(`[clip] ${c.name}: dropped ${n0 - c.tracks.length} position/scale tracks`);
     let t0 = Infinity;
     for (const t of c.tracks) if (t.times.length) t0 = Math.min(t0, t.times[0]);
-    if (t0 > 1e-6 && t0 < Infinity) for (const t of c.tracks) for (let i = 0; i < t.times.length; i++) t.times[i] -= t0;
+    if (t0 > 1e-6 && t0 < Infinity) for (const t of c.tracks) {
+      t.times = Float32Array.from(t.times);       // its OWN copy, shifted exactly once
+      for (let i = 0; i < t.times.length; i++) t.times[i] -= t0;
+    }
     c.resetDuration();
+    // A NON-POSITIVE DURATION IS THE FROZEN-POSE SIGNATURE, so it says so rather than being
+    // something to work out from the outside three builds later.
+    if (!(c.duration > 0.01)) console.error(`[clip] ${c.name}: duration ${c.duration} -- this clip will HOLD ITS LAST FRAME`);
     out.push(c);
   }
   return out;
@@ -1380,7 +1404,7 @@ async function init() {
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
 window.rg = { SK, AIR, CAM, RIG, ANIM, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
-  groundAt, respawn, BUILD, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
+  groundAt, respawn, BUILD, normaliseClips, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
   bowl() { this.tp(BOWL.x, BOWL.z + BOWL.r - 1); },

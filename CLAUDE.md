@@ -67,6 +67,38 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **A KEYFRAME TRACK'S `times` ARRAY IS SHARED, AND MUTATING IT IN PLACE IS THE WORST BUG THIS
+  REPO HAS HAD.** *"She just holds the pose."* — three times, across three builds, and every fix
+  was aimed at the wrong layer.
+  Her 198 channels reference **two** distinct time accessors. GLTFLoader resolves each accessor
+  once and caches it, and `KeyframeTrack` keeps the `Float32Array` **by reference** —
+  `convertArray` returns it as-is when the constructor already matches. So `normaliseClips`,
+  shifting the 1/24 s start offset off "each track", subtracted it **183 times from one array**.
+  The times went to −7.6, `resetDuration()` came back NEGATIVE, and a track evaluated past its
+  last key returns that key: **every clip in the file frozen on its final frame, for ever.**
+  Ping-pong, playback rates, weight tables and loop modes were all fine and all irrelevant.
+  Clone before you mutate: `t.times = Float32Array.from(t.times)`. And a clip whose duration
+  comes back non-positive now says so in the console, because that is the signature.
+  **`npm run sim clips` IS THE GATE, AND IT REPRODUCES THE SHARING ON PURPOSE.** It builds real
+  `AnimationClip`s out of the GLB the way GLTFLoader builds them — same track types, same names,
+  **same shared arrays** — and runs the SHIPPED `normaliseClips` over them, then checks every
+  duration against the authored length. A harness that read a fresh copy per channel could not
+  reproduce this at all. **Verified by reverting the fix in place**: `skate_fwd` and
+  `jump_in_air` come back at duration **0.000**. Check the revert anchor actually matched before
+  believing a test that says it caught something.
+  **AND THE OTHER PROBE SAID EVERYTHING WAS FINE.** `npm run sim anim` fabricates actions with
+  the authored durations and never runs `normaliseClips` — so it reported perfect weights and a
+  correct time scale on a clip the game had frozen. **A harness that measures a path the game
+  does not take measures a different game**, which is this repo's oldest mistake and the only
+  one it has now made twice.
+- **A SKELETON DOES NOT WANT SCALE TRACKS, AND `jump_start`'s ARE ZERO.** *"Before the
+  jump_in_air animation her upper half body shrinks to 0."* Exactly that: 54 scale tracks pinned
+  at **0.00** — Spine, Spine1, Spine2, both shoulders, both arms, both hands and every finger.
+  Two keys each, both zero. **A metric that asks whether a track CHANGES says it does not move**,
+  which is how `npm run clips` missed it the first time: it is not changing, it is constantly
+  nothing. Read VALUES, not deltas, when the question is "is this track sane". Every other clip
+  has all 66 scale tracks at a flat 1.000, so they are no-ops and dropping the lot costs nothing.
+
 Each of these cost a round in the build that found it.
 
 - **THE SURFACE IS THE FRAME, NOT THE WORLD.** Her velocity is decomposed against the face she
