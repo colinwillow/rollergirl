@@ -1,8 +1,14 @@
 # Rollergirl — working rules
 
 Mobile-first rollerblading game. Single-file Three.js r180 in `index.html` (native ES modules,
-import map, **no build step**). The owner previews live on a phone, so **run `npm run bump`
-before every push** — it raises `BUILD` in both places and rewrites `version.json`. Pages caches
+import map, **no build step**).
+
+**PUSH STRAIGHT TO `main`. Always.** Pages serves `main`, and the owner previews live on a
+phone -- so a change sitting on a branch cannot be tested, which means it is not done. Branch
+all you like while working; end on `main`. Do not open a pull request unless he asks for one:
+it is an extra click between the work and the phone it has to run on.
+
+He previews live, so **run `npm run bump` before every push** — it raises `BUILD` in both places and rewrites `version.json`. Pages caches
 `index.html` for ten minutes and a home-screen shortcut caches it harder, so a build that does
 not announce itself cannot be told apart from the one before it. The build number is the big
 cyan figure top-left; a running copy polls `version.json` every 15 s and puts a
