@@ -55,7 +55,8 @@ const THREE = await import(pathToFileURL(path.join(TMP, 'three-shim.mjs')).href)
 if (!rg.ready()) { console.error('the module never became ready'); process.exit(1); }
 
 // ---- driving ----
-const DT = 1 / 60;
+let DT = 1 / 60;   // a case may drop it: a phone is not 60 Hz and the gap between
+                   // collider samples is speed x dt, which is the whole hazard
 const P = rg.player;
 function place(x, y, z, heading, speed) {
   P.pos.set(x, y, z); P.heading = P.faceH = heading; P.grounded = true;
@@ -216,6 +217,44 @@ CASES.bowl = () => {
               `below the floor on ${through}`);
   return through === 0 && lowest < -1.5;
 };
+// ---------------------------------------------------------------- nothing gets INSIDE a ramp
+// "She kinda goes through them a little." Measurable, because every piece in this park is a
+// single-valued height over the ground -- there is not one overhang in it -- so the TOP surface
+// at any (x,z) is well defined and being under it means being inside the concrete.
+CASES.inside = () => {
+  const top = (x, z) => { const g = rg.groundAt(x, z, 60, 0); return g.hit ? g.floor : -1e9; };
+  const runs = [
+    ['half pipe, straight in', 0, 12, 0],  ['half pipe, fast',        0, 12, 0],
+    ['quarter pipe (left)',  -10, 2, -Math.PI / 2], ['quarter pipe (right)', 10, 2, Math.PI / 2],
+    ['funbox',                 0, -2, 0], ['kicker',                -11, 6, 0],
+    ['perimeter wall',        60, 0, Math.PI / 2],  ['bowl rim',      -28, -12, Math.PI],
+  ];
+  let ok = true;
+  for (const hz of [60, 30, 20]) {
+   DT = 1 / hz;
+   let worst = 0, worstAt = '';
+   for (const [name, x, z, h] of runs) {
+    for (const v of [8, 14, 20]) {
+      place(x, 1, z, h, v);
+      let deep = 0;
+      run(3.2, (t, i) => {
+        follow(); rg.stick.L.y = -1; rg.stick.L.x = 0;
+        if (i === 40 || i === 90) P.jump = 1;      // and at it in the air, rising
+        const d = top(P.pos.x, P.pos.z) - P.pos.y;
+        if (d > deep) deep = d;
+      });
+      if (deep > worst) { worst = deep; worstAt = `${name} at ${v} m/s`; }
+    }
+   }
+   console.log(`  ${String(hz).padStart(2)} Hz: 8 ramps x 3 speeds, skating and jumping into each -> ` +
+               `deepest ${fix(worst, 3)} m inside the concrete ${worst > 0.001 ? '(' + worstAt + ')' : ''}`);
+   // a few centimetres is the point sample catching up; a third of a metre is going through it
+   if (worst >= 0.12) ok = false;
+  }
+  DT = 1 / 60;
+  return ok;
+};
+
 // ---------------------------------------------------------------- nothing falls through
 CASES.solid = () => {
   let bad = 0, worst = 0, lowest = 9;

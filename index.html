@@ -110,7 +110,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r6</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r7</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button id="newer">build ready &middot; tap</button>
@@ -124,7 +124,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r6';
+const BUILD = 'r7';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -208,6 +208,14 @@ const SK = {
   // and off the lip of a kicker it is a metre, so one number separates them cleanly.
   step: 0.42,          // how high a lip she rolls straight over
   stick: 0.14,
+  // THE COLLIDER IS SAMPLED AT A POINT, so how far she moves between samples is how far she can
+  // get into something before anything notices. At 20 m/s a 60 Hz frame is a THIRD OF A METRE,
+  // and a near-vertical transition is only a few centimetres wide in plan -- so she crosses the
+  // whole footprint of the wall in one step and comes out the other side. Sub-stepping the
+  // integration so no step is longer than this costs two iterations at speed and nothing at all
+  // below 12 m/s.
+  sub: 0.18,
+  subMax: 6,
   smoothAng: 0.62,     // a direction change under this is a transition and costs no speed;
                        // anything sharper is an impact and loses the component into the face
   // A LANDING THAT GRAZES THE SURFACE KEEPS NEARLY EVERYTHING AND A SLAM KEEPS ALMOST
@@ -215,8 +223,11 @@ const SK = {
   // the angle of the wall is the whole sport; taxing it the way a flat slam is taxed is
   // what makes a ramp feel like glue.
   landKeep: 0.85,
-  lean: 0.085,         // radians of bank per (rad/s x m/s) of carve
-  leanMax: 0.62,
+  // THE BANK IS A HINT, NOT A PHYSICS DEMONSTRATION. 0.085 with a 0.62 rad ceiling let her lie
+  // over THIRTY-FIVE DEGREES in a hard carve, which reads as a motorcycle rather than a skater
+  // and fights whatever the clip is doing. `rg.SK.lean = 0` removes it entirely.
+  lean: 0.016,         // radians of bank per (rad/s x m/s) of carve
+  leanMax: 0.10,       // ...and never past about six degrees
   leanHL: 0.12,
   dead: 0.14,          // stick dead zone
   curve: 1.35,         // stick response curve
@@ -224,7 +235,7 @@ const SK = {
 };
 
 const AIR = {
-  jump: 8.4,           // straight up, from flat
+  jump: 10.6,          // straight up, from flat -- 2.81 m of apex against 8.4's 1.69
   popNorm: 0.55,       // ...and this much of it along the SURFACE NORMAL instead, which is
                        // what turns riding up a quarter pipe into real air off the lip
   coyote: 0.11,        // grace after rolling off an edge
@@ -414,9 +425,14 @@ function extrude(ox, oz, yaw, halfW, prof, skirt) {
     quad(P(a.u, a.y, -halfW), P(b.u, b.y, -halfW), P(b.u, b.y, halfW), P(a.u, a.y, halfW), a.c || CONC);
     // The sides are SCENERY: a vertical face can never be a floor, so they are drawn and not
     // collided with. Without them you see straight through into the inside of the ramp.
+    // AND BOTH OF THEM WERE WOUND INWARD, which with FrontSide culling means they were not
+    // drawn at all -- you looked straight through the flank of every ramp in the park and saw
+    // the inside of its deck, which is culled too, so you saw the world behind it. Worked out
+    // rather than flipped and re-flipped: F x up is -S, so the +halfW face needs the order that
+    // puts its normal along +S.
     if (skirt !== false && (a.y > 0.02 || b.y > 0.02)) {
-      quad(P(a.u, 0, halfW), P(b.u, 0, halfW), P(b.u, b.y, halfW), P(a.u, a.y, halfW), SIDE, false);
-      quad(P(b.u, 0, -halfW), P(a.u, 0, -halfW), P(a.u, a.y, -halfW), P(b.u, b.y, -halfW), SIDE, false);
+      quad(P(a.u, a.y, halfW), P(b.u, b.y, halfW), P(b.u, 0, halfW), P(a.u, 0, halfW), SIDE, false);
+      quad(P(a.u, 0, -halfW), P(b.u, 0, -halfW), P(b.u, b.y, -halfW), P(a.u, a.y, -halfW), SIDE, false);
     }
   }
 }
@@ -470,7 +486,10 @@ const COPEW = 0.10;      // how wide the coping band is drawn
 function halfPipe(ox, oz, yaw, halfW, r, sweep, flat, deck, bank) {
   const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
   const L = flat + lip + deck + bank, p = [];
-  p.push({ u: -L - 3, y: 0, c: CONC });
+  // NO FLAT APRON AT EITHER END. A y=0 segment here is COPLANAR with the plaza that is already
+  // under it -- two surfaces at the same height fighting for the same pixels, which reads as
+  // patches of a ramp shading wrongly and flickering as the camera moves. Every piece in this
+  // park starts where it LEAVES the ground.
   p.push({ u: -L, y: 0, c: RAMP });                                    // roll-in
   p.push({ u: -L + bank, y: H, c: DECK });                             // deck
   p.push({ u: -(flat + lip) - COPEW, y: H, c: COPE });                 // coping
@@ -482,34 +501,32 @@ function halfPipe(ox, oz, yaw, halfW, r, sweep, flat, deck, bank) {
   p.push({ u: flat + lip + COPEW, y: H, c: DECK });
   p.push({ u: L - bank, y: H, c: RAMP });
   p.push({ u: L, y: 0, c: CONC });
-  p.push({ u: L + 3, y: 0, c: CONC });
   extrude(ox, oz, yaw, halfW, p);
   return H;
 }
 function quarterPipe(ox, oz, yaw, halfW, r, sweep, deck, bank) {
   const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
-  const p = [{ u: -6, y: 0, c: CONC }, { u: 0, y: 0, c: RAMP }];
+  const p = [{ u: 0, y: 0, c: RAMP }];
   arcUp(p, 0, 0, r, sweep, 16, RAMP);
   p[p.length - 1].c = COPE;
   p.push({ u: lip + COPEW, y: H, c: DECK });
   p.push({ u: lip + deck, y: H, c: RAMP });
   p.push({ u: lip + deck + bank, y: 0, c: CONC });
-  p.push({ u: lip + deck + bank + 2, y: 0, c: CONC });
   extrude(ox, oz, yaw, halfW, p);
   return H;
 }
 // A funbox: bank up, flat top, bank down. Flat enough to land on and long enough to cross.
 function funBox(ox, oz, yaw, halfW, len, h, rise) {
-  const p = [{ u: -(len / 2 + rise + 2), y: 0, c: CONC }, { u: -(len / 2 + rise), y: 0, c: RAMP },
+  const p = [{ u: -(len / 2 + rise), y: 0, c: RAMP },
              { u: -len / 2, y: h, c: DECK }, { u: len / 2, y: h, c: RAMP },
-             { u: len / 2 + rise, y: 0, c: CONC }, { u: len / 2 + rise + 2, y: 0, c: CONC }];
+             { u: len / 2 + rise, y: 0, c: CONC }];
   extrude(ox, oz, yaw, halfW, p);
 }
 // A kicker ENDS ABRUPTLY, and that is the point: the drop at the lip is what makes the launch
 // test fire and puts her in the air carrying the velocity she rode up with.
-function kicker(ox, oz, yaw, halfW, r, sweep, len) {
+function kicker(ox, oz, yaw, halfW, r, sweep) {
   const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
-  const p = [{ u: -len, y: 0, c: CONC }, { u: 0, y: 0, c: RAMP }];
+  const p = [{ u: 0, y: 0, c: RAMP }];
   arcUp(p, 0, 0, r, sweep, 12, RAMP);
   // NO FLAT COPING BAND HERE, and that is not cosmetic: a ten-centimetre flat on top of a 38
   // degree lip is a LANDING PAD. She meets it with her velocity pointing 38 degrees up, the
@@ -523,7 +540,7 @@ function kicker(ox, oz, yaw, halfW, r, sweep, len) {
 // the transition, then the flat bottom.
 function bowlPit(ox, oz, rim, r, sweep, seg) {
   const D = r * (1 - Math.cos(sweep)), run = r * Math.sin(sweep), inner = rim - run;
-  const p = [{ u: rim + 3, y: 0, c: CONC }, { u: rim + COPEW, y: 0, c: COPE }, { u: rim, y: 0, c: RAMP }];
+  const p = [{ u: rim, y: 0, c: COPE }];
   for (let i = 1; i <= 16; i++) {
     const a = sweep * (1 - i / 16);
     p.push({ u: inner + r * Math.sin(a), y: -D + r * (1 - Math.cos(a)), c: RAMP });
@@ -619,8 +636,8 @@ function buildPark() {
   quarterPipe(-22, 2, -Math.PI / 2, 6, 3.1, 78 * Math.PI / 180, 2.0, 5.0);
   quarterPipe(22, 2, Math.PI / 2, 6, 3.1, 78 * Math.PI / 180, 2.0, 5.0);
   funBox(0, 8, 0, 3.5, 6, 1.0, 3.0);
-  kicker(-11, 14, 0, 2.6, 4.0, 38 * Math.PI / 180, 5);
-  kicker(11, 14, Math.PI, 2.6, 4.0, 38 * Math.PI / 180, 5);
+  kicker(-11, 14, 0, 2.6, 4.0, 38 * Math.PI / 180);
+  kicker(11, 14, Math.PI, 2.6, 4.0, 38 * Math.PI / 180);
   funBox(14, -16, Math.PI / 2, 4.0, 8, 1.6, 4.5);
   bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
   triBuild();
@@ -1177,7 +1194,12 @@ function stepAir(dt) {
   // frames, and a query at her NEW position then finds that deck ABOVE her, reports no floor
   // at all, and lets her carry on down. It only ever bites at speed, which is the worst time.
   const g2 = groundAt(p.pos.x, p.pos.z, Math.max(y0, p.pos.y), SK.step);
-  if (g2.hit && p.vel.y <= 0 && p.pos.y <= g2.floor + 0.02) {
+  // **BELOW THE SURFACE IS BELOW THE SURFACE, WHICHEVER WAY SHE IS GOING.** This used to require
+  // `vel.y <= 0`, which is right for falling onto a deck and wrong for everything else: jump at
+  // a transition while still RISING and she went into the wall and out the far side, because a
+  // climbing body was never tested against the thing it was climbing into.
+  const under = g2.hit && p.pos.y < g2.floor - 0.001;
+  if (g2.hit && (under || (p.vel.y <= 0 && p.pos.y <= g2.floor + 0.02))) {
     p.pos.y = g2.floor;
     _N.set(g2.nx, g2.ny, g2.nz);
     const v0 = p.vel.length();
@@ -1203,7 +1225,11 @@ function stepPlayer(dt) {
   const p = player;
   p.rHold = stick.R.down ? p.rHold + dt : 0;
   if (p.jump) { p.jump = 0; if (p.grounded || p.coyote > 0) doJump(); }
-  if (p.grounded) stepGround(dt); else stepAir(dt);
+  // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
+  // samples, and that is speed x dt -- so the count follows her speed and a 120 Hz phone does
+  // not silently get a different game from a 30 Hz one.
+  const n = clamp(Math.ceil(p.speed * dt / SK.sub), 1, SK.subMax), sdt = dt / n;
+  for (let i = 0; i < n; i++) { if (p.grounded) stepGround(sdt); else stepAir(sdt); }
   // TWO SPEEDS, AND THE CAMERA NEEDS THE HORIZONTAL ONE. Straight up a vert wall her
   // horizontal speed is nearly zero while she is doing fifteen -- so a bearing taken from
   // the horizontal velocity there is pure noise, and the lens would spin.

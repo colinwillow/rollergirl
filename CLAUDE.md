@@ -150,6 +150,35 @@ Each of these cost a round in the build that found it.
   arithmetic, and the SAME typo also meant the bowl's hole was never cut, so she skated across
   the top of it. **One word, two bugs, neither of them visible in the code.** `pushTri` rejects
   and reports a non-finite vertex now.
+- **A `y = 0` APRON IS COPLANAR WITH THE PLAZA THAT IS ALREADY UNDER IT.** Every ramp used to
+  start and end with a few metres of flat run-up in its own profile, at exactly the height of
+  the ground beneath — two surfaces fighting for the same pixels, which reads as patches of a
+  ramp shading wrongly and flickering as the camera moves. **Every piece starts where it LEAVES
+  the ground.** It is also why the bowl's outer ring went: the plaza's fan already reaches its
+  rim.
+- **BOTH RAMP SKIRTS WERE WOUND INWARD AND SO WERE NEVER DRAWN AT ALL.** With `FrontSide` culling
+  you looked straight through the flank of every ramp in the park, saw the inside of its deck
+  (culled too) and so saw the world behind it. Worked out rather than flipped and re-flipped:
+  `F x up` is `-S`, so the `+halfW` face needs the vertex order that puts its normal along `+S`.
+  **When a face is invisible, suspect its winding before its normal** — they are the same fact
+  here, since `pushTri` derives the normal from the winding.
+- **BELOW THE SURFACE IS BELOW THE SURFACE, WHICHEVER WAY SHE IS GOING (the `under` test).**
+  *"Her collisions with the ramps is faulty, she kinda goes through them a little."* The landing
+  test required `vel.y <= 0`, which is right for falling onto a deck and wrong for everything
+  else: **jump at a transition while still RISING and nothing tested her against the thing she
+  was climbing into**, so she went in and out the far side. Measured through the shipped step,
+  eight ramps x three speeds, skating and jumping into each: **0.879 m inside the concrete**
+  before, 0.000 after.
+- **AND THE COLLIDER IS SAMPLED AT A POINT, so how far she moves between samples is how far she
+  can get into something before anything notices (`SK.sub`).** At 20 m/s a 60 Hz frame is a third
+  of a metre and a near-vertical transition is a few centimetres wide in plan. Sub-stepping by
+  DISTANCE rather than time is what makes a 20 Hz phone play the same game as a 60 Hz one --
+  and the test that shows it has to run at the phone's rate, because at 60 Hz it contributes
+  almost nothing (0.879 -> 0.854) and at 20 Hz it is the whole difference (**0.547 m -> 0.000**).
+  **A collider test at 60 Hz is a flattering test.**
+- **THE BANK IS A HINT, NOT A PHYSICS DEMONSTRATION.** `SK.lean` 0.085 with a 0.62 rad ceiling let
+  her lie over THIRTY-FIVE DEGREES in a hard carve, which reads as a motorcycle and fights
+  whatever the clip is doing. 0.016 and about six degrees. `rg.SK.lean = 0` removes it.
 - **A RAMP IS A FLOOR, NOT A SOLID, AND THAT IS ON PURPOSE.** `triAdd` throws away a face
   steeper than `TRI.up`, so a ramp's SIDE WALLS are not in the collider: meet one side-on and
   you pass through it, roll at it up the slope and you ride it. The alternative is a box you
