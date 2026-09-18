@@ -199,22 +199,29 @@ Each of these cost a round in the build that found it.
   frame she jumps. `normaliseClips` strips every non-Hips position track, which is a **no-op on
   the four clean clips** (their keys hold the rest value the bone falls back to anyway) and is
   the whole fix for the broken one. Delete it the day the export stops emitting them, not before.
-- **`skate_fwd` IS ONE PUSH, NOT A CYCLE, AND STRETCHING IT OVER THE STRIDE PERIOD IS WHY IT READ
-  AS A HELD POSE.** *"She holds the pose instead of looping when you hold stick."* Measured:
-  0.208 s, six keys, fourteen bones turning up to 106 degrees — a leg going out and back with the
-  arm sweeping through, which is a real and quite violent stride. Fitted to `pushPeriod` it
-  played at **×0.20** at a cruise, five times slow motion, and what you see is a slow drift into
-  a pose. **And it is not cyclic**: the arm ends 106 degrees round and the hips 19, so looping it
-  snapped them back every time.
-  It plays ONCE per stride at its own honest rate (`ANIM.pushT`, ×0.61) and **`coasting` carries
-  the GLIDE between pushes** — which is what skating is: a push, a long roll, another push.
-  Measured after: replayed once per stride, up for 32% of a cruising stride and 80% of a standing
-  start. `setWeights` rewinding on the weight leaving the floor is what replays it, and it never
-  reaches the wrap that would snap the arm.
+- **`skate_fwd` IS AUTHORED OUT-AND-BACK AND PING-PONGS, AND ONE STRIDE IS THEREFORE TWO CLIP
+  LENGTHS (`ANIM.cycles`, `PINGPONG`).** *"She holds the pose instead of looping when you hold
+  stick."* Measured with `npm run clips`: 0.208 s, six keys, fourteen bones turning up to 106
+  degrees — a real and quite violent push, **not** a static clip. Two things were wrong with how
+  it was played, and the first is the one to remember:
+  **IT IS NOT CYCLIC AND IT WAS NEVER MEANT TO BE.** The arm ends 106 degrees round and the hips
+  19, so `LoopRepeat` snapped them back every pass. `LoopPingPong` makes it cyclic BY
+  CONSTRUCTION — the forward pass is the push, the reverse is the recovery — and that is how the
+  clip was drawn. **Ask before inventing a workaround for a clip that is not looping: it may be
+  meant to ping-pong.** The first fix here was a push-then-glide window built to dodge the snap,
+  which was a whole design decision taken to work around a one-word loop mode.
+  **AND THE PING-PONG DOUBLES THE CYCLE**, so the scale that puts the stride on `pushPeriod` is
+  twice what a one-way loop needs. Fitted one-way it ran at **×0.20** at a cruise — five times
+  slow motion, which is a slow drift into a pose exactly as reported. It is ×0.40 now and the
+  out-and-back lands on the stride period to a hundredth.
   **THE PROBE COULD NOT HAVE FOUND THIS AND THE CLIP READER COULD NOT EITHER.** `npm run sim anim`
   said the weight sat at 1.0 and the clip was rewound once in seven seconds — looping correctly,
-  exactly as written. The fault was in the NUMBER it was being played at, which only means
-  anything next to what is inside the clip. Two tools, one answer.
+  exactly as written. The fault was in the NUMBER it was played at and the LOOP MODE it was played
+  under, and neither means anything without what is inside the clip. Two tools, one answer.
+  **AND NOTHING HERE TESTS `setLoop` ITSELF**, because no harness can run `buildGirl` — her GLB is
+  draco and `DRACOLoader` wants a Worker. A stated gap. What can be checked is that
+  `THREE.LoopPingPong` is a real export (2202) and not a typo that `setLoop` would swallow as
+  `undefined`, which it is.
 - **iOS SAFARI HAS IGNORED `user-scalable=no` SINCE iOS 10**, so the viewport meta is not the fix
   for double-tap zoom and never was. `touch-action: none` on the root is — it is not inherited,
   but the browser intersects the values from the hit element up through its ancestors, so it
@@ -228,9 +235,12 @@ Each of these cost a round in the build that found it.
 - No grinds, no tricks, no spins scored — **the right pad's FLICK is deliberately unspent** and
   `FLICK` is already wired for it.
 - No audio at all.
-- `skate_fwd` is six frames of ONE push. It plays once per stride with `coasting` under it for
-  the glide; `ANIM.pushT` is how long that push takes. A longer or cyclic stride clip drops
-  straight in — raise `pushT` to its length, or go back to fitting it to `pushPeriod`.
+- `skate_fwd` is six frames of one push, ping-ponged. `SK.pushDur` / `SK.pushFast` are the
+  stride period and the clip is fitted to it; a clip authored as a FULL cycle drops straight in
+  by taking it out of `PINGPONG` and setting `ANIM.cycles = 1`.
+- There is no glide between pushes any more — she strides continuously while the thumb is
+  forward, and `coasting` shows the moment it is not. A push-and-glide rhythm wants its own clip
+  rather than a weight window.
 - `jump_start` is only usable with its position tracks stripped (see above). It is also the
   clip with the most to gain from a re-export.
 - No `landing` clip, no `coasting_fakie`, no grind pose. `girlAnim` is a weight table; naming a

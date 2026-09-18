@@ -110,7 +110,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r4</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r5</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button id="newer">build ready &middot; tap</button>
@@ -124,7 +124,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r4';
+const BUILD = 'r5';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -726,6 +726,7 @@ function buildGirl(gltf) {
   for (const c of clips) {
     const a = girl.mixer.clipAction(c);
     if (ONCE.includes(c.name)) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
+    else if (PINGPONG.includes(c.name)) a.setLoop(THREE.LoopPingPong, Infinity);
     a.enabled = true; a.setEffectiveWeight(0); a.play();
     girl.actions[c.name] = a;
   }
@@ -741,15 +742,18 @@ function buildGirl(gltf) {
 // damping crosses between them. A `crossFadeFrom` state machine has to know what it is coming
 // FROM, which breaks the first time two transitions overlap.
 const ONCE = ['jump_start', 'jump_in_air'];
-// `skate_fwd` IS ONE PUSH, NOT A CYCLE, AND STRETCHING IT OVER THE STRIDE PERIOD IS WHY IT
-// READ AS A HELD POSE. Measured: 0.208 s, six keys, fourteen bones turning up to 106 degrees --
-// a leg going out and back while the arm sweeps through. Fitted to `pushPeriod` that plays at
-// **x0.20** at a cruise, which is five times slow motion, and what you see is a slow drift into
-// a pose rather than a stride. Worse, it is NOT cyclic: the arm ends 106 degrees round and the
-// hips 19, so looping it snaps them back every time.
-// So it plays ONCE per stride at its own honest rate and `coasting` carries the GLIDE between
-// pushes -- which is what skating actually is: a push, then a long roll, then another push.
-const ANIM = { pushT: 0.34, coastLo: 0.85, coastHi: 1.3, airFill: 1, blend: 0.055, snap: 0.035 };
+// HIS STRIDE CLIP IS AUTHORED OUT-AND-BACK, so it PING-PONGS. `skate_fwd` is one push -- six
+// frames, fourteen bones, the arm ending 106 degrees round and the hips 19 -- which is why a
+// plain loop snapped them back every cycle. Ping-pong makes it cyclic BY CONSTRUCTION: out on
+// the forward pass, recover on the reverse, which is the stride.
+// **ONE FULL STRIDE IS THEREFORE TWO CLIP LENGTHS**, and that factor is also most of why
+// fitting a one-way loop to the period came out at a fifth speed.
+const PINGPONG = ['skate_fwd'];
+// `ANIM.cycles` IS HOW MANY CLIP LENGTHS MAKE ONE STRIDE. Two, because `skate_fwd` ping-pongs:
+// the forward pass is the push and the reverse is the recovery, so the stride the player sees
+// is twice the clip. Get this wrong and the clip is played at half the rate it should be, which
+// is what "she holds the pose instead of looping" looked like.
+const ANIM = { cycles: 2, coastLo: 0.85, coastHi: 1.3, airFill: 1, blend: 0.055, snap: 0.035 };
 function clipLen(name, fb) { return (girl.clipLen && girl.clipLen[name]) || fb; }
 function clipScale(name, s) { const a = girl.actions[name]; if (a) a.setEffectiveTimeScale(s); }
 function setWeights(t, dt, snap) {
@@ -792,19 +796,15 @@ function girlAnim(dt) {
     clipScale('jump_in_air', clamp(clipLen('jump_in_air', .75) / est * ANIM.airFill, .45, 2.2));
   } else {
     const roll = clamp((p.speed - 0.35) / 1.7, 0, 1);
-    // HOW LONG SINCE THE FOOT WENT DOWN, in seconds -- `pushT` is a phase in [0,1) and the
-    // period moves with speed, so the two have to be multiplied to mean anything. The clip is
-    // up for `pushT` seconds of that and the glide has the rest, which is why a standstill
-    // (period .52) is nearly all push and a cruise (period 1.05) is mostly roll.
-    const since = ((((p.pushT - SK.plant) % 1) + 1) % 1) * p.pushPeriod;
-    const push = (p.pushing && since < ANIM.pushT) ? 1 : 0;
+    const push = p.pushing ? 1 : 0;
     t.skate_fwd = push;
     t.Idle = (1 - roll) * (1 - push);
     t.coasting = roll * (1 - push);
-    // ITS OWN RATE, NOT THE PERIOD'S. `setWeights` rewinds a clip whose weight comes up off the
-    // floor, so each push replays it from the first frame and it never reaches the wrap that
-    // would snap the arm back.
-    clipScale('skate_fwd', clipLen('skate_fwd', .21) / Math.max(.1, ANIM.pushT));
+    // ONE OUT-AND-BACK PER STRIDE. The period moves with speed -- quick hard strides from a
+    // standstill, long lazy ones at a cruise -- so the clip is scaled to it, and `cycles` is
+    // what accounts for the reverse pass. There is no glide window any more: ping-pong makes
+    // the clip cyclic, so it can simply run for as long as she is pushing.
+    clipScale('skate_fwd', ANIM.cycles * clipLen('skate_fwd', .21) / Math.max(.2, p.pushPeriod));
     clipScale('coasting', lerp(ANIM.coastLo, ANIM.coastHi, roll));
   }
   setWeights(t, dt, p.landHard > 4);

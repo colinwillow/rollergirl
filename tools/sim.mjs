@@ -248,7 +248,7 @@ CASES.anim = () => {
       reset() { this.resets++; this.running = 1; return this; }, play() { this.running = 1; return this; },
       stop() { this.running = 0; return this; }, isRunning() { return !!this.running; },
       setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; },
-      setEffectiveTimeScale(v) { this.ts = v; return this; } };
+      setEffectiveTimeScale(v) { this.ts = v; return this; }, setLoop(m, n) { this.loop = m; return this; } };
     rg.girl.actions[nm] = log[nm] = a;
   }
   rg.girl.clipLen = LEN; rg.girl.ready = true;
@@ -268,12 +268,13 @@ CASES.anim = () => {
   resets0 = log.skate_fwd.resets;
   for (const r of rows) console.log('  ' + r);
   const ts = log.skate_fwd.ts, cyc = LEN.skate_fwd / ts;
-  console.log(`  skate_fwd: ${LEN.skate_fwd}s of clip played over ${fix(cyc)}s (x${fix(ts)}), ` +
-              `replayed ${resets0} times in 7 s, up for ${fix(dutyUp / Math.max(1, dutyN) * 100, 0)}% of a cruising stride`);
-  // A CLIP PLAYED AT A FIFTH SPEED AND LOOPED IS A SLOW DRIFT INTO A POSE, not a stride. It has
-  // to run near its authored rate, and it has to be REPLAYED once per push rather than wrapped.
-  if (ts < 0.45) { console.log('  -> slow motion'); return false; }
-  if (resets0 < 3) { console.log('  -> not being replayed per push'); return false; }
+  // ONE STRIDE IS AN OUT-AND-BACK, so the cycle the player sees is TWO clip lengths.
+  console.log(`  skate_fwd: ${LEN.skate_fwd}s of clip, x${fix(ts)} -> ${fix(cyc * 2)}s out-and-back ` +
+              `against a ${fix(P.pushPeriod)}s stride, up ${fix(dutyUp / Math.max(1, dutyN) * 100, 0)}% of the time`);
+  // A CLIP PLAYED AT A FIFTH SPEED IS A SLOW DRIFT INTO A POSE, not a stride -- and the
+  // out-and-back has to LAND on the stride period, or the feet and the shove are on two clocks.
+  if (ts < 0.3) { console.log('  -> slow motion'); return false; }
+  if (Math.abs(cyc * 2 - P.pushPeriod) > 0.02) { console.log('  -> cycle does not match the stride'); return false; }
   // A CLIP REWOUND EVERY FRAME NEVER GETS PAST ITS FIRST KEY, which is a held pose exactly.
   return resets0 < 20;
 };
