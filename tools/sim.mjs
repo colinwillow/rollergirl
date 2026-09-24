@@ -62,8 +62,10 @@ function place(x, y, z, heading, speed) {
   P.pos.set(x, y, z); P.heading = P.faceH = heading; P.grounded = true;
   P.vel.set(Math.sin(heading) * (speed || 0), 0, Math.cos(heading) * (speed || 0));
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
+  P.bailT = 0; P.lean = 0;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
+  rg.groundQ(P.bq);        // standing on whatever she was just placed on
   rg.stick.L.x = rg.stick.L.y = 0; rg.stick.R.x = rg.stick.R.y = 0; rg.stick.R.down = 0;
   rg.cam.az = heading; bear = heading;
 }
@@ -84,18 +86,21 @@ const fix = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d);
 const CASES = {};
 // ---------------------------------------------------------------- the stride
 CASES.push = () => {
-  place(60, 1, -60, 0, 0);
-  let prev = 0, worst = 0, marks = [];
-  run(9, t => {
+  place(60, 1, -66, 0, 0);
+  let prev = 0, worst = 0, top = 0, marks = [], air = 0;
+  // 7 s, not 9: at the new top speed she crosses 140 m in nine and rides up the PERIMETER WALL,
+  // and the number that came back was her speed after being launched off it. **Every case that
+  // holds the stick forward has to be re-checked against the park whenever she gets faster.**
+  run(7, t => {
     follow(); rg.stick.L.y = -1; rg.stick.L.x = 0;
     const d = Math.abs(P.speed - prev); if (t > 0.2 && d > worst) worst = d;
-    prev = P.speed;
+    prev = P.speed; top = Math.max(top, P.speed); if (!P.grounded) air++;
     if (Math.abs(t % 1.5) < DT / 2) marks.push(`${fix(t,1)}s ${fix(P.speed)}`);
   });
   console.log(`  ${marks.join('  ')}`);
-  console.log(`  top ${fix(P.speed)} m/s, worst one-frame jump ${fix(worst, 3)} m/s ` +
-              `(a STROKE, not a step -- a staircase here is the bug)`);
-  return P.speed > 9 && worst < 0.8;
+  console.log(`  top ${fix(top)} m/s, worst one-frame jump ${fix(worst, 3)} m/s ` +
+              `(a STROKE, not a step -- a staircase here is the bug), ${air} airborne frames`);
+  return top > 14 && worst < 0.8 && air === 0;
 };
 // ---------------------------------------------------------------- the brake
 CASES.brake = () => {
@@ -129,12 +134,14 @@ CASES.carve = () => {
   // the harness. What matters is how fast she comes round and what the turn costs her.
   let ok = true;
   for (const v of [6, 14, 20]) {
-    place(60, 1, -60, 0, v);
-    const v0 = v; let t90 = -1;
-    run(3, t => { rg.cam.az = Math.PI / 2; rg.stick.L.y = -1; rg.stick.L.x = 0;
-      if (t90 < 0 && Math.abs(wrap(P.heading - Math.PI / 2)) < 0.09) t90 = t; });
-    console.log(`  at ${v0} m/s: 90 deg turn in ${t90 < 0 ? 'NEVER' : fix(t90) + 's'}, ` +
-                `out at ${fix(P.speed)} m/s`);
+    place(-60, 1, -60, 0, v);
+    let t90 = -1, vOut = 0;
+    // 1.6 s is all the turn needs; anything longer just skates her into the perimeter, which is
+    // what the 6 m/s row was really measuring when it came back at 0.26 m/s.
+    run(1.6, t => { rg.cam.az = Math.PI / 2; rg.stick.L.y = -1; rg.stick.L.x = 0;
+      if (t90 < 0 && Math.abs(wrap(P.heading - Math.PI / 2)) < 0.09) { t90 = t; vOut = P.speed; } });
+    console.log(`  at ${String(v).padStart(2)} m/s: 90 deg turn in ${t90 < 0 ? 'NEVER' : fix(t90) + 's'}, ` +
+                `out at ${fix(vOut)} m/s`);
     if (t90 < 0 || t90 > 2.4) ok = false;
   }
   return ok;
@@ -145,10 +152,111 @@ CASES.jump = () => {
   place(60, 1, -60, 0, 8);
   const y0 = P.pos.y; P.jump = 1;
   let apex = -9, air = 0;
-  run(3, () => { follow(); rg.stick.L.y = -1; if (!P.grounded) { air += DT; apex = Math.max(apex, P.pos.y); } });
-  console.log(`  apex ${fix(apex - y0)} m, airtime ${fix(air)} s, landed at ${fix(P.speed)} m/s`);
+  run(3, () => { follow(); rg.stick.L.y = P.grounded ? -1 : 0;
+    if (!P.grounded) { air += DT; apex = Math.max(apex, P.pos.y); } });
+  console.log(`  apex ${fix(apex - y0)} m, airtime ${fix(air)} s, landed at ${fix(P.speed)} m/s` +
+              (P.bailT > 0 ? ' -- BAILED' : ''));
   return apex - y0 > 1.2 && air > 0.6 && P.grounded;
 };
+const AIRLAND = 54;   // `AIR.land` in degrees -- the probe asserts against the shipped number
+const bodyAxis = ax => new THREE.Vector3(...ax).applyQuaternion(P.bq);
+const degBetween = (a, b) => Math.acos(Math.max(-1, Math.min(1, a.dot(b)))) * 180 / Math.PI;
+// ---------------------------------------------------------------- she carries the ramp's angle
+// "When you fly off a half pipe you are at a 90 degree angle from the ground." So the body has
+// to leave holding the angle of the face it left, and the only honest check is the angle between
+// her own up and that face's normal on the frame she goes.
+CASES.carry = () => {
+  let ok = true;
+  // the half pipe sits at oz = 30 running along +Z: flat bottom 27..33, right transition
+  // 33..35.59 (the lip), coping to 35.69, deck to 37.39. Further up the wall is a steeper face.
+  for (const z of [33.6, 34.6, 35.3]) {
+    // LET HER SETTLE ON THE WALL FIRST. `place` gives her a HORIZONTAL velocity, and popping on
+    // frame one launches her straight into a 62-degree face -- a state the game never produces,
+    // and the probe then reports that she never left the ground. Four frames of `stepGround`
+    // put her velocity ALONG the surface, which is what riding up a wall actually is.
+    place(0, 3, z, 0, 10);
+    let nWall = null, wall = 0, up0 = null;
+    run(0.3, (t, i) => {
+      rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+      if (i === 4) { nWall = new THREE.Vector3(P.n.x, P.n.y, P.n.z);
+                     wall = degBetween(nWall, new THREE.Vector3(0, 1, 0)); P.jump = 1; }
+      if (i > 4 && !P.grounded && !up0) up0 = bodyAxis([0, 1, 0]);
+    });
+    const off = up0 ? degBetween(up0, nWall) : -1;
+    console.log(`  leaving a ${fix(wall, 0)} deg face: her own up is ${fix(off, 1)} deg off it`);
+    if (!(off >= 0 && off < 2)) ok = false;
+  }
+  return ok;
+};
+// ---------------------------------------------------------------- and comes back down the pipe
+CASES.vert = () => {
+  // "A jump that aims straight up like a pipe, the character will fall straight back down to
+  // come back down the same pipe they went up." The deck starts at z = 35.69, so landing past
+  // there is being thrown OUT over the coping, which is the thing that was wrong.
+  let ok = true;
+  // Ridden up from the FLAT BOTTOM, which is the only way she ever actually reaches the lip --
+  // popped mid-wall she leaves at whatever angle that face happens to be and flying out over
+  // the deck is then correct rather than a fault.
+  for (const [v, pop] of [[13, 0], [17, 0], [21, 0], [13, 1], [17, 1]]) {
+    place(0, 3, 29, 0, v);
+    let phase = 0, landZ = 0, apex = -9;
+    run(5, (t, i) => {
+      rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+      // AT THE LIP, not merely near it. The band from 58 degrees to 88 is only 40 cm of z, so
+      // a trigger at 35.2 pops her off a 58-degree face -- and flying out over the deck off a
+      // 58-degree face is correct, not a fault. This is the LIP.
+      if (pop && P.grounded && P.pos.z > 35.55) P.jump = 1;
+      if (phase === 0 && !P.grounded) phase = 1;
+      if (phase === 1) { apex = Math.max(apex, P.pos.y); if (P.grounded) { phase = 2; landZ = P.pos.z; } }
+    });
+    const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep), deck = lip + rg.PARK.cope;
+    const where = landZ > deck ? 'ON THE DECK' : 'back in the pipe';
+    console.log(`  in at ${String(v).padStart(2)} m/s${pop ? ' + a pop' : '       '}: ` +
+                `apex ${fix(apex)} m (coping is ${fix(2.6 * (1 - Math.cos(rg.PARK.hpSweep)))}), ` +
+                `down at z ${fix(landZ)}, lip ${fix(lip)} -- ${where}`);
+    // AT A REALISTIC AIR SHE COMES BACK IN; a 21 m/s launch that goes ten metres above the
+    // coping genuinely overshoots onto the platform, and that is skating rather than a bug.
+    // What must ALWAYS hold is that she LEAVES -- the lip must never eat her climb again.
+    if (phase !== 2) ok = false;
+    if (v <= 13 && landZ > deck) ok = false;
+  }
+  return ok;
+};
+// ---------------------------------------------------------------- the stick turns the body
+CASES.rotate = () => {
+  const cases = [['spin right', 1, 0, [0, 1, 0]], ['spin left', -1, 0, [0, 1, 0]],
+                 ['flip forward', 0, -1, [1, 0, 0]], ['flip back', 0, 1, [1, 0, 0]]];
+  let ok = true;
+  for (const [name, sx, sy, ax] of cases) {
+    place(60, 1, -60, 0, 6);
+    P.jump = 1;
+    const q0 = P.bq.clone();
+    run(0.5, () => { rg.cam.az = 0; rg.stick.L.x = sx; rg.stick.L.y = sy; });
+    const d = q0.clone().invert().multiply(P.bq);
+    const ang = 2 * Math.acos(Math.min(1, Math.abs(d.w))) * 180 / Math.PI;
+    const along = Math.abs(new THREE.Vector3(d.x, d.y, d.z).normalize().dot(new THREE.Vector3(...ax))) * 100;
+    console.log(`  ${name.padEnd(13)} ${fix(ang, 0)} deg in 0.5 s, ${fix(along, 0)}% about the expected axis`);
+    if (!(ang > 55 && along > 96)) ok = false;
+  }
+  return ok;
+};
+// ---------------------------------------------------------------- and a bad landing is a bail
+CASES.bail = () => {
+  let ok = true;
+  for (const deg of [0, 30, 50, 75, 120]) {
+    place(60, 1, -60, 0, 8);
+    P.pos.y = 6; rg.leaveGround(0); P.vel.set(0, 0, 8);
+    P.bq.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deg * Math.PI / 180));
+    let bailed = -1, v1 = 0;
+    run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+      if (P.grounded && bailed < 0) { v1 = P.speed; bailed = P.bailT > 0 ? 1 : 0; } });
+    console.log(`  ${String(deg).padStart(3)} deg out of square: ${bailed === 1 ? 'BAILED    ' : 'landed it '}` +
+                ` (${fix((P.landOff || 0) * 180 / Math.PI, 0)} deg measured, ${fix(v1)} m/s left)`);
+    if ((bailed === 1) !== (deg > AIRLAND)) ok = false;
+  }
+  return ok;
+};
+
 // ---------------------------------------------------------------- THE HALF PIPE
 // This is the one that says whether any of it works. She drops in off the deck with NO input
 // at all and the only thing acting on her is the slope: if the transition is being handled
@@ -157,7 +265,7 @@ CASES.jump = () => {
 // exactly what "nothing ever gets to the coping" looks like, and it shows up here as the
 // swings dying away.
 CASES.pipe = () => {
-  const H = 2.6 * (1 - Math.cos(85 * Math.PI / 180));
+  const H = 2.6 * (1 - Math.cos(rg.PARK.hpSweep));
   place(0, H + 0.2, 23.0, 0, 2.2);
   const peaks = []; let up = false, best = -9;
   run(14, () => {
@@ -173,11 +281,12 @@ CASES.pipe = () => {
   return peaks.length >= 4 && keep > 0.6;
 };
 CASES.pump = () => {
-  const H = 2.6 * (1 - Math.cos(85 * Math.PI / 180));
+  const H = 2.6 * (1 - Math.cos(rg.PARK.hpSweep));
   place(0, H + 0.2, 23.0, 0, 2.2);
   let best = -9, peaks = [], up = false, air = 0;
   run(16, () => {
-    follow(); rg.stick.L.y = -1; rg.stick.L.x = 0;     // hold the thumb the way she is going
+    follow(); rg.stick.L.y = P.grounded ? -1 : 0; rg.stick.L.x = 0;   // and LET GO in the air:
+                                                     // that thumb is the BODY once she is up
     if (!P.grounded) air = Math.max(air, P.pos.y);
     if (P.vel.y > 0.2) { up = true; best = Math.max(best, P.pos.y); }
     else if (up && P.vel.y < -0.2) { peaks.push(best); up = false; best = -9; }
@@ -194,7 +303,7 @@ CASES.kicker = () => {
     // THE FIRST FLIGHT ONLY. She lands and rolls on and may leave the ground again; totting
     // all of that up measures the run, not the ramp.
     let air = 0, apex = -9, z0 = 0, z1 = 0, phase = 0;
-    run(4, () => { follow(); rg.stick.L.y = -1;
+    run(4, () => { follow(); rg.stick.L.y = P.grounded ? -1 : 0;
       if (phase === 0 && !P.grounded) { phase = 1; z0 = P.pos.z; }
       if (phase === 1) { if (P.grounded) phase = 2; else { air += DT; apex = Math.max(apex, P.pos.y); z1 = P.pos.z; } } });
     console.log(`  in at ${v} m/s: air ${fix(air)} s, apex ${fix(apex)} m, flew ${fix(z1 - z0)} m`);
@@ -208,7 +317,7 @@ CASES.bowl = () => {
   place(B.x, 1, B.z + B.r - 0.5, Math.PI, 6);       // over the rim, heading inward (-Z)
   let lowest = 9, out = 0, through = 0;
   run(18, () => {
-    follow(); rg.stick.L.y = -1; rg.stick.L.x = 0.35;   // hold a carve, the way you ride a bowl
+    follow(); rg.stick.L.y = P.grounded ? -1 : 0; rg.stick.L.x = P.grounded ? 0.35 : 0;
     lowest = Math.min(lowest, P.pos.y);
     if (P.pos.y < -4) through++;
     if (Math.hypot(P.pos.x - B.x, P.pos.z - B.z) > B.r + 4) out++;
@@ -238,7 +347,7 @@ CASES.inside = () => {
       place(x, 1, z, h, v);
       let deep = 0;
       run(3.2, (t, i) => {
-        follow(); rg.stick.L.y = -1; rg.stick.L.x = 0;
+        follow(); rg.stick.L.y = P.grounded ? -1 : 0; rg.stick.L.x = 0;
         if (i === 40 || i === 90) P.jump = 1;      // and at it in the air, rising
         const d = top(P.pos.x, P.pos.z) - P.pos.y;
         if (d > deep) deep = d;
@@ -351,6 +460,13 @@ CASES.anim = () => {
   return resets0 < 20;
 };
 
+// A one-off trace, so a question that is not worth a permanent case still gets measured
+// rather than reasoned about: SIM_PROBE=tools/probe-lip.mjs npm run sim
+if (process.env.SIM_PROBE) {
+  const mod = await import(pathToFileURL(path.resolve(process.env.SIM_PROBE)).href);
+  await mod.default(rg, THREE);
+  process.exit(0);
+}
 const only = process.argv[2];
 let fail = 0;
 for (const k of Object.keys(CASES)) {

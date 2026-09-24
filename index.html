@@ -110,7 +110,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r7</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r8</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button id="newer">build ready &middot; tap</button>
@@ -124,7 +124,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r7';
+const BUILD = 'r8';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -154,6 +154,13 @@ const RIG = {
   spin: 0,             // extra yaw on the model if the export faces some other way
   foot: 0.02,          // sink the soles this far so the wheels bite rather than float
   alphaTest: 0.5,      // her material exports as BLEND+doubleSided; a cutout sorts, alpha does not
+  // WHAT SHE ROTATES ABOUT. `p.pos` is her FEET -- it is the point the collider answers for --
+  // and a body flipping about its feet swings its head through a two-metre arc, which reads as
+  // being swung on a rope. In the air the pivot lifts to her middle; on the ground it is zero,
+  // because there the tilt has to leave her soles exactly on the surface.
+  pivot: 0.62,
+  pivotHL: 0.10,
+  tiltRate: 12,        // how fast the standing pose tracks the surface under her
 };
 
 // THE SKATE MODEL. Velocity lives in world space and is decomposed against the SURFACE she
@@ -183,12 +190,12 @@ const SK = {
   // frame, which reads as a staircase on the speedometer and not as a foot hitting tarmac.
   // The same total is spread over `strokeDur` on a half sine: the integral of
   // (pi/2)sin(pi*u) over one cycle is exactly 1, so the top speed is unchanged.
-  pushV: 5.4,          // delta-v per stride at a standstill
+  pushV: 6.4,          // delta-v per stride at a standstill
   taper: 0.86,         // how much of that is lost as she approaches pushMax
-  pushMax: 15.5,       // no more pushing past this -- legs cannot keep up
+  pushMax: 21,         // no more pushing past this -- legs cannot keep up
   pushFast: 0.52,      // stride period at a standstill (quick, hard strides)
   pushDur: 1.05,       // stride period at cruising speed (long, lazy glides)
-  pushEase: 9,         // speed at which the period has fully stretched
+  pushEase: 12,        // speed at which the period has fully stretched
   strokeDur: 0.34,     // how long one stroke's impulse is spread over
   plant: 0.30,         // where in the cycle the foot is actually on the ground
   grace: 0.45,         // a thumb off and back on inside this is ONE cycle, not two
@@ -207,7 +214,26 @@ const SK = {
   // before she is airborne; on a 2 m transition at 10 m/s that gap is under a centimetre,
   // and off the lip of a kicker it is a metre, so one number separates them cleanly.
   step: 0.42,          // how high a lip she rolls straight over
-  stick: 0.14,
+  // HOW FAR THE SURFACE MAY FALL AWAY UNDER HER IN ONE STEP BEFORE SHE IS IN THE AIR -- AND IT
+  // IS THE GEOMETRY'S OWN OVERSHOOT, NOT A TYPED NUMBER. Moving `l` along a curve of radius R
+  // the tangent leaves the surface by exactly `l^2 / 2R`, so that IS the threshold: anything
+  // more is a real departure. A flat 0.14 m was far too sticky at the top of a near-vertical
+  // wall, where her step is mostly VERTICAL and the surface only creeps forward -- she stayed
+  // glued to the lip, met the flat coping still grounded, and the re-projection took the whole
+  // of her climb: **18.4 m/s of vertical annihilated in one frame**, with nothing on screen to
+  // say why. Which is the kicker's flat-coping landmine again, on the one ramp I argued was
+  // safe from it.
+  stick0: 0.035,       // the floor, for numerical noise
+  stickR: 2.0,         // the tightest transition she is expected to hold
+  // AND A HEIGHT TEST CANNOT SEE A SLOPE CHANGE, which is the other half and the one that
+  // matters at a lip. Where a transition meets its coping the surface height barely moves and
+  // the ANGLE jumps ninety degrees -- so `drop` stays tiny, she is snapped onto the flat, and
+  // the re-projection deletes her whole climb. The honest question is whether the new face is
+  // still pushing her onto it: `vel . n` is NEGATIVE while she is tracking a concave curve and
+  // goes sharply POSITIVE the moment the surface turns away under her. That is a launch, and it
+  // is one rule for every convex crease in the park -- a coping, a kicker's lip, the top edge
+  // of a funbox -- rather than a special case each.
+  leave: 0.6,
   // THE COLLIDER IS SAMPLED AT A POINT, so how far she moves between samples is how far she can
   // get into something before anything notices. At 20 m/s a 60 Hz frame is a THIRD OF A METRE,
   // and a near-vertical transition is only a few centimetres wide in plan -- so she crosses the
@@ -231,18 +257,36 @@ const SK = {
   leanHL: 0.12,
   dead: 0.14,          // stick dead zone
   curve: 1.35,         // stick response curve
-  max: 26,             // hard speed ceiling, so nothing can run away
+  max: 34,             // hard speed ceiling, so nothing can run away
 };
 
+// SHE CARRIES THE RAMP'S ANGLE INTO THE AIR. Leaving the lip of a vert wall you are ninety
+// degrees to the ground, and you stay there -- what rights you is the next second of the air,
+// not the frame you left. So the body is a real QUATERNION from the moment she leaves: seeded
+// from the surface she left, turned by the left stick while she is up there, and checked
+// against the face she comes down on.
 const AIR = {
-  jump: 10.6,          // straight up, from flat -- 2.81 m of apex against 8.4's 1.69
-  popNorm: 0.55,       // ...and this much of it along the SURFACE NORMAL instead, which is
-                       // what turns riding up a quarter pipe into real air off the lip
+  jump: 10.6,          // straight up, from flat -- 2.81 m of apex
+  // POP ALONG WORLD UP, ALMOST ENTIRELY. This used to be 55% along the SURFACE NORMAL, which on
+  // an 85-degree wall throws her sideways over the coping and onto the deck. A skater going up
+  // a pipe goes UP and comes back down the same pipe, so the pop has almost nothing sideways in
+  // it and her existing velocity -- already running up the wall -- does the rest.
+  popNorm: 0.25,
   coyote: 0.11,        // grace after rolling off an edge
-  spin: 3.4,           // rad/s -- IN THE AIR THE STICK IS A RATE, NOT A TARGET. Held as a
-                       // target it is a 45 degree turn and then nothing; what was asked for
-                       // was to keep spinning.
-  drift: 3.2,          // a little steering of the trajectory, so a jump is not a rail
+  // THE LEFT STICK IS THE BODY IN THE AIR, AND IT IS A RATE, NOT A TARGET. Left/right spins her
+  // about her OWN up axis, up/down flips her about her own right. Held as a target either one
+  // is a 45-degree turn and then nothing.
+  spin: 4.2,           // rad/s of yaw
+  flip: 5.0,           // rad/s of flip -- a front flip in 1.26 s
+  drift: 0,            // SHE DOES NOT STEER HER TRAJECTORY. Once she is off the ramp the line
+                       // is set; the stick turns the BODY, and landing it is the skill.
+  // HOW FAR OUT SHE MAY BE AND STILL LAND IT -- the angle between her own up and the face she
+  // comes down on. Past this she has landed on her side and she loses it.
+  land: 0.95,          // about 54 degrees
+  bailT: 1.1,          // how long she is out of control afterwards
+  bailKeep: 0.35,      // ...and what is left of her speed
+  bailDrag: 2.6,
+  right: 3.2,          // how fast she picks herself up -- slow enough to SEE the stumble
   startT: 0.16,        // how long `jump_start` holds before `jump_in_air` takes over
   tapT: 0.26,          // a tap is a tap; a hold is a camera drag and is NOT a jump
 };
@@ -262,7 +306,18 @@ const CAM = {
   fov: 62, fovRush: 11, rush0: 8, rushSpan: 14,
 };
 
-const PARK = { S: 70, cell: 5, wallR: 4.5, wallSweep: 72 * Math.PI / 180 };
+const PARK = { S: 70, cell: 5, wallR: 4.5, wallSweep: 72 * Math.PI / 180,
+  // HOW VERTICAL THE HALF PIPE'''S WALLS ARE IS THE WHOLE OF "you come back down the same pipe".
+  // Leaving a face at angle T from horizontal, the outward drift over the flight is
+  // v^2 sin(2T) / g -- so at 85 degrees a 12 m/s launch drifts 1.25 m and lands on the deck,
+  // and at 88 it drifts 0.50 and lands back on the coping. At exactly 90 it is zero, which is
+  // why real vert ramps are vertical at the lip -- but a 90 degree face has NO footprint in
+  // plan, so a collider that answers "what is the height at this x,z" cannot hold one.
+  // 88 is as vertical as this collider can carry.
+  // AND SHE CAN ONLY EVER LEAVE AT THE LAST BAND'S CHORD ANGLE, not at the sweep: 16 segments
+  // over 88 degrees makes that chord 85.3, and the drift goes as sin(2T), so the segment count
+  // is worth as much here as the sweep is. 28 puts it at 86.4.
+  hpSweep: 88 * Math.PI / 180, hpSeg: 28, cope: 0.45 };
 const LIGHT = { sun: 2.5, hemi: 1.15, dir: new THREE.Vector3(0.45, 0.78, 0.42).normalize() };
 
 // ---------- renderer & scene ----------
@@ -317,7 +372,7 @@ sky.frustumCulled = false; scene.add(sky);
 // second description of the ramp to drift out of agreement with the one on screen, and no
 // analytic special case for a curve. A transition is a floor she rolls up, exactly like the
 // flat, and the slope term in `stepGround` does the rest with no new code.
-const TRI = { cell: 4, x0: -200, z0: -200, w: 100, h: 100, cells: null, v: null, n: 0, up: 0.06 };
+const TRI = { cell: 4, x0: -200, z0: -200, w: 100, h: 100, cells: null, v: null, n: 0, up: 0.03 };
 let _triRaw = [];
 function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz) {
   const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
@@ -478,7 +533,8 @@ function arcDown(out, u0, y0, r, sweep, seg, col) {
     out.push({ u: u0 + r * (Math.sin(sweep) - Math.sin(a)), y: y0 - r * (Math.cos(a) - Math.cos(sweep)), c: col });
   }
 }
-const COPEW = 0.10;      // how wide the coping band is drawn
+const COPEW = PARK.cope;   // how wide the coping band is drawn -- and how much overshoot at the
+                          // lip still puts her back in the pipe rather than up on the deck
 // A HALF PIPE WITH ITS OWN WAY IN. The back of each deck is a shallow bank to ground level,
 // so the whole thing is ONE profile you can ride from either end -- up the back, across the
 // deck, drop in, up the far transition, out the other side. Without it the decks are
@@ -494,9 +550,9 @@ function halfPipe(ox, oz, yaw, halfW, r, sweep, flat, deck, bank) {
   p.push({ u: -L + bank, y: H, c: DECK });                             // deck
   p.push({ u: -(flat + lip) - COPEW, y: H, c: COPE });                 // coping
   p.push({ u: -(flat + lip), y: H, c: RAMP });
-  arcDown(p, -(flat + lip), H, r, sweep, 16, RAMP);                    // transition, down
+  arcDown(p, -(flat + lip), H, r, sweep, PARK.hpSeg, RAMP);            // transition, down
   p.push({ u: flat, y: 0, c: RAMP });                                  // flat bottom
-  arcUp(p, flat, 0, r, sweep, 16, RAMP);                               // transition, up
+  arcUp(p, flat, 0, r, sweep, PARK.hpSeg, RAMP);                       // transition, up
   p[p.length - 1].c = COPE;
   p.push({ u: flat + lip + COPEW, y: H, c: DECK });
   p.push({ u: L - bank, y: H, c: RAMP });
@@ -632,7 +688,7 @@ function buildPark() {
   perimeter(PARK.S, PARK.wallR, PARK.wallSweep);
   // Everything below is placed by construction, on a grid, with its own footprint known --
   // nothing is eyeballed and nothing overlaps.
-  halfPipe(0, 30, 0, 7.5, 2.6, 85 * Math.PI / 180, 3.0, 1.8, 5.5);      // ride it along +Z
+  halfPipe(0, 30, 0, 7.5, 2.6, PARK.hpSweep, 3.0, 1.8, 5.5);      // ride it along +Z
   quarterPipe(-22, 2, -Math.PI / 2, 6, 3.1, 78 * Math.PI / 180, 2.0, 5.0);
   quarterPipe(22, 2, Math.PI / 2, 6, 3.1, 78 * Math.PI / 180, 2.0, 5.0);
   funBox(0, 8, 0, 3.5, 6, 1.0, 3.0);
@@ -659,8 +715,11 @@ const loader = new GLTFLoader();
 const draco = new DRACOLoader(); draco.setDecoderPath('./vendor/draco/'); loader.setDRACOLoader(draco);
 const girl = { root: new THREE.Group(), model: null, mixer: null, actions: {}, cw: {}, ready: false, scale: 1, lift: 0 };
 scene.add(girl.root);
-const tilt = new THREE.Group(), yawG = new THREE.Group(), leanG = new THREE.Group();
-girl.root.add(tilt); tilt.add(yawG); yawG.add(leanG);
+// ONE QUATERNION FOR THE WHOLE BODY, on a pivot that lifts to her middle in the air. The old
+// tilt/yaw/lean chain could only ever express a skater standing on something: three Euler
+// angles in a fixed order cannot carry a body through a flip.
+const pivotG = new THREE.Group(), bodyG = new THREE.Group();
+girl.root.add(pivotG); pivotG.add(bodyG);
 
 function loadGLB(url, onProg) {
   return new Promise((res, rej) => loader.load(A(url), res, onProg, rej));
@@ -760,7 +819,8 @@ function buildGirl(gltf) {
       if (mat.map) mat.map.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
     }
   });
-  leanG.add(model);
+  bodyG.add(model);
+  girl.foot = model.position.y;
   girl.model = model;
   girl.mixer = new THREE.AnimationMixer(model);
   const clips = normaliseClips(gltf.animations || []);
@@ -974,15 +1034,38 @@ const player = {
   airT: 0, coyote: 0, jump: 0, landHard: 0, rHold: 0,
   pushing: false, pushT: 0, pushOff: 9, pushPeriod: SK.pushFast,
   shoveT: 0, shoveDur: 0, shoveV: 0,
-  braked: 0, lean: 0, steer: 0,
+  braked: 0, lean: 0, steer: 0, bailT: 0,
+  bq: new THREE.Quaternion(),      // THE BODY'S FULL ORIENTATION. On the ground it is derived
+                                   // from the surface; in the air it is integrated and is the
+                                   // only thing that says which way up she is.
 };
 const _F = new THREE.Vector3(), _R = new THREE.Vector3(), _N = new THREE.Vector3(), _q = new THREE.Quaternion();
-const UP = new THREE.Vector3(0, 1, 0);
+const _qa = new THREE.Quaternion(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0), XAX = new THREE.Vector3(1, 0, 0), ZAX = new THREE.Vector3(0, 0, 1);
+// The orientation of a skater standing on the surface she is on, facing her heading. Composed
+// align-then-yaw-then-lean, which is exactly what the old three-node chain multiplied out to --
+// so the yaw is about the SURFACE normal and not about world up, which is what keeps her square
+// to a transition while she carves across it.
+function groundQ(out) {
+  const p = player;
+  out.setFromUnitVectors(UP, p.n);
+  out.multiply(_qa.setFromAxisAngle(UP, p.faceH));
+  return out.multiply(_qa.setFromAxisAngle(ZAX, p.lean));
+}
+// EVERY WAY SHE LEAVES THE GROUND GOES THROUGH HERE, so there is one place that decides what
+// angle she takes into the air with her. Seeded from the TRUE surface rather than from the
+// damped pose, because "the rotation of the end of the ramp" is the thing being asked for.
+function leaveGround(coy) {
+  const p = player;
+  groundQ(p.bq);
+  p.grounded = false; p.airT = 0; p.coyote = coy;
+}
 
 function respawn() {
   const p = player;
   p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0;
-  p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0;
+  p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
+  p.lean = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
   if (g.hit) { p.pos.y = g.floor; p.n.set(g.nx, g.ny, g.nz); }
 }
@@ -1007,12 +1090,12 @@ function surfaceFrame(n, heading) {
 
 function doJump() {
   const p = player, n = p.n;
-  // POP ALONG A BLEND OF WORLD UP AND THE SURFACE NORMAL. On the flat that is straight up; on
-  // a transition it throws her OUT over the coping, which is what air off a quarter pipe is.
-  // Straight up from a wall would just press her back into it.
+  // ALMOST STRAIGHT UP. A skater who rides up a pipe and pops goes UP and comes back down the
+  // same pipe -- so the pop carries only a token of the surface normal, and her existing
+  // velocity, which is already running up the wall, is what actually carries her out.
   _N.set(n.x * AIR.popNorm, lerp(1, n.y, AIR.popNorm), n.z * AIR.popNorm).normalize();
   p.vel.addScaledVector(_N, AIR.jump);
-  p.grounded = false; p.airT = 0; p.coyote = 0;
+  leaveGround(0);
 }
 
 function stepGround(dt) {
@@ -1025,6 +1108,10 @@ function stepGround(dt) {
   const spd = Math.abs(along);
   let braking = false, go = false, lead = 1;
   p.steer = 0;
+  // A BAIL IS A SECOND OF HAVING NO SAY IN IT. No steering, no push, no brake -- she scrubs off
+  // speed and picks herself up, and `poseGirl` rights her slowly enough that you see it happen.
+  const ctrl = p.bailT <= 0;
+  if (!ctrl) { p.bailT -= dt; p.pushing = false; along = decay(along, AIR.bailDrag, dt); }
 
   // FAKIE IS A DIRECTION OF TRAVEL, NOT A MISTAKE -- AND IN A HALF PIPE IT IS HALF OF EVERY
   // RUN. She rides up the far wall, stops, and comes back down BACKWARDS. If the controls are
@@ -1037,7 +1124,7 @@ function stepGround(dt) {
   // AND `lead` ONLY GOES NEGATIVE PAST `fakieAt`. Below that she always turns to face the
   // thumb and skates away forwards -- so she can never be left trickling backwards with the
   // controls mirrored and no clip to sell it, which is a state you cannot get out of.
-  if (s.mag > 0) {
+  if (ctrl && s.mag > 0) {
     const ang = wrapAngle(Math.atan2(s.x, s.z) - p.heading);
     lead = along < -SK.fakieAt ? -1 : 1;
     const rel = lead > 0 ? ang : wrapAngle(ang - Math.PI);
@@ -1090,7 +1177,7 @@ function stepGround(dt) {
   // the speedometer read 9, 9, 9, 13, 13, 13 -- a staircase, which is not what a foot hitting
   // tarmac does. The same total is spread over `strokeDur` on a half sine: the integral of
   // (pi/2)sin(pi u) over one cycle is exactly 1, so the top speed is untouched.
-  if (!braking && !p.braked && go && lead > 0 && along < SK.pushMax) {
+  if (ctrl && !braking && !p.braked && go && lead > 0 && along < SK.pushMax) {
     p.pushPeriod = lerp(SK.pushFast, SK.pushDur, clamp(spd / SK.pushEase, 0, 1));
     const shove = () => {
       p.shoveV = SK.pushV * (1 - SK.taper * spd / SK.pushMax);
@@ -1145,20 +1232,25 @@ function stepGround(dt) {
   const h = Math.hypot(p.vel.x, p.vel.z);
   if (h > SK.max) { p.vel.x *= SK.max / h; p.vel.z *= SK.max / h; }
 
-  const y0 = p.pos.y;
+  const y0 = p.pos.y, step = p.vel.length() * dt;
   p.pos.addScaledVector(p.vel, dt);
 
   // ---- stay on it, or leave it ----
-  // `stick` is how far the surface may fall away under her in one frame before she is in the
-  // air. On a 2.6 m transition at 10 m/s that gap is under a centimetre; off the lip of a
-  // kicker it is a metre. ONE NUMBER separates them, and the ballistic term is what makes a
-  // fast launch leave cleanly instead of being sucked back down.
+  // `stick` is how far the surface may fall away under her in this step before she is in the
+  // air, and it is DERIVED: the tangent to a curve of radius R leaves it by `l^2 / 2R` over a
+  // step of `l`, so that is exactly the amount a surface she is genuinely tracking can drop.
+  // Off the lip of a kicker the gap is a metre and she goes. The ballistic term on top is what
+  // makes a fast launch leave cleanly instead of being sucked back down.
   const g2 = groundAt(p.pos.x, p.pos.z, Math.max(y0, p.pos.y), SK.step);
-  if (!g2.hit) { p.grounded = false; p.airT = 0; p.coyote = AIR.coyote; return; }
+  if (!g2.hit) { leaveGround(AIR.coyote); return; }
   const drop = p.pos.y - g2.floor;
-  if (drop > SK.stick + Math.max(0, -p.vel.y) * dt) { p.grounded = false; p.airT = 0; p.coyote = AIR.coyote; return; }
-  p.pos.y = g2.floor;
+  const hold = SK.stick0 + step * step / (2 * SK.stickR);
+  if (drop > hold + Math.max(0, -p.vel.y) * dt) { leaveGround(AIR.coyote); return; }
   _N.set(g2.nx, g2.ny, g2.nz);
+  // OVER A CONVEX CREASE SHE FLIES. Checked BEFORE the snap and before the projection, because
+  // both of those are what would quietly eat the climb she is leaving on.
+  if (p.vel.dot(_N) > SK.leave) { leaveGround(AIR.coyote); return; }
+  p.pos.y = g2.floor;
   const bend = Math.acos(clamp(_N.dot(n), -1, 1));
   const sp0 = p.vel.length();
   p.vel.addScaledVector(_N, -p.vel.dot(_N));
@@ -1173,16 +1265,26 @@ function stepGround(dt) {
 function stepAir(dt) {
   const p = player;
   p.airT += dt; p.coyote -= dt;
-  // IN THE AIR THE STICK IS A RATE, NOT A TARGET. Held as a target it is a 45 degree turn and
-  // then nothing, when what was asked for was to keep spinning. The pad's OWN x axis, because
-  // a spin is relative to her body and not to the lens.
-  let sx = stick.L.x; if (keys.a || keys.arrowleft) sx -= 1; if (keys.d || keys.arrowright) sx += 1;
-  // NEGATED: heading grows from +Z toward +X, which turns her LEFT, so a thumb pushed right
-  // has to DECREASE it. Checked rather than derived -- the handedness argument comes out
-  // backwards half the time.
-  p.heading -= clamp(sx, -1, 1) * AIR.spin * dt;
-  const s = stickWorld();
-  if (s.mag > 0) { p.vel.x += s.x * AIR.drift * s.mag * dt; p.vel.z += s.z * AIR.drift * s.mag * dt; }
+  // THE LEFT STICK IS THE BODY. Left/right spins her about her OWN up, up/down flips her about
+  // her own right -- and both are RATES, read off the pad RAW rather than through `cam.az`,
+  // because a spin is relative to her body and not to the lens. Post-multiplying is what makes
+  // them local: the axes turn with her, so a flip started mid-spin goes where a skater's would.
+  let sx = stick.L.x, sy = stick.L.y;
+  if (keys.a || keys.arrowleft) sx -= 1; if (keys.d || keys.arrowright) sx += 1;
+  if (keys.w || keys.arrowup) sy -= 1; if (keys.s || keys.arrowdown) sy += 1;
+  sx = clamp(sx, -1, 1); sy = clamp(sy, -1, 1);
+  // NEGATED, both of them, and checked rather than derived -- the handedness argument comes out
+  // backwards half the time. A rotation about local +Y turns her LEFT, so a thumb pushed right
+  // needs a negative one; a rotation about local +X tips her forward, and the pad's up is -y.
+  if (sx) p.bq.multiply(_qa.setFromAxisAngle(UP, -sx * AIR.spin * dt));
+  if (sy) p.bq.multiply(_qa.setFromAxisAngle(XAX, -sy * AIR.flip * dt));
+  p.bq.normalize();
+  // THE CAMERA STILL NEEDS A BEARING, and hers now comes out of the body rather than the other
+  // way round. Guarded, because a body pointing straight up has no bearing at all and atan2 of
+  // two near-zeros is noise.
+  _v.set(0, 0, 1).applyQuaternion(p.bq);
+  if (Math.hypot(_v.x, _v.z) > 0.2) p.heading = Math.atan2(_v.x, _v.z);
+  if (AIR.drift) { const s = stickWorld(); if (s.mag > 0) { p.vel.x += s.x * AIR.drift * s.mag * dt; p.vel.z += s.z * AIR.drift * s.mag * dt; } }
   p.vel.y -= SK.g * dt;
   if (p.vel.y < -34) p.vel.y = -34;
   const h = Math.hypot(p.vel.x, p.vel.z);
@@ -1216,7 +1318,19 @@ function stepAir(dt) {
       p.vel.multiplyScalar(lerp(1, v0 / v1, SK.landKeep * graze * graze));
     }
     p.n.copy(_N);
-    p.grounded = true; p.airT = 0; p.pushT = 0; p.pushOff = 9; p.braked = 0;
+    // **DID SHE LAND IT?** The angle between her own up and the face she came down on. Coming
+    // back down into the transition she went up, both are the wall's normal and it is zero;
+    // coming down on the flat still lying sideways it is ninety degrees and she has not landed,
+    // she has arrived. That is the whole reason the body carries a real orientation.
+    _v.set(0, 1, 0).applyQuaternion(p.bq);
+    const off = Math.acos(clamp(_v.dot(_N), -1, 1));
+    // and her heading is where her BODY was pointing, flattened onto what she landed on
+    _v2.set(0, 0, 1).applyQuaternion(p.bq).addScaledVector(_N, -_v2.dot(_N));
+    if (_v2.lengthSq() > 1e-4) p.heading = p.faceH = Math.atan2(_v2.x, _v2.z);
+    if (off > AIR.land) { p.bailT = AIR.bailT; p.vel.multiplyScalar(AIR.bailKeep); }
+    p.landOff = off;
+    p.n.copy(_N);
+    p.grounded = true; p.airT = 0; p.pushT = 0; p.pushOff = 9; p.braked = 0; p.lean = 0;
   }
   if (p.pos.y < -40) respawn();
 }
@@ -1248,13 +1362,18 @@ function poseGirl(dt) {
   if (!girl.ready) return;
   const p = player;
   girl.root.position.copy(p.pos);
-  // SHE STANDS ON THE SURFACE, NOT ON THE WORLD. Upright on a transition is a woman levitating
-  // past a wall; perpendicular to it is a skater. Damped, because the normal steps from
-  // triangle to triangle and she must not.
-  _q.setFromUnitVectors(UP, p.grounded ? p.n : UP);
-  tilt.quaternion.slerp(_q, Math.min(1, 9 * dt));
-  yawG.rotation.y = p.faceH;
-  leanG.rotation.z = p.lean;
+  // THE PIVOT LIFTS TO HER MIDDLE IN THE AIR AND IS ZERO ON THE GROUND. `p.pos` is her FEET, so
+  // a flip about it swings her head through a two-metre arc; but on the ground the tilt has to
+  // leave her soles exactly on the surface, and any pivot at all would float them off a
+  // transition. The model offset cancels it, so at rest nothing moves either way.
+  girl.pv = damp(girl.pv || 0, p.grounded ? 0 : RIG.pivot, RIG.pivotHL, dt);
+  pivotG.position.y = girl.pv;
+  girl.model.position.y = girl.foot - girl.pv;
+  // ON THE GROUND SHE STANDS ON THE SURFACE -- upright on a transition is a woman levitating
+  // past a wall. Damped, because the normal steps from triangle to triangle and she must not;
+  // and damped SLOWLY while she is bailing, because the stumble is the thing you want to see.
+  if (p.grounded) p.bq.slerp(groundQ(_q), Math.min(1, (p.bailT > 0 ? AIR.right : RIG.tiltRate) * dt));
+  bodyG.quaternion.copy(p.bq);
   // WHICH WAY HER EXPORT FACES IS THE ONE THING NO OFFLINE CHECK HERE CAN SETTLE, so it is
   // applied every frame rather than baked in at load: `rg.RIG.spin = Math.PI` turns her
   // round on the phone, with no rebuild and no push.
@@ -1354,7 +1473,9 @@ function hud(dt) {
   fpsT += dt; fpsN++;
   if (fpsT > 0.5) { fps = fpsN / fpsT; fpsT = 0; fpsN = 0;
     buildI.textContent = `${Math.round(fps)} fps · ${renderer.info.render.calls} dc` +
-      (girl.ready ? '' : ' · NO GIRL GLB'); }
+      // "why did I suddenly stop" is a question the chip can answer for free, and a bail is
+      // otherwise indistinguishable from the controls having died
+      (player.bailT > 0 ? ' · BAIL' : '') + (girl.ready ? '' : ' · NO GIRL GLB'); }
 }
 function setBoot(msg, frac) {
   const m = document.getElementById('bootMsg'), b = document.getElementById('bootBar');
@@ -1430,7 +1551,7 @@ async function init() {
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
 window.rg = { SK, AIR, CAM, RIG, ANIM, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
-  groundAt, respawn, BUILD, normaliseClips, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
+  groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
   bowl() { this.tp(BOWL.x, BOWL.z + BOWL.r - 1); },
