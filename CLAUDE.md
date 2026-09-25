@@ -67,29 +67,32 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
-- **THE BODY IS A QUATERNION FROM THE MOMENT SHE LEAVES THE GROUND, AND IT IS SEEDED FROM THE
-  RAMP.** *"Whenever she jumps she just goes straight up rotationally, whereas the rotation
-  should be based on the rotation of the end of the ramp... when you fly off a half pipe you are
-  at a 90 degree angle from the ground."* Exactly right, and the old tilt/yaw/lean chain could
-  not express it: three Euler angles in a fixed order can only ever describe a skater standing on
-  something. `p.bq` is the whole orientation now — `groundQ` builds it from the surface on the
-  ground, `leaveGround` freezes that value as she goes, and the left stick integrates it while
-  she is up. **Every way she leaves the ground goes through `leaveGround`**, so there is one
-  place that decides what angle she takes with her. Measured: leaving a 27 / 49 / 68 degree face
-  her own up is **0.0 degrees off it** in each case.
-- **AND THE LEFT STICK IS THE BODY IN THE AIR — WHICH BREAKS EVERY PROBE THAT HOLDS IT FORWARD.**
-  Left/right spins her about her own up, up/down flips her about her own right, both as rates,
-  both read RAW off the pad rather than through `cam.az`, and both post-multiplied so the axes
-  turn with her. A harness that holds the thumb forward for locomotion is now asking for a front
-  flip: `jump` came back *"landed at 7.42 m/s"* because she flipped 295 degrees during 1.03 s of
-  air and bailed. **A player lets go in the air; so must the probes** (`P.grounded ? -1 : 0`).
-- **A BAD LANDING IS A BAIL (`AIR.land`, `p.bailT`).** The angle between her own up and the face
-  she comes down on. Coming back down into the transition she went up, both are the wall's normal
-  and it is zero; coming down on the flat still lying sideways it is ninety degrees and she has
-  not landed, she has arrived. 54 degrees, and `rg.AIR.land = 9` turns it off. There is **no bail
-  clip** — she scrubs speed, keeps the angle she landed at, and rights herself over `AIR.right`
-  slowly enough to read as a stumble. The chip says `BAIL`, because otherwise it is
-  indistinguishable from the controls dying.
+- **THE BODY IS A QUATERNION (`p.bq`), AND IN THE AIR IT IS UPRIGHT.** The old tilt/yaw/lean
+  chain could not express a free body at all: three Euler angles in a fixed order only ever
+  describe a skater standing on something. `groundQ` builds the orientation from the surface she
+  is on; `leaveGround` freezes that as she goes; and from there she eases to PLUMB over
+  `AIR.ease`, yawed to her heading.
+  **r8 ALIGNED HER TO THE RAMP'S NORMAL IN THE AIR AND THAT WAS WRONG** — *"her rotation is
+  matching the normals of the ramp, I don't think I meant that"*. Right: a skater flying out of a
+  vert wall is UPRIGHT going straight up, not lying on her side parallel to the wall. She still
+  LEAVES holding the face's angle, which is what makes the departure read, and straightens out
+  over about a third of a second. Measured: leaving a 27 / 49 / 68 degree face she is **2-3
+  degrees off plumb** 0.8 s later. `AIR.pitch` leans her into the arc instead, if that is ever
+  wanted; 0 is plumb.
+- **THE LEFT STICK IN THE AIR IS X = SPIN, Y = THRUST. THERE IS NO FLIP.** *"I'm not sold on the
+  flip -- maybe we'll just have her rotate in the air for now, left and right"*, and *"in the air
+  you'll hold forward"*, which is how you get over the back of one ramp and reach the next. Both
+  read RAW off the pad rather than through `cam.az`: a spin is relative to her body and the
+  thrust is along her nose, and neither is a question about where the lens is. Measured: **293
+  degrees of spin** in 1.23 s of air, and holding forward carries her **19.0 m against 12.2**.
+  `AIR.driftMax` caps the total so a long flight is not a free flight.
+- **THE BAIL IS DORMANT, AND IT CANNOT FIRE WHILE SHE IS UPRIGHT.** It compares her own up to the
+  face she lands on, which only means anything while the body is free — upright in the air, every
+  drop back into a transition is eighty degrees "out" and she would lose it every single time. So
+  `AIR.land` ships at 99. **The mechanism is kept for the day there is a flip again**, and
+  `npm run sim bail` proves it still works by arming `AIR.land` AND turning `AIR.ease` off for
+  the duration: without that second half she is upright again long before she lands and every row
+  reads "landed it", which is a test that cannot fail.
 - **`SK.stick` MUST BE DERIVED, NOT TYPED — AND A FLAT 0.14 m GLUED HER TO THE LIP.** Moving `l`
   along a curve of radius R the tangent leaves the surface by exactly `l^2 / 2R`, so that IS the
   threshold for "is she still tracking this". A flat number was far too sticky near a vertical
@@ -114,11 +117,28 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   over 88 degrees makes that chord 85.3, so the segment count is worth as much here as the sweep.
   Measured at 28 segments: a realistic air comes back into the pipe, a 21 m/s launch that goes
   ten metres above the coping overshoots onto the platform. That last one is skating, not a bug.
-- **THE POP IS ALMOST ENTIRELY WORLD-UP (`AIR.popNorm`).** It used to be 55% along the surface
-  normal, which on an 88 degree wall throws her sideways over the coping and onto the deck. A
-  skater going up a pipe goes UP; her existing velocity, already running up the wall, is what
-  carries her out.
-- **SHE IS FASTER NOW, SO THE RUNWAY IS SHORTER.** Top speed 14.2 -> 19.7 m/s, and two probe
+- **THE POP GOES WHERE SHE IS ALREADY GOING, AND IT ADDS (`popDir`, `AIR.popTravel`).**
+  *"Velocity needs to carry in the jump, it just adds to it, so the jump should kinda launch you
+  in the direction of the tip of the ramp."* So the pop is along her travel over the SURFACE,
+  blended toward world up by `k` — the vertical part of that travel direction:
+      flat, or descending    k = 0   -> straight up, the only thing a jump can mean there
+      up a 38 degree kicker  k = .62 -> 58 degrees, steeper than the ramp but along it
+      up an 88 degree wall   k = 1   -> straight up, and she comes back down the same pipe
+  One expression, and the vert case and the flat case fall out of it rather than being cases. It
+  replaced `popNorm`, which asked about the surface NORMAL — on a wall that points sideways INTO
+  the pipe, which is the opposite of where she is going.
+- **THE PERIMETER HAS TO BE TALL, NOT STEEP — AND STEEPNESS IS THE INSTINCT THAT DOES NOT WORK.**
+  She carries 24 m/s, which is **14.4 m of climb**, so a 4 m berm is something she flies straight
+  over: six scripted runs put her off the edge of the world for 334 frames. A bank only has to be
+  steep enough to turn her round; what stops her is HEIGHT. 6.6 m holds anything arriving under
+  about 11.5 m/s and takes most of the speed off the rest, there is a 30 m apron behind it for
+  the launches that do get over, and `respawn` catches her at **y < -8 rather than -40** — two
+  seconds of falling reads as the game breaking.
+  **AND `npm run sim solid` SPLITS THE TWO FAILURES, because only one of them is a bug**: under
+  the world INSIDE the park is a floor that should have been there and was not; past the apron is
+  her launching off the edge of the map at 24 m/s, which the respawn catches in a tenth of a
+  second. Zero of the first, six frames of the second across 150 s of scripted flailing.
+- **SHE IS FASTER NOW, SO THE RUNWAY IS SHORTER.** Top speed 14.2 -> 19.7 -> **24.3 m/s**, and two probe
   cases silently started measuring the PERIMETER WALL: `push` ran nine seconds, crossed 140 m,
   rode up the wall and reported her speed after being launched off it (11.6 instead of 19.7);
   `carve` ran the 6 m/s row into the same wall and came back at 0.26 m/s. **Every case that holds

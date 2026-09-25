@@ -110,7 +110,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r8</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r9</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button id="newer">build ready &middot; tap</button>
@@ -124,7 +124,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r8';
+const BUILD = 'r9';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -190,12 +190,12 @@ const SK = {
   // frame, which reads as a staircase on the speedometer and not as a foot hitting tarmac.
   // The same total is spread over `strokeDur` on a half sine: the integral of
   // (pi/2)sin(pi*u) over one cycle is exactly 1, so the top speed is unchanged.
-  pushV: 6.4,          // delta-v per stride at a standstill
+  pushV: 7.4,          // delta-v per stride at a standstill
   taper: 0.86,         // how much of that is lost as she approaches pushMax
-  pushMax: 21,         // no more pushing past this -- legs cannot keep up
+  pushMax: 27,         // no more pushing past this -- legs cannot keep up
   pushFast: 0.52,      // stride period at a standstill (quick, hard strides)
   pushDur: 1.05,       // stride period at cruising speed (long, lazy glides)
-  pushEase: 12,        // speed at which the period has fully stretched
+  pushEase: 15,        // speed at which the period has fully stretched
   strokeDur: 0.34,     // how long one stroke's impulse is spread over
   plant: 0.30,         // where in the cycle the foot is actually on the ground
   grace: 0.45,         // a thumb off and back on inside this is ONE cycle, not two
@@ -257,7 +257,7 @@ const SK = {
   leanHL: 0.12,
   dead: 0.14,          // stick dead zone
   curve: 1.35,         // stick response curve
-  max: 34,             // hard speed ceiling, so nothing can run away
+  max: 42,             // hard speed ceiling, so nothing can run away
 };
 
 // SHE CARRIES THE RAMP'S ANGLE INTO THE AIR. Leaving the lip of a vert wall you are ninety
@@ -265,28 +265,38 @@ const SK = {
 // not the frame you left. So the body is a real QUATERNION from the moment she leaves: seeded
 // from the surface she left, turned by the left stick while she is up there, and checked
 // against the face she comes down on.
+// THE JUMP ADDS TO HER LINE, IT DOES NOT REPLACE IT -- AND IT GOES WHERE THE RAMP IS POINTING.
+// *"Velocity needs to carry in the jump, it just adds to it, so the jump should kinda launch you
+// in the direction of the tip of the ramp."* So the pop is along the direction she is ALREADY
+// TRAVELLING over the surface, blended toward world up by how much of that travel is upward:
+//   flat out, or dropping   -> straight up, which is the only thing a jump can mean there
+//   up a 38 degree kicker   -> 58 degrees, steeper than the ramp but along it
+//   up an 88 degree wall    -> straight up, and she comes back down the same pipe
+// One expression, and the vert case and the flat case fall out of it rather than being cases.
+// It replaces `popNorm`, which asked about the surface NORMAL -- on a wall that points sideways
+// into the pipe, which is the opposite of where she is going.
 const AIR = {
-  jump: 10.6,          // straight up, from flat -- 2.81 m of apex
-  // POP ALONG WORLD UP, ALMOST ENTIRELY. This used to be 55% along the SURFACE NORMAL, which on
-  // an 85-degree wall throws her sideways over the coping and onto the deck. A skater going up
-  // a pipe goes UP and comes back down the same pipe, so the pop has almost nothing sideways in
-  // it and her existing velocity -- already running up the wall -- does the rest.
-  popNorm: 0.25,
+  jump: 12.5,          // the size of the pop, ON TOP of whatever she is carrying
+  popTravel: 1.0,      // 0 pops straight up always; 1 follows her line up the ramp
   coyote: 0.11,        // grace after rolling off an edge
-  // THE LEFT STICK IS THE BODY IN THE AIR, AND IT IS A RATE, NOT A TARGET. Left/right spins her
-  // about her OWN up axis, up/down flips her about her own right. Held as a target either one
-  // is a 45-degree turn and then nothing.
+  // **NO FLIP.** *"I'm not sold on the flip -- maybe we'll just have her rotate in the air for
+  // now, left and right."* So the pad's X is a yaw RATE and its Y is THRUST: *"in the air you'll
+  // hold forward"*, which is how you clear the back of one ramp and reach the next.
   spin: 4.2,           // rad/s of yaw
-  flip: 5.0,           // rad/s of flip -- a front flip in 1.26 s
-  drift: 0,            // SHE DOES NOT STEER HER TRAJECTORY. Once she is off the ramp the line
-                       // is set; the stick turns the BODY, and landing it is the skill.
-  // HOW FAR OUT SHE MAY BE AND STILL LAND IT -- the angle between her own up and the face she
-  // comes down on. Past this she has landed on her side and she loses it.
-  land: 0.95,          // about 54 degrees
-  bailT: 1.1,          // how long she is out of control afterwards
-  bailKeep: 0.35,      // ...and what is left of her speed
-  bailDrag: 2.6,
-  right: 3.2,          // how fast she picks herself up -- slow enough to SEE the stumble
+  drift: 11,           // m/s^2 along her facing while the thumb is forward
+  driftMax: 8,         // ...and the most it may add, so a long flight is not a free flight
+  // AND SHE IS UPRIGHT UP THERE. *"Her rotation is matching the normals of the ramp -- I don't
+  // think I meant that."* Right: a skater flying out of a vert wall is UPRIGHT going straight
+  // up, not lying on her side parallel to the wall. She leaves holding the ramp's angle and
+  // comes upright over `ease`, which reads as straightening out rather than as a snap.
+  ease: 4.5,
+  pitch: 0,            // 1 leans her into the arc instead; 0 is plumb
+  // THE BAIL IS OFF. It compared her own up to the face she landed on, which only means anything
+  // while the body is free -- upright in the air, every drop back into a transition is eighty
+  // degrees "out" and she would lose it every single time. The mechanism stays for the day
+  // there is a flip again: `rg.AIR.land = 0.95` arms it.
+  land: 99,
+  bailT: 1.1, bailKeep: 0.35, bailDrag: 2.6, right: 3.2,
   startT: 0.16,        // how long `jump_start` holds before `jump_in_air` takes over
   tapT: 0.26,          // a tap is a tap; a hold is a camera drag and is NOT a jump
 };
@@ -306,7 +316,12 @@ const CAM = {
   fov: 62, fovRush: 11, rush0: 8, rushSpan: 14,
 };
 
-const PARK = { S: 70, cell: 5, wallR: 4.5, wallSweep: 72 * Math.PI / 180,
+// THE PERIMETER HAS TO BE TALL, NOT STEEP. She carries 24 m/s now, which is 14.4 m of climb --
+// so a 4 m berm is something she flies over, and no amount of STEEPNESS changes that (a bank only
+// has to be steep enough to turn her round; what stops her is HEIGHT). At 6.6 m it holds anything
+// arriving under about 11.5 m/s and takes most of the speed off the rest, and there is an apron
+// behind it for the launches that do get over.
+const PARK = { S: 70, cell: 5, wallR: 10.0, wallSweep: 70 * Math.PI / 180, wallBack: 14, apron: 30,
   // HOW VERTICAL THE HALF PIPE'''S WALLS ARE IS THE WHOLE OF "you come back down the same pipe".
   // Leaving a face at angle T from horizontal, the outward drift over the flight is
   // v^2 sin(2T) / g -- so at 85 degrees a 12 m/s launch drifts 1.25 m and lands on the deck,
@@ -372,7 +387,7 @@ sky.frustumCulled = false; scene.add(sky);
 // second description of the ramp to drift out of agreement with the one on screen, and no
 // analytic special case for a curve. A transition is a floor she rolls up, exactly like the
 // flat, and the slope term in `stepGround` does the rest with no new code.
-const TRI = { cell: 4, x0: -200, z0: -200, w: 100, h: 100, cells: null, v: null, n: 0, up: 0.03 };
+const TRI = { cell: 4, x0: -160, z0: -160, w: 80, h: 80, cells: null, v: null, n: 0, up: 0.03 };
 let _triRaw = [];
 function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz) {
   const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
@@ -662,12 +677,19 @@ function plaza(S, cell, hole) {
 // distance from the corner POINT -- and along the seam those are the same number, so there is
 // no gap to fall through and no overlap to z-fight. The square plaza and the four quadrants
 // outside it tile the whole ground between them by construction.
-function perimeter(S, r, sweep) {
+function perimeter(S, r, sweep, back, apron) {
   const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
   const prof = [{ u: 0, y: 0, c: RAMP }];
   arcUp(prof, 0, 0, r, sweep, 12, RAMP);
   prof[prof.length - 2].c = COPE;
+  // AND IT GOES BACK DOWN TO AN OUTER APRON, because she is fast enough to CLEAR IT. At 24 m/s
+  // she reaches this lip with 21 and flies thirteen metres past it -- so with the profile ending
+  // at the deck she landed on nothing and fell out of the world, 334 frames of it across six
+  // scripted runs. A wall tall enough to stop her would be fourteen metres of concrete; a floor
+  // on the far side costs nothing and she can ride the back of it straight in again.
   prof.push({ u: lip + 4.0, y: H, c: DECK });
+  prof.push({ u: lip + 4.0 + back, y: 0, c: RAMP });
+  prof.push({ u: lip + 4.0 + back + apron, y: 0, c: CONC });
   // the four edges: origin on the edge, the profile running outward
   for (let i = 0; i < 4; i++) {
     const yaw = i * Math.PI / 2;
@@ -685,7 +707,7 @@ const BOWL = { x: -28, z: -26, r: 9 };
 let parkMesh = null;
 function buildPark() {
   plaza(PARK.S, PARK.cell, BOWL);
-  perimeter(PARK.S, PARK.wallR, PARK.wallSweep);
+  perimeter(PARK.S, PARK.wallR, PARK.wallSweep, PARK.wallBack, PARK.apron);
   // Everything below is placed by construction, on a grid, with its own footprint known --
   // nothing is eyeballed and nothing overlaps.
   halfPipe(0, 30, 0, 7.5, 2.6, PARK.hpSweep, 3.0, 1.8, 5.5);      // ride it along +Z
@@ -1034,7 +1056,7 @@ const player = {
   airT: 0, coyote: 0, jump: 0, landHard: 0, rHold: 0,
   pushing: false, pushT: 0, pushOff: 9, pushPeriod: SK.pushFast,
   shoveT: 0, shoveDur: 0, shoveV: 0,
-  braked: 0, lean: 0, steer: 0, bailT: 0,
+  braked: 0, lean: 0, steer: 0, bailT: 0, drift: 0,
   bq: new THREE.Quaternion(),      // THE BODY'S FULL ORIENTATION. On the ground it is derived
                                    // from the surface; in the air it is integrated and is the
                                    // only thing that says which way up she is.
@@ -1058,12 +1080,12 @@ function groundQ(out) {
 function leaveGround(coy) {
   const p = player;
   groundQ(p.bq);
-  p.grounded = false; p.airT = 0; p.coyote = coy;
+  p.grounded = false; p.airT = 0; p.coyote = coy; p.drift = 0;
 }
 
 function respawn() {
   const p = player;
-  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0; p.drift = 0;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
@@ -1088,13 +1110,22 @@ function surfaceFrame(n, heading) {
   _R.crossVectors(_F, n).normalize();
 }
 
-function doJump() {
+// WHERE A POP GOES: along her own line over the surface, leaned toward world up by however
+// much of that line is NOT already upward. `k` is the vertical part of her travel direction, so
+// a wall gives k -> 1 and the pop is the wall; the flat and any descent give k = 0 and the pop
+// is straight up, which is the only thing a jump can mean there. Nothing is replaced -- this is
+// ADDED to what she is carrying, so a fast run at a kicker leaves faster than a slow one.
+function popDir(out) {
   const p = player, n = p.n;
-  // ALMOST STRAIGHT UP. A skater who rides up a pipe and pops goes UP and comes back down the
-  // same pipe -- so the pop carries only a token of the surface normal, and her existing
-  // velocity, which is already running up the wall, is what actually carries her out.
-  _N.set(n.x * AIR.popNorm, lerp(1, n.y, AIR.popNorm), n.z * AIR.popNorm).normalize();
-  p.vel.addScaledVector(_N, AIR.jump);
+  out.copy(p.vel).addScaledVector(n, -p.vel.dot(n));   // her travel, in the surface
+  const l = out.length();
+  if (l < 0.5 || !AIR.popTravel) return out.set(0, 1, 0);
+  out.divideScalar(l);
+  const k = clamp(out.y, 0, 1) * AIR.popTravel;
+  return out.multiplyScalar(k).addScaledVector(UP, 1 - k).normalize();
+}
+function doJump() {
+  player.vel.addScaledVector(popDir(_N), AIR.jump);
   leaveGround(0);
 }
 
@@ -1265,26 +1296,33 @@ function stepGround(dt) {
 function stepAir(dt) {
   const p = player;
   p.airT += dt; p.coyote -= dt;
-  // THE LEFT STICK IS THE BODY. Left/right spins her about her OWN up, up/down flips her about
-  // her own right -- and both are RATES, read off the pad RAW rather than through `cam.az`,
-  // because a spin is relative to her body and not to the lens. Post-multiplying is what makes
-  // them local: the axes turn with her, so a flip started mid-spin goes where a skater's would.
+  // THE LEFT STICK: X SPINS HER, Y PUSHES HER. Read RAW off the pad rather than through
+  // `cam.az`, because a spin is relative to her body and the thrust is along her nose -- neither
+  // is a question about where the lens happens to be.
   let sx = stick.L.x, sy = stick.L.y;
   if (keys.a || keys.arrowleft) sx -= 1; if (keys.d || keys.arrowright) sx += 1;
   if (keys.w || keys.arrowup) sy -= 1; if (keys.s || keys.arrowdown) sy += 1;
   sx = clamp(sx, -1, 1); sy = clamp(sy, -1, 1);
-  // NEGATED, both of them, and checked rather than derived -- the handedness argument comes out
-  // backwards half the time. A rotation about local +Y turns her LEFT, so a thumb pushed right
-  // needs a negative one; a rotation about local +X tips her forward, and the pad's up is -y.
-  if (sx) p.bq.multiply(_qa.setFromAxisAngle(UP, -sx * AIR.spin * dt));
-  if (sy) p.bq.multiply(_qa.setFromAxisAngle(XAX, -sy * AIR.flip * dt));
-  p.bq.normalize();
-  // THE CAMERA STILL NEEDS A BEARING, and hers now comes out of the body rather than the other
-  // way round. Guarded, because a body pointing straight up has no bearing at all and atan2 of
-  // two near-zeros is noise.
-  _v.set(0, 0, 1).applyQuaternion(p.bq);
-  if (Math.hypot(_v.x, _v.z) > 0.2) p.heading = Math.atan2(_v.x, _v.z);
-  if (AIR.drift) { const s = stickWorld(); if (s.mag > 0) { p.vel.x += s.x * AIR.drift * s.mag * dt; p.vel.z += s.z * AIR.drift * s.mag * dt; } }
+  // NEGATED, and checked rather than derived -- the handedness argument comes out backwards half
+  // the time. Heading grows +Z toward +X, which turns her LEFT, so a thumb pushed right has to
+  // DECREASE it.
+  p.heading -= sx * AIR.spin * dt;
+  // *"In the air you'll hold forward"* -- which is how you get over the back of one ramp and
+  // reach the next. Capped by how much it has already added, so a long flight is not a free one.
+  if (sy < 0 && p.drift < AIR.driftMax) {
+    const add = Math.min(-sy * AIR.drift * dt, AIR.driftMax - p.drift);
+    p.vel.x += Math.sin(p.heading) * add; p.vel.z += Math.cos(p.heading) * add;
+    p.drift += add;
+  }
+  // AND SHE COMES UPRIGHT. She left holding the ramp's angle; from here the target is plumb,
+  // yawed to her heading -- a skater flying out of a vert wall is upright going straight up, not
+  // lying on her side parallel to the wall. `AIR.pitch` leans her into the arc instead.
+  _q.setFromAxisAngle(UP, p.heading);
+  if (AIR.pitch) {
+    const vl = p.vel.length();
+    if (vl > 1) _q.multiply(_qa.setFromAxisAngle(XAX, -Math.asin(clamp(p.vel.y / vl, -1, 1)) * AIR.pitch));
+  }
+  p.bq.slerp(_q, Math.min(1, AIR.ease * dt));
   p.vel.y -= SK.g * dt;
   if (p.vel.y < -34) p.vel.y = -34;
   const h = Math.hypot(p.vel.x, p.vel.z);
@@ -1328,11 +1366,11 @@ function stepAir(dt) {
     _v2.set(0, 0, 1).applyQuaternion(p.bq).addScaledVector(_N, -_v2.dot(_N));
     if (_v2.lengthSq() > 1e-4) p.heading = p.faceH = Math.atan2(_v2.x, _v2.z);
     if (off > AIR.land) { p.bailT = AIR.bailT; p.vel.multiplyScalar(AIR.bailKeep); }
-    p.landOff = off;
+    p.landOff = off; p.drift = 0;
     p.n.copy(_N);
     p.grounded = true; p.airT = 0; p.pushT = 0; p.pushOff = 9; p.braked = 0; p.lean = 0;
   }
-  if (p.pos.y < -40) respawn();
+  if (p.pos.y < -8) respawn();
 }
 
 function stepPlayer(dt) {
