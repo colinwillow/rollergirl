@@ -67,6 +67,30 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE STICKS FLOAT, AND A FIXED PAD IS WHY SHE COULD NOT JUMP.** *"I'm having trouble jumping
+  and I can't tell if it's a thumb location thing."* It was exactly that. The pad used to be a
+  132 px circle and `far` — how far the thumb has travelled — was measured **from the circle's
+  centre**, so a thumb coming down near the rim read as almost full deflection *before it had
+  moved at all*, and the tap was rejected as a camera drag every single time. The pad is a ZONE
+  now (half the screen, invisible) and the stick draws itself wherever the thumb lands, so `far`
+  means "did the thumb move" rather than "did the thumb land in the middle of something you
+  cannot see". A faint ring rests at a home position so it is still discoverable; the moment a
+  thumb lands, THAT is the centre.
+  Measured through the shipped `bindStick`, and **verified by reverting to the fixed centre**:
+      floating   dead centre JUMP   near either zone EDGE JUMP   dragged 50 px no   held 420 ms no
+      fixed      dead centre JUMP   near either zone EDGE **NO JUMP**
+- **AND THE HARNESS CAN DRIVE THE PADS NOW.** Several reports have lived in there — the stuck
+  stick, the tap that would not jump — and not one was reachable by any tool here, because the
+  DOM stub swallowed every listener. It records them and dispatches for real, so `npm run sim
+  tap` drives the SHIPPED `bindStick` with synthesised pointer events. The stub's rect had to grow
+  from 100 to 300 square, because a half-screen zone clamps its origin 70 px inside its own edges
+  and a 100 px rect leaves no interior to press.
+- **A STUB THAT ANSWERS `null` FOR EVERY SELECTOR CANNOT CATCH A WRONG ONE**, which is the same
+  fault as answering every id, pointed the other way. `check:boot`'s `querySelector` resolves a
+  class that really is in the page and returns null for one that is not — so `.knob` works and a
+  renamed child is a caught TypeError rather than a blank page on the phone. Verified by renaming
+  it: `Cannot read properties of null (reading 'style')`.
+
 - **THE BODY IS A QUATERNION (`p.bq`), AND IN THE AIR IT IS UPRIGHT.** The old tilt/yaw/lean
   chain could not express a free body at all: three Euler angles in a fixed order only ever
   describe a skater standing on something. `groundQ` builds the orientation from the surface she

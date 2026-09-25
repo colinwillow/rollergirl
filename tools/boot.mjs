@@ -87,11 +87,27 @@ function mkEl(tag = 'div', id = '') {
     appendChild(c) { this.children.push(c); this.childNodes.push(c); c.parentNode = this; return c; },
     removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) { this.children.splice(i, 1); this.childNodes.splice(i, 1); } return c; },
     insertBefore(c) { return this.appendChild(c); },
-    addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+    _h: {},
+    addEventListener(t, fn) { (this._h[t] || (this._h[t] = [])).push(fn); },
+    removeEventListener(t, fn) { const l = this._h[t]; if (!l) return; const i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); },
+    dispatchEvent(e) { const l = this._h[e && e.type]; if (l) for (const fn of l.slice()) fn(e); return true; },
     setAttribute() {}, getAttribute: () => null, removeAttribute() {},
     setPointerCapture() {}, releasePointerCapture() {}, focus() {}, blur() {}, click() {}, remove() {},
-    querySelector: () => null, querySelectorAll: () => [], contains: () => false, closest: () => null,
-    getBoundingClientRect: () => ({ left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100, x: 0, y: 0 }),
+    // A STUB THAT ANSWERS NULL FOR EVERY SELECTOR CANNOT CATCH A WRONG ONE EITHER -- the same
+    // fault as answering every id, pointed the other way. `.ring` and `.knob` really exist in
+    // the page, so they resolve; a class that is NOT in the page returns null exactly as the
+    // browser does, which is what makes a renamed child a caught error rather than a blank page.
+    _q: new Map(),
+    querySelector(sel) {
+      const m = /^\.([A-Za-z0-9_-]+)$/.exec(sel || '');
+      if (!m || !DOMCLASS.has(m[1])) return null;
+      if (!this._q.has(sel)) this._q.set(sel, mkEl('div'));
+      return this._q.get(sel);
+    },
+    querySelectorAll: () => [], contains: () => false, closest: () => null,
+    // 300 square rather than 100: the pads are half-screen ZONES now and clamp their origin 70 px
+    // inside their own edges, so a 100 px rect leaves no interior at all to press.
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 300, bottom: 300, width: 300, height: 300, x: 0, y: 0 }),
     getContext: () => ctx2d(), toDataURL: () => 'data:,',
   };
   return el;
@@ -103,9 +119,11 @@ function mkEl(tag = 'div', id = '') {
 // `optboot.mjs` runs this text through INDIRECT eval, so module-scope bindings -- `fs`, `html`
 // -- are simply not there. A block lifted by three harnesses may only depend on globals.
 const DOMSRC = process.getBuiltinModule('fs').readFileSync('index.html', 'utf8');
-const DOMIDS = new Set();
+const DOMIDS = new Set(), DOMCLASS = new Set();
 for (const m of DOMSRC.matchAll(/\bid\s*=\s*["']([A-Za-z0-9_-]+)["']/g)) DOMIDS.add(m[1]);
 for (const m of DOMSRC.matchAll(/\.id\s*=\s*["'`]([A-Za-z0-9_-]+)["'`]/g)) DOMIDS.add(m[1]);
+for (const m of DOMSRC.matchAll(/\bclass\s*=\s*["']([^"']+)["']/g))
+  for (const c of m[1].split(/\s+/)) if (c) DOMCLASS.add(c);
 const doc = {
   body: mkEl('body'), documentElement: mkEl('html'), head: mkEl('head'),
   createElement: t => mkEl(t), createElementNS: (n, t) => mkEl(t), createTextNode: () => mkEl('text'),

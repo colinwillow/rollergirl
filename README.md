@@ -12,6 +12,9 @@ modules, an import map, vendored three, **no build step**. Open the file and it 
   she is carrying and goes where the ramp is pointing, so off a vert wall it is straight up.
 - **Right stick** — **tap** to jump, **drag** to orbit the camera. Yaw only, in a circle;
   there is no pitch on that stick by design. Let go and the lens comes back behind her.
+- **Both sticks float.** Each is a zone — half the screen — and the stick appears wherever your
+  thumb lands, so a tap is a tap wherever you put it. The faint ring is only a hint about where
+  to reach.
 - Keyboard: WASD / arrows, space to jump, R to respawn.
 
 The park is procedural — a plaza, a half pipe with its own roll-in, two quarter pipes, two

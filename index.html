@@ -38,15 +38,26 @@
   #boot .bar{width:min(62vw,300px);height:4px;border-radius:2px;background:#ffffff22;overflow:hidden}
   #boot .bar i{display:block;height:100%;width:0;background:#ff6fa5;transition:width .25s}
   #boot .bn{font-size:11px;letter-spacing:.2em;opacity:.45}
-  .pad{position:fixed;bottom:26px;width:132px;height:132px;border-radius:50%;
-    border:2px solid #ffffff2b;background:#ffffff0f;touch-action:none;z-index:5;
-    bottom:calc(26px + env(safe-area-inset-bottom))}
-  #stkL{left:calc(20px + env(safe-area-inset-left))}
-  #stkR{right:calc(20px + env(safe-area-inset-right))}
-  .pad.act{border-color:#ffffff55;background:#ffffff1a}
-  .knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;
-    border-radius:50%;background:#ffffff3d;border:2px solid #ffffff55;pointer-events:none}
-  #stkR .knob{background:#ff6fa53d;border-color:#ff6fa588}
+  /* FLOATING STICKS. The pad is a ZONE -- half the screen, invisible -- and the stick draws
+     itself wherever the thumb lands. On a fixed 132 px circle every deflection is measured from
+     the CIRCLE's centre, so a thumb that comes down near the rim reads as almost full travel
+     before it has moved at all: the tap that should be a jump is instantly a camera drag. */
+  .pad{position:fixed;bottom:0;width:50%;height:68%;touch-action:none;z-index:5}
+  #stkL{left:0}
+  #stkR{right:0}
+  .ring,.knob{position:absolute;border-radius:50%;pointer-events:none;
+    transform:translate(-50%,-50%);transition:opacity .13s}
+  .ring{width:132px;height:132px;border:2px solid #ffffff22;background:#ffffff0a;opacity:.5}
+  .knob{width:56px;height:56px;background:#ffffff30;border:2px solid #ffffff45;opacity:.5}
+  .pad.act .ring{opacity:1;border-color:#ffffff55;background:#ffffff1a}
+  .pad.act .knob{opacity:1;background:#ffffff3d;border-color:#ffffff55;transition:none}
+  #stkR .knob{background:#ff6fa526;border-color:#ff6fa555}
+  #stkR.act .knob{background:#ff6fa53d;border-color:#ff6fa588}
+  /* and the tap that becomes a jump SAYS SO, because "did that register" is otherwise a
+     question you can only answer by watching her */
+  .pad.pop .ring{animation:popr .28s ease-out}
+  @keyframes popr{0%{transform:translate(-50%,-50%) scale(1);border-color:#5fe1ff}
+                  100%{transform:translate(-50%,-50%) scale(1.5);border-color:#5fe1ff00}}
   .chip{position:fixed;z-index:4;font-size:12px;letter-spacing:.08em;color:#e8e4f2;
     background:#00000055;padding:4px 9px;border-radius:7px;pointer-events:none}
   #build{top:calc(12px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));
@@ -110,13 +121,13 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r9</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r10</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button id="newer">build ready &middot; tap</button>
 
-<div class="pad" id="stkL"><div class="knob"></div></div>
-<div class="pad" id="stkR"><div class="knob"></div></div>
+<div class="pad" id="stkL"><div class="ring"></div><div class="knob"></div></div>
+<div class="pad" id="stkR"><div class="ring"></div><div class="knob"></div></div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 <script type="module">
@@ -124,7 +135,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r9';
+const BUILD = 'r10';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -298,7 +309,8 @@ const AIR = {
   land: 99,
   bailT: 1.1, bailKeep: 0.35, bailDrag: 2.6, right: 3.2,
   startT: 0.16,        // how long `jump_start` holds before `jump_in_air` takes over
-  tapT: 0.26,          // a tap is a tap; a hold is a camera drag and is NOT a jump
+  tapT: 0.30,          // a tap is a tap; a hold is a camera drag and is NOT a jump
+  tapFar: 0.45,        // ...and how far the thumb may wander and still be a tap
 };
 
 const CAM = {
@@ -954,16 +966,28 @@ const FLICK = { at: .72, within: .28, let: .26, gap: .10 };
 // phone, so all of them are closed here.
 const STICKS = [];
 function bindStick(el, out, onTap, onFlick, onRel) {
-  const knob = el.querySelector('.knob');
+  const knob = el.querySelector('.knob'), ring = el.querySelector('.ring');
   let id = null, t0 = 0, far = 0, lx = 0, ly = 0; const RAD = 52;
-  let hist = [], lastFlick = -1e9, pend = null;
+  let hist = [], lastFlick = -1e9, pend = null, ox = 0, oy = 0;
+  // WHERE THE STICK SITS WHEN NOBODY IS HOLDING IT -- so it is still discoverable, and so the
+  // thumb has somewhere obvious to go. It is only a hint: the moment a thumb lands, THAT is
+  // the centre.
+  const home = () => { const r = el.getBoundingClientRect();
+    return [el.id === 'stkR' ? r.width - 92 : 92, r.height - 92]; };
+  const draw = (px, py, dx, dy) => {
+    ring.style.left = px + 'px'; ring.style.top = py + 'px';
+    knob.style.left = (px + dx) + 'px'; knob.style.top = (py + dy) + 'px';
+  };
+  const rest = () => { const [hx, hy] = home(); draw(hx, hy, 0, 0); };
+  rest(); addEventListener('resize', () => { if (id === null) rest(); });
   const set = (cx, cy) => {
     const r = el.getBoundingClientRect();
-    let dx = cx - (r.left + r.width / 2), dy = cy - (r.top + r.height / 2);
+    // RELATIVE TO WHERE THE THUMB LANDED, not to the middle of anything.
+    let dx = cx - (r.left + ox), dy = cy - (r.top + oy);
     const d = Math.hypot(dx, dy); if (d > RAD) { dx *= RAD / d; dy *= RAD / d; }
     out.x = lx = dx / RAD; out.y = ly = dy / RAD;
     out.far = Math.max(out.far || 0, Math.hypot(out.x, out.y));
-    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    draw(ox, oy, dx, dy);
     if (!onFlick) return;
     const now = performance.now();
     hist.push({ x: lx, y: ly, t: now });
@@ -978,6 +1002,10 @@ function bindStick(el, out, onTap, onFlick, onRel) {
     // which the FIRST finger's up no longer matched and was thrown away.
     if (id !== null) { e.stopPropagation(); e.preventDefault(); return; }
     id = e.pointerId; t0 = performance.now();
+    const r = el.getBoundingClientRect();
+    ox = clamp(e.clientX - r.left, 70, r.width - 70);
+    oy = clamp(e.clientY - r.top, 70, r.height - 70);
+    draw(ox, oy, 0, 0);
     // GUARDED, because it throws if the pointer has already gone -- and it used to be called
     // AFTER `id` was set, which left the pad tracking an id whose up had been and gone.
     try { el.setPointerCapture(id); } catch (err) {}
@@ -1002,7 +1030,7 @@ function bindStick(el, out, onTap, onFlick, onRel) {
     if (!fired && onTap && far < .42 && held < 260) onTap();
     if (!fired && onRel) onRel(far, held / 1000);
     id = null; pend = null; out.down = 0; out.x = out.y = 0; out.far = 0; hist = [];
-    knob.style.transform = 'translate(0,0)'; el.classList.remove('act'); e.stopPropagation();
+    rest(); el.classList.remove('act'); e.stopPropagation();
   };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   el.addEventListener('lostpointercapture', end);
@@ -1011,8 +1039,8 @@ function bindStick(el, out, onTap, onFlick, onRel) {
   STICKS.push({ el, out, end, id: () => id, release: () => {
     if (id === null && !out.down) return;
     id = null; pend = null; out.down = 0; out.x = out.y = 0; out.far = 0; hist = [];
-    knob.style.transform = 'translate(0,0)'; el.classList.remove('act');
-  } });
+    rest(); el.classList.remove('act');
+  }, pop: () => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); } });
 }
 // 1. THE UP WENT SOMEWHERE ELSE. Capture can be lost without `lostpointercapture` reaching us,
 //    so the WINDOW hears every up and cancel in the CAPTURE phase -- which runs before any
@@ -1032,8 +1060,14 @@ bindStick(document.getElementById('stkL'), stick.L, null, null, null);
 // travels past `far` .42 or is held past `tapT`, and a tap is neither -- so one thumb does
 // both with no mode to be in and nothing to learn. The flick is left unclaimed.
 bindStick(document.getElementById('stkR'), stick.R, null, null, (far, held) => {
-  if (far >= .42 || held > AIR.tapT) return;      // a look, not a jump
+  // A TAP IS A JUMP, AND `far` IS NOW MEASURED FROM WHERE THE THUMB LANDED, so it is genuinely
+  // "did the thumb move" rather than "did the thumb land in the middle of the circle". With the
+  // old fixed pad a tap near the rim read as 0.9 of full travel before moving a pixel, and the
+  // jump could not fire at all -- which is exactly "I'm having trouble jumping, I can't tell if
+  // it's a thumb location thing".
+  if (far >= AIR.tapFar || held > AIR.tapT) return;      // a drag or a hold: neither is a jump
   player.jump = 1;
+  const s = STICKS[1]; if (s && s.pop) s.pop();          // and it says so
 });
 function stickWorld() {
   let lx = stick.L.x, ly = stick.L.y;

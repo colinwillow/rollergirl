@@ -230,6 +230,42 @@ CASES.vert = () => {
   }
   return ok;
 };
+// ---------------------------------------------------------------- A TAP IS A JUMP
+// *"I'm having trouble jumping and I can't tell if it's a thumb location thing."* It was: with a
+// fixed 132 px pad, `far` is measured from the CIRCLE's centre, so a thumb landing near the rim
+// read as almost full travel before it had moved -- and the tap was rejected as a camera drag
+// every time. This drives the SHIPPED `bindStick` through real dispatched pointer events on the
+// real element, which nothing here could do before: the stub swallowed every listener.
+CASES.tap = async () => {
+  const pad = document.getElementById('stkR');
+  const ev = (type, x, y) => ({ type, pointerId: 7, clientX: x, clientY: y,
+    stopPropagation() {}, preventDefault() {}, target: pad });
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const rows = [
+    ['dead centre, quick',        150, 150, 150, 150, 40],
+    ['near the zone EDGE, quick',  72, 232,  72, 232, 40],   // <- the one that could never fire
+    ['other edge, quick',         228,  72, 228,  72, 40],
+    ['dragged 50 px',             150, 150, 200, 150, 40],
+    ['held past tapT',            150, 150, 150, 150, 420],
+    ['nudged 8 px, quick',        150, 150, 158, 150, 40],
+  ];
+  let ok = true;
+  for (const [name, x0, y0, x1, y1, ms] of rows) {
+    P.jump = 0;
+    pad.dispatchEvent(ev('pointerdown', x0, y0));
+    if (x1 !== x0 || y1 !== y0) pad.dispatchEvent(ev('pointermove', x1, y1));
+    await wait(ms);
+    pad.dispatchEvent(ev('pointerup', x1, y1));
+    const got = !!P.jump;
+    // a tap is a thumb that did not travel and did not linger; everything else is the camera
+    const want = Math.hypot(x1 - x0, y1 - y0) / 52 < rg.AIR.tapFar && ms < rg.AIR.tapT * 1000;
+    console.log(`  ${name.padEnd(26)} -> ${got ? 'JUMP' : 'no jump'}${got === want ? '' : '   <- WRONG'}`);
+    if (got !== want) ok = false;
+    P.jump = 0;
+  }
+  return ok;
+};
+
 // ---------------------------------------------------------------- the stick in the air
 // X spins her, Y pushes her, and there is no flip any more. The thrust is what lets her clear
 // the back of one ramp and reach the next, so what matters is how far it actually carries her.
@@ -510,7 +546,7 @@ for (const k of Object.keys(CASES)) {
   if (only && k !== only) continue;
   console.log(`\n== ${k} ==`);
   let ok = false;
-  try { ok = CASES[k](); } catch (e) { console.error('  THREW', e); }
+  try { ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }
   if (!ok) { fail++; console.log('  -> FAIL'); }
 }
 console.log(fail ? `\n${fail} case(s) failed` : '\nall cases pass');
