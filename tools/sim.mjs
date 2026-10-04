@@ -1504,6 +1504,66 @@ CASES.swivel = () => {
   P.stanceLock = keepLock; P.stance = 1; rg.stick.L.y = 0; rg.stick.L.down = 0;
   return ok;
 };
+// ---------------------------------------------------------------- r42: lean, camera, grabs, style, swivel
+CASES.r42 = () => {
+  let ok = true;
+  const check = (label, cond, extra = '') => { console.log(`  ${label.padEnd(44)} ${cond ? 'ok' : 'WRONG'} ${extra}`); if (!cond) ok = false; };
+  // THE CAMERA: she turns 90 deg on the spot; the spring must START slowly (the shot comes round AFTER her)
+  // and never overshoot, where the old follow swings hardest on the very first frame
+  const camRun = spring => { const keep = rg.CAM.spring; rg.CAM.spring = spring;
+    place(60, 1, -60, 0, 12); rg.cam.az = 0; rg.cam.azV = 0; rg.cam.idle = 9;
+    P.vel.set(12, 0, 0); P.hSpeed = 12; P.speed = 12;                    // travelling +X now: bearing pi/2
+    const az = []; for (let i = 0; i < 180; i++) { rg.stepCam(DT); az.push(rg.cam.az); }
+    rg.CAM.spring = keep; return az; };
+  const sp = camRun(1), old = camRun(0), deg = v => v * 57.3;
+  const r0 = a => deg(a[5] - a[0]) / (5 * DT), over = a => Math.max(0, deg(Math.max(...a) - Math.PI / 2));
+  check('camera eases in: first 0.08 s', r0(sp) < r0(old) * 0.35, `spring ${fix(r0(sp), 0)} deg/s vs old ${fix(r0(old), 0)}`);
+  check('...and does not overshoot', over(sp) < 1.5, `${fix(over(sp), 2)} deg past, at 3 s ${fix(deg(sp[179]), 1)} of 90`);
+  // THE HIP LEAN tips her the same way the old whole-body lean did, about her forward axis, pivoting at the hips
+  { const H = new THREE.Bone(); rg.bodyG.add(H); const keepH = rg.girl.hipsB; rg.girl.hipsB = H;
+    place(60, 1, -60, 0, 8); P.grounded = true; P.lean = 0.25; rg.bodyG.quaternion.identity(); rg.bodyG.updateMatrixWorld(true);
+    rg.hipLeanApply(); H.updateMatrixWorld(true);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(H.getWorldQuaternion(new THREE.Quaternion()));
+    const want = new THREE.Vector3(0, 1, 0).applyAxisAngle(new THREE.Vector3(0, 0, 1), 0.25);
+    const err = deg(up.angleTo(want)); rg.hipLeanUndo(); const back = deg(H.quaternion.angleTo(new THREE.Quaternion()));
+    check('hip lean = the old lean, at the hips', err < 0.1 && back < 1e-6, `${fix(err, 3)} deg off; undone to ${fix(back, 6)}`);
+    rg.bodyG.remove(H); rg.girl.hipsB = keepH; P.lean = 0; }
+  // THE GRAB: held past grabAt in the air picks a pose by direction; a tap-length hold does not; a hard
+  // DOWN hold is the settle, not a grab
+  { const { moves } = gameClips('models/alien_rollerskate_blue.glb'); const keepM = rg.girl.moves; rg.girl.moves = moves;
+    const air = (x, y, hold) => { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 8; P.vel.y = 2; P.grab = null; P.settling = false; P.rHold = 0;
+      Object.assign(rg.stick.R, { down: 1, x, y }); run(hold, () => {}); const g = P.grab; Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); return g; };
+    const c = air(0, 0, 0.45), u = air(0, -0.8, 0.45), t = air(0, 0, 0.2), d = air(0, 0.9, 0.6);
+    check('hold in the air = grab (centre)', c && c.nm === 'blade_pose_duck_R_forward', c ? c.nm : 'none');
+    check('hold UP = a different grab', u && u.nm === 'blade_daffy_forward', u ? u.nm : 'none');
+    check('a tap-length hold is not a grab', !t, t ? t.nm : 'none');
+    check('a hard DOWN hold is the settle, not a grab', !d && P.settling !== undefined, d ? d.nm : 'settle');
+    run(0.1, () => {}); check('let go and the grab ends', !P.grab);
+    rg.girl.moves = keepM; }
+  // THE TAP HOP: no kick
+  { const R = rg.RAILS[0]; place((R.a.x + R.b.x) / 2 + 3, 1, (R.a.z + R.b.z) / 2, 0, 0); P.mel = null; rg.railHome();
+    check('tap hop onto a rail plays no kick', !P.mel, P.mel ? P.mel.nm : 'no strike'); }
+  // THE SWIVEL is eased: her body takes a while to come round (and still gets there)
+  { const keepLock = P.stanceLock; P.stanceLock = true; place(60, 1, -60, 0, 6); P.stance = 1; P.faceH = 0;
+    rg.swivel(); let t10 = null;
+    run(1.2, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (t10 === null && Math.abs(Math.atan2(Math.sin(P.faceH - P.heading), Math.cos(P.faceH - P.heading))) < 10 / 57.3) t10 = t; });
+    check('swivel eases round (not a snap)', t10 !== null && t10 > 0.25 && t10 < 1.0, t10 === null ? 'never' : `${fix(t10, 2)} s to within 10 deg`);
+    P.stanceLock = keepLock; P.stance = 1; }
+  // STYLE SKATES: cruising with the thumb off, after styleEvery a style clip takes over, then hands back
+  { const { clips, moves, R } = gameClips('models/alien_rollerskate_blue.glb');
+    const keep = { a: rg.girl.actions, cw: rg.girl.cw, len: rg.girl.clipLen, m: rg.girl.moves, r: rg.girl.ready };
+    rg.girl.actions = {}; rg.girl.cw = {}; rg.girl.clipLen = R.len; rg.girl.moves = moves; rg.girl.ready = true; rg.girl.style = null; rg.girl.styleWait = 0;
+    for (const c of clips) rg.girl.actions[c.name] = { w: 0, ts: 1, reset() { return this; }, play() { return this; }, stop() { return this; }, isRunning() { return 1; },
+      setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; }, setEffectiveTimeScale(v) { this.ts = v; return this; }, setLoop() { return this; } };
+    Object.assign(P, { grounded: true, flip: null, bailT: 0, landHard: 0, grind: null, mel: null, speed: 10, stance: 1, thumbGo: false });
+    const tops = []; for (let i = 0; i < Math.round(12 / DT); i++) { rg.girlAnimMoves(DT); if (i % 30 === 0) tops.push(rg.girl.top); }
+    const styled = [...new Set(tops.filter(n => n && !/idle_normal/.test(n)))];
+    check('cruising, she slips into style skates', styled.length >= 2 && tops.includes('idle_normal'), styled.join(', '));
+    Object.assign(P, { speed: 2 }); for (let i = 0; i < Math.round(2 / DT); i++) rg.girlAnimMoves(DT);
+    check('slow, she does not', rg.girl.top === 'idle_normal', rg.girl.top);
+    Object.assign(rg.girl, { actions: keep.a, cw: keep.cw, clipLen: keep.len, moves: keep.m, ready: keep.r, style: null }); }
+  return ok;
+};
 // ---------------------------------------------------------------- a tap near a rail (r41)
 // *"Tap even though you're fairly high above it or off to the side, and she does the little kick over so
 // she grinds on it."* Every rail: a tap from the ground 3.5 m to its side, from the air 6 m above it and

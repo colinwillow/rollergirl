@@ -302,6 +302,30 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **r42: THE LEAN IS AT THE HIPS, THE CAMERA EASES IN, GRABS, STYLE SKATES, A SOFTER SWIVEL.**
+  - *"The rotation at the origin makes it feel like a boat -- lean at the hips and the legs compensate, she bends
+    her inside knee."* `RIG.hipLean` 1 takes the turn lean off the whole body (`p.bq`'s Z term) and puts the SAME
+    angle about the SAME axis (her forward) onto the Hips bone after the mixer (`hipLeanApply`), undone before
+    the next update (`hipLeanUndo`). The legs swing out under her and `footGround` sets the skates back down,
+    bending the knee that has to bend. 0 is the old whole-body lean. `npm run sim r42` checks it tips her
+    exactly as the old lean did (0.000 deg) and undoes to identity.
+  - *"When you turn the whole camera turns every time -- I want her to turn and then the camera compensates."*
+    A first-order follow swings hardest on the first frame of a turn, so the lens turns WITH her. `CAM.spring` 1
+    is a critically damped spring on the bearing (natural frequency `CAM.follow`): it starts from rest -- 64 deg/s
+    in the first 0.08 s of a 90 deg turn against the old 273 -- and never overshoots.
+  - **The tap hop onto a rail (r41) plays NO kick now** -- *"if you're just tapping onto it it doesn't need the
+    kick."* The flying kick (right flick in the air) still has it.
+  - **AIR GRABS (`MOVES.grab`, `grabStep`, `p.grab`)**: the right pad HELD in the air past `grabAt` (.3 s, longer
+    than a tap, so a grab is never also a tap -- and never a rail hop) holds one of his style skates as the air
+    pose, picked by the thumb's direction when the hold starts (`MOVES.grabs`: centre duck, up daffy, left/right
+    one-foot, down swan; fakie takes the `_backward` one). A hard DOWN hold is still the settle. It replaces the
+    pose under a procedural flip and a spin; a clip flip keeps its clip. Placeholders until he draws grabs.
+  - **STYLE SKATES ON THEIR OWN (`MOVES.style*`)**: rolling without pushing above `styleV` (or still pushing past
+    `styleCruise`) for `styleEvery` s, she slips into one of `MOVES.styles` for `styleHold` s, never the same
+    twice running, then back; the clip weights' damping is the blend.
+  - **THE SWIVEL EASES** (`SK.swivelT` / `swivelRate`): ~0.5 s to come round instead of a snap, through the same
+    `faceSlowT` the landing ease uses (which now carries its own rate, `p.faceSlowRate`).
+  - Not done: the skid stop (*"pull back, she jumps and turns to the side and skids"*) -- waiting on his clip.
 - **A TAP NEAR A RAIL IS A HOP ONTO IT (r41, `railHome`, `GRIND.home*`).** *"It's really hard to get onto a
   grind unless you hit it perfectly -- if you're in the vicinity and you tap, she should do the little kick
   over so she grinds on it."* A right-pad TAP (never the swipe/transfer) within `homeR` 4.5 m of a rail in

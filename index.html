@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r41</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r42</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r41';
+const BUILD = 'r42';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -212,6 +212,12 @@ const RIG = {
   // axis everything turns about; 0 is the export's root, as before. Read off the rig at load, so
   // a re-export with the root under her needs no edit.
   centre: 1,
+  // WHERE SHE LEANS (r42). *"Something about the rotation at the origin makes it feel like a boat -- I could
+  // see her leaning at the HIPS and the legs compensating, so she bends her inside knee."* 1 puts the whole
+  // lean into her HIPS bone, about her forward axis -- the body above tips in, the legs swing out under it,
+  // and the foot IK (`footGround`) then sets both skates back on the surface, bending the knee that has to
+  // bend. 0 is the old lean of the whole body about her feet.
+  hipLean: 1,
 };
 
 // HER FEET ON THE GROUND (r36, `footGround`, `legIK`). *"The feet don't quite touch the ground -- it
@@ -469,6 +475,7 @@ const SK = {
   pushV: 7.4,          // delta-v per stride at a standstill
   taper: 0.86,         // how much of that is lost as she approaches pushMax
   pushMax: 27,         // no more pushing past this -- legs cannot keep up
+  swivelT: 0.6, swivelRate: 6,   // r42: the swivel's half turn, eased (about half a second)
   pushFast: 0.52,      // stride period at a standstill (quick, hard strides)
   pushDur: 1.05,       // stride period at cruising speed (long, lazy glides)
   pushEase: 15,        // speed at which the period has fully stretched
@@ -627,6 +634,7 @@ const CAM = {
   yawRate: 2.9,        // how fast the right pad swings the shot
   idle: 0.55,          // how long after letting go before the lens comes back behind her
   follow: 2.6,
+  spring: 1,           // r42: 1 eases the follow in (a critically damped spring), 0 is the old instant follow
   followAir: 0.5,      // ...and it nearly lets go in the air, or a spin is unreadable
   half: 0.09,          // position damping half life
   outHL: 0.30,         // boom: snap IN, ease OUT
@@ -1749,6 +1757,19 @@ const MOVES = {
   idleFwd: ['idle_normal', 'idle_arms_out', 'idle_arms_crossed', 'idle_arms_behind_back', 'idle_legs_spread'],
   idleBack: ['idle_backward'],
   air: 'in_air',
+  // AIR GRABS, STANDING IN (r42, `p.grab`). *"Use some of those weird one-foot / ducky skates for grabs until
+  // I put in actual grabs -- in the air, press and HOLD the right stick."* Held past `grabAt` (longer than a
+  // tap, so a grab is never also a tap) she holds one of his style skates as her air pose -- over a flip or
+  // a spin too, because the rotation is the physics' and the pose is the clip's. Which one is picked from
+  // the thumb's direction when the hold starts; a hold pushed hard DOWN is still the settle.
+  grab: 1, grabAt: 0.3,
+  grabs: { centre: 'pose_duck_R', up: 'daffy', left: 'onefootfront_L', right: 'onefootfront_R', down: 'pose_swan_L' },
+  // HER STYLE SKATES ON THEIR OWN (r42). *"Eventually she'll just run through her different special kinds of
+  // skating on her own -- going forward she'll go through different ones naturally, a fun stylized thing."*
+  // Rolling without pushing faster than `styleV` -- or still pushing past `styleCruise` -- for `styleEvery`
+  // seconds, she slips into one of these for `styleHold`, never the same twice running, then back.
+  style: 1, styleV: 5, styleCruise: 17, styleEvery: 3, styleHold: 3.5,
+  styles: ['daffy', 'swizzle', 'tiptoe', 'onefootfront_L', 'onefootfront_R', 'onefootback_R', 'pose_duck_L', 'pose_swan_R'],
   // THE RIGHT STICK'S FLICK, in the air. Left is his twist flip MIRRORED (`mirrorClip`).
   flip: { up: 'front_flip', down: 'back_flip', right: 'front_twist_flip', left: 'front_twist_flip__mirror' },
   // a fall and the get-up that follows it
@@ -1780,7 +1801,11 @@ function buildMoves(has) {
            flip, grind, idleFwd: iF, idleBack: iB,
            air: has[MOVES.air] ? MOVES.air : null,
            tuck: has.tuck ? 'tuck' : null, flipPose: has.flip_pose ? 'flip_pose' : null,
-           falls: MOVES.falls.filter(([f, u]) => has[f] && has[u]) };
+           falls: MOVES.falls.filter(([f, u]) => has[f] && has[u]),
+           // r42: the style skates, per stance -- a missing fakie version borrows the forward one
+           grabs: Object.fromEntries(Object.entries(MOVES.grabs).map(([k, n]) => [k, [`blade_${n}_forward`, `blade_${n}_backward`].map(c => has[c] ? c : null)])),
+           styleF: MOVES.styles.map(n => `blade_${n}_forward`).filter(c => has[c]),
+           styleB: MOVES.styles.map(n => `blade_${n}_backward`).filter(c => has[c]) };
 }
 
 // WHAT HIS CLIPS NEED BEFORE ANYTHING PLAYS THEM, IN ONE PLACE -- so `npm run sim` prepares them
@@ -1879,6 +1904,7 @@ function buildGirl(gltf, extra) {
   const hipsB = model.getObjectByName('mixamorig_Hips');
   if (hipsB) { model.updateMatrixWorld(true); hipsB.getWorldPosition(girl.hipsLocal); model.worldToLocal(girl.hipsLocal); }
   girl.feet = footFind(model, m.lo);
+  girl.hipsB = hipsB || null;
   girl.model = model;
   girl.mixer = new THREE.AnimationMixer(model);
   const clips = prepClips(normaliseClips((gltf.animations || []).concat(extra || [])), model);
@@ -2332,17 +2358,19 @@ function girlAnimMoves(dt) {
     add(nm, 1);
   } else if (!p.grounded) {
     girl.bail = null;
-    const f = p.flip;
+    const f = p.flip, G = p.grab && p.grab.nm && girl.actions[p.grab.nm] ? p.grab.nm : null;
+    if (G) clipScale(G, 1);
     if (f && f.t < f.dur && f.proc) {
       // PROCEDURAL: the turn is `flipQ`'s, the pose is a blend of his held poses -- no snap, the
-      // throw eases in like a body winding up
+      // throw eases in like a body winding up. A GRAB (r42) replaces the pose; the turn goes on.
       const w = flipShape(f.t / f.dur), air = m.air || m.fwd.push[0];
-      add(m.tuck || air, w.tuck); add(m.flipPose || m.tuck || air, w.pose); add(air, w.air);
+      if (G) add(G, 1);
+      else { add(m.tuck || air, w.tuck); add(m.flipPose || m.tuck || air, w.pose); add(air, w.air); }
     } else if (f && f.t < f.dur) {
       if (girl.flipSeen !== f) { girl.flipSeen = f; rewind(f.nm); snap = true; }
       clipScale(f.nm, clipLen(f.nm, 1) / f.dur);
       add(f.nm, 1);
-    } else add(m.air || m.fwd.push[0], 1);         // a finished flip hands back to the air pose
+    } else add(G || m.air || m.fwd.push[0], 1);    // a finished flip hands back to the air pose (or the grab)
   } else {
     girl.bail = null;
     const back = p.stance < 0 && MOVES.useBack > 0.5, loco = back ? m.back : m.fwd, v = p.speed;
@@ -2361,7 +2389,20 @@ function girlAnimMoves(dt) {
     // neutral rolling pose the rest of the time. The swap between them is the clip weights'
     // own damping, so letting go eases her out of the stride rather than cutting it.
     const move = 1 - still;
-    if (p.thumbGo) {
+    // r42: A STYLE SKATE now and then, while she cruises -- see `MOVES.style`
+    const sList = back ? m.styleB : m.styleF;
+    const ok = MOVES.style > 0.5 && sList && sList.length && (p.thumbGo ? v > MOVES.styleCruise : v > MOVES.styleV);
+    if (!ok) { girl.style = null; girl.styleWait = 0; }
+    else if (girl.style) { girl.style.t += dt; if (girl.style.t > MOVES.styleHold) { girl.styleLast = girl.style.nm; girl.style = null; girl.styleWait = 0; } }
+    else if ((girl.styleWait = (girl.styleWait || 0) + dt) > MOVES.styleEvery) {
+      let nm = sList[Math.floor(Math.random() * sList.length)];
+      if (nm === girl.styleLast && sList.length > 1) nm = sList[(sList.indexOf(nm) + 1) % sList.length];
+      girl.style = { nm, t: 0 };
+    }
+    if (girl.style && girl.actions[girl.style.nm]) {
+      clipScale(girl.style.nm, clamp(v / 10, 0.7, 1.3));
+      add(girl.style.nm, move);
+    } else if (p.thumbGo) {
       const V = MOVES.pushV, u = clamp((v - V[0]) / Math.max(0.1, V[1] - V[0]), 0, 1);
       for (let i = 0; i < 2; i++) {
         const w = i ? u : 1 - u; if (w <= 0) continue;
@@ -2797,8 +2838,8 @@ function railHome() {
   if (p.grounded) leaveGround(0, false);
   p.vertLock = 0; p.xferKick = null; p.autoTurn = null; p.flip = null;
   p.kickRail = { R: best.R, dir: best.dir, sp: Math.max(hv, MELEE.grindV) };
-  // THE LITTLE KICK OVER: his flying kick, if the skin has it, held until she lands on the bar
-  if (melOk(MELEE.air) && (!p.mel || p.mel.kind !== 'kick')) { p.mel = { kind: 'kick', nm: MELEE.air, t: 0, dur: Math.max(0.3, T), h: Math.atan2(p.vel.x, p.vel.z) }; p.melQ = null; }
+  // r42: NO KICK ANIMATION ON THE TAP. *"If you're just tapping and jumping onto it, it doesn't need to do
+  // the kick."* She hops in her ordinary air pose; the flying kick (right flick in the air) keeps it.
   return true;
 }
 function doJump(xfer) {
@@ -3149,7 +3190,7 @@ function landStance(fwd) {
       // across her travel and skid to a stop -- which is a bail by another name.
       if (!LAND.bail && Math.hypot(_v.x, _v.z) > LAND.minV) {
         p.heading = wrapAngle(Math.atan2(_v.x, _v.z) + (p.stance < 0 ? Math.PI : 0));
-        p.faceSlowT = 0.5;                       // the BODY eases round onto it (r33), not snaps
+        p.faceSlowT = 0.5; p.faceSlowRate = SK.landYaw;   // the BODY eases round onto it (r33), not snaps
       }
     }
   }
@@ -3172,6 +3213,9 @@ function swivel() {
   setStance(-p.stance, 'swivel');
   p.heading = wrapAngle(p.heading + Math.PI);
   p.shoveDir = -(p.shoveDir || 1);      // r35: a stroke in flight is in the HEADING's frame, so it turns too
+  // r42: *"it's a little fast -- needs more ease between those two states"*: the body comes round at
+  // `swivelRate` for `swivelT` instead of at the full turning rate (there is no swivel clip yet)
+  p.faceSlowT = SK.swivelT; p.faceSlowRate = SK.swivelRate;
   return true;
 }
 function startFlip(dir) {
@@ -3268,6 +3312,18 @@ function stepMelee(dt) {
   const q = p.melQ; p.melQ = null;
   if (q && p.bailT <= 0) meleeStrike(q.x, q.z);
 }
+// THE GRAB (r42): the right pad HELD in the air past `MOVES.grabAt`, picking a pose by the thumb's direction
+// when the hold begins; let go, land, grind or bail and it is over.
+function grabStep() {
+  const p = player, m = girl.moves, R = stick.R;
+  const air = !p.grounded && !p.grind && p.bailT <= 0;
+  if (!air || !R.down || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
+  if (p.grab || p.rHold < MOVES.grabAt) return;
+  const k = Math.hypot(R.x, R.y) < 0.35 ? 'centre' : Math.abs(R.x) > Math.abs(R.y) ? (R.x > 0 ? 'right' : 'left') : (R.y < 0 ? 'up' : 'down');
+  const pair = m && m.grabs ? (m.grabs[k] || m.grabs.centre) : null;
+  const nm = pair ? ((p.stance < 0 && MOVES.useBack > 0.5 && pair[1]) || pair[0] || pair[1]) : null;
+  p.grab = { k, nm };
+}
 // THE RIGHT PAD'S FLICK, AS A RULE (the binding below calls this; `npm run sim melee` calls it too).
 function rightFlick(dx, dy) {
   const p = player, dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
@@ -3291,6 +3347,7 @@ function stepPlayer(dt) {
     else if (p.grounded || p.coyote > 0) doJump(xfer); }
   p.grindCool = Math.max(0, p.grindCool - dt);
   stepMelee(dt);
+  grabStep();
   // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
   // samples, and that is speed x dt -- so the count follows her speed and a 120 Hz phone does
   // not silently get a different game from a 30 Hz one.
@@ -3307,7 +3364,7 @@ function stepPlayer(dt) {
   if (p.faceSlowT > 0) p.faceSlowT -= dt;
   // a strike or a slide turns her BODY to face it while the wheels keep their line (r39)
   const faceT = p.mel && p.mel.kind !== 'kick' ? p.mel.h : p.heading;
-  p.faceH += wrapAngle(faceT - p.faceH) * Math.min(1, (p.faceSlowT > 0 ? SK.landYaw : SK.faceRate) * dt);
+  p.faceH += wrapAngle(faceT - p.faceH) * Math.min(1, (p.faceSlowT > 0 ? (p.faceSlowRate || SK.landYaw) : SK.faceRate) * dt);
   p.lean = damp(p.lean, leanWant(dt), SK.leanHL, dt);
 }
 // SHE LEANS INTO THE TURN (r27). Her travel's bearing, how fast it is bending, and so the sideways
@@ -3457,6 +3514,22 @@ function footGround(dt) {
     legIK(f, _gd.copy(n).multiplyScalar(-h * k), n, FOOTIK.align * k);
   }
 }
+// THE LEAN AT THE HIPS (r42, `RIG.hipLean`). The same angle the whole body used to take, about the same
+// axis -- her forward -- but applied to the Hips bone after the mixer, so it pivots there instead of at
+// her feet. Undone before the next mixer update, the tail's rule and the IK's.
+const _hl = new THREE.Quaternion(), _hv = new THREE.Vector3();
+function hipLeanApply() {
+  const p = player, H = girl.hipsB;
+  girl.leanSave = null;
+  const a = p.lean * RIG.hipLean;
+  if (!H || !p.grounded || Math.abs(a) < 1e-4) return;
+  girl.root.updateMatrixWorld(true);
+  bodyG.getWorldQuaternion(_hl);
+  _hv.set(0, 0, 1).applyQuaternion(_hl).normalize();
+  girl.leanSave = H.quaternion.clone();
+  worldRot(H, _hl.setFromAxisAngle(_hv, a));
+}
+function hipLeanUndo() { if (girl.leanSave && girl.hipsB) { girl.hipsB.quaternion.copy(girl.leanSave); girl.leanSave = null; } }
 function poseGirl(dt) {
   if (!girl.ready) return;
   const p = player;
@@ -3478,7 +3551,7 @@ function poseGirl(dt) {
     if (!girl.alignQ) girl.alignQ = new THREE.Quaternion();
     if (!girl.wasGr) girl.alignQ.copy(swingOf(p.bq, _q2));       // from whatever she landed holding
     girl.alignQ.slerp(_q.setFromUnitVectors(UP, p.n), Math.min(1, (p.bailT > 0 ? AIR.right : RIG.tiltRate) * dt));
-    p.bq.copy(girl.alignQ).multiply(_qa.setFromAxisAngle(UP, p.faceH)).multiply(_q.setFromAxisAngle(ZAX, p.lean));
+    p.bq.copy(girl.alignQ).multiply(_qa.setFromAxisAngle(UP, p.faceH)).multiply(_q.setFromAxisAngle(ZAX, p.lean * (1 - RIG.hipLean)));
   }
   girl.wasGr = p.grounded;
   bodyG.quaternion.copy(p.bq);
@@ -3500,8 +3573,9 @@ function poseGirl(dt) {
     centreOffset(girl.hipsLocal, girl.model.scale.x, girl.model.rotation.y, RIG.centre, _cv);
     girl.model.position.x = _cv.x; girl.model.position.z = _cv.z;
   }
-  footUndo();
+  footUndo(); hipLeanUndo();
   girl.mixer.update(dt);
+  hipLeanApply();
   footGround(dt);
   // THE TAIL RUNS AFTER THE MIXER, because it reads the pose the animation just put her in --
   // and it writes bone rotations the next `mixer.update` is free to overwrite, which is what
@@ -3550,12 +3624,20 @@ function stepCam(dt) {
   // it nearly lets go: if the camera chases a spin, the lens comes round with her and nothing
   // appears to have happened except that you are dizzy.
   const sp = p.speed, hs = p.hSpeed;
+  // r42: *"when you turn, the whole camera just turns every single time -- I want her to turn and then the
+  // camera compensates, a nice ease."* A first-order follow starts swinging at full rate the instant she
+  // turns, so the lens moves WITH her. `CAM.spring` 1 is a critically damped spring on the bearing instead:
+  // it starts from rest and builds, so she visibly turns first and the shot comes round after her, and it
+  // never overshoots. `follow` is the spring's natural frequency.
   if (cam.idle > CAM.idle && hs > 0.8) {
     const want = hs > 1.4 ? Math.atan2(p.vel.x, p.vel.z) : p.faceH;
-    const rate = p.grounded ? CAM.follow : CAM.followAir;
-    const d = wrapAngle(want - cam.az) * Math.min(1, rate * dt * clamp(hs / 5, 0.3, 1.4));
+    const rate = (p.grounded ? CAM.follow : CAM.followAir) * clamp(hs / 5, 0.3, 1.4);
+    const err = wrapAngle(want - cam.az);
+    let d;
+    if (CAM.spring > 0.5) { cam.azV = (cam.azV || 0) + (rate * rate * err - 2 * rate * (cam.azV || 0)) * dt; d = cam.azV * dt; }
+    else { d = err * Math.min(1, rate * dt); cam.azV = 0; }
     cam.az += d; cam.steerAz += d;
-  }
+  } else cam.azV = decay(cam.azV || 0, 8, dt);
   cam.tgt.set(p.pos.x, p.pos.y + CAM.look, p.pos.z);
   const ce = Math.cos(cam.el);
   const bx = -Math.sin(cam.az) * ce, by = Math.sin(cam.el), bz = -Math.cos(cam.az) * ce;
@@ -3761,6 +3843,14 @@ const TAILUI = [
   ['SK.coastAfter',  'Fade after flat', 0,  5,   0.1,  's'],
   ['LAND.bail',      'Bails on landing', 0, 1,   1,    ''],
   ['MOVES.useBack',  'Backward clips in fakie', 0, 1, 1, ''],
+  ['Lean, camera, style (r42)', ''],
+  ['RIG.hipLean',    'Lean at the hips (0 = whole body)', 0, 1, 0.05, ''],
+  ['CAM.spring',     'Camera eases into turns', 0, 1, 1, ''],
+  ['MOVES.grab',     'Hold right stick in air = grab', 0, 1, 1, ''],
+  ['MOVES.style',    'Style skates while cruising', 0, 1, 1, ''],
+  ['MOVES.styleEvery', 'Style skate every (s)', 0.5, 15, 0.5, ''],
+  ['MOVES.styleHold', 'Style skate lasts (s)', 1, 10, 0.5, ''],
+  ['SK.swivelRate',  'Swivel ease (lower = slower)', 2, 32, 0.5, ''],
   ['Melee (r39)', ''],
   ['MELEE.on',       'Melee flicks', 0, 1, 1, ''],
   ['MELEE.useWeap',  'Use his blaster melees too', 0, 1, 1, ''],
@@ -3946,7 +4036,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, MELEE, meleeStrike, meleeSlide, meleeKick, kickTarget, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, meleeKick, kickTarget, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
