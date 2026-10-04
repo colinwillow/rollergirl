@@ -275,6 +275,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **HER FEET ON THE GROUND (r36, `FOOTIK`, `footFind`, `legIK`, `footGround`).** *"The feet don't quite touch
+  the ground -- it feels like she's floating slightly."* The alien's Hips TRANSLATION is constant in every
+  clip, so every bent knee folds her legs up under a pelvis held at standing height and lifts the skates
+  (Shredworld's borrowed-clip landmine). On the ground, after the mixer: each skate's SOLE is a point fixed
+  in the foot bone's frame (measured at load in the BIND pose as the floor under the ankle), the body drops
+  until the lower sole touches (`maxDrop` .25, eased), a two-bone IK pulls the other skate down if it is
+  within `near` (.16 m) -- higher than that is a stride or a trick, left alone -- and both feet turn flat to
+  the surface. It is undone before the next mixer update (`footUndo`), the tail's rule. Eases out in the air,
+  on a rail and in a bail. `npm run sim footik` drives the shipped IK on a fabricated bent leg: 0.00 mm miss,
+  lengths kept, a tilted foot laid flat, finite when asked for 3 m; revert-tested on the knee sign (119 mm
+  miss). **How it LOOKS needs her skin, which is draco -- that half is his.**
+- **BLADE TRAILS (r36, `TRAIL`, `trailBuild`, `trailStep`).** A camera-facing ribbon off each SOLE (the same
+  points the IK uses): the last `life` .22 s, widest at the skate and tapering to a point, white fading to a
+  cool cyan, NOT additive (a pale floor turns additive into a smear). Earned by speed on the ground (9 -> 18
+  m/s) and by SPIN or a flip in the air (`girl.yawRate`, off `faceH`). `npm run sim trail`.
 - **THE SIDE SKATE (r35, `TWIN`, `twinStep`, `p.twist`) -- AN EXPERIMENT, ON BY DEFAULT.** *"Her movement is
   still the left stick, but her rotation could be the right stick -- holding left on the left stick and
   up on the right, she moves left but faces forward."* The PHYSICS heading is untouched (the left stick

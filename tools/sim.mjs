@@ -1522,6 +1522,65 @@ CASES.twin = () => {
   place(60, 1, -60, 0, 0); rg.stick.L.down = 0;
   return ok;
 };
+// ---------------------------------------------------------------- feet on the ground (r36)
+// The shipped `footFind` + `legIK` on a FABRICATED leg (a skin is draco and cannot be built here, but the
+// IK only reads bone positions and world matrices). It must move the ankle where it is asked to, keep
+// both bone lengths, lay a tilted foot flat, and stay finite when asked for the impossible.
+CASES.footik = () => {
+  const root = new THREE.Group(); let ok = true;
+  const mk = (name, x, y, z, par) => { const b = new THREE.Bone(); b.name = name; b.position.set(x, y, z); par.add(b); return b; };
+  for (const [side, x] of [['Left', 0.1], ['Right', -0.1]]) {
+    const up = mk(`mixamorig_${side}UpLeg`, x, 0.95, 0, root), kn = mk(`mixamorig_${side}Leg`, 0, -0.44, 0.20, up);
+    mk(`mixamorig_${side}Foot`, 0, -0.43, -0.20, kn);   // a bent knee, as in a push
+  }
+  root.updateMatrixWorld(true);
+  const F = rg.footFind(root, 0);
+  if (!F) { console.log('  footFind found no legs'); return false; }
+  const f = F[0], V = () => new THREE.Vector3(), N = new THREE.Vector3(0, 1, 0);
+  const sole = () => f.ft.localToWorld(f.sole.clone());
+  console.log(`  sole under the ankle at rest: y ${fix(sole().y, 4)} (the floor is 0)`);
+  if (Math.abs(sole().y) > 1e-4) ok = false;
+  const len = () => [f.up.getWorldPosition(V()).distanceTo(f.kn.getWorldPosition(V())), f.kn.getWorldPosition(V()).distanceTo(f.ft.getWorldPosition(V()))];
+  const L0 = len(), a0 = f.ft.getWorldPosition(V());
+  rg.legIK(f, new THREE.Vector3(0, -0.05, 0), N, 0);
+  const a1 = f.ft.getWorldPosition(V()), L1 = len(), miss = a1.distanceTo(a0.clone().add(new THREE.Vector3(0, -0.05, 0)));
+  console.log(`  ankle asked 5 cm down: missed by ${fix(miss * 1000, 2)} mm, thigh ${fix(L0[0], 4)} -> ${fix(L1[0], 4)}, shin ${fix(L0[1], 4)} -> ${fix(L1[1], 4)}`);
+  if (!(miss < 1e-3 && Math.abs(L1[0] - L0[0]) < 1e-5 && Math.abs(L1[1] - L0[1]) < 1e-5)) ok = false;
+  // a foot the clip has pointed 25 degrees toes-down: aligned, its sole lies on the surface's plane
+  f.ft.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 25 * Math.PI / 180)); root.updateMatrixWorld(true);
+  const tilt = () => f.upL.clone().applyQuaternion(f.ft.getWorldQuaternion(new THREE.Quaternion())).angleTo(N) * 57.3;
+  const t0 = tilt(); rg.legIK(f, new THREE.Vector3(), N, 1); const t1 = tilt();
+  console.log(`  a foot pointed ${fix(t0, 1)} deg off flat -> ${fix(t1, 2)} deg after align`);
+  if (!(t0 > 10 && t1 < 0.5)) ok = false;
+  // out of reach: clamped, never NaN
+  rg.legIK(f, new THREE.Vector3(0, -3, 0), N, 1);
+  const a3 = f.ft.getWorldPosition(V());
+  console.log(`  asked for 3 m: ankle at y ${fix(a3.y, 3)}, finite ${Number.isFinite(a3.x + a3.y + a3.z)}, leg ${fix(len()[0] + len()[1], 4)} long (straight is ${fix(L0[0] + L0[1], 4)})`);
+  if (!Number.isFinite(a3.x + a3.y + a3.z) || Math.abs(len()[0] - L0[0]) > 1e-4) ok = false;
+  return ok;
+};
+// ---------------------------------------------------------------- blade trails (r36)
+// The shipped `trailBuild` on a fabricated skate path, and `trailAmount` against her state: none at
+// a cruise, full at speed, full while spinning in the air; the strip tapers to nothing and fades.
+CASES.trail = () => {
+  let ok = true; const hist = [], now = 1;
+  for (let i = 0; i <= 12; i++) hist.push({ x: -3 + i * 0.25, y: 0.02, z: 0, t: now - (12 - i) / 60 });
+  const pos = new Float32Array(rg.TRAIL.n * 6), col = new Float32Array(rg.TRAIL.n * 8);
+  const c = rg.trailBuild(hist, now, { x: 0, y: 2, z: -5 }, 1, pos, col);
+  const wid = i => Math.hypot(pos[i * 6] - pos[i * 6 + 3], pos[i * 6 + 1] - pos[i * 6 + 4], pos[i * 6 + 2] - pos[i * 6 + 5]);
+  const fin = [...pos.slice(0, c * 3)].every(Number.isFinite);
+  console.log(`  ${c / 2} points, finite ${fin}; width at the skate ${fix(wid(12), 3)} m, at the tail ${fix(wid(0), 3)}; ` +
+              `alpha ${fix(col[12 * 8 + 3])} -> ${fix(col[3])}`);
+  if (!(fin && c === 26 && wid(12) > 0.05 && wid(0) < wid(12) * 0.5 && col[12 * 8 + 3] > col[3])) ok = false;
+  if (rg.trailBuild(hist, now, { x: 0, y: 2, z: -5 }, 0, pos, col) !== 0) { console.log('  drawn with nothing earned'); ok = false; }
+  const keep = { g: P.grounded, v: P.vel.clone(), hs: P.hSpeed, f: P.flip };
+  const amt = (gr, hs, spin) => { P.grounded = gr; P.hSpeed = hs; P.flip = null; P.bailT = 0; rg.girl.yawRate = spin; return rg.trailAmount(); };
+  const a1 = amt(true, 5, 0), a2 = amt(true, 20, 0), a3 = amt(false, 4, 10), a4 = amt(false, 4, 0);
+  console.log(`  earned: rolling 5 m/s ${fix(a1)}, 20 m/s ${fix(a2)}, spinning in the air ${fix(a3)}, still in the air ${fix(a4)}`);
+  if (!(a1 < 0.01 && a2 > 0.99 && a3 > 0.99 && a4 < 0.01)) ok = false;
+  P.grounded = keep.g; P.hSpeed = keep.hs; P.flip = keep.f; rg.girl.yawRate = 0;
+  return ok;
+};
 CASES.feel = () => {
   let ok = true;
   const chk = (label, c, extra = '') => { console.log(`  ${label.padEnd(44)} ${c ? 'ok' : 'WRONG'} ${extra}`); if (!c) ok = false; };

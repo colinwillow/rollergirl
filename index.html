@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r35</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r36</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r35';
+const BUILD = 'r36';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -213,6 +213,24 @@ const RIG = {
   // a re-export with the root under her needs no edit.
   centre: 1,
 };
+
+// HER FEET ON THE GROUND (r36, `footGround`, `legIK`). *"The feet don't quite touch the ground -- it
+// feels like she's floating slightly, very subtle. Maybe an additive layer, a little IK on the leg
+// chains so her legs are always approximating the ground, and the feet parallel to it."*
+// WHY SHE FLOATS: the alien's Hips TRANSLATION is a constant in every clip (the r15 note) -- so every
+// crouch, every bent knee in a push, folds her legs up UNDER a pelvis held at standing height, and her
+// skates leave the floor. Same landmine Shredworld paid for on its borrowed clips.
+// SO, ON THE GROUND, AFTER THE MIXER, EVERY FRAME:
+//   1. the sole of each skate is measured -- a point fixed in the FOOT BONE's frame, found at load as
+//      the floor directly under the ankle in her rest pose, so nothing is typed in metres;
+//   2. the body DROPS until the lower skate touches (`maxDrop` at most, eased), which is most of it;
+//   3. the other leg gets a two-bone IK (thigh + shin, knee kept in its own bend plane) that pulls its
+//      skate down to the surface IF it is within `near` of it -- a foot the clip lifts higher than that
+//      is a stride or a trick and is left alone, fading in between;
+//   4. both feet turn so the sole lies flat on the surface (`align`, at most `alignMax`).
+// It is an edit ON TOP of the pose, undone before the next mixer update, so it cannot accumulate.
+// In the air, on a rail and in a bail it eases out.
+const FOOTIK = { on: 1, maxDrop: 0.25, maxRaise: 0.06, near: 0.16, align: 1, alignMax: 40 * Math.PI / 180, hl: 0.05, sink: 0.0 };
 
 // THE ROSTER. ONE CHARACTER AT A TIME -- a switch is a menu action, not a parade, so there is
 // no second root, no second mixer and no second weight table to keep in step. The pick lives
@@ -1305,6 +1323,74 @@ function sparkStep(dt) {
   sparkGeo.attributes.position.needsUpdate = true; sparkGeo.attributes.color.needsUpdate = true;
 }
 
+// ---------- blade trails (r36) ----------
+// *"When she's gaining speed, where her feet go it makes stylized slash marks so she looks like she's
+// going fast -- and in the air when she's spinning."* A RIBBON off each skate: the last `life` seconds
+// of where the sole has been, drawn as a strip that faces the camera, widest at the skate and tapering
+// to a point at the tail, fading as it goes. Crisp and white with a cool tail, NOT additive -- on a
+// pale floor additive has nowhere to go but a blown-out smear, and a slash mark is ink, not glow.
+// How much of it shows is how fast she is going on the ground (`v0` -> `v1`), and in the air how fast
+// she is SPINNING (or flipping), which is the half that makes a 540 read. Visual only; nothing reads it.
+const TRAIL = { on: 1, life: 0.22, w: 0.10, v0: 9, v1: 18, spin0: 3, spin1: 9, n: 48, col: 0xffffff, tail: 0x7fe3ff, alpha: 0.85 };
+const trailMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false,
+  side: THREE.DoubleSide, fog: false, toneMapped: false });
+const trails = [0, 1].map(() => {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL.n * 2 * 3), 3));
+  g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRAIL.n * 2 * 4), 4));
+  const idx = []; for (let i = 0; i < TRAIL.n - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  g.setIndex(idx); g.setDrawRange(0, 0);
+  const m = new THREE.Mesh(g, trailMat); m.frustumCulled = false; m.renderOrder = 5; scene.add(m);
+  return { mesh: m, geo: g, hist: [] };
+});
+const _tc0 = new THREE.Color(), _tc1 = new THREE.Color(), _trA = new THREE.Vector3(), _trB = new THREE.Vector3();
+// THE STRIP, FROM A HISTORY OF {x,y,z,t} (oldest first). Pure, so `npm run sim trail` drives it
+// without a skin. Writes `pos` (2 verts per point) and `col` (RGBA), returns the vertex count drawn.
+function trailBuild(hist, now, eye, k, pos, col) {
+  const n = hist.length; if (n < 2 || k <= 0.001) return 0;
+  _tc0.setHex(TRAIL.col); _tc1.setHex(TRAIL.tail);
+  for (let i = 0; i < n; i++) {
+    const h = hist[i], a = hist[Math.max(0, i - 1)], b = hist[Math.min(n - 1, i + 1)];
+    _trA.set(b.x - a.x, b.y - a.y, b.z - a.z);                     // along the trail
+    _trB.set(eye.x - h.x, eye.y - h.y, eye.z - h.z);                // toward the lens
+    _trA.cross(_trB); const l = _trA.length();
+    const age = clamp((now - h.t) / TRAIL.life, 0, 1), life = 1 - age;
+    const half = l > 1e-6 ? TRAIL.w * 0.5 * Math.pow(life, 1.3) * (0.4 + 0.6 * k) / l : 0;
+    pos[i * 6]     = h.x + _trA.x * half; pos[i * 6 + 1] = h.y + _trA.y * half; pos[i * 6 + 2] = h.z + _trA.z * half;
+    pos[i * 6 + 3] = h.x - _trA.x * half; pos[i * 6 + 4] = h.y - _trA.y * half; pos[i * 6 + 5] = h.z - _trA.z * half;
+    const al = TRAIL.alpha * k * life * life;
+    const r = _tc0.r + (_tc1.r - _tc0.r) * age, g = _tc0.g + (_tc1.g - _tc0.g) * age, bb = _tc0.b + (_tc1.b - _tc0.b) * age;
+    for (let e = 0; e < 2; e++) { const o = (i * 2 + e) * 4; col[o] = r; col[o + 1] = g; col[o + 2] = bb; col[o + 3] = al; }
+  }
+  return n * 2;
+}
+// how much trail she has earned this frame
+function trailAmount() {
+  const p = player;
+  if (!TRAIL.on || p.bailT > 0) return 0;
+  if (p.grounded || p.grind) return smooth(TRAIL.v0, TRAIL.v1, p.hSpeed);
+  const spin = Math.abs(girl.yawRate || 0);
+  return Math.max(p.flip ? 1 : 0, smooth(TRAIL.spin0, TRAIL.spin1, spin), 0.6 * smooth(TRAIL.v0, TRAIL.v1, p.hSpeed));
+}
+function trailStep(dt) {
+  const now = performance.now() / 1000, F = girl.feet;
+  const p = player;
+  girl.yawRate = damp(girl.yawRate || 0, wrapAngle(p.faceH - (girl.lastFace ?? p.faceH)) / Math.max(dt, 1e-4), 0.05, dt);
+  girl.lastFace = p.faceH;
+  girl.trailK = damp(girl.trailK || 0, trailAmount(), 0.08, dt);
+  for (let j = 0; j < 2; j++) {
+    const T = trails[j], f = F && F[j];
+    if (f && girl.ready) {
+      f.bone.localToWorld(_trB.copy(f.sole));
+      T.hist.push({ x: _trB.x, y: _trB.y, z: _trB.z, t: now });
+    }
+    while (T.hist.length && (now - T.hist[0].t > TRAIL.life || T.hist.length > TRAIL.n)) T.hist.shift();
+    const c = trailBuild(T.hist, now, camera.position, girl.trailK, T.geo.attributes.position.array, T.geo.attributes.color.array);
+    T.geo.setDrawRange(0, c > 0 ? (c / 2 - 1) * 6 : 0);
+    if (c) { T.geo.attributes.position.needsUpdate = true; T.geo.attributes.color.needsUpdate = true; }
+  }
+}
+
 // ---------- her ----------
 const loader = new GLTFLoader();
 const draco = new DRACOLoader(); draco.setDecoderPath('./vendor/draco/'); loader.setDRACOLoader(draco);
@@ -1725,6 +1811,7 @@ function buildGirl(gltf) {
   girl.hipsLocal = new THREE.Vector3();
   const hipsB = model.getObjectByName('mixamorig_Hips');
   if (hipsB) { model.updateMatrixWorld(true); hipsB.getWorldPosition(girl.hipsLocal); model.worldToLocal(girl.hipsLocal); }
+  girl.feet = footFind(model, m.lo);
   girl.model = model;
   girl.mixer = new THREE.AnimationMixer(model);
   const clips = prepClips(normaliseClips(gltf.animations || []), model);
@@ -3099,6 +3186,100 @@ function swingOf(q, out) {
   return out.copy(q).multiply(tw.invert());
 }
 const _q3 = new THREE.Quaternion();
+// THE LEGS, AND WHERE EACH SOLE IS. Measured in her BIND pose (`skeleton.pose()`), where the feet are
+// flat: the floor is the geometry's lowest point (`lo`, the same number that stood her on the ground),
+// the sole is the point on it straight under the ankle, and both it and "up" are stored in the FOOT
+// BONE's own frame -- so every frame the sole is `foot.localToWorld(sole)`, whatever the clip is doing.
+function footFind(model, lo) {
+  const out = [];
+  let skel = null; model.traverse(o => { if (!skel && o.isSkinnedMesh) skel = o.skeleton; });
+  if (skel) skel.pose();
+  model.updateMatrixWorld(true);
+  const mq = model.getWorldQuaternion(new THREE.Quaternion());
+  for (const side of ['Left', 'Right']) {
+    const up = model.getObjectByName(`mixamorig_${side}UpLeg`), kn = model.getObjectByName(`mixamorig_${side}Leg`),
+          ft = model.getObjectByName(`mixamorig_${side}Foot`);
+    if (!up || !kn || !ft || kn.parent !== up || ft.parent !== kn) return null;
+    const fw = ft.getWorldPosition(new THREE.Vector3()), fl = model.worldToLocal(fw.clone());
+    const floor = model.localToWorld(new THREE.Vector3(fl.x, lo, fl.z));
+    const sole = ft.worldToLocal(floor.clone());
+    const fq = ft.getWorldQuaternion(new THREE.Quaternion());
+    const upL = new THREE.Vector3(0, 1, 0).applyQuaternion(mq).applyQuaternion(fq.invert()).normalize();
+    out.push({ up, kn, ft, bone: ft, sole, upL, save: [new THREE.Quaternion(), new THREE.Quaternion(), new THREE.Quaternion()], dirty: false });
+  }
+  return out;
+}
+// TWO-BONE IK, IN WORLD SPACE, WRITTEN BACK AS LOCAL ROTATIONS. Moves the ankle by `dv` (a world
+// vector) as nearly as the leg's two lengths allow: the knee opens or closes in the plane it is already
+// bent in, then the thigh swings the ankle onto the target. Then the foot turns `upL` toward `nrm` by
+// `alignK` (capped at `alignMax`). Pure over Object3Ds, so `npm run sim footik` drives it on a
+// fabricated leg.
+const _ia = new THREE.Vector3(), _ib = new THREE.Vector3(), _ic = new THREE.Vector3(), _it = new THREE.Vector3(), _ik = new THREE.Vector3();
+const _iq1 = new THREE.Quaternion(), _iq2 = new THREE.Quaternion(), _iq3 = new THREE.Quaternion(), _iw = new THREE.Quaternion(), _ip = new THREE.Quaternion();
+function worldRot(bone, dq) {      // turn `bone` by world rotation `dq` about its own origin
+  bone.parent.getWorldQuaternion(_ip);
+  bone.quaternion.premultiply(_iw.copy(_ip).invert().multiply(dq).multiply(_ip).normalize());
+  bone.updateMatrixWorld(true);
+}
+function legIK(f, dv, nrm, alignK) {
+  f.up.getWorldPosition(_ia); f.kn.getWorldPosition(_ib); f.ft.getWorldPosition(_ic);
+  _it.copy(_ic).add(dv);
+  const l1 = _ia.distanceTo(_ib), l2 = _ib.distanceTo(_ic);
+  if (l1 < 1e-5 || l2 < 1e-5) return;
+  const dT = clamp(_ia.distanceTo(_it), Math.abs(l1 - l2) + 1e-4, (l1 + l2) * 0.999);
+  // the knee: interior angle now, and the one that makes the leg dT long
+  const ba = _ik.copy(_ia).sub(_ib), bc = new THREE.Vector3().copy(_ic).sub(_ib);
+  const cur = ba.angleTo(bc), want = Math.acos(clamp((l1 * l1 + l2 * l2 - dT * dT) / (2 * l1 * l2), -1, 1));
+  const axis = new THREE.Vector3().crossVectors(ba, bc);
+  if (axis.lengthSq() > 1e-10 && Math.abs(want - cur) > 1e-5) {
+    axis.normalize(); _iq1.setFromAxisAngle(axis, want - cur);
+    worldRot(f.kn, _iq1);
+  }
+  // the thigh: swing the (new) ankle onto the target
+  f.ft.getWorldPosition(_ic);
+  _iq2.setFromUnitVectors(_ib.copy(_ic).sub(_ia).normalize(), _ik.copy(_it).sub(_ia).normalize());
+  worldRot(f.up, _iq2);
+  // the foot: sole parallel to the surface
+  if (alignK > 0.001 && nrm) {
+    f.ft.getWorldQuaternion(_iq3);
+    const upW = _ik.copy(f.upL).applyQuaternion(_iq3);
+    const ang = Math.min(upW.angleTo(nrm), FOOTIK.alignMax);
+    const ax = new THREE.Vector3().crossVectors(upW, nrm);
+    if (ax.lengthSq() > 1e-10 && ang > 1e-4) worldRot(f.ft, _iq3.setFromAxisAngle(ax.normalize(), ang * alignK));
+  }
+}
+// PUT BACK WHAT THE IK CHANGED, before the mixer runs. The mixer rewrites every leg bone it has a track
+// for (which is all of them in both exports), but trusting that is how a relative edit becomes a bone
+// spinning -- the tail's own rule.
+function footUndo() {
+  const F = girl.feet; if (!F) return;
+  for (const f of F) if (f.dirty) { f.up.quaternion.copy(f.save[0]); f.kn.quaternion.copy(f.save[1]); f.ft.quaternion.copy(f.save[2]); f.dirty = false; }
+}
+const _gs = new THREE.Vector3(), _gd = new THREE.Vector3();
+function soleHeight(f, n, o) { f.bone.localToWorld(_gs.copy(f.sole)); return _gs.sub(o).dot(n); }
+function footGround(dt) {
+  const F = girl.feet, p = player; if (!F || !girl.model) return;
+  const on = FOOTIK.on > 0.5 && p.grounded && !p.grind && p.bailT <= 0;
+  girl.ikW = damp(girl.ikW || 0, on ? 1 : 0, FOOTIK.hl, dt);
+  girl.root.updateMatrixWorld(true);
+  const n = p.n, o = p.pos;
+  let target = 0;
+  if (girl.ikW > 0.01) {
+    const lo = Math.min(soleHeight(F[0], n, o), soleHeight(F[1], n, o)) - FOOTIK.sink;
+    target = clamp(lo, -FOOTIK.maxRaise, FOOTIK.maxDrop) * girl.ikW;
+  }
+  girl.ikDrop = damp(girl.ikDrop || 0, target, FOOTIK.hl, dt);
+  girl.model.position.y -= girl.ikDrop;
+  girl.model.updateMatrixWorld(true);
+  if (girl.ikW <= 0.01) return;
+  for (const f of F) {
+    const h = soleHeight(f, n, o) - FOOTIK.sink;
+    const k = girl.ikW * (1 - smooth(FOOTIK.near * 0.5, FOOTIK.near, h));
+    if (k < 0.01) continue;
+    f.save[0].copy(f.up.quaternion); f.save[1].copy(f.kn.quaternion); f.save[2].copy(f.ft.quaternion); f.dirty = true;
+    legIK(f, _gd.copy(n).multiplyScalar(-h * k), n, FOOTIK.align * k);
+  }
+}
 function poseGirl(dt) {
   if (!girl.ready) return;
   const p = player;
@@ -3142,7 +3323,9 @@ function poseGirl(dt) {
     centreOffset(girl.hipsLocal, girl.model.scale.x, girl.model.rotation.y, RIG.centre, _cv);
     girl.model.position.x = _cv.x; girl.model.position.z = _cv.z;
   }
+  footUndo();
   girl.mixer.update(dt);
+  footGround(dt);
   // THE TAIL RUNS AFTER THE MIXER, because it reads the pose the animation just put her in --
   // and it writes bone rotations the next `mixer.update` is free to overwrite, which is what
   // keeps it an edit on top of the pose rather than something that accumulates.
@@ -3298,6 +3481,7 @@ function frame() {
   poseGirl(dt);
   sparkStep(dt);
   stepCam(dt);
+  trailStep(dt);
   hud(dt);
   // the Bright look switch is read at LOAD (the park's colours are baked), so it is remembered here
   if (LOOK.at === undefined) LOOK.at = LOOK.style;
@@ -3404,6 +3588,18 @@ const TAILUI = [
   ['SK.coastAfter',  'Fade after flat', 0,  5,   0.1,  's'],
   ['LAND.bail',      'Bails on landing', 0, 1,   1,    ''],
   ['MOVES.useBack',  'Backward clips in fakie', 0, 1, 1, ''],
+  ['Feet & trails (r36)', ''],
+  ['FOOTIK.on',      'Feet on the ground (IK)', 0, 1, 1, ''],
+  ['FOOTIK.maxDrop', 'Most she sinks to reach', 0, 0.5, 0.01, ''],
+  ['FOOTIK.near',    'Foot pulled down within', 0, 0.5, 0.01, ''],
+  ['FOOTIK.align',   'Feet flat to the ground', 0, 1, 0.05, ''],
+  ['FOOTIK.sink',    'Skates into the ground', -0.05, 0.05, 0.005, ''],
+  ['TRAIL.on',       'Blade trails', 0, 1, 1, ''],
+  ['TRAIL.v0',       'Trails start at m/s', 0, 24, 0.5, ''],
+  ['TRAIL.v1',       'Trails full at m/s', 1, 30, 0.5, ''],
+  ['TRAIL.life',     'Trail length (s)', 0.05, 0.6, 0.01, ''],
+  ['TRAIL.w',        'Trail width', 0.02, 0.4, 0.01, ''],
+  ['TRAIL.alpha',    'Trail strength', 0, 1, 0.05, ''],
   ['Side skate (r35)', ''],
   ['TWIN.on',        'Twin-stick facing', 0, 1, 1, ''],
   ['TWIN.rate',      'Twist speed', 2, 30, 0.5, ''],
@@ -3453,7 +3649,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, TWIN };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, TWIN, FOOTIK, TRAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -3570,7 +3766,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, TWIN, twinStep,
+  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, TWIN, twinStep, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
