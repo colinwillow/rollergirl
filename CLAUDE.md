@@ -290,23 +290,15 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   points the IK uses): the last `life` .22 s, widest at the skate and tapering to a point, white fading to a
   cool cyan, NOT additive (a pale floor turns additive into a smear). Earned by speed on the ground (9 -> 18
   m/s) and by SPIN or a flip in the air (`girl.yawRate`, off `faceH`). `npm run sim trail`.
-- **THE SIDE SKATE (r35, `TWIN`, `twinStep`, `p.twist`) -- AN EXPERIMENT, ON BY DEFAULT.** *"Her movement is
-  still the left stick, but her rotation could be the right stick -- holding left on the left stick and
-  up on the right, she moves left but faces forward."* The PHYSICS heading is untouched (the left stick
-  steers the wheels exactly as before); `p.twist` turns only her BODY off it, so the push clip she has
-  plays sideways, which is what his side-skate clips are anyway. The right pad is read through the
-  camera, past `TWIN.at` (over `AIR.tapFar`, so a tap is still a jump); with TWIN on the right pad does
-  NOT orbit on the ground, and the follow camera holds still while she is twisted so "up" stays up.
-  Let go and the twist eases back. **A skin with backward clips turns its stance over past `TWIN.swap`**
-  (110 deg) -- heading and stance flip, the twist gives back the half turn, the body does not move --
-  so a body turned round past side-on plays the backward clips. **The twist goes into the air as her
-  heading** (`leaveGround`), so a landing judges the real body. Panel: Side skate (r35); `TWIN.on` 0 is
-  r34's right pad. `npm run sim twin` covers travel vs facing, release, off, a tap, the stance swap and
-  the takeoff fold.
+- **THE SIDE SKATE WAS TRIED AND TAKEN OUT (r35 in, r37 out).** Right pad = which way her body faces, left
+  pad = travel. *"It's too much, too crazy for a mobile -- there might be a way to do it better, but as it
+  stands we need to revert that dynamic."* The code is gone (git has it at r35/r36, `TWIN`, `twinStep`); the
+  right pad is the camera again. If it comes back, it wants a gentler shape than a held stick.
   **A STROKE IN FLIGHT IS IN THE HEADING'S FRAME, SO A HALF TURN HAS TO TURN IT TOO.** `p.shoveDir`
   is +1/-1 along `p.heading`; flip the heading under a live stroke and the rest of it pushes her the
-  OTHER way. The twin case caught it from a standstill (she shot off backwards and the stance flipped
-  back to fwd as "reversed"); the swivel had the same latent fault and both now negate `shoveDir`.
+  OTHER way. The side-skate test caught it from a standstill (she shot off backwards and the stance
+  flipped back to fwd as "reversed"); the swivel had the same latent fault and negates `shoveDir` now.
+  `npm run sim swivel` keeps it covered (revert-tested).
 - **THE LOOK IS WEIRDPORT'S (r35, `LOOK.style` 2, `stepLights`, `skyBand`), AND r34 COPIED THE WRONG
   GAME.** *"That's what the screenshots were from and that's the one I like the look of the most."* His
   reference was WEIRDPORT, not Robits. Ported from weirdport's own measured numbers: his painted sky

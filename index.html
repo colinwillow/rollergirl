@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r36</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r37</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r36';
+const BUILD = 'r37';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -2568,7 +2568,7 @@ function stickWorld() {
 // ---------- her, moving ----------
 const player = {
   pos: SPAWN.clone(), vel: new THREE.Vector3(),
-  heading: 0, faceH: 0, twist: 0, twinning: false, grounded: true, speed: 0, along: 0,
+  heading: 0, faceH: 0, grounded: true, speed: 0, along: 0,
   n: new THREE.Vector3(0, 1, 0),
   airT: 0, coyote: 0, jump: 0, landHard: 0, rHold: 0,
   pushing: false, pushT: 0, pushOff: 9, pushPeriod: SK.pushFast,
@@ -2619,25 +2619,9 @@ function groundQ(out) {
 // LOCKED air (a tap, or rolling over the lip) she now turns 180 over `turnFrac` of the air she has;
 // spin with the stick on top of it as before -- an extra 180 is how you land fakie on purpose.
 const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6 };
-// TWIN-STICK FACING (r35, an experiment). *"Her movement is still the left stick, but her rotation
-// could be the right stick -- holding left on the left stick and up on the right, she moves left but
-// faces forward, a side skate."* The PHYSICS heading stays the left stick's -- the wheels roll where
-// it says and nothing about the skating changes -- and `p.twist` turns her BODY off it, so the push
-// clip she already has plays sideways, which is what his side-skate clips are anyway. The right pad
-// is read through the camera, and the camera stops following while it is held, so "up" stays up.
-//   at     how far the thumb has to go before it twists her -- over `AIR.tapFar`, so a tap is a jump
-//   rate   how fast her body comes round onto the thumb, and back onto her line when it lets go
-//   swap   a skin that can skate backwards turns her stance over past this, so a body twisted round
-//          past side-on plays the BACKWARD clips -- the swivel's own mechanics, done gradually
-// In the air the twist is folded into her heading as she leaves, so a landing judges her real body.
-const TWIN = { on: 1, at: 0.5, rate: 14, back: 9, swap: 110 * Math.PI / 180 };
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
-  // A TWISTED BODY TAKES ITS TWIST INTO THE AIR AS ITS HEADING (r35): in the air the heading IS the
-  // body, and a landing judges stance off the body, so the side skate is exactly what she lands on.
-  if (p.twist) { p.heading = wrapAngle(p.heading + p.twist); p.twist = 0; }
-  p.twinning = false;
   p.vertLock = 0; p.xferKick = null; p.autoTurn = null;
   const h = Math.hypot(n.x, n.z);
   if (n.y < Math.cos(VERT.at) && h > 1e-4) {
@@ -2669,7 +2653,7 @@ function leaveGround(coy, xfer) {
 
 function respawn() {
   const p = player;
-  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0; p.twist = 0; p.twinning = false; p.drift = 0;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0; p.drift = 0;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
@@ -3114,34 +3098,8 @@ function stepPlayer(dt) {
   // ...except just after a landing squared her onto her line (r33): that turn is the landing's, not
   // the thumb's, and taken at full rate it read as a snap -- so it eases at `landYaw` for a moment
   if (p.faceSlowT > 0) p.faceSlowT -= dt;
-  twinStep(dt);
-  p.faceH += wrapAngle(p.heading + p.twist - p.faceH) * Math.min(1, (p.faceSlowT > 0 ? SK.landYaw : SK.faceRate) * dt);
+  p.faceH += wrapAngle(p.heading - p.faceH) * Math.min(1, (p.faceSlowT > 0 ? SK.landYaw : SK.faceRate) * dt);
   p.lean = damp(p.lean, leanWant(dt), SK.leanHL, dt);
-}
-// THE SIDE SKATE (r35, `TWIN`). The right pad, read through the camera exactly the way `stickWorld`
-// reads the left, is a WORLD direction for her body to face; `p.twist` is that direction measured
-// off her heading, eased. On the ground only -- in the air the right pad is the settle and the heading
-// is already the body. Let go and the twist eases back to nothing, so she faces her line again.
-function twinStep(dt) {
-  const p = player, R = stick.R;
-  const m = Math.hypot(R.x, R.y);
-  p.twinning = !!(TWIN.on > 0.5 && R.down && m > TWIN.at && p.grounded && !p.grind && p.bailT <= 0);
-  let want = 0;
-  if (p.twinning) {
-    const sa = Math.sin(cam.az), ca = Math.cos(cam.az);
-    const dx = -R.y * sa - R.x * ca, dz = -R.y * ca + R.x * sa;
-    want = wrapAngle(Math.atan2(dx, dz) - p.heading);
-  } else if (!p.grounded || p.grind) { p.twist = 0; return; }
-  p.twist = wrapAngle(p.twist + wrapAngle(want - p.twist) * Math.min(1, (p.twinning ? TWIN.rate : TWIN.back) * dt));
-  // PAST SIDE-ON A SKIN THAT CAN SKATE BACKWARDS TURNS ITS STANCE OVER -- heading and stance flip,
-  // the twist gives back the half turn, and her body does not move at all. The hysteresis is the
-  // gap between `swap` and 180 - `swap`, so it cannot flap.
-  if (p.stanceLock && Math.abs(p.twist) > TWIN.swap) {
-    setStance(-p.stance, 'twist');
-    p.heading = wrapAngle(p.heading + Math.PI);
-    p.shoveDir = -(p.shoveDir || 1);    // a stroke in flight keeps pushing the way it was pushing
-    p.twist = wrapAngle(p.twist - Math.PI);
-  }
 }
 // SHE LEANS INTO THE TURN (r27). Her travel's bearing, how fast it is bending, and so the sideways
 // acceleration `v * w`; the lean is toward the centre of that, as an angle about HER forward axis.
@@ -3364,11 +3322,9 @@ function stepCam(dt) {
   // THE RIGHT PAD ORBITS IN A CIRCLE AND NOTHING ELSE. `cam.el` is a constant: there is no
   // pitch on this stick, by design -- a skating camera that can be pointed at the sky is a
   // camera you spend the whole session putting back.
-  // r35: WITH TWIN-STICK FACING ON, THE RIGHT PAD IS HER BODY ON THE GROUND, not the lens -- and the
-  // follow holds still while she is twisted, so "up" on that pad stays the same way up.
-  const rx = TWIN.on > 0.5 && p.grounded ? 0 : stick.R.x;
+  const rx = stick.R.x;
   const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
-  if (yaw || p.twinning) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
+  if (yaw) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
   if (!stick.L.down) cam.steerAz = cam.az;          // no left thumb: the frames agree (see stickWorld)
   // AND THEN IT COMES BACK BEHIND HER. A skater goes where she points, so the lens wants to be
   // behind her and letting go of the pad should not leave you looking at her side. In the AIR
@@ -3443,8 +3399,6 @@ function hud(dt) {
                       ? (player.stance < 0 ? ' · FAKIE·' : ' · fwd·') + player.stanceWhy
                       : (player.stance < 0 ? ' · FAKIE' : '')) + (girl.top ? ' · ' + girl.top.replace(/^blade_/, '') : '') : '') +
       (player.grind ? ` · GRIND ${player.grind.side.toUpperCase()} ${player.grind.s.toFixed(1)}` : '') +
-      // r35: how far her body is turned off her line, while the side skate is in use
-      (Math.abs(player.twist) > 0.1 ? ` · SIDE ${Math.round(player.twist * 180 / Math.PI)}°` : '') +
       (girl.tail && girl.tail.n
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : '') +
@@ -3600,11 +3554,6 @@ const TAILUI = [
   ['TRAIL.life',     'Trail length (s)', 0.05, 0.6, 0.01, ''],
   ['TRAIL.w',        'Trail width', 0.02, 0.4, 0.01, ''],
   ['TRAIL.alpha',    'Trail strength', 0, 1, 0.05, ''],
-  ['Side skate (r35)', ''],
-  ['TWIN.on',        'Twin-stick facing', 0, 1, 1, ''],
-  ['TWIN.rate',      'Twist speed', 2, 30, 0.5, ''],
-  ['TWIN.back',      'Twist return speed', 1, 30, 0.5, ''],
-  ['TWIN.swap',      'Turn to backwards past', 95, 170, 1, '', 'deg'],
   ['Look (r34)', ''],
   ['LOOK.style',     'Look 0 dusk 1 robits 2 weirdport (reload)', 0, 2, 1, ''],
   ['LOOK.exposure',  'Exposure',       0.5, 2,   0.05, ''],
@@ -3649,7 +3598,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, TWIN, FOOTIK, TRAIL };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -3766,7 +3715,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, TWIN, twinStep, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

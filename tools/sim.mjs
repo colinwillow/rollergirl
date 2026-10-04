@@ -395,8 +395,7 @@ CASES.tap = async () => {
     }
   // THE RIGHT PAD ORBITS THE LENS, NOT HER (r28): left thumb held forward, right pad swinging the
   // camera round -- the direction the left thumb means must not move with it. Thumb up, they agree.
-  // (with TWIN-STICK FACING OFF: since r35 the right pad on the ground is her body when it is on)
-  { const keepTwin = rg.TWIN.on; rg.TWIN.on = 0; place(60, 1, -60, 0, 0); P.grounded = true;
+  { place(60, 1, -60, 0, 0); P.grounded = true;
     rg.cam.az = 0; rg.cam.steerAz = 0; rg.cam.idle = 0;
     Object.assign(rg.stick.L, { down: 1, x: 0, y: -1 }); Object.assign(rg.stick.R, { down: 1, x: 1, y: 0 });
     const w0 = rg.stickWorld();
@@ -411,7 +410,7 @@ CASES.tap = async () => {
     good = Math.abs(w2.x - sa) < 1e-6 && Math.abs(w2.z - ca) < 1e-6;
     console.log(`  ...and once the left thumb lifts    -> ${good ? 'steering frame back on the lens' : 'STILL OFF'}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
-    rg.stick.L.y = 0; rg.cam.az = 0; rg.cam.steerAz = 0; rg.TWIN.on = keepTwin; }
+    rg.stick.L.y = 0; rg.cam.az = 0; rg.cam.steerAz = 0; }
   // THE RIGHT PAD'S SWIPE UP (r25): on the ground it is the TRANSFER jump (`jump` 2), in the air
   // the front flip. Fast up, then off -- through the shipped binding, real FLICK timing.
   { const swipe = async (dx, dy) => { P.jump = 0;
@@ -1477,49 +1476,18 @@ CASES.flip = () => {
 // *"She feels like a boat."* Four things fed that, and each is checked here against the SHIPPED code:
 // the lean was away from the turn half the time, the turn axis was behind her, the air yaw was eased
 // on top of an analog ramp, and the camera (that one is on the panel, not here -- it is taste).
-// ---------------------------------------------------------------- the side skate (r35)
-// *"Holding left on the left stick and up on the right, she moves left but faces forward."* The left
-// stick is her TRAVEL and the right pad her BODY. Skated up x = 60 (open plaza) with the left thumb
-// forward and the right thumb held right: she must travel +Z and face screen-right, which with the
-// lens looking down +Z is -X. Let go and she faces her line again; with TWIN off the right thumb does
-// nothing to her; a tap's worth of thumb never twists; a skin that skates backwards turns its stance
-// over when her body goes round past side-on; and the twist goes into the air as her heading.
-CASES.twin = () => {
-  const keepOn = rg.TWIN.on, keepLock = P.stanceLock, deg = r => r * 180 / Math.PI;
-  const bear = () => Math.atan2(P.vel.x, P.vel.z), off = (a, b) => Math.abs(deg(Math.atan2(Math.sin(a - b), Math.cos(a - b))));
-  const ride = (rx, ry, sec) => run(sec, () => { rg.cam.az = 0; rg.stick.L.x = 0; rg.stick.L.y = -1; rg.stick.L.down = 1;
-    rg.stick.R.x = rx; rg.stick.R.y = ry; rg.stick.R.down = rx || ry ? 1 : 0; });
-  let ok = true;
-  rg.TWIN.on = 1; P.stanceLock = false; place(60, 1, -60, 0, 0); P.twist = 0;
-  ride(1, 0, 2.5);
-  const t1 = off(bear(), 0), f1 = off(P.faceH, -Math.PI / 2);
-  console.log(`  left fwd + right RIGHT   travel ${fix(t1, 1)} deg off +Z, body ${fix(f1, 1)} deg off -X (screen right), ${fix(P.hSpeed, 1)} m/s, SIDE ${fix(deg(P.twist), 0)}`);
-  if (!(t1 < 5 && f1 < 6 && P.hSpeed > 5)) ok = false;
-  ride(0, 0, 1.0);
-  const f2 = off(P.faceH, bear());
-  console.log(`  ...right thumb let go    body ${fix(f2, 1)} deg off her line a second later, SIDE ${fix(deg(P.twist), 1)}`);
-  if (!(f2 < 5)) ok = false;
-  rg.TWIN.on = 0; place(60, 1, -60, 0, 0); P.twist = 0; ride(1, 0, 2.5);
-  const f3 = off(P.faceH, bear());
-  console.log(`  TWIN off, same thumbs    body ${fix(f3, 1)} deg off her line (the right pad is the camera again)`);
-  if (!(f3 < 5)) ok = false;
-  rg.TWIN.on = 1; place(60, 1, -60, 0, 0); P.twist = 0; ride(0.4, 0, 1.5);
-  console.log(`  a tap's worth (0.4)      SIDE ${fix(deg(P.twist), 1)} -- never a twist`);
-  if (Math.abs(P.twist) > 0.01) ok = false;
-  P.stanceLock = true; place(60, 1, -60, 0, 0); P.stance = 1; P.twist = 0;  ride(0, 1, 2.5);
-  // (from a standstill: the first stroke is already in flight when her stance turns over, and before
-  // r35 it went on pushing along the OLD heading -- she shot off backwards and turned fwd again)
-  const f5 = off(P.faceH, Math.PI), h5 = off(P.heading, Math.PI), t5 = off(bear(), 0);
-  console.log(`  backwards skin, right DOWN  stance ${P.stance < 0 ? 'FAKIE' : 'fwd'}, body ${fix(f5, 1)} deg off facing the lens, ` +
-              `nose ${fix(h5, 1)} deg off it, travel ${fix(t5, 1)} deg off +Z, SIDE ${fix(deg(P.twist), 0)}`);
-  if (!(P.stance < 0 && f5 < 6 && h5 < 6 && t5 < 5)) ok = false;
-  P.stanceLock = false; place(60, 1, -60, 0, 8); P.twist = -Math.PI / 2; P.faceH = -Math.PI / 2;
-  rg.leaveGround(0);
-  const h6 = off(P.heading, -Math.PI / 2);
-  console.log(`  leaving the ground       heading ${fix(h6, 1)} deg off her twisted body, SIDE ${fix(deg(P.twist), 0)}`);
-  if (!(h6 < 1 && P.twist === 0)) ok = false;
-  rg.TWIN.on = keepOn; P.stanceLock = keepLock; P.stance = 1; P.twist = 0;
-  place(60, 1, -60, 0, 0); rg.stick.L.down = 0;
+// ---------------------------------------------------------------- a swivel mid-stroke (r35)
+// A stroke is in the HEADING's frame, so a half turn under a live one used to push her the OTHER way:
+// from a standstill she shot off backwards and her stance flipped straight back. Thumb forward, the
+// first stroke starts, swivel, thumb still forward: she must roll forward (+Z) in fakie.
+CASES.swivel = () => {
+  const keepLock = P.stanceLock; P.stanceLock = true; place(60, 1, -60, 0, 0); P.stance = 1;
+  const hold = sec => run(sec, () => { rg.cam.az = 0; rg.stick.L.x = 0; rg.stick.L.y = -1; rg.stick.L.down = 1; });
+  hold(0.05); const went = rg.swivel(); hold(1.5);
+  const bear = Math.atan2(P.vel.x, P.vel.z) * 57.3;
+  console.log(`  swivel ${went ? 'taken' : 'REFUSED'} mid-stroke -> stance ${P.stance < 0 ? 'FAKIE' : 'fwd'}, travelling ${fix(bear, 1)} deg off +Z at ${fix(P.hSpeed, 1)} m/s`);
+  const ok = went && P.stance < 0 && Math.abs(bear) < 5 && P.hSpeed > 3;
+  P.stanceLock = keepLock; P.stance = 1; rg.stick.L.y = 0; rg.stick.L.down = 0;
   return ok;
 };
 // ---------------------------------------------------------------- feet on the ground (r36)
