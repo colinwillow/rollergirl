@@ -398,12 +398,29 @@ CASES.tap = async () => {
     good = P.jump === 0;
     console.log(`  swipe SIDEWAYS on the ground  -> ${P.jump ? 'a jump (WRONG)' : 'nothing'}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
+    // r29: THE FLIPS ARE THE LEFT PAD'S. In the air the right swipe does nothing; the left one flips.
     const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
-    place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 6; P.vel.y = 3; P.flip = null;
-    await swipe(0, -52);
-    good = P.jump === 0 && P.flip && P.flip.dir === 'up';
-    console.log(`  swipe UP in the air           -> ${P.flip ? P.flip.dir + ' flip' : P.jump ? 'a jump (WRONG)' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+    const air = () => { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 6; P.vel.y = 3; P.flip = null; };
+    air(); await swipe(0, -52);
+    good = P.jump === 0 && !P.flip;
+    console.log(`  RIGHT swipe up in the air     -> ${P.flip ? P.flip.dir + ' flip (should be nothing)' : P.jump ? 'a jump (WRONG)' : 'nothing (kept for grabs)'}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
+    const L = document.getElementById('stkL');
+    const evL = (type, x, y) => ({ type, pointerId: 77, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
+    const swipeL = async (dx, dy) => { L.dispatchEvent(evL('pointerdown', 150, 150)); await wait(16);
+      L.dispatchEvent(evL('pointermove', 150 + dx, 150 + dy)); await wait(30);
+      L.dispatchEvent(evL('pointerup', 150 + dx, 150 + dy)); await wait(140); };
+    for (const [dx, dy, want] of [[0, -52, 'up'], [0, 52, 'down'], [52, 0, 'right'], [-52, 0, 'left']]) {
+      air(); await swipeL(dx, dy);
+      good = P.flip && P.flip.dir === want;
+      console.log(`  LEFT swipe ${want.padEnd(5)} in the air   -> ${P.flip ? P.flip.dir + ' flip' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+      if (!good) ok = false;
+    }
+    { const keepLock = P.stanceLock; P.stanceLock = true; place(60, 1, -60, 0, 6); P.stance = 1; P.flip = null;
+      await swipeL(0, -52);
+      good = !P.flip && P.stance === 1;
+      console.log(`  LEFT swipe on the ground      -> ${P.flip ? 'a FLIP' : P.stance < 0 ? 'a SWIVEL' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+      if (!good) ok = false; P.stanceLock = keepLock; }
     rg.girl.moves = keepM; P.flip = null; P.jump = 0; }
   return ok;
 };
@@ -1388,6 +1405,14 @@ CASES.flip = () => {
   let uq = 0; while (rg.flipTurn(uq) < 0.25 && uq < 1) uq += 0.001;
   const q = rg.flipQ({ dir: 'right', t: uq, dur: 1 }, new THREE.Quaternion()), nose = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
   chk('twist flip: the nose leaves the flip plane', Math.abs(nose.x) > 0.3, `nose x ${fix(nose.x)}`);
+  // r29: SHE FLIPS ABOUT HER HIPS. `hipHeight` off his real skeleton is the hips bone's height, and
+  // the old typed 0.62 m was well below it on a 1.7 m body.
+  { const g = readGLB('models/alien_rollerskate_blue.glb'), S = skelFromGLB(g.json); S.root.updateMatrixWorld(true);
+    const hl = new THREE.Vector3(); S.by.mixamorig_Hips.getWorldPosition(hl); S.root.worldToLocal(hl);
+    const head = S.by.mixamorig_Head.getWorldPosition(new THREE.Vector3()).y, k = rg.RIG.height / (head * 1.12);   // crown ~ head joint x 1.12
+    const hh = rg.hipHeight(hl, k, 0);
+    chk('flip pivot is her hips, not her shins', Math.abs(rg.hipHeight(hl, 1, 0) - hl.y) < 1e-9 && hh > rg.RIG.pivot + 0.2,
+        `hips ~${fix(hh, 2)} m up, the old pivot was ${fix(rg.RIG.pivot, 2)} m`); }
   // and `startFlip` marks it procedural when the switch is on, a clip flip when it is off
   const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
   for (const on of [1, 0]) { rg.FLIPP.on = on; place(60, 1, -60, 0, 6); P.grounded = false; P.pos.y += 6; P.vel.y = 3; P.flip = null;

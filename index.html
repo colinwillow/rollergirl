@@ -146,7 +146,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r28</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r29</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -163,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r28';
+const BUILD = 'r29';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -197,7 +197,8 @@ const RIG = {
   // and a body flipping about its feet swings its head through a two-metre arc, which reads as
   // being swung on a rope. In the air the pivot lifts to her middle; on the ground it is zero,
   // because there the tilt has to leave her soles exactly on the surface.
-  pivot: 0.62,
+  pivot: 0.62,         // fallback only: the air pivot is her measured HIPS (r29, `airPivot`)
+  pivotAdj: 0,         // metres above (+) or below (-) her hips that she flips about
   pivotHL: 0.10,
   tiltRate: 12,        // how fast the standing pose tracks the surface under her -- the TILT only;
                        // the yaw is taken straight off `faceH` (r27), so a turn is not eased twice
@@ -2262,7 +2263,16 @@ for (const t of ['touchstart', 'touchend', 'touchcancel'])
   }, { capture: true, passive: true });
 // THE LEFT PAD'S TAP is the swivel -- the same tap rule as the right pad's jump, so a steer that
 // moved or was held is never one.
-bindStick(document.getElementById('stkL'), stick.L, null, null, (far, held) => {
+// THE LEFT PAD'S FLICK IS THE FLIP (r29). *"Make the flips the left stick, since you jump with the
+// right and then flip with the left."* Up front, down back, right / left the twist flip and its
+// mirror. A flick is a fast move AND a release, so a held thumb spinning or pushing her is never
+// one; on the ground it does nothing (a tap there is the swivel, and a fired flick eats the tap).
+bindStick(document.getElementById('stkL'), stick.L, null, (dx, dy) => {
+  if (player.grounded || player.grind) return;
+  if (startFlip(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down'))) {
+    const s = STICKS[0]; if (s && s.pop) s.pop();
+  }
+}, (far, held) => {
   if (far >= AIR.tapFar || held > AIR.tapT) return;
   if (swivel()) { const s = STICKS[0]; if (s && s.pop) s.pop(); }
 });
@@ -2270,16 +2280,14 @@ bindStick(document.getElementById('stkL'), stick.L, null, null, (far, held) => {
 // travels past `far` .42 or is held past `tapT`, and a tap is neither -- so one thumb does
 // both with no mode to be in and nothing to learn. The flick is left unclaimed.
 bindStick(document.getElementById('stkR'), stick.R, null, (dx, dy) => {
-  // THE FLICK, CLAIMED AT LAST: a flip in the air. The pad's +Y is DOWN the screen, so a flick up
-  // is a negative dy. On the ground it does nothing yet -- it is still eaten, so a fast swipe of the
+  // THE RIGHT PAD'S FLICK. The pad's +Y is DOWN the screen, so a flick up is a negative dy.
+  // ON THE GROUND (or a rail, or the coyote moment off a lip) A SWIPE UP IS THE TRANSFER JUMP --
+  // out of the pipe or the bowl. IN THE AIR IT DOES NOTHING since r29: the flips moved to the LEFT
+  // pad, and this one is kept free for grabs and melee. It is still eaten, so a fast swipe of the
   // camera never also jumps.
   const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
-  // ON THE GROUND (or a rail, or the coyote moment off a lip) A SWIPE UP IS THE TRANSFER JUMP --
-  // out of the pipe or the bowl. In the air it is still the front flip. Other swipes on the ground
-  // do nothing yet.
   const p = player;
   if (p.grounded || p.grind || p.coyote > 0) { if (dir === 'up') { p.jump = 2; const s = STICKS[1]; if (s && s.pop) s.pop(); } return; }
-  startFlip(dir);
 }, (far, held) => {
   // A TAP IS A JUMP, AND `far` IS NOW MEASURED FROM WHERE THE THUMB LANDED, so it is genuinely
   // "did the thumb move" rather than "did the thumb land in the middle of the circle". With the
@@ -2811,6 +2819,16 @@ function leanWant(dt) {
   return clamp(-Math.atan(p.hSpeed * w / SK.g) * SK.leanK * dir, -SK.leanMax, SK.leanMax);
 }
 
+// THE HEIGHT SHE FLIPS ABOUT (r29). *"When she does flips she rotates about her root instead of her
+// hips."* `RIG.pivot` was a typed 0.62 m above her feet -- knee height on a 1.7 m body -- so a flip
+// swung her round her shins. It is her HIPS now, measured off the rig at load like the turn axis
+// (r27 put the hips on the vertical axis; this puts the flip axis through them too), with
+// `RIG.pivotAdj` as a dial and `RIG.pivot` the fallback for a rig with no hips bone.
+function airPivot() {
+  if (!girl.hipsLocal || !girl.model) return RIG.pivot + RIG.pivotAdj;
+  return hipHeight(girl.hipsLocal, girl.model.scale.x, girl.foot) + RIG.pivotAdj;
+}
+const hipHeight = (hipsLocal, scale, foot) => foot + hipsLocal.y * scale;
 // THE MODEL OFFSET THAT PUTS HER HIPS ON THE TURN AXIS (r27): the hips' rest position in the
 // model's own frame, scaled and turned the way the model is, negated in plan, by `k` of the way.
 const _cv = new THREE.Vector3(), _q2 = new THREE.Quaternion();
@@ -2836,7 +2854,7 @@ function poseGirl(dt) {
   // a flip about it swings her head through a two-metre arc; but on the ground the tilt has to
   // leave her soles exactly on the surface, and any pivot at all would float them off a
   // transition. The model offset cancels it, so at rest nothing moves either way.
-  girl.pv = damp(girl.pv || 0, p.grounded ? 0 : RIG.pivot, RIG.pivotHL, dt);
+  girl.pv = damp(girl.pv || 0, p.grounded ? 0 : airPivot(), RIG.pivotHL, dt);
   pivotG.position.y = girl.pv;
   girl.model.position.y = girl.foot - girl.pv;
   // ON THE GROUND SHE STANDS ON THE SURFACE -- upright on a transition is a woman levitating
@@ -3132,6 +3150,7 @@ const TAILUI = [
   ['CAM.idle',       'Follow after',   0,   3,   0.05, 's'],
   ['Flips (r25)', ''],
   ['FLIPP.on',       'Procedural flips', 0, 1,  1,    ''],
+  ['RIG.pivotAdj',   'Flip pivot vs hips', -0.6, 0.6, 0.02, 'm'],
   ['FLIPP.spinK',    'Tuck spin-up',   0,   0.85, 0.05, ''],
   ['FLIPP.tuckAt',   'Tucked by',      0.05, 0.6, 0.01, ''],
   ['FLIPP.openAt',   'Opens out at',   0.3, 0.9, 0.01, ''],
@@ -3258,7 +3277,7 @@ async function init() {
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
-  mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, bodyYaw, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
+  mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

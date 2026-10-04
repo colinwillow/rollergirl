@@ -269,6 +269,14 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **FLIPS ARE THE LEFT PAD'S FLICK NOW, AND SHE FLIPS ABOUT HER HIPS (r29, `airPivot`).** *"You jump
+  with the right, then flip with the left."* Up front, down back, right/left the twist and its
+  mirror; a flick is a fast move AND a release, so a held spin or thrust is never one, and on the
+  ground it does nothing (a fired flick eats the swivel tap). The RIGHT pad's flick in the air is
+  now free (grabs, melee); on the ground its swipe up is still the transfer.
+  *"She rotates about her root instead of her hips."* The air pivot was a typed `RIG.pivot` 0.62 m
+  -- knee height on her (hips measure ~1.05 m). It is `girl.foot + hipsLocal.y * scale`, read off
+  the rig at load like r27's turn axis, with `RIG.pivotAdj` on the panel (Flip pivot vs hips).
 - **A STUCK STICK IS UN-STUCK BY ASKING THE GLASS, AND THE RIGHT PAD NO LONGER STEERS (r28,
   `stickCheck`, `cam.steerAz`).** *"My left stick just got stuck in this position. Also the right
   stick is making her turn."* His screenshot: left knob parked full forward, nobody on it, 28.9 m/s
@@ -395,7 +403,7 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   reverses against it (up a wall forwards, back down fakie). She PUSHES in fakie: the stroke goes
   along the leading end. **All of it only for a skin with backward clips** -- roller_girl keeps
   the old "always turn back to forwards below `fakieAt`", and `npm run sim stance` asserts both.
-- **FLIPS ARE THE RIGHT STICK'S FLICK, IN THE AIR (`startFlip`).** Up front, down back, right the
+- **FLIPS ARE A FLICK IN THE AIR (`startFlip`) -- the LEFT pad since r29, the right before.** Up front, down back, right the
   twist flip, left the twist flip MIRRORED. Timed to the air she has LEFT when flicked (85% of
   the time to come back down to what is under her), so a late flick is quick and an early one
   takes its time; too little air is NO flip, never a guaranteed bail. Landing under 80% round is
