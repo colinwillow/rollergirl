@@ -269,6 +269,27 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **"SHE FEELS LIKE A BOAT" WAS FOUR THINGS (r27, `RIG.centre`, `leanWant`, `swingOf`, `npm run sim
+  feel`).** *"Responsive and exaggerated, like Jet Set Radio -- right now there's this laggy boat
+  feeling."*
+  1. **THE TURN AXIS WAS BEHIND HER.** His root was added after the animations: the hips sit 0.117
+     export units (~0.2 m) IN FRONT of the root in every clip, so she swung round a point behind
+     her. `RIG.centre` 1 slides the model so the HIPS are on the axis -- read off the rig at load.
+  2. **THE LEAN WAS AWAY FROM THE TURN IN FAKIE.** It was `-steer * speed`: the sign of which way her
+     NOSE turned, which is right facing forward and backwards in fakie. Revert-tested: the old rule
+     leans in forward (5.6 deg) and OUT in fakie. Now it is physical -- the bend rate of her TRAVEL
+     times her speed is the sideways acceleration, the lean is `atan(a / g) * leanK` toward its
+     centre, flipped by which end leads. Into the turn both ways, up to 17 deg.
+  3. **THE YAW WAS EASED TWICE.** `faceH` eased onto the heading and then the whole pose was slerped
+     onto that at `tiltRate` -- on the ground and (at `AIR.ease`) in the air. Only the TILT is eased
+     now (`girl.alignQ`, and `swingOf` in the air); the yaw goes on exact. And the air spin read the
+     raw thumb, so a thumb on its way out was a slow spin: full rate now at `spinFull` of the pad.
+  4. **THE TURN ITSELF WAS SLOW.** 1.35 rad/s at speed and 18 m/s^2 of grip is over a second for a
+     90; now 2.4 and 30 -- 0.6 s at 14-20 m/s, and `turnBrake` halved so the carve keeps her speed.
+  The camera is the fifth suspect and it is TASTE, so it is on the panel rather than decided:
+  `Camera follow` (0 is off), `Camera lag`, `Follow after`. **`npm run sim brake` reads "stopped" at
+  0.6 m/s now**: a quicker pivot carries the brake's last half metre a second round with her rather
+  than letting it drain through zero, which is a skater stopping and turning.
 - **THE WAY OUT OF A PIPE IS A SWIPE; A TAP ALWAYS COMES BACK (r25, `leaveGround(coy, xfer)`,
   `p.jump` 2, `VERT.kick`).** *"Jumping out of half pipes or bowls is a swipe forward on the right
   stick instead of a tap. If you tap, no matter what, you're constrained up and come back down."*

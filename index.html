@@ -146,7 +146,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r26</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r27</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -163,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r26';
+const BUILD = 'r27';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -199,7 +199,15 @@ const RIG = {
   // because there the tilt has to leave her soles exactly on the surface.
   pivot: 0.62,
   pivotHL: 0.10,
-  tiltRate: 12,        // how fast the standing pose tracks the surface under her
+  tiltRate: 12,        // how fast the standing pose tracks the surface under her -- the TILT only;
+                       // the yaw is taken straight off `faceH` (r27), so a turn is not eased twice
+  // WHERE SHE TURNS ABOUT (r27). *"My root joint is slightly behind her centre of gravity, so when
+  // you turn she feels like a boat -- she rotates from a point behind her."* Measured: the alien's
+  // hips sit 0.117 export units -- about 0.2 m once scaled -- IN FRONT of the root in every clip,
+  // so the whole body swung round a point behind her. 1 slides the model so her HIPS are on the
+  // axis everything turns about; 0 is the export's root, as before. Read off the rig at load, so
+  // a re-export with the root under her needs no edit.
+  centre: 1,
 };
 
 // THE ROSTER. ONE CHARACTER AT A TIME -- a switch is a menu action, not a parade, so there is
@@ -393,13 +401,15 @@ const SK = {
   // `gripA / v` rad/s. Ask for less and she carves with no loss at all; ask for more and the
   // surplus is a slide, which `grip` then scrubs. One number, both behaviours, and the drift
   // at the limit falls out rather than being a second system.
-  gripA: 18,
+  gripA: 30,           // r27: 18 -> 30. *"Responsive and exaggerated, like Jet Set Radio"* -- 18 let
+                       // the velocity bend only 1.3 rad/s at 14 m/s, which is the boat
   // STEERING. Skates turn tighter than a skateboard and can pivot on the spot, so the rate
   // falls with speed rather than being a flat number.
-  turn: 5.2,           // rad/s at a standstill
-  turnV: 1.35,         // rad/s at turnRef and above
+  turn: 7.0,           // rad/s at a standstill (r27: 5.2)
+  turnV: 2.4,          // rad/s at turnRef and above (r27: 1.35 -- a 90 at cruise took over a second)
   turnRef: 14,         // m/s where the turn rate has fallen all the way
-  turnBrake: 0.16,     // a hard carve costs speed -- this is what plants the edge
+  turnBrake: 0.09,     // a hard carve costs speed -- this is what plants the edge (r27: .16, which
+                       // at the new turn rate would have eaten a third of her speed per 90)
   // THE PUSH IS A STROKE, NOT A STEP. Each stride used to land its whole delta-v on ONE
   // frame, which reads as a staircase on the speedometer and not as a foot hitting tarmac.
   // The same total is spread over `strokeDur` on a half sine: the integral of
@@ -465,10 +475,19 @@ const SK = {
   landKeep: 0.85,
   // THE BANK IS A HINT, NOT A PHYSICS DEMONSTRATION. 0.085 with a 0.62 rad ceiling let her lie
   // over THIRTY-FIVE DEGREES in a hard carve, which reads as a motorcycle rather than a skater
-  // and fights whatever the clip is doing. `rg.SK.lean = 0` removes it entirely.
-  lean: 0.016,         // radians of bank per (rad/s x m/s) of carve
-  leanMax: 0.10,       // ...and never past about six degrees
-  leanHL: 0.12,
+  // and fights whatever the clip is doing. (r27: replaced by a physical lean, below.)
+  // r27: *"every time you make a car or anything turn it leans AWAY from the turn -- that gives this
+  // rocking-boat feeling. She needs to lean INTO a turn, and backwards it's the opposite of herself
+  // but still the same direction for the player."* So the bank is no longer worked out from the
+  // STEER sign (which says which way her NOSE turned, and is backwards in fakie) but from what the
+  // turn physically IS: the rate her TRAVEL is bending, times her speed, is the sideways
+  // acceleration, and a skater tips toward that -- `atan(a / g)`, the angle a body has to lean to
+  // stand up in it. Toward the centre of the turn in the WORLD, whichever end of her leads.
+  leanK: 0.45,         // of the physical lean angle -- 1 is a motorcycle
+  leanMax: 0.31,       // ...and never past about eighteen degrees
+  leanMinV: 1.5,       // slower than this there is no turn worth leaning into
+  leanHL: 0.08,
+  faceRate: 32,        // per second: how fast her body comes round onto her heading
   dead: 0.14,          // stick dead zone
   curve: 1.35,         // stick response curve
   max: 42,             // hard speed ceiling, so nothing can run away
@@ -496,6 +515,7 @@ const AIR = {
   // **NO FLIP.** *"I'm not sold on the flip -- maybe we'll just have her rotate in the air for
   // now, left and right."* So the pad's X is a yaw RATE and its Y is THRUST: *"in the air you'll
   // hold forward"*, which is how you clear the back of one ramp and reach the next.
+  spinFull: 0.55,      // r27: of the pad's travel at which the spin is already full speed
   spin: 7.5,           // rad/s of yaw. r26: *"she needs to rotate in the air faster"* -- 4.2 was 240
                        // deg/s, a 360 in 1.5 s, longer than most airs; 7.5 is a 360 in 0.84 s
   drift: 11,           // m/s^2 along her facing while the thumb is forward
@@ -1546,6 +1566,9 @@ function buildGirl(gltf) {
   });
   bodyG.add(model);
   girl.foot = model.position.y;
+  girl.hipsLocal = new THREE.Vector3();
+  const hipsB = model.getObjectByName('mixamorig_Hips');
+  if (hipsB) { model.updateMatrixWorld(true); hipsB.getWorldPosition(girl.hipsLocal); model.worldToLocal(girl.hipsLocal); }
   girl.model = model;
   girl.mixer = new THREE.AnimationMixer(model);
   const clips = prepClips(normaliseClips(gltf.animations || []), model);
@@ -2253,7 +2276,7 @@ const player = {
                                    // only thing that says which way up she is.
 };
 const _F = new THREE.Vector3(), _R = new THREE.Vector3(), _N = new THREE.Vector3(), _q = new THREE.Quaternion();
-const _qa = new THREE.Quaternion(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _pp = new THREE.Vector3();
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _pp = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0), XAX = new THREE.Vector3(1, 0, 0), ZAX = new THREE.Vector3(0, 0, 1);
 // The orientation of a skater standing on the surface she is on, facing her heading. Composed
 // align-then-yaw-then-lean, which is exactly what the old three-node chain multiplied out to --
@@ -2544,7 +2567,12 @@ function stepAir(dt) {
   // NEGATED, and checked rather than derived -- the handedness argument comes out backwards half
   // the time. Heading grows +Z toward +X, which turns her LEFT, so a thumb pushed right has to
   // DECREASE it.
-  p.heading -= sx * AIR.spin * dt;
+  // r27: *"it's a progressive thing -- you start slow and then gain speed."* Two things did that:
+  // the spin rate was the RAW thumb, so a thumb on its way out was a slow spin, and the body's yaw
+  // was eased onto the heading on top of that. Now full speed comes at `spinFull` of the pad, and
+  // the yaw is set exactly below -- only the righting is eased.
+  const sk = Math.sign(sx) * clamp((Math.abs(sx) - 0.08) / Math.max(0.05, AIR.spinFull - 0.08), 0, 1);
+  p.heading -= sk * AIR.spin * dt;
   // *"In the air you'll hold forward"* -- which is how you get over the back of one ramp and
   // reach the next. Capped by how much it has already added, so a long flight is not a free one.
   if (sy < 0 && p.drift < AIR.driftMax) {
@@ -2576,7 +2604,10 @@ function stepAir(dt) {
     const vl = p.vel.length();
     if (vl > 1) _q.multiply(_qa.setFromAxisAngle(XAX, -Math.asin(clamp(p.vel.y / vl, -1, 1)) * AIR.pitch));
   }
-  p.bq.slerp(_q, Math.min(1, AIR.ease * dt));
+  // THE YAW IS EXACT, THE TILT IS EASED (r27). `_q` is the target (her heading, plus any pitch);
+  // the current pose's swing is eased toward the target's swing and the target's yaw goes on as is.
+  swingOf(p.bq, _q2).slerp(swingOf(_q, _qb), Math.min(1, AIR.ease * dt));
+  p.bq.copy(_q2).multiply(_qa.setFromAxisAngle(UP, p.heading));
   p.vel.y -= SK.g * dt;
   if (p.vel.y < -34) p.vel.y = -34;
   const h = Math.hypot(p.vel.x, p.vel.z);
@@ -2708,15 +2739,43 @@ function stepPlayer(dt) {
   // the horizontal velocity there is pure noise, and the lens would spin.
   p.speed = p.vel.length();
   p.hSpeed = Math.hypot(p.vel.x, p.vel.z);
-  // the body comes round onto the heading rather than snapping to it
-  p.faceH += wrapAngle(p.heading - p.faceH) * Math.min(1, 18 * dt);
-  // SHE LEANS INTO THE TURN. Positive `steer` rotates her LEFT (heading grows +Z toward +X and
-  // her right is (-fz, fx)), and a rotation about her local +Z tips her to the RIGHT -- so the
-  // bank is the negative of the carve.
-  const want = clamp(-p.steer * p.speed * SK.lean, -SK.leanMax, SK.leanMax);
-  p.lean = damp(p.lean, p.grounded ? want : 0, SK.leanHL, dt);
+  // the body comes round onto the heading -- quickly, it is a skater, not a boat (r27: 18 -> 32)
+  p.faceH += wrapAngle(p.heading - p.faceH) * Math.min(1, SK.faceRate * dt);
+  p.lean = damp(p.lean, leanWant(dt), SK.leanHL, dt);
+}
+// SHE LEANS INTO THE TURN (r27). Her travel's bearing, how fast it is bending, and so the sideways
+// acceleration `v * w`; the lean is toward the centre of that, as an angle about HER forward axis.
+// A positive turn about her local +Z tips her to HER right, and the centre is on her LEFT when the
+// bearing grows while she faces along it -- so the sign is negative facing forward and POSITIVE in
+// fakie, which is "the opposite of herself, the same for the player". Measured, not argued:
+// `npm run sim feel` requires her up to tip TOWARD the centre, forward and fakie both.
+function leanWant(dt) {
+  const p = player, vb = Math.atan2(p.vel.x, p.vel.z);
+  const ok = p.grounded && !p.grind && p.n.y > 0.7 && p.hSpeed > SK.leanMinV;
+  const w = ok && p.leanOk ? wrapAngle(vb - p.vb) / Math.max(dt, 1e-4) : 0;
+  p.vb = vb; p.leanOk = ok;
+  if (!ok) return 0;
+  const dir = Math.cos(p.faceH - vb) >= 0 ? 1 : -1;
+  return clamp(-Math.atan(p.hSpeed * w / SK.g) * SK.leanK * dir, -SK.leanMax, SK.leanMax);
 }
 
+// THE MODEL OFFSET THAT PUTS HER HIPS ON THE TURN AXIS (r27): the hips' rest position in the
+// model's own frame, scaled and turned the way the model is, negated in plan, by `k` of the way.
+const _cv = new THREE.Vector3(), _q2 = new THREE.Quaternion();
+function centreOffset(hipsLocal, scale, spin, k, out) {
+  out.copy(hipsLocal).multiplyScalar(scale).applyAxisAngle(UP, spin);
+  return out.set(-out.x * k, 0, -out.z * k);
+}
+// THE PART OF A ROTATION THAT IS NOT A YAW. `q = swing * twist`, twist about world up: projecting q
+// onto the Y axis gives the twist, and what is left tilts. Used so the yaw can be set exactly while
+// only the tilt is eased (r27).
+function swingOf(q, out) {
+  const tw = _q3.set(0, q.y, 0, q.w); const l = Math.hypot(tw.y, tw.w);
+  if (l < 1e-9) return out.copy(q);
+  tw.y /= l; tw.w /= l;
+  return out.copy(q).multiply(tw.invert());
+}
+const _q3 = new THREE.Quaternion();
 function poseGirl(dt) {
   if (!girl.ready) return;
   const p = player;
@@ -2731,7 +2790,16 @@ function poseGirl(dt) {
   // ON THE GROUND SHE STANDS ON THE SURFACE -- upright on a transition is a woman levitating
   // past a wall. Damped, because the normal steps from triangle to triangle and she must not;
   // and damped SLOWLY while she is bailing, because the stumble is the thing you want to see.
-  if (p.grounded) p.bq.slerp(groundQ(_q), Math.min(1, (p.bailT > 0 ? AIR.right : RIG.tiltRate) * dt));
+  // r27: ONLY THE TILT IS EASED. Slerping the whole pose eased the YAW too, on top of `faceH`'s own
+  // ease -- a turn smoothed twice, which is half of what read as a boat. The tilt (`alignQ`, her
+  // up onto the surface) is eased; the yaw and the lean are taken as they are.
+  if (p.grounded) {
+    if (!girl.alignQ) girl.alignQ = new THREE.Quaternion();
+    if (!girl.wasGr) girl.alignQ.copy(swingOf(p.bq, _q2));       // from whatever she landed holding
+    girl.alignQ.slerp(_q.setFromUnitVectors(UP, p.n), Math.min(1, (p.bailT > 0 ? AIR.right : RIG.tiltRate) * dt));
+    p.bq.copy(girl.alignQ).multiply(_qa.setFromAxisAngle(UP, p.faceH)).multiply(_q.setFromAxisAngle(ZAX, p.lean));
+  }
+  girl.wasGr = p.grounded;
   bodyG.quaternion.copy(p.bq);
   // THE PROCEDURAL FLIP rides on top of the body quaternion, about the air pivot. Landed before
   // it got round (bails are off), the unfinished turn UNWINDS the short way rather than snapping,
@@ -2747,6 +2815,10 @@ function poseGirl(dt) {
   // applied every frame rather than baked in at load: `rg.RIG.spin = Math.PI` turns her
   // round on the phone, with no rebuild and no push.
   girl.model.rotation.y = RIG.spin + ((girl.who && girl.who.spin) || 0);
+  if (girl.hipsLocal) {
+    centreOffset(girl.hipsLocal, girl.model.scale.x, girl.model.rotation.y, RIG.centre, _cv);
+    girl.model.position.x = _cv.x; girl.model.position.z = _cv.z;
+  }
   girl.mixer.update(dt);
   // THE TAIL RUNS AFTER THE MIXER, because it reads the pose the animation just put her in --
   // and it writes bone rotations the next `mixer.update` is free to overwrite, which is what
@@ -2994,6 +3066,16 @@ const TAILUI = [
   ['SK.coastAfter',  'Fade after flat', 0,  5,   0.1,  's'],
   ['LAND.bail',      'Bails on landing', 0, 1,   1,    ''],
   ['MOVES.useBack',  'Backward clips in fakie', 0, 1, 1, ''],
+  ['Feel (r27)', ''],
+  ['RIG.centre',     'Turn about hips', 0,  1,   0.05, ''],
+  ['SK.turnV',       'Turn rate fast', 0.5, 6,   0.1,  ''],
+  ['SK.gripA',       'Edge grip',      8,   60,  1,    ''],
+  ['SK.leanK',       'Lean into turns', 0,  1.2, 0.05, ''],
+  ['SK.leanMax',     'Most lean',      0,   40,  1,    '', 'deg'],
+  ['AIR.spinFull',   'Full spin at',   0.2, 1,   0.05, ''],
+  ['CAM.follow',     'Camera follow (0 off)', 0, 8, 0.1, ''],
+  ['CAM.half',       'Camera lag',     0,   0.4, 0.01, ''],
+  ['CAM.idle',       'Follow after',   0,   3,   0.05, 's'],
   ['Flips (r25)', ''],
   ['FLIPP.on',       'Procedural flips', 0, 1,  1,    ''],
   ['FLIPP.spinK',    'Tuck spin-up',   0,   0.85, 0.05, ''],
@@ -3013,7 +3095,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -3122,7 +3204,7 @@ async function init() {
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
-  mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, bodyYaw, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
+  mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, bodyYaw, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

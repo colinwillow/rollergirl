@@ -153,7 +153,10 @@ CASES.brake = () => {
       // stops being a brake and becomes a turn-and-push, which is the design -- reading the yaw
       // through that measures the turn, not the brake, and comes back 180 every time.
       if (!done) { yaw = Math.abs(P.heading - h0) * 180 / Math.PI; if (P.speed < 1.5) done = 1; }
-      if (stop < 0 && t > 0.05 && P.speed < 0.4) stop = t;
+      // UNDER 0.6, NOT 0.4 (r27): the brake hands over at 0.55 m/s and a quicker turn (turn 7, grip 30)
+      // now carries that last half metre a second ROUND with her as she pivots to push off, instead
+      // of letting it drain through zero -- a skater stopping and turning, read at walking pace.
+      if (stop < 0 && t > 0.05 && P.speed < 0.6) stop = t;
     });
     console.log(`  from ${v} m/s: stopped at ${stop < 0 ? 'NEVER' : fix(stop) + 's'}, yaw ${fix(yaw, 1)} deg`);
     if (stop < 0 || yaw > 5) ok = false;
@@ -1340,6 +1343,57 @@ CASES.flip = () => {
   for (const on of [1, 0]) { rg.FLIPP.on = on; place(60, 1, -60, 0, 6); P.grounded = false; P.pos.y += 6; P.vel.y = 3; P.flip = null;
     rg.startFlip('up'); chk(`Procedural flips ${on}: flip is ${on ? 'procedural' : 'the clip'}`, P.flip && !!P.flip.proc === !!on); }
   rg.FLIPP.on = 1; P.flip = null; rg.girl.moves = keepM;
+  return ok;
+};
+
+// ---------------------------------------------------------------- the feel (r27)
+// *"She feels like a boat."* Four things fed that, and each is checked here against the SHIPPED code:
+// the lean was away from the turn half the time, the turn axis was behind her, the air yaw was eased
+// on top of an analog ramp, and the camera (that one is on the panel, not here -- it is taste).
+CASES.feel = () => {
+  let ok = true;
+  const chk = (label, c, extra = '') => { console.log(`  ${label.padEnd(44)} ${c ? 'ok' : 'WRONG'} ${extra}`); if (!c) ok = false; };
+  const keepLock = P.stanceLock;
+  // 1. LEAN INTO THE TURN, forward and fakie: her up tips toward where her travel is bending to
+  const leanRun = (stance, label) => {
+    P.stanceLock = true; place(60, 1, -60, stance > 0 ? 0 : Math.PI, 0); P.vel.set(0, 0, 10); P.stance = stance;
+    let pv = P.vel.clone(), into = 0, n = 0, worst = 1, maxDeg = 0;
+    run(0.6, t => { rg.cam.az = 0; rg.stick.L.x = 0.8; rg.stick.L.y = 0;
+      if (t > 0.15) {
+        const a = P.vel.clone().sub(pv); a.y = 0;
+        const vh = new THREE.Vector3(P.vel.x, 0, P.vel.z).normalize(); a.addScaledVector(vh, -a.dot(vh));
+        if (a.length() > 1e-4) {
+          const up = new THREE.Vector3(0, 1, 0).applyQuaternion(rg.groundQ(new THREE.Quaternion()));
+          const c = new THREE.Vector3(up.x, 0, up.z).dot(a.normalize());
+          into += c > 0 ? 1 : 0; n++; worst = Math.min(worst, c); maxDeg = Math.max(maxDeg, Math.asin(Math.min(1, Math.hypot(up.x, up.z))) * 57.3);
+        }
+      }
+      pv.copy(P.vel); });
+    chk(label, n > 5 && worst > 0, `leaning toward the centre on ${into} of ${n} frames, up to ${fix(maxDeg, 1)} deg`);
+    return maxDeg;
+  };
+  const dF = leanRun(1, 'carving FORWARD: leans INTO the turn');
+  const dB = leanRun(-1, 'carving FAKIE: leans INTO the turn too');
+  chk('...and it is a lean you can see', dF > 4 && dB > 4, `${fix(dF, 1)} / ${fix(dB, 1)} deg`);
+  // 2. THE TURN AXIS: his hips sit ahead of the export's root, and the offset puts them on the axis
+  const g = readGLB('models/alien_rollerskate_blue.glb'), S = skelFromGLB(g.json);
+  S.root.updateMatrixWorld(true);
+  const hl = new THREE.Vector3(); S.by.mixamorig_Hips.getWorldPosition(hl); S.root.worldToLocal(hl);
+  const off = rg.centreOffset(hl, 1, 0, 1, new THREE.Vector3());
+  chk('hips ahead of the root in the export', hl.z > 0.05, `hips at z ${fix(hl.z, 3)} of a ${fix(S.by.mixamorig_Head.getWorldPosition(new THREE.Vector3()).y, 2)} head height`);
+  chk('the offset puts them ON the turn axis', Math.hypot(hl.x + off.x, hl.z + off.z) < 1e-9);
+  const half = rg.centreOffset(hl, 1, Math.PI / 2, 0.5, new THREE.Vector3()), r = hl.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+  chk('...turned with the model, and by the dial', Math.abs(r.x * 0.5 + half.x) < 1e-9 && Math.abs(r.z * 0.5 + half.z) < 1e-9);
+  // 3. THE AIR SPIN: full rate from 60% of the pad, and her body's yaw IS her heading, every frame
+  place(60, 1, -60, 0, 0); P.grounded = false; P.pos.y += 30; P.vel.set(0, 0, 0); P.flip = null;
+  const h0 = P.heading; let worstYaw = 0;
+  run(0.1, () => { rg.stick.L.x = 0.6; rg.stick.L.y = 0;
+    const f = new THREE.Vector3(0, 0, 1).applyQuaternion(P.bq);
+    worstYaw = Math.max(worstYaw, Math.abs(wrap(Math.atan2(f.x, f.z) - P.heading)) * 57.3); });
+  const spun = Math.abs(P.heading - h0);
+  chk('air spin at 60% of the pad: full speed at once', spun > rg.AIR.spin * 0.1 * 0.9, `${fix(spun * 57.3, 0)} deg in 0.1 s`);
+  chk('air spin: the body yaw IS the heading', worstYaw < 1.5, `worst ${fix(worstYaw, 2)} deg behind`);
+  P.stanceLock = keepLock; rg.stick.L.x = rg.stick.L.y = 0;
   return ok;
 };
 
