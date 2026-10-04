@@ -235,23 +235,27 @@ CASES.vert = () => {
   // Ridden up from the FLAT BOTTOM, which is the only way she ever actually reaches the lip --
   // popped mid-wall she leaves at whatever angle that face happens to be and flying out over
   // the deck is then correct rather than a fault.
-  // THE LAST TWO ROWS ARE THE TRANSFER: the thumb held forward as she leaves, which skips the
-  // vert lock and carries her over onto the deck. Every other row must come back INTO the pipe.
-  for (const [v, pop, xfer] of [[13, 0, 0], [17, 0, 0], [21, 0, 0], [13, 1, 0], [17, 1, 0], [17, 0, 1], [13, 1, 1]]) {
+  // r25: *"If you tap, no matter what, you're constrained up and come back down"* -- and the way
+  // OUT is a SWIPE UP on the right pad (`jump` 2). So: rolling over the lip, a tap, and a tap with
+  // the left thumb held forward ALL come back into the pipe; a swipe, with or without the left
+  // thumb, goes onto the deck. `pop` 1 is a tap, 2 is the swipe; `fwd` holds the left stick forward.
+  for (const [v, pop, fwd] of [[13, 0, 0], [17, 0, 0], [21, 0, 0], [13, 1, 0], [17, 1, 0], [17, 1, 1], [17, 0, 1],
+                               [13, 2, 0], [17, 2, 0], [21, 2, 0], [17, 2, 1]]) {
+    const xfer = pop === 2;
     place(0, 3, 29, 0, v);
     let phase = 0, landZ = 0, apex = -9;
     run(5, (t, i) => {
-      rg.stick.L.x = 0; rg.stick.L.y = xfer ? -1 : 0; rg.cam.az = 0;
+      rg.stick.L.x = 0; rg.stick.L.y = fwd ? -1 : 0; rg.cam.az = 0;
       // AT THE LIP, not merely near it. The band from 58 degrees to 88 is only 40 cm of z, so
       // a trigger at 35.2 pops her off a 58-degree face -- and flying out over the deck off a
       // 58-degree face is correct, not a fault. This is the LIP.
-      if (pop && P.grounded && P.pos.z > 35.55) P.jump = 1;
+      if (pop && P.grounded && P.pos.z > 35.55) P.jump = pop;
       if (phase === 0 && !P.grounded) phase = 1;
       if (phase === 1) { apex = Math.max(apex, P.pos.y); if (P.grounded) { phase = 2; landZ = P.pos.z; } }
     });
     const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep), deck = lip + rg.PARK.cope;
     const where = landZ > deck ? 'ON THE DECK' : 'back in the pipe';
-    console.log(`  in at ${String(v).padStart(2)} m/s${pop ? ' + a pop' : '       '}${xfer ? ' HOLDING FORWARD' : '                '}: ` +
+    console.log(`  in at ${String(v).padStart(2)} m/s${pop === 2 ? ' + SWIPE' : pop ? ' + a tap' : '        '}${fwd ? ' + left fwd' : '           '}: ` +
                 `apex ${fix(apex)} m (coping is ${fix(2.6 * (1 - Math.cos(rg.PARK.hpSweep)))}), ` +
                 `down at z ${fix(landZ)}, lip ${fix(lip)} -- ${where}`);
     // WHAT MUST ALWAYS HOLD is that she LEAVES -- the lip must never eat her climb again. And since
@@ -262,7 +266,21 @@ CASES.vert = () => {
     // far edge rather than against the lip.)
     if (phase !== 2) ok = false;
     if (!xfer && landZ > lip) { console.log('    -> drifted out over the coping'); ok = false; }
-    if (xfer && landZ <= deck) { console.log('    -> holding forward did not carry her over'); ok = false; }
+    if (xfer && landZ <= deck) { console.log('    -> the swipe did not carry her out'); ok = false; }
+  }
+  // AND THE BOWL, the other place he named: ridden from the middle up its wall, a tap at the lip
+  // comes back in and a swipe goes out over the rim onto the plaza.
+  const B = rg.BOWL;
+  for (const [v, pop] of [[12, 1], [12, 2], [15, 2]]) {
+    place(B.x, -2, B.z, Math.PI / 2, v);
+    let phase = 0, land = null, fired = 0;
+    run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+      if (!fired && P.grounded && P.n.y < 0.3 && P.vel.y > 0) { P.jump = pop; fired = 1; }
+      if (phase === 0 && !P.grounded) phase = 1;
+      if (phase === 1 && P.grounded) { phase = 2; land = Math.hypot(P.pos.x - B.x, P.pos.z - B.z); } });
+    const out = land !== null && land > B.r;
+    console.log(`  bowl at ${v} m/s + ${pop === 2 ? 'SWIPE' : 'a tap'}: ${land === null ? 'never landed' : `down ${fix(land, 1)} m from the middle (rim ${B.r})`} -- ${out ? 'OUT' : 'back in the bowl'}`);
+    if (!fired || land === null || out !== (pop === 2)) ok = false;
   }
   return ok;
 };
@@ -313,6 +331,27 @@ CASES.tap = async () => {
       if (got !== want) ok = false;
     }
     P.stanceLock = keepLock; P.stance = 1; rg.stick.L.x = rg.stick.L.y = 0; rg.stick.L.down = 0; }
+  // THE RIGHT PAD'S SWIPE UP (r25): on the ground it is the TRANSFER jump (`jump` 2), in the air
+  // the front flip. Fast up, then off -- through the shipped binding, real FLICK timing.
+  { const swipe = async (dx, dy) => { P.jump = 0;
+      pad.dispatchEvent(ev('pointerdown', 150, 150)); await wait(16);
+      pad.dispatchEvent(ev('pointermove', 150 + dx, 150 + dy)); await wait(30);
+      pad.dispatchEvent(ev('pointerup', 150 + dx, 150 + dy)); await wait(140); };   // past FLICK.gap
+    place(60, 1, -60, 0, 6); await swipe(0, -52);
+    let good = P.jump === 2;
+    console.log(`  swipe UP on the ground        -> ${P.jump === 2 ? 'TRANSFER jump' : P.jump === 1 ? 'a tap jump (WRONG)' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    place(60, 1, -60, 0, 6); await swipe(52, 0);
+    good = P.jump === 0;
+    console.log(`  swipe SIDEWAYS on the ground  -> ${P.jump ? 'a jump (WRONG)' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
+    place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 6; P.vel.y = 3; P.flip = null;
+    await swipe(0, -52);
+    good = P.jump === 0 && P.flip && P.flip.dir === 'up';
+    console.log(`  swipe UP in the air           -> ${P.flip ? P.flip.dir + ' flip' : P.jump ? 'a jump (WRONG)' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    rg.girl.moves = keepM; P.flip = null; P.jump = 0; }
   return ok;
 };
 
@@ -1201,6 +1240,14 @@ CASES.moves = () => {
         `x${fix(fa.ts)} (clip ${fix(R.len.front_twist_flip__mirror)} s into 0.9 s)`);
   step(0.8, () => (P.flip.t += DT));
   check('...and the air pose once it is round', top() === 'in_air', top());
+  // PROCEDURAL (r25): mid-flip she is in his TUCK pose, not a flip clip
+  P.flip = { nm: 'front_flip', dir: 'up', t: 0, dur: 1, proc: true };
+  step(0.45, () => (P.flip.t += DT));
+  { let sum = 0; for (const k in log) sum += log[k].w;
+    check('procedural flip: tucked half way', top() === 'tuck' && log.front_flip.w < 0.01 && Math.abs(sum - 1) < 0.02, `${top()}, flip clip ${fix(log.front_flip.w)}, all ${fix(sum)}`); }
+  step(0.3, () => (P.flip.t += DT));
+  check('...opening out through flip_pose', log.flip_pose.w > 0.2 || top() === 'in_air', `${top()} flip_pose ${fix(log.flip_pose.w)}`);
+  P.flip = null; step(0.5);
   // ON A RAIL: the side she came at it from picks the clip
   for (const side of ['right', 'left']) {
     state({ speed: 8, grounded: true }); P.grind = { side, s: 8, time: 1, t: 0.5, dir: 1 };
@@ -1256,6 +1303,46 @@ CASES.facing = () => {
   return ok;
 };
 
+// ---------------------------------------------------------------- procedural flips (r25)
+// THE SHIPPED `flipShape` / `flipTurn` / `flipQ`: the pose blend sums to 1 all the way through, the
+// turn starts at 0 and lands EXACTLY on a full turn, it spins faster tucked than opened out, and a
+// front flip takes her head FORWARD, a back flip backward. What no harness here can check is how it
+// LOOKS -- `poseGirl` needs a skin, and the skin is draco.
+CASES.flip = () => {
+  let ok = true;
+  const chk = (label, c, extra = '') => { console.log(`  ${label.padEnd(40)} ${c ? 'ok' : 'WRONG'} ${extra}`); if (!c) ok = false; };
+  let worst = 0, mono = true, prev = -1;
+  for (let i = 0; i <= 200; i++) { const u = i / 200, w = rg.flipShape(u), t = rg.flipTurn(u);
+    worst = Math.max(worst, Math.abs(w.tuck + w.pose + w.air - 1), w.tuck < -1e-9 || w.pose < -1e-9 || w.air < -1e-9 ? 1 : 0);
+    if (t < prev - 1e-12) mono = false; prev = t; }
+  chk('pose weights sum to 1, none negative', worst < 1e-9, `worst ${worst.toExponential(1)}`);
+  chk('turn 0 at the start, 1 at the end', Math.abs(rg.flipTurn(0)) < 1e-9 && Math.abs(rg.flipTurn(1) - 1) < 1e-9, `${fix(rg.flipTurn(1), 6)}`);
+  chk('turn never goes backwards', mono);
+  const rate = u => (rg.flipTurn(u + 0.005) - rg.flipTurn(u - 0.005)) / 0.01;
+  const w45 = rg.flipShape(0.45);
+  chk('tucked mid-flip', w45.tuck > 0.99, `tuck ${fix(w45.tuck)}`);
+  chk('spins faster tucked than at the edges', rate(0.45) > 1.8 * rate(0.03), `x${fix(rate(0.45) / rate(0.03))}`);
+  const head = (dir, u) => { const q = rg.flipQ({ dir, t: u, dur: 1 }, new THREE.Quaternion()); return new THREE.Vector3(0, 1, 0).applyQuaternion(q); };
+  const hu = head('up', 0.2), hd = head('down', 0.2);
+  chk('front flip: head goes FORWARD (+Z)', hu.z > 0.3, `head ${fix(hu.y)}, ${fix(hu.z)}`);
+  chk('back flip: head goes BACK (-Z)', hd.z < -0.3, `head ${fix(hd.y)}, ${fix(hd.z)}`);
+  for (const dir of ['up', 'down', 'right', 'left']) {
+    const q = rg.flipQ({ dir, t: 1, dur: 1 }, new THREE.Quaternion());
+    chk(`${dir}: back upright at the end`, Math.abs(Math.abs(q.w) - 1) < 1e-6, `w ${fix(q.w, 6)}`);
+  }
+  // the twist really twists: a quarter of the way round a right twist flip (a quarter twist too),
+  // her nose is out of the flip's plane. (Half way round it has twisted 180 and is back IN it.)
+  let uq = 0; while (rg.flipTurn(uq) < 0.25 && uq < 1) uq += 0.001;
+  const q = rg.flipQ({ dir: 'right', t: uq, dur: 1 }, new THREE.Quaternion()), nose = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+  chk('twist flip: the nose leaves the flip plane', Math.abs(nose.x) > 0.3, `nose x ${fix(nose.x)}`);
+  // and `startFlip` marks it procedural when the switch is on, a clip flip when it is off
+  const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
+  for (const on of [1, 0]) { rg.FLIPP.on = on; place(60, 1, -60, 0, 6); P.grounded = false; P.pos.y += 6; P.vel.y = 3; P.flip = null;
+    rg.startFlip('up'); chk(`Procedural flips ${on}: flip is ${on ? 'procedural' : 'the clip'}`, P.flip && !!P.flip.proc === !!on); }
+  rg.FLIPP.on = 1; P.flip = null; rg.girl.moves = keepM;
+  return ok;
+};
+
 // ---------------------------------------------------------------- the rails
 // THE SHIPPED `railCatch` / `stepGrind` / `grindLeave` through the real `stepPlayer`, over the real
 // rails `buildPark` built. Each row puts her in the air near a rail and lets the physics decide.
@@ -1267,11 +1354,15 @@ CASES.grind = () => {
   for (const [i, r] of R.entries()) {
     const ga = rg.groundAt(r.a.x, r.a.z, r.a.y, 0.01), gb = rg.groundAt(r.b.x, r.b.z, r.b.y, 0.01);
     const ca = r.a.y - ga.floor, cb = r.b.y - gb.floor;
-    const good = ga.hit && gb.hit && ca > 0.3 && cb > 0.3 && ca < 2 && cb < 2;
+    const good = ga.hit && gb.hit && ca > 1.5 && cb > 1.5 && ca < 3.2 && cb < 3.2;   // r25: a real jump up, still under the 3.9 m ollie
     console.log(`  rail ${i}: ${fix(r.len, 1)} m, ${fix(ca, 2)}..${fix(cb, 2)} m off the ground${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
   }
   const keepLock = P.stanceLock; P.stanceLock = true;
+  // THE HEIGHT OF RAIL i's TOP AT (x, z) -- so every row below is placed RELATIVE to the bar, and
+  // raising the rails (r25) moves the test with them instead of dropping her through empty air
+  const top = (i, x, z) => { const r = R[i]; const u = Math.max(0, Math.min(1, ((x - r.a.x) * r.hx + (z - r.a.z) * r.hz) / r.hl));
+    return r.a.y + (r.b.y - r.a.y) * u; };
   // in the air at (x, y, z) with velocity v; run and watch
   const go = (x, y, z, v, sec, during) => {
     place(x, 1, z, Math.atan2(v[0], v[2]), 0);
@@ -1291,54 +1382,63 @@ CASES.grind = () => {
   };
   const row = (label, r, good, extra) => { console.log(`  ${label.padEnd(34)} ${good ? '' : 'WRONG  '}${extra}`); if (!good) ok = false; };
   // 2. dropped onto the flat rail along it: catches, grinds the length, flies off the end
-  let r = go(-40, 1.6, -3, [0, 0, 8], 4);
+  let r = go(-40, top(0, -40, -3) + 1, -3, [0, 0, 8], 4);
   row('dropped onto rail 0, along it', r, r.caught && r.caught.rail === 0 && r.exitAt && r.exitAt.z > 15.5 && r.exitAt.air,
       r.caught ? `caught at ${fix(r.s0, 1)} m/s, ${fix(r.tGr, 2)} s on it, off at z ${fix(r.exitAt && r.exitAt.z, 2)} (end 16) ${r.exitAt && r.exitAt.air ? 'into the air' : ''}` : 'NO CATCH');
   // 3. crossing it square is a jump over
-  r = go(-42, 1.6, 5, [8, 0, 0], 2);
+  r = go(-42, top(0, -40, 5) + 1, 5, [8, 0, 0], 2);
   row('crossing it square, 90 deg', r, !r.caught, r.caught ? 'CAUGHT' : 'passed over, no grind');
   // 4. the side: moving to her right onto it is a RIGHT grind, to her left a LEFT one
-  r = go(-39.5, 1.6, -3, [-2, 0, 8], 3);
+  r = go(-39.5, top(0, -40, -3) + 1, -3, [-2, 0, 8], 3);
   const sR = r.caught && r.caught.side;
-  r = go(-40.5, 1.6, -3, [2, 0, 8], 3);
+  r = go(-40.5, top(0, -40, -3) + 1, -3, [2, 0, 8], 3);
   const sL = r.caught && r.caught.side;
   row('from its left, moving right', null, sR === 'right', sR || 'no catch');
   row('from its right, moving left', null, sL === 'left', sL || 'no catch');
   // ...and the same, going the OTHER way along it (her right flips with her)
   // GOING -Z HER RIGHT IS +X, so drifting -X onto the rail from the +X side is moving to HER LEFT:
   // the side is judged against her travel, not against the world
-  r = go(-39.5, 1.6, 12, [-2, 0, -8], 3);
+  r = go(-39.5, top(0, -40, 12) + 1, 12, [-2, 0, -8], 3);
   row('going -Z, drifting -X (her LEFT)', null, r.caught && r.caught.side === 'left', r.caught ? r.caught.side : 'no catch');
   // 5. a tap on the rail pops her off it
-  r = go(-40, 1.6, -3, [0, 0, 8], 2, t => { if (t > 0.6 && t < 0.62 && P.grind) P.jump = 1; });
+  r = go(-40, top(0, -40, -3) + 1, -3, [0, 0, 8], 2, t => { if (t > 0.6 && t < 0.62 && P.grind) P.jump = 1; });
   row('a tap mid-rail pops her off', r, r.exitAt && r.exitAt.z < 14 && r.exitAt.vy > 6,
       r.exitAt ? `off at z ${fix(r.exitAt.z, 1)}, rising at ${fix(r.exitAt.vy, 1)} m/s` : 'never left');
   // 6. the DOWN rail speeds her up, and going UP it slowly she runs out and drops off
-  r = go(38, 2.3, 3, [0, 0, 6], 4);
+  r = go(38, top(2, 38, 3) + 0.86, 3, [0, 0, 6], 4);
   row('down rail 2, downhill', r, r.caught && r.exitAt && r.exitAt.v > r.s0 + 0.5,
       r.caught ? `${fix(r.s0, 1)} m/s on, ${fix(r.exitAt && r.exitAt.v, 1)} off the bottom` : 'NO CATCH');
-  r = go(38, 1.3, 17, [0, 0, -4.5], 4);
+  r = go(38, top(2, 38, 17) + 0.74, 17, [0, 0, -4.5], 4);
   row('down rail 2, UPHILL and slow', r, r.caught && r.exitAt && r.exitAt.z > 2.6,
       r.caught ? `dropped off at z ${fix(r.exitAt && r.exitAt.z, 1)} before the top (2.0)` : 'NO CATCH');
   // 7. the diagonal rail, so nothing assumes an axis
   { const d = R[3], u = 0.3, x = d.a.x + (d.b.x - d.a.x) * u, z = d.a.z + (d.b.z - d.a.z) * u;
-    r = go(x, 1.7, z, [d.hx * 8, 0, d.hz * 8], 4);
+    r = go(x, top(3, x, z) + 1, z, [d.hx * 8, 0, d.hz * 8], 4);
     row('diagonal rail 3, along it', r, r.caught && r.caught.rail === 3 && r.tGr > 0.8, r.caught ? `${fix(r.tGr, 2)} s on it` : 'NO CATCH'); }
   // 8. FAST, AT A PHONE'S FRAME RATE: the catch is swept, so a quarter metre a frame still finds it
   { const keepDT = DT; DT = 1 / 20;
-    r = go(-8, 1.05, -46, [16, -3, 0], 2);
+    r = go(-8, top(1, -8, -46) + 0.25, -46, [16, -3, 0], 2);
     DT = keepDT;
     row('16 m/s onto rail 1, at 20 Hz', r, r.caught && r.caught.rail === 1, r.caught ? `caught at ${fix(r.s0, 1)} m/s` : 'MISSED IT'); }
   // 9. rising fast past it is a jump over, not a grind
   // 9. RISING FAST PAST IT IS A JUMP OVER. She comes back down onto it later, which is a perfectly
   // good catch -- so what is checked is her vertical speed AT the catch, not whether one happened.
-  r = go(-40, 0.45, 2, [0, 5, 6], 2);      // INSIDE the catch band, rising -- the gate is all that stops it
+  r = go(-40, top(0, -40, 2) - 0.15, 2, [0, 5, 6], 2);      // INSIDE the catch band, rising -- the gate is all that stops it
   // THE TEST'S OWN DEFINITION OF "RISING FAST", NOT `GRIND.rise`. Read off the live value, a gate
   // turned off (rise 99) also moved the pass mark to 99 and the row went on passing while she was
   // caught climbing at 5 m/s -- a check that takes its threshold from the thing under test cannot fail.
   const RISING = 2;
   row('rising fast up past it', r, !r.caught || r.caught.vy <= RISING,
       !r.caught ? 'no catch' : r.caught.vy > RISING ? `CAUGHT RISING at ${fix(r.caught.vy, 1)} m/s` : `went over, caught it coming DOWN at ${fix(r.caught.vy, 1)} m/s`);
+  // 10. *"So you can really jump up into them"*: skating beside rail 0 on the ground, angled in a
+  // little, ONE TAP -- she goes up past it, comes down onto it and grinds. The whole point of r25.
+  { const h = Math.atan2(1.2, 8);
+    place(-41.3, 1, -4, h, Math.hypot(1.2, 8)); P.grindCool = 0; P.grindLast = null;
+    let caught = null, apex = 0, t = 0;
+    run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (t < DT * 1.5) P.jump = 1;
+      apex = Math.max(apex, P.pos.y); if (P.grind && !caught) caught = { y: P.pos.y, vy: P.vel.y }; t += DT; });
+    row('one tap from the ground, onto rail 0', null, !!caught,
+        caught ? `apex ${fix(apex, 2)} m, came down onto the ${fix(top(0, -40, 0), 1)} m bar` : `NO CATCH (apex ${fix(apex, 2)} m)`); }
   P.stanceLock = keepLock;
   return ok;
 };

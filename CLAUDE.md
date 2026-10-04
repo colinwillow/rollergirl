@@ -269,6 +269,36 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **THE WAY OUT OF A PIPE IS A SWIPE; A TAP ALWAYS COMES BACK (r25, `leaveGround(coy, xfer)`,
+  `p.jump` 2, `VERT.kick`).** *"Jumping out of half pipes or bowls is a swipe forward on the right
+  stick instead of a tap. If you tap, no matter what, you're constrained up and come back down."*
+  The r21 "left thumb held forward as she leaves" exception is gone, and so is the other way out
+  nobody asked for: the air thrust (left stick forward) used to carry a LOCKED air out over the
+  coping -- `npm run sim vert` read a tap + left-forward landing at z 56, on the deck. Under the
+  lock the thrust may only carry her ALONG the coping now. The right pad's swipe UP on the ground
+  (or a rail, or the coyote moment off a lip) is `jump` 2; in the air it is still the front flip.
+  **THE KICK WAITS UNTIL SHE HAS CLEARED THE LIP, AND SO DOES THE SPEED SHE ALREADY HAD.** She leaves
+  a few centimetres BELOW the coping, so any outward speed on that frame puts her under the deck's
+  surface, and the below-the-surface landing test stands her on it mid-launch. That is what the
+  first version did: a 21 m/s swipe "apexed" lower than rolling off with no pop at all, because she
+  had been landed on the deck and popped again off it. The outward part is held back on the frame
+  she leaves and `stepAir` applies `kick` once there is air under her outward. Pipe and BOWL both
+  in `npm run sim vert`: taps land inside, swipes 10-14 m out.
+- **THE RAILS ARE 1.8-2.7 m NOW (r25).** An ollie on the flat tops out near 3.9 m, so 0.6-0.8 was a
+  kerb. `npm run sim grind` places every row RELATIVE to the bar's top (`top(i, x, z)`), so moving a
+  rail moves the test with it, and has a row that skates beside rail 0 on the GROUND and taps once:
+  up past it to 3.8 m, down onto it, grinding.
+- **PROCEDURAL FLIPS (r25, `FLIPP`, `flipShape`, `flipTurn`, `flipQ`).** *"Start driving the flips
+  procedurally as a test, using the tuck and flip poses."* `tuck` and `flip_pose` are HELD poses (the
+  first and last keys are identical) -- tuck is hands on the shins, 0.31 m head to foot; flip_pose
+  the same crouch with the arms swept back and the feet opened, 0.40. The turn is ours, multiplied
+  onto `bodyG` after `p.bq`, about the air pivot. Pose: in_air -> flip_pose -> tuck -> flip_pose ->
+  in_air on the flip's own clock; spin rate `1 / (1 - spinK * tuck)` integrated and normalised, so
+  tucked she turns 2.4x faster than opened out and the turn still lands exactly on 360. Landed
+  short (bails off), the leftover rotation UNWINDS the short way at `settle` rather than snapping.
+  Front flip = head forward = +X turn in her frame (local +Z forward); the twist is about her own
+  spine, inside the flip. `npm run sim flip` checks all of that; how it LOOKS needs a skin, which is
+  draco, so that half is his. `FLIPP.on` 0 (panel: Procedural flips) puts his flip clips back.
 - **HIS `*_backward` CLIPS ARE AUTHORED FACING BACKWARDS, AND THE GAME TURNED HER ROUND TOO (r24,
   `faceForward`, `bodyYaw`, `FACEFIX`).** *"Whenever you put the character into fakie physically,
   the animation is also fakie, which makes the rider forward again."* Exactly right. Measured off

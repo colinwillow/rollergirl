@@ -146,7 +146,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r24</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r25</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -163,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r24';
+const BUILD = 'r25';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -576,10 +576,13 @@ const PARK = { S: 70, cell: 5, wallR: 10.0, wallSweep: 70 * Math.PI / 180, wallB
 // rail dropped by eye ends half inside a funbox. Away from the x = +/-60 strips the sim skates.
 // `a` and `b` are the TOP of the bar, where her wheels sit; a sloped one is a down rail.
 const RAIL_DEF = [
-  { a: [-40, 0.6, -6], b: [-40, 0.6, 16] },    // flat, along Z, off to the left of the spawn
-  { a: [-12, 0.8, -46], b: [12, 0.8, -46] },   // flat, along X, the south side
-  { a: [38, 1.5, 2], b: [38, 0.5, 18] },       // a DOWN rail, a metre of drop over 16
-  { a: [30, 0.7, 30], b: [44, 0.7, 46] },      // diagonal, so nothing assumes a rail runs on an axis
+  // r25: *"make the grind rails taller so you can really jump up into them."* An ollie on the flat
+  // tops out near 3.9 m (12.5 m/s of pop against 20 of gravity), so 0.6-0.8 m was a kerb. Now
+  // 1.8-2.7: she has to commit to a real jump, and comes DOWN onto the bar from above.
+  { a: [-40, 1.8, -6], b: [-40, 1.8, 16] },    // flat, along Z, off to the left of the spawn
+  { a: [-12, 2.0, -46], b: [12, 2.0, -46] },   // flat, along X, the south side
+  { a: [38, 2.7, 2], b: [38, 1.7, 18] },       // a DOWN rail, a metre of drop over 16
+  { a: [30, 1.9, 30], b: [44, 1.9, 46] },      // diagonal, so nothing assumes a rail runs on an axis
 ];
 // HOW A GRIND IS CAUGHT AND HELD. Caught in the AIR only -- dropping onto a rail or ollieing onto
 // one -- so riding past a rail can never snag her.
@@ -1351,6 +1354,51 @@ function mirrorClip(clip, root, name) {
 // `fall_to_*` with a matching `get_up_*`. A move whose clip is missing borrows its nearest
 // neighbour IN THE SAME DIRECTION (there is no `blade_hard_backward` in the r21 export, so a fast
 // fakie plays medium), and a skin with no `blade_*_forward` at all keeps the old animation path.
+// PROCEDURAL FLIPS (r25). *"Start driving the flips procedurally as a test, using the tuck and flip
+// poses."* His `tuck` (hands on the shins, head down -- 0.31 m head to foot) and `flip_pose` (the
+// same crouch with the arms swept back and the feet open -- 0.40) are both HELD poses, not motions,
+// so they carry no rotation of their own: the turn is ours, applied on top of the body quaternion
+// about the air pivot (`RIG.pivot`, her middle). The pose runs in_air -> flip_pose (the throw) ->
+// tuck -> flip_pose (opening out) -> in_air, and the SPIN FOLLOWS THE TUCK: tucked she turns faster
+// than opened out, which is a body conserving angular momentum and the thing that makes a flip read
+// as a flip rather than a rotating statue. The angle is that rate integrated and normalised, so the
+// turn still lands exactly on 360 at the end of the flip's clock. `on` 0 plays his flip clips.
+const FLIPP = {
+  on: 1,
+  throwAt: 0.12,     // in_air -> flip_pose by here (fraction of the flip)
+  tuckAt: 0.26,      // ...and closed into the tuck by here
+  openAt: 0.66,      // starts opening out here
+  airAt: 0.92,       // back to the air pose by here, spotting the landing
+  spinK: 0.6,        // how much faster a full tuck turns: rate 1 / (1 - spinK * tuck)
+  twist: 1,          // full twists in a twist flip
+  settle: 10,        // landed mid-flip: how fast the unfinished turn unwinds (per second)
+};
+function flipShape(u) {
+  const F = FLIPP, mid = (F.openAt + F.airAt) / 2;
+  const k1 = smooth(0, F.throwAt, u), k2 = smooth(F.throwAt, F.tuckAt, u);
+  const o1 = smooth(F.openAt, mid, u), o2 = smooth(mid, F.airAt, u);
+  const tuck = k2 * (1 - o1), pose = k1 * (1 - k2) + o1 * (1 - o2);
+  return { tuck, pose, air: 1 - tuck - pose };
+}
+const flipRate = u => { const w = flipShape(u); return 1 / Math.max(0.15, 1 - FLIPP.spinK * (w.tuck + 0.5 * w.pose)); };
+// fraction of the full turn done at u -- the rate integrated, normalised so it is exactly 1 at u = 1
+function flipTurn(u) {
+  u = clamp(u, 0, 1);
+  const N = 48; let a = 0, all = 0;
+  for (let i = 0; i < N; i++) { const r = flipRate((i + 0.5) / N); all += r; a += r * clamp((u - i / N) * N, 0, 1); }
+  return a / all;
+}
+const _fq = new THREE.Quaternion(), _fq2 = new THREE.Quaternion(), _fX = new THREE.Vector3(1, 0, 0), _fY = new THREE.Vector3(0, 1, 0);
+// the flip's rotation in HER frame (local +Z forward, +Y up): +X is the axis that takes her head
+// FORWARD, so a front flip is a positive turn about it and a back flip a negative one; a twist is
+// about her own spine, applied inside the flip so it stays about the spine as she goes over.
+function flipQ(f, out) {
+  const a = 2 * Math.PI * flipTurn(f.t / f.dur);
+  out.setFromAxisAngle(_fX, f.dir === 'down' ? -a : a);
+  if (f.dir === 'right' || f.dir === 'left')
+    out.multiply(_fq2.setFromAxisAngle(_fY, (f.dir === 'right' ? -a : a) * FLIPP.twist));
+  return out;
+}
 const FACEFIX = { on: 1, turned: [] };   // see `faceForward`; 0 plays his backward clips as exported
 const MOVES = {
   // r23: *"blade medium looks kind of weird -- she's swinging her arms really big and not moving her
@@ -1405,6 +1453,7 @@ function buildMoves(has) {
            back: { push: backPush, roll: has[MOVES.roll[1]] ? MOVES.roll[1] : iB[0] },
            flip, grind, idleFwd: iF, idleBack: iB,
            air: has[MOVES.air] ? MOVES.air : null,
+           tuck: has.tuck ? 'tuck' : null, flipPose: has.flip_pose ? 'flip_pose' : null,
            falls: MOVES.falls.filter(([f, u]) => has[f] && has[u]) };
 }
 
@@ -1939,7 +1988,12 @@ function girlAnimMoves(dt) {
   } else if (!p.grounded) {
     girl.bail = null;
     const f = p.flip;
-    if (f && f.t < f.dur) {
+    if (f && f.t < f.dur && f.proc) {
+      // PROCEDURAL: the turn is `flipQ`'s, the pose is a blend of his held poses -- no snap, the
+      // throw eases in like a body winding up
+      const w = flipShape(f.t / f.dur), air = m.air || m.fwd.push[0];
+      add(m.tuck || air, w.tuck); add(m.flipPose || m.tuck || air, w.pose); add(air, w.air);
+    } else if (f && f.t < f.dur) {
       if (girl.flipSeen !== f) { girl.flipSeen = f; rewind(f.nm); snap = true; }
       clipScale(f.nm, clipLen(f.nm, 1) / f.dur);
       add(f.nm, 1);
@@ -2028,6 +2082,7 @@ const keys = {};
 addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = 1;
   if (e.key === ' ') { player.jump = 1; e.preventDefault(); }
+  if (e.key.toLowerCase() === 'e') player.jump = 2;      // the transfer, from a keyboard
   if (e.key.toLowerCase() === 'r') respawn();
   if (e.key.toLowerCase() === 'q') swivel();
 });
@@ -2145,7 +2200,13 @@ bindStick(document.getElementById('stkR'), stick.R, null, (dx, dy) => {
   // THE FLICK, CLAIMED AT LAST: a flip in the air. The pad's +Y is DOWN the screen, so a flick up
   // is a negative dy. On the ground it does nothing yet -- it is still eaten, so a fast swipe of the
   // camera never also jumps.
-  startFlip(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down'));
+  const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
+  // ON THE GROUND (or a rail, or the coyote moment off a lip) A SWIPE UP IS THE TRANSFER JUMP --
+  // out of the pipe or the bowl. In the air it is still the front flip. Other swipes on the ground
+  // do nothing yet.
+  const p = player;
+  if (p.grounded || p.grind || p.coyote > 0) { if (dir === 'up') { p.jump = 2; const s = STICKS[1]; if (s && s.pop) s.pop(); } return; }
+  startFlip(dir);
 }, (far, held) => {
   // A TAP IS A JUMP, AND `far` IS NOW MEASURED FROM WHERE THE THUMB LANDED, so it is genuinely
   // "did the thumb move" rather than "did the thumb land in the middle of the circle". With the
@@ -2182,7 +2243,7 @@ const player = {
   // and back down it), not re-derived from her velocity every frame -- see `stanceLock`.
   stance: 1, stanceLock: false, shoveDir: 1, thumbGo: false,
   flip: null, bailId: 0, landAng: 0,
-  grind: null, grindCool: 0, grindLast: null, flatT: 0,
+  grind: null, grindCool: 0, grindLast: null, flatT: 0, vertLock: 0, vertIx: 0, vertIz: 0, xferKick: null,
   bq: new THREE.Quaternion(),      // THE BODY'S FULL ORIENTATION. On the ground it is derived
                                    // from the surface; in the air it is integrated and is the
                                    // only thing that says which way up she is.
@@ -2210,23 +2271,36 @@ function groundQ(out) {
 // on the flat lip at deck height, at 17 and 21 on the deck itself. Leaving anything steeper than
 // `VERT.at`, the part of her velocity heading out over the coping is taken away and a little is
 // sent back IN, so she drops into the transition she left -- and SIDEWAYS along the coping is
-// kept, which is how you travel down a pipe. A thumb pushed forward at the moment she leaves is
-// the transfer and skips the lock; holding forward in the air still carries her over as before.
-const VERT = { at: 65 * Math.PI / 180, inward: 0.6, transfer: -0.4 };
-function leaveGround(coy) {
+// kept, which is how you travel down a pipe.
+// THE WAY OUT IS A SWIPE (r25). *"Jumping out of half pipes or bowls is a swipe forward on the right
+// stick instead of a tap. If you tap, no matter what, you're constrained up and come back down."*
+// So the old "thumb held forward as she leaves" exception is GONE -- a tap, or just rolling over the
+// lip, always comes back into the pipe -- and a swipe UP on the right pad is the transfer: no lock,
+// and her speed out over the coping is raised to at least `kick`, which is what carries her onto the
+// deck (or out of the bowl) without needing the left thumb at all.
+const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5 };
+function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
-  if (n.y < Math.cos(VERT.at)) {
-    const h = Math.hypot(n.x, n.z);
-    const fwd = stick.L.y + ((keys.w || keys.arrowup) ? -1 : 0);
-    if (h > 1e-4 && fwd > VERT.transfer) {
-      const ix = n.x / h, iz = n.z / h;                 // INTO the pipe, horizontally
-      const out = -(p.vel.x * ix + p.vel.z * iz);       // her speed out over the coping
+  p.vertLock = 0; p.xferKick = null;
+  const h = Math.hypot(n.x, n.z);
+  if (n.y < Math.cos(VERT.at) && h > 1e-4) {
+    const ix = n.x / h, iz = n.z / h;                   // INTO the pipe, horizontally
+    const out = -(p.vel.x * ix + p.vel.z * iz);         // her speed out over the coping
+    if (!xfer) {
       const fix = Math.max(0, out) + VERT.inward;
       p.vel.x += ix * fix; p.vel.z += iz * fix;
-      p.vertLock = 1;
-    } else p.vertLock = 0;
-  } else p.vertLock = 0;
+      p.vertLock = 1; p.vertIx = ix; p.vertIz = iz;
+    } else {
+      // THE KICK WAITS UNTIL SHE HAS CLEARED THE LIP. Applied on the frame she leaves, she is
+      // still a few centimetres BELOW the coping, so pushing her out over the deck puts her under
+      // the deck's surface -- and the "below the surface is below the surface" landing test duly
+      // stands her on it, mid-launch. `stepAir` applies it once there is air under her outward --
+      // and for the same reason whatever she was ALREADY carrying outward is held back until then.
+      if (out > 0) { p.vel.x += ix * out; p.vel.z += iz * out; }
+      p.xferKick = { ix, iz };
+    }
+  }
   groundQ(p.bq);
   p.grounded = false; p.airT = 0; p.coyote = coy; p.drift = 0;
 }
@@ -2272,9 +2346,9 @@ function popDir(out) {
   const k = clamp(out.y, 0, 1) * AIR.popTravel;
   return out.multiplyScalar(k).addScaledVector(UP, 1 - k).normalize();
 }
-function doJump() {
+function doJump(xfer) {
   player.vel.addScaledVector(popDir(_N), AIR.jump);
-  leaveGround(0);
+  leaveGround(0, xfer);
 }
 
 function stepGround(dt) {
@@ -2471,8 +2545,24 @@ function stepAir(dt) {
   // reach the next. Capped by how much it has already added, so a long flight is not a free one.
   if (sy < 0 && p.drift < AIR.driftMax) {
     const add = Math.min(-sy * AIR.drift * dt, AIR.driftMax - p.drift);
-    p.vel.x += Math.sin(p.heading) * add; p.vel.z += Math.cos(p.heading) * add;
+    let ax = Math.sin(p.heading) * add, az = Math.cos(p.heading) * add;
+    // A TAPPED VERT AIR STAYS IN THE PIPE (r25): *"if you tap, no matter what, you come back down."*
+    // The thumb can still carry her ALONG the coping, never out over it -- the swipe is the way out.
+    if (p.vertLock) { const o = -(ax * p.vertIx + az * p.vertIz); if (o > 0) { ax += p.vertIx * o; az += p.vertIz * o; } }
+    p.vel.x += ax; p.vel.z += az;
     p.drift += add;
+  }
+  const K = p.xferKick;
+  if (K) {
+    if (p.vel.y < 0) p.xferKick = null;              // never cleared the lip: she drops back in
+    else {
+      const g = groundAt(p.pos.x - K.ix * 0.9, p.pos.z - K.iz * 0.9, p.pos.y + 0.5, 3);
+      if (!g.hit || p.pos.y > g.floor + 0.15) {
+        const out = -(p.vel.x * K.ix + p.vel.z * K.iz);
+        if (out < VERT.kick) { p.vel.x -= K.ix * (VERT.kick - out); p.vel.z -= K.iz * (VERT.kick - out); }
+        p.xferKick = null;
+      }
+    }
   }
   // AND SHE COMES UPRIGHT. She left holding the ramp's angle; from here the target is plumb,
   // yawed to her heading -- a skater flying out of a vert wall is upright going straight up, not
@@ -2593,14 +2683,16 @@ function startFlip(dir) {
   const h = g.hit ? Math.max(0, p.pos.y - g.floor) : 3;
   const vy = p.vel.y, left = (vy + Math.sqrt(Math.max(0, vy * vy + 2 * SK.g * h))) / SK.g;
   if (left * LAND.flipFill < LAND.flipMin) return false;
-  p.flip = { nm, dir, t: 0, dur: clamp(left * LAND.flipFill, LAND.flipMin, LAND.flipMax) };
+  p.flip = { nm, dir, t: 0, dur: clamp(left * LAND.flipFill, LAND.flipMin, LAND.flipMax), proc: FLIPP.on > 0.5 };
   return true;
 }
 
 function stepPlayer(dt) {
   const p = player;
   p.rHold = stick.R.down ? p.rHold + dt : 0;
-  if (p.jump) { p.jump = 0; if (p.grind) grindLeave(true); else if (p.grounded || p.coyote > 0) doJump(); }
+  // `jump` 1 is a TAP (constrained on vert), 2 is the right pad's SWIPE UP (the transfer)
+  if (p.jump) { const xfer = p.jump === 2; p.jump = 0;
+    if (p.grind) grindLeave(true); else if (p.grounded || p.coyote > 0) doJump(xfer); }
   p.grindCool = Math.max(0, p.grindCool - dt);
   // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
   // samples, and that is speed x dt -- so the count follows her speed and a 120 Hz phone does
@@ -2637,6 +2729,16 @@ function poseGirl(dt) {
   // and damped SLOWLY while she is bailing, because the stumble is the thing you want to see.
   if (p.grounded) p.bq.slerp(groundQ(_q), Math.min(1, (p.bailT > 0 ? AIR.right : RIG.tiltRate) * dt));
   bodyG.quaternion.copy(p.bq);
+  // THE PROCEDURAL FLIP rides on top of the body quaternion, about the air pivot. Landed before
+  // it got round (bails are off), the unfinished turn UNWINDS the short way rather than snapping,
+  // which also covers a flip still turning on the frame she touches down.
+  const f = p.flip;
+  if (f && f.proc && !p.grounded && f.t < f.dur) { flipQ(f, _fq); girl.flipRes = (girl.flipRes || new THREE.Quaternion()).copy(_fq); }
+  else if (girl.flipRes) {
+    girl.flipRes.slerp(_fq.identity(), Math.min(1, FLIPP.settle * dt));
+    if (Math.abs(girl.flipRes.w) > 0.99995) girl.flipRes = null;
+  }
+  if (girl.flipRes) bodyG.quaternion.multiply(girl.flipRes);
   // WHICH WAY HER EXPORT FACES IS THE ONE THING NO OFFLINE CHECK HERE CAN SETTLE, so it is
   // applied every frame rather than baked in at load: `rg.RIG.spin = Math.PI` turns her
   // round on the phone, with no rebuild and no push.
@@ -2888,6 +2990,13 @@ const TAILUI = [
   ['SK.coastAfter',  'Fade after flat', 0,  5,   0.1,  's'],
   ['LAND.bail',      'Bails on landing', 0, 1,   1,    ''],
   ['MOVES.useBack',  'Backward clips in fakie', 0, 1, 1, ''],
+  ['Flips (r25)', ''],
+  ['FLIPP.on',       'Procedural flips', 0, 1,  1,    ''],
+  ['FLIPP.spinK',    'Tuck spin-up',   0,   0.85, 0.05, ''],
+  ['FLIPP.tuckAt',   'Tucked by',      0.05, 0.6, 0.01, ''],
+  ['FLIPP.openAt',   'Opens out at',   0.3, 0.9, 0.01, ''],
+  ['FLIPP.twist',    'Twists',         0,   3,   0.5,  ''],
+  ['VERT.kick',      'Transfer kick',  0,   10,  0.5,  ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
   ['Grinding', ''],
@@ -2898,7 +3007,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -3007,7 +3116,7 @@ async function init() {
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
-  mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, bodyYaw, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
+  mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, bodyYaw, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
