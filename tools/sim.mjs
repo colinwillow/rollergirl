@@ -566,6 +566,7 @@ CASES.anim = () => {
 // it is being shipped for him to judge, and the baked-vs-procedural switch, which needs a clip
 // that actually drives those bones.
 CASES.tail = () => {
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const C = rg.CHARS.find(c => /alien/.test(c.key));
   if (!fs.existsSync(C.file)) { console.log(`  ${C.file} is not here`); return false; }
   const g = readGLB(C.file);
@@ -597,78 +598,100 @@ CASES.tail = () => {
     if (q) b.quaternion.set(q[0], q[1], q[2], q[3]);
     par.add(b); par = b;
   }
-  const model = new THREE.Group(); model.add(holder);
+  // TWO LEG BONES, so the body capsules have something to find. They hang off the holder rather
+  // than the hips and are placed by world position later -- this case is about the collision,
+  // not about where a leg is.
+  const legA = new THREE.Bone(); legA.name = 'mixamorig_LeftUpLeg';
+  const legB = new THREE.Bone(); legB.name = 'mixamorig_LeftLeg';
+  holder.add(legA); holder.add(legB);
+  legA.position.set(0, -50, 0); legB.position.set(0.01, -50, 0);     // out of the way for now
   rg.girl.tail = rg.tailFind(holder, []);
   const T = rg.girl.tail;
   if (T.n !== chain.length) { console.log(`  tailFind found ${T.n}, the file has ${chain.length}`); return false; }
   if (T.baked > 0.01) { console.log(`  tailFind says ${T.baked} deg of animation with no clips handed to it`); return false; }
+  if (T.caps.length !== 1) { console.log(`  tailFind found ${T.caps.length} body capsules, the rig has 1`); return false; }
   let ok = true;
-  // 1. AT HIGH STIFFNESS IT REPRODUCES THE AUTHORED POSE. That is the self-consistency check
-  // the whole design rests on: the goals ARE the rest pose, so a rigid sim must land on it.
   const save = { ...rg.TAIL };
-  rg.TAIL.stiff = 4000; rg.TAIL.drag = 40; rg.TAIL.grav = 0;
+  const CH = () => T.len.reduce((a, b) => a + b, 0);
+  const shown = () => { let w = 0; for (let k = 1; k <= T.n; k++) w = Math.max(w, T.G[k].distanceTo(T.D[k])); return w; };
+  const simOff = () => { let w = 0; for (let k = 1; k <= T.n; k++) w = Math.max(w, T.G[k].distanceTo(T.P[k])); return w; };
+  // 1. RIGID, IT REPRODUCES THE AUTHORED POSE. The self-consistency check the whole design rests
+  // on: the goals ARE the rest pose, so a sim held hard to them must land on them.
+  Object.assign(rg.TAIL, { posHold: 1, posK: 4000, damping: 40, grav: 0, rotHold: 0, strength: 1, pin: 0 });
   holder.position.set(60, 40, -60);
   for (let i = 0; i < 180; i++) rg.tailStep(1 / 60);
-  let worst = 0;
-  for (let i = 0; i <= T.n; i++) worst = Math.max(worst, T.G[i].distanceTo(T.P[i]));
-  console.log(`  rigid: worst point ${fix(worst, 4)} m off the authored pose` +
-              `, chain ${fix(T.len.reduce((a, b) => a + b, 0), 3)} m long`);
-  if (worst > 0.02) { console.log('  -> the sim does not reproduce the pose it is given'); ok = false; }
-  // 2. THE LENGTHS ARE HARD. Whatever she is thrown through, the tail may not stretch.
+  console.log(`  rigid: worst point ${fix(simOff(), 4)} m off the authored pose, chain ${fix(CH(), 3)} m long`);
+  if (simOff() > 0.02) { console.log('  -> the sim does not reproduce the pose it is given'); ok = false; }
   Object.assign(rg.TAIL, save);
-  let stretch = 0, lowest = 0;
+  // 2. THE LENGTHS ARE HARD, AND THE PINNED BONES ARE THE ANIMATION'S. Whatever she is thrown
+  // through, the tail may not stretch, and the first `pin` bones may not move off the pose.
+  let stretch = 0, pinOff = 0, kink0 = 0, kink1 = 0;
+  // HOW KINKED: each segment's bend against its parent, compared with the AUTHORED bend there.
+  // A zig-zag is exactly what position hold alone allows and rotation hold exists to stop.
+  // Measured as the 95th PERCENTILE over a skater's turn, not the single worst frame of a paint
+  // shaker: the first version took the max across ten seconds of violent shaking and read 166
+  // against 161, which is one extreme frame and says nothing about whether the curve holds.
+  const kinks = (out) => {
+    for (let k = Math.max(2, rg.TAIL.pin + 1); k <= T.n; k++) {
+      const a = T.P[k - 1].clone().sub(T.P[k - 2]).normalize(), b = T.P[k].clone().sub(T.P[k - 1]).normalize();
+      const ga = T.G[k - 1].clone().sub(T.G[k - 2]).normalize(), gb = T.G[k].clone().sub(T.G[k - 1]).normalize();
+      out.push(Math.abs(Math.acos(clamp(a.dot(b), -1, 1)) - Math.acos(clamp(ga.dot(gb), -1, 1))) * 57.3);
+    }
+  };
   for (let i = 0; i < 600; i++) {
     const t = i / 60;
     holder.position.set(60 + Math.sin(t * 6) * 3, 40 + Math.sin(t * 9) * 2, -60 + Math.cos(t * 7) * 3);
     holder.rotation.y = Math.sin(t * 5) * 2;
     rg.tailStep(1 / 60);
-    for (let k = 0; k < T.n; k++) {
-      const d = T.P[k].distanceTo(T.P[k + 1]);
-      stretch = Math.max(stretch, Math.abs(d - T.len[k]) / T.len[k]);
-    }
+    for (let k = 0; k < T.n; k++) stretch = Math.max(stretch, Math.abs(T.P[k].distanceTo(T.P[k + 1]) - T.len[k]) / T.len[k]);
+    for (let k = 0; k <= Math.min(T.n, rg.TAIL.pin); k++) pinOff = Math.max(pinOff, T.P[k].distanceTo(T.G[k]));
   }
-  console.log(`  thrown about for 10 s: worst segment ${fix(stretch * 100, 2)}% off its length`);
+  const turnKink = (rot) => {
+    rg.TAIL.rotHold = rot; holder.position.set(60, 40, -60); holder.rotation.y = 0; T.live = 0;
+    for (let i = 0; i < 120; i++) rg.tailStep(1 / 60);
+    const all = [];
+    for (let i = 0; i < 300; i++) { holder.rotation.y = Math.sin(i / 60 * 2.2) * 0.8; rg.tailStep(1 / 60); kinks(all); }
+    all.sort((a, b) => a - b);
+    return all[Math.floor(all.length * 0.95)];
+  };
+  kink0 = turnKink(0); kink1 = turnKink(save.rotHold);
+  rg.TAIL.rotHold = save.rotHold; holder.rotation.y = 0;
+  console.log(`  thrown about for 10 s: worst segment ${fix(stretch * 100, 2)}% off its length, ` +
+              `pinned bones ${fix(pinOff, 5)} m off the pose`);
+  console.log(`  kinking against the authored curve through a turn (95th pct): ${fix(kink0, 1)} deg ` +
+              `with no rotation hold, ${fix(kink1, 1)} deg at rotHold ${save.rotHold}`);
   if (stretch > 0.02) { console.log('  -> it stretches'); ok = false; }
-  // 3. IT SWINGS. A chain that follows the body exactly is a rigid tail, and the whole point
-  // of shipping this is for him to see it move independently.
-  // CLEAR OF THE PARK, AND ACCELERATED RATHER THAN STEPPED -- two probe faults, both of which
-  // read exactly like a solver that cannot recover, and both of which cost a round here.
-  // The first version ran at y = 1.0 with a 0.88 m tail hanging down and back from her hips,
-  // so the plaza held the tip up for the whole dash; the second dashed 36 m from x = 60 and
-  // drove into the **6.6 m perimeter berm**, which is this repo's own written-down landmine
-  // (a probe on a test site with a ramp in it measures the ramp). And a dash that reaches
-  // 7.2 m/s in ONE FRAME is an infinite acceleration no skater does: what that measures is
-  // the solver's response to a step, which was most of the rest of it.
-  holder.position.set(20, 30, -60); holder.rotation.y = 0;
+  if (pinOff > 1e-4) { console.log('  -> the pinned bones are not following the animation'); ok = false; }
+  if (!(kink1 < kink0 * 0.8)) { console.log('  -> rotation hold does not hold the curve'); ok = false; }
+  // 3. IT SWINGS AND RECOVERS -- clear of the park and ACCELERATED rather than stepped, after
+  // three probe faults here that each read as a solver that cannot recover (the tail dragging
+  // on the plaza, a dash into the 6.6 m perimeter berm, and 0 -> 7.2 m/s in one frame).
+  holder.position.set(20, 30, -60);
+  T.live = 0;
   for (let i = 0; i < 240; i++) rg.tailStep(1 / 60);
-  let swing = 0, settled = 0, vtip = 0, x = 20;
+  let swing = 0, settled = 0, vtip = 0, seen = 0, x = 20;
   for (let i = 0; i < 300; i++) {
-    x += 7.2 * Math.min(1, i / 30) / 60;            // up to 7.2 m/s over half a second
+    x += 7.2 * Math.min(1, i / 30) / 60;
     holder.position.x = x;
     rg.tailStep(1 / 60);
     vtip = Math.max(vtip, T.V[T.n].length());
-    for (let k = 1; k <= T.n; k++) {
-      const d = T.G[k].distanceTo(T.P[k]);
-      swing = Math.max(swing, d);
-      if (i > 240) settled = Math.max(settled, d);  // and WHIPS AND RECOVERS is not the same
-    }                                               // thing as PERMANENTLY DRAGGED
+    swing = Math.max(swing, simOff()); seen = Math.max(seen, shown());
+    if (i > 240) settled = Math.max(settled, simOff());
   }
-  const CH = T.len.reduce((a, b) => a + b, 0);
-  console.log(`  dash to 7.2 m/s: swung ${fix(swing, 3)} m off the authored pose, settled back to ` +
-              `${fix(settled, 3)} m, tip reached ${fix(vtip, 1)} m/s (the chain is ${fix(CH, 3)} m long)`);
+  console.log(`  dash to 7.2 m/s: the sim swung ${fix(swing, 3)} m and settled to ${fix(settled, 3)}; ` +
+              `SHOWN at strength ${rg.TAIL.strength} that is ${fix(seen, 3)} m; tip ${fix(vtip, 1)} m/s ` +
+              `(chain ${fix(CH(), 3)} m)`);
   if (swing < 0.05) { console.log('  -> it does not move independently at all'); ok = false; }
-  // A TAIL THAT NEVER COMES BACK is one hanging off her rather than one that follows her, and
-  // `TAIL.stiff` is the dial between them -- so the settled number is what says which it is.
-  if (settled > CH * 0.45) { console.log('  -> it never recovers; TAIL.stiff is too low to follow her'); ok = false; }
-  // AND THE TIP MUST NOT OUTRUN HER ABSURDLY. A chain genuinely amplifies -- the tip of a
-  // whip moves several times faster than the hand -- but energy arriving from nowhere shows
-  // up here first, and it is the one symptom that is visible on screen as a snap.
+  if (settled > CH() * 0.45) { console.log('  -> it never recovers'); ok = false; }
+  // energy arriving from nowhere shows up as the tip outrunning her absurdly, which on screen
+  // is a snap
   if (vtip > 40) { console.log('  -> the tip is carrying energy from nowhere'); ok = false; }
-  // 4. AND IT STAYS OUT OF THE FLOOR, which is the one thing a dangling chain on a skater
-  // standing on the ground will do every single frame if nothing stops it.
+  // the shown chain is the authored one moved `strength` of the way: it cannot exceed the sim
+  if (seen > swing + 1e-6) { console.log('  -> strength shows MORE than the simulation did'); ok = false; }
+  // 4. IT STAYS OUT OF THE FLOOR, at twice gravity on purpose.
   holder.position.set(60, 0.9, -60);
-  rg.TAIL.grav = 2;                                 // drag it down hard on purpose
-  let under = 0;
+  T.live = 0; rg.TAIL.grav = 2;
+  let under = 0, lowest = 0;
   for (let i = 0; i < 300; i++) {
     rg.tailStep(1 / 60);
     for (let k = 1; k <= T.n; k++) {
@@ -679,15 +702,44 @@ CASES.tail = () => {
   Object.assign(rg.TAIL, save);
   console.log(`  held over the plaza at 2x gravity: ${under} point-frames through the floor, lowest ${fix(lowest, 3)} m`);
   if (under) { console.log('  -> it goes through the ground'); ok = false; }
-  // 5. AND THE BONES ACTUALLY TURNED. Every number above is about the POINTS; if the
-  // conversion back to quaternions is wrong, nothing on screen moves and all of it still
-  // passes -- which is the shape of bug this repo keeps paying for.
+  // 5. AND IT STAYS OUT OF HER. A leg capsule laid across just under the middle of the tail,
+  // clear of its AUTHORED pose, and the tail made heavy and loose so it falls onto it. The test
+  // has to show CONTACT as well as no penetration -- a tail that never reached the capsule
+  // passes "nothing went through" without the collider having done a thing.
+  holder.position.set(60, 30, -60); holder.rotation.y = 0;
+  T.live = 0; rg.tailStep(1 / 60);
+  const m = T.G[Math.round(T.n * 0.55)].clone();
+  holder.updateWorldMatrix(true, false);
+  const inv = holder.matrixWorld.clone().invert();
+  legA.position.copy(m.clone().add(new THREE.Vector3(-0.4, -0.14, 0)).applyMatrix4(inv));
+  legB.position.copy(m.clone().add(new THREE.Vector3(0.4, -0.14, 0)).applyMatrix4(inv));
+  Object.assign(rg.TAIL, { grav: 3, posHold: 0.05 });
+  T.live = 0;
+  let pen = 0, touch = 0;
+  const c = T.caps[0];
+  for (let i = 0; i < 300; i++) {
+    rg.tailStep(1 / 60);
+    for (let k = rg.TAIL.pin + 1; k <= T.n; k++) {
+      const dG = rg.capDist(T.G[k], c.A, c.B, new THREE.Vector3());
+      if (dG < c.R) continue;                          // authored inside: not ours, by design
+      const d = rg.capDist(T.P[k], c.A, c.B, new THREE.Vector3());
+      pen = Math.max(pen, c.R - d);
+      if (d < c.R + 0.02) touch++;
+    }
+  }
+  Object.assign(rg.TAIL, save);
+  legA.position.set(0, -50, 0); legB.position.set(0.01, -50, 0);
+  console.log(`  dropped onto a leg capsule: ${touch} point-frames in contact, deepest ${fix(Math.max(0, pen), 4)} m inside`);
+  if (!touch) { console.log('  -> it never reached the capsule, so this proved nothing'); ok = false; }
+  if (pen > 0.01) { console.log('  -> it goes through her'); ok = false; }
+  // 6. AND THE BONES ACTUALLY TURNED. Every number above is about the POINTS; a broken
+  // conversion back to quaternions passes all of them while nothing on screen moves.
   const q0 = T.bones.map(b => b.quaternion.clone());
-  holder.position.set(60, 1.0, -60);
+  holder.position.set(60, 30, -60); T.live = 0;
   for (let i = 0; i < 120; i++) { holder.position.x = 60 + i * 0.15; rg.tailStep(1 / 60); }
   let turn = 0;
   for (let i = 0; i < T.n; i++) turn = Math.max(turn, 2 * Math.acos(Math.min(1, Math.abs(q0[i].dot(T.bones[i].quaternion)))) * 180 / Math.PI);
-  console.log(`  bones written: worst ${fix(turn, 1)} deg away from the rest rotation`);
+  console.log(`  bones written: worst ${fix(turn, 1)} deg away from where the last case left them`);
   if (turn < 1) { console.log('  -> the points moved and the BONES did not'); ok = false; }
   rg.scene.remove(holder); rg.girl.tail = null;
   return ok;

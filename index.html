@@ -128,7 +128,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r15</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r16</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -143,7 +143,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r15';
+const BUILD = 'r16';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -208,39 +208,74 @@ const CHARS = [
 const TAIL = {
   on: 1,
   match: /^tail/,      // found by name from `tail` outward, taking the single matching child
-  // THE ONE DIAL. How hard each point is pulled back to the pose the ANIMATION asks for:
-  // high is a rigid tail welded to her hips, 0 is a rope hanging off them, and the interesting
-  // range is in between. `rg.TAIL.stiff = 0` on the phone, with no rebuild and no push.
-  // 140 / 6 since r15, on his "needs more stiffness, it flops around kind of weird" -- and the
-  // sweep said the FLOP was the damping more than the spring: at drag 3.4 a gentle dash put the
-  // tip at 17-31 m/s on a 7.2 m/s body, an underdamped whip, at any stiffness from 70 to 320.
-  // At drag 6 the tip stays near 8 and a hard turn flares it about 0.2 m rather than 0.85.
-  stiff: 140,
-  // TWO DRAGS, BECAUSE ONE NUMBER CANNOT DO BOTH JOBS -- and `npm run sim tail` is what found
-  // that out. `drag` damps the velocity RELATIVE TO HER BODY: it is the chain's own internal
-  // friction, the thing that stops it ringing for ever, and relative is the whole point
-  // because a tail travelling along with her is not moving at all as far as that friction is
-  // concerned. Damped against the WORLD instead, keeping up with her IS motion to be damped,
-  // so the spring and the drag settle at an equilibrium a long way behind the pose: measured,
-  // a dash at 7 m/s left the tail **1.51 m off a chain only 0.879 m long** and it never came
-  // back -- permanently flattened out behind her rather than whipping and recovering.
-  drag: 6,
-  // `air` is the OTHER one, and it is small: drag against still air, which is what makes a
-  // tail trail at speed at all. This is the term that may legitimately hold it back, so it is
-  // the one that is allowed to be a constant offset -- about `air * v / stiff` of lag.
+  // ---- HIS CINEMA 4D IK-DYNAMICS DIALS, BY NAME (r16) ----
+  // *"I'm wondering if I were to give you the parameters inside of Cinema 4D if that would
+  // translate at all."* **The CONCEPTS translate; the NUMBERS do not, one for one.** C4D
+  // integrates per frame in its own units and this integrates per second in metres, so the
+  // values below start at his and are tuned on the phone rather than trusted. What each one IS
+  // carries over exactly, and three of the four were things this solver did not have at all:
+  //
+  // STRENGTH -- how much of the simulation you SEE, against the authored pose. He ran 20-30%.
+  // The chain is simulated at full strength and the DISPLAYED chain is the authored one moved
+  // `strength` of the way toward it, segment by segment, so a lazy, loose simulation can still
+  // read as a tail that mostly holds its shape. That is a different look from a stiff
+  // simulation and the one his C4D setup had: big slow motion, shown small.
+  strength: 0.30,
+  // POSITION HOLD -- the spring pulling each point back to where the animation puts it. He ran
+  // 100%. `posK` is what 100% means here (a rate, per second squared), so 1.0 is the r15 tail.
+  // **AND HIS 100% UNDER HIS 30% STRENGTH IS A TAIL WELDED ON**, which is the clearest case of
+  // the numbers not translating: a stiff simulation shown at 30% moves the VISIBLE tail 2 cm
+  // through a turn. His look was a loose simulation shown small, so the hold comes down instead:
+      //   posHold strength   shown in a dash   shown in a turn   kink (95th pct)
+      //     1.00     0.3         0.08 m            0.02 m             4.7 deg
+      //     0.50     0.3         0.15              0.03               5.9
+      //     0.30     0.3         0.26              0.06               6.3      <- shipped
+      //     0.15     0.3         0.33              0.11               6.7
+  posHold: 0.30,
+  posK: 140,
+  // ROTATION HOLD -- bending stiffness, which the r15 solver had NONE of, and it is the one that
+  // stops the flailing. Position hold pulls each point toward an absolute place; it says
+  // nothing about the ANGLE between neighbouring segments, so a chain can kink into a zig-zag
+  // while every point sits a centimetre off its goal. Rotation hold pulls each segment toward
+  // the angle it makes with its PARENT segment in the authored pose -- so the tail keeps its
+  // curve and moves as a curve. He ran about 30%. It is a fraction per 60 Hz frame, corrected
+  // for the actual frame rate so a 20 Hz phone bends the same as a 60 Hz one.
+  rotHold: 0.30,
+  // DAMPING -- the chain's internal friction, damped RELATIVE TO HER BODY (a tail travelling
+  // along with her is not moving as far as that friction is concerned; damped against the WORLD,
+  // keeping up with her reads as motion to damp and it settles 1.5 m behind a 0.88 m chain).
+  // His 10-15 is a C4D percentage and does not map; 6 is per second, and the r15 sweep found
+  // that UNDER about 6 the chain whips (tip at 17-31 m/s on a 7.2 m/s body) at any stiffness.
+  damping: 6,
+  // START THE CHAIN FURTHER DOWN -- *"I started the IK a little higher up the joint chain, like
+  // at the second or third joint, so the first one or two had some stiffness."* `pin` bones from
+  // the root follow the animation exactly and the dynamics start after them.
+  pin: 2,
+  // AND A BODY TO HIT, which C4D would have given him for free with a collider tag. Capsules
+  // between her own bones, radii as fractions of her height, so a re-export at any size lands
+  // right. **A point whose AUTHORED position is already inside a capsule is left alone** --
+  // the root of a tail lives inside the pelvis by construction, and pushing it out would fight
+  // the animation every frame.
+  body: [
+    ['mixamorig_Hips', 'mixamorig_Spine2', 0.075],
+    ['mixamorig_LeftUpLeg', 'mixamorig_LeftLeg', 0.046],
+    ['mixamorig_LeftLeg', 'mixamorig_LeftFoot', 0.034],
+    ['mixamorig_RightUpLeg', 'mixamorig_RightLeg', 0.046],
+    ['mixamorig_RightLeg', 'mixamorig_RightFoot', 0.034],
+  ],
+  r: 0.025,            // the tail's own thickness, for the body and the floor alike
+  // ---- the rest, which are this solver's and not his ----
+  // `air` is drag against still air, which is what makes a tail trail at speed at all -- the
+  // one term that may legitimately hold it back, about `air * v / posK` of lag.
   air: 0.9,
   grav: 0.30,          // of the game's own gravity. A tail is light; full weight drags it dead.
-  // THERE IS NO ITERATION COUNT, AND SUBSTEPPING IS AT ONE, AND BOTH OF THOSE ARE MEASURED
-  // RATHER THAN RECEIVED WISDOM. The length projection here is root-outward and DIRECT, so it
-  // is exact after a single pass -- 3 passes and 10 gave byte-identical numbers, which is what
-  // said the residual was never the problem. And substepping, which is the standard answer to
-  // a marginal chain, made the violent cases WORSE here (a 5.6 rad/s shake went from 35 to
-  // 169 m/s at the tip as `sub` went 1 to 8), because the ground clamp and the length
-  // projection are POSITION corrections whose size does not shrink with the step while the
-  // velocity recovered from them is divided by it. Left as a dial because the loop at 1 is
-  // identical to no loop, and written down so nobody spends the round again.
+  // NO ITERATION COUNT, AND SUBSTEPPING AT ONE, BOTH MEASURED. The length projection is
+  // root-outward and DIRECT, so it is exact after one pass -- 3 passes and 10 gave byte-identical
+  // numbers. And substepping made the violent cases WORSE (a 5.6 rad/s shake went 35 -> 169 m/s
+  // at the tip as `sub` went 1 to 8), because the floor, the body and the length projection are
+  // POSITION corrections whose size does not shrink with the step while the velocity recovered
+  // from them is divided by it.
   sub: 1,
-  hitR: 0.07,          // and it does not go through the floor
   // A ROOT THAT MOVED FURTHER THAN THIS IN ONE FRAME IS A TELEPORT, NOT A SKATER, so the whole
   // chain re-seeds rather than being dragged across the park behind a respawn.
   snap: 1.5,
@@ -1023,7 +1058,7 @@ function buildGirl(gltf) {
 // it means the two can be compared by swapping one file.
 function tailFind(model, clips) {
   const T = { n: 0, baked: 0, bones: [], rest: [], off: [], dir: [], len: [],
-              P: [], O: [], V: [], G: [], g0: new THREE.Vector3(), live: 0 };
+              P: [], O: [], V: [], G: [], D: [], caps: [], g0: new THREE.Vector3(), live: 0 };
   let b0 = null;
   model.traverse(o => { if (!b0 && o.isBone && /^tail$/.test(o.name)) b0 = o; });
   if (!b0) return T;
@@ -1052,10 +1087,52 @@ function tailFind(model, clips) {
     T.len.push(0);
   }
   for (let i = 0; i <= n; i++) { T.P.push(new THREE.Vector3()); T.O.push(new THREE.Vector3());
-                                 T.V.push(new THREE.Vector3()); T.G.push(new THREE.Vector3()); }
+                                 T.V.push(new THREE.Vector3()); T.G.push(new THREE.Vector3());
+                                 T.D.push(new THREE.Vector3()); }
+  // THE BODY CAPSULES, found by name. A pair whose bones are not both in this rig is simply
+  // left out -- a borrowed skin with a different spine spelling loses a collider, not the tail.
+  const byName = {};
+  model.traverse(o => { if (o.isBone) byName[o.name] = o; });
+  for (const [a, b, r] of TAIL.body)
+    if (byName[a] && byName[b]) T.caps.push({ a: byName[a], b: byName[b], r,
+                                              A: new THREE.Vector3(), B: new THREE.Vector3() });
   return T;
 }
-const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _ts = new THREE.Vector3(), _tp = new THREE.Vector3(), _trv = new THREE.Vector3(), _ta = new THREE.Vector3();
+const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _ts = new THREE.Vector3(), _tp = new THREE.Vector3(),
+      _trv = new THREE.Vector3(), _ta = new THREE.Vector3(), _tb = new THREE.Vector3(), _tc = new THREE.Vector3(),
+      _tg = new THREE.Vector3(), _cd = new THREE.Vector3(), _ce = new THREE.Vector3(), _tk = new THREE.Vector3();
+// every segment back to its length, root-outward -- only the child moves, so one pass is exact
+function tailLengths(P, L, pin, n) {
+  for (let i = pin + 1; i <= n; i++) {
+    _tv.copy(P[i]).sub(P[i - 1]);
+    const d = _tv.length();
+    if (d < 1e-6) { P[i].copy(P[i - 1]); P[i].y -= L[i - 1]; continue; }
+    P[i].copy(P[i - 1]).addScaledVector(_tv, L[i - 1] / d);
+  }
+}
+// out of her body and off the floor
+function tailCollide(T, pin, n) {
+  const P = T.P, G = T.G;
+  for (let i = pin + 1; i <= n; i++) {
+    for (const c of T.caps) {
+      // the authored pose already inside this capsule means the tail LIVES there -- the root of
+      // a tail is inside the pelvis by construction -- so it is not ours to push out
+      if (capDist(G[i], c.A, c.B, _tk) < c.R) continue;
+      const d = capDist(P[i], c.A, c.B, _tk);
+      if (d < c.R && d > 1e-6) P[i].sub(_tk).multiplyScalar(c.R / d).add(_tk);
+    }
+    const gr = groundAt(P[i].x, P[i].z, P[i].y, 0.4);
+    if (gr.hit && P[i].y < gr.floor + TAIL.r) P[i].y = gr.floor + TAIL.r;
+  }
+}
+// distance from `p` to the segment A-B, leaving the closest point on it in `out`
+function capDist(p, A, B, out) {
+  _cd.copy(B).sub(A);
+  const l2 = _cd.lengthSq();
+  const t = l2 > 1e-12 ? clamp(_ce.copy(p).sub(A).dot(_cd) / l2, 0, 1) : 0;
+  out.copy(A).addScaledVector(_cd, t);
+  return out.distanceTo(p);
+}
 function tailStep(dt) {
   const T = girl.tail;
   if (!T || !T.n || !TAIL.on || T.baked > ANIM.still) return;
@@ -1075,59 +1152,92 @@ function tailStep(dt) {
     for (let i = 0; i <= n; i++) { P[i].copy(G[i]); V[i].set(0, 0, 0); }
     T.g0.copy(G[0]); T.live = 1;
   }
-  // 3..6, SUBSTEPPED. The pose is fixed for the frame, so the goals and the lengths are
-  // measured once and only the dynamics is split.
+  // the body, where the animation has put it this frame
+  for (const c of T.caps) {
+    c.a.updateWorldMatrix(true, false); c.b.updateWorldMatrix(true, false);
+    c.A.setFromMatrixPosition(c.a.matrixWorld); c.B.setFromMatrixPosition(c.b.matrixWorld);
+    c.R = c.r * RIG.height + TAIL.r;
+  }
+  // 3..6, SUBSTEPPED. The pose is fixed for the frame, so the goals, the lengths and the body
+  // are measured once and only the dynamics is split.
   const rv = _trv.copy(G[0]).sub(T.g0).multiplyScalar(1 / Math.max(1e-5, dt));
   T.g0.copy(G[0]);
   const sub = Math.max(1, TAIL.sub | 0), h = dt / sub;
-  const kd = Math.exp(-TAIL.drag * h), ka = Math.exp(-TAIL.air * h), gy = SK.g * TAIL.grav * h;
+  const kd = Math.exp(-TAIL.damping * h), ka = Math.exp(-TAIL.air * h), gy = SK.g * TAIL.grav * h;
+  const kp = TAIL.posHold * TAIL.posK * h;
+  // a fraction per 60 Hz frame, turned into the same fraction per however long this step is
+  const kr = 1 - Math.pow(1 - clamp(TAIL.rotHold, 0, 0.999), h * 60);
   const inv = 1 / Math.max(1e-5, h);
-  P[0].copy(G[0]); V[0].copy(rv);
+  const pin = clamp(TAIL.pin | 0, 0, n);
+  for (let i = 0; i <= pin; i++) { P[i].copy(G[i]); V[i].copy(rv); }
   for (let s = 0; s < sub; s++) {
-    // 3. integrate. The spring toward `G` is the dial between a rigid tail and a rope, and
-    // the two drags are the two different things "drag" means here (`TAIL.drag` / `TAIL.air`).
-    for (let i = 1; i <= n; i++) {
+    // 3. integrate: gravity, the two drags (`damping` in her frame, `air` in the world's) and
+    // POSITION HOLD toward where the animation puts each point.
+    for (let i = pin + 1; i <= n; i++) {
       O[i].copy(P[i]);
-      V[i].sub(rv).multiplyScalar(kd).add(rv);    // internal friction, in HER frame
-      V[i].multiplyScalar(ka);                    // and the wind, in the world's
+      V[i].sub(rv).multiplyScalar(kd).add(rv);
+      V[i].multiplyScalar(ka);
       V[i].y -= gy;
-      V[i].addScaledVector(_tv.copy(G[i]).sub(P[i]), TAIL.stiff * h);
+      V[i].addScaledVector(_tv.copy(G[i]).sub(P[i]), kp);
       P[i].addScaledVector(V[i], h);
     }
-    // 4. constrain, ROOT-OUTWARD: only the child ever moves, so the body drives the tail and
-    // never the other way round -- and one pass is exact, which is why there is no iteration
-    // count here.
-    for (let i = 1; i <= n; i++) {
-      _tv.copy(P[i]).sub(P[i - 1]);
-      const d = _tv.length();
-      if (d < 1e-6) { P[i].copy(P[i - 1]); P[i].y -= L[i - 1]; continue; }
-      P[i].copy(P[i - 1]).addScaledVector(_tv, L[i - 1] / d);
-    }
-    // 5. it does not go through the floor.
-    for (let i = 1; i <= n; i++) {
-      const gr = groundAt(P[i].x, P[i].z, P[i].y, 0.4);
-      if (gr.hit && P[i].y < gr.floor + TAIL.hitR) P[i].y = gr.floor + TAIL.hitR;
-    }
+    // 4. LENGTH, ROOT-OUTWARD. Only the child ever moves, so the body drives the tail and never
+    // the other way round, and one pass is exact.
+    tailLengths(P, L, pin, n);
+    // 5. it does not go through her, and it does not go through the floor.
+    tailCollide(T, pin, n);
     // 6. velocity AFTER the constraints is what makes this a chain that whips rather than a
-    // column of independent springs -- and then the SAME constraint at the velocity level,
-    // which is not optional: **a rod that cannot stretch cannot have relative velocity along
-    // it either.** Without that half the positions are legal and the velocities are not, so
-    // every step puts back the violation the projection has just corrected.
-    for (let i = 1; i <= n; i++) V[i].copy(P[i]).sub(O[i]).multiplyScalar(inv);
-    for (let i = 1; i <= n; i++) {
+    // column of independent springs -- and then the SAME length constraint at the velocity
+    // level, which is not optional: **a rod that cannot stretch cannot have relative velocity
+    // along it either**, or every step puts back the violation the projection just corrected.
+    for (let i = pin + 1; i <= n; i++) V[i].copy(P[i]).sub(O[i]).multiplyScalar(inv);
+    for (let i = pin + 1; i <= n; i++) {
       _tv.copy(P[i]).sub(P[i - 1]);
       const d = _tv.length(); if (d < 1e-6) continue;
       _tv.multiplyScalar(1 / d);
       V[i].addScaledVector(_tv, -_tv.dot(_ta.copy(V[i]).sub(V[i - 1])));
     }
+    // 7. ROTATION HOLD -- AFTER THE VELOCITY HAS BEEN TAKEN, AND THAT ORDER IS THE WHOLE POINT.
+    // Each segment is pulled toward the angle it makes with its PARENT in the authored pose,
+    // that authored bend carried onto the parent as it actually is now. Done before step 6 it
+    // was recovered AS velocity like every other correction, which made it a very stiff spring
+    // with nothing damping it, fighting position hold over two different ideas of where the
+    // tail should be: measured, rotHold 0.3 took a gentle dash from a tip at 7.9 m/s to 33.8
+    // and made the kinking WORSE. A HOLD may only ever take energy out, and a correction that
+    // moves the shape without being counted as motion is exactly that.
+    if (kr > 0) {
+      for (let i = pin + 1; i <= n; i++) {
+        _tg.copy(G[i]).sub(G[i - 1]).normalize();                 // authored direction
+        if (i >= 2) {
+          _tb.copy(G[i - 1]).sub(G[i - 2]).normalize();           // authored parent direction
+          _tc.copy(P[i - 1]).sub(P[i - 2]);                       // ACTUAL parent direction
+          if (_tc.lengthSq() > 1e-10) {
+            _tq.setFromUnitVectors(_tb, _tc.normalize());         // how far the parent has turned
+            _tg.applyQuaternion(_tq);                             // ...and carry the bend with it
+          }
+        }
+        P[i].lerp(_ta.copy(P[i - 1]).addScaledVector(_tg, L[i - 1]), kr);
+      }
+      tailLengths(P, L, pin, n);
+      // and the body and the floor get the LAST word, or the hold walks points back inside
+      // her: measured, 2.7 cm into a leg with the collision only in step 5
+      tailCollide(T, pin, n);
+    }
   }
-  // 7. BACK TO BONE ROTATIONS, root-outward, each bone's parent world read AFTER the one above
+  // STRENGTH: WHAT IS SHOWN IS THE AUTHORED CHAIN MOVED PART OF THE WAY TO THE SIMULATED ONE.
+  // Blended as POINTS, so each displayed segment's direction is the normalised blend of the two
+  // segment directions -- and blended in the world rather than as bone quaternions, because a
+  // quaternion slerp also blends the TWIST, and a parent half-twisted throws every child's
+  // authored rotation off the direction it was authored for.
+  const st = clamp(TAIL.strength, 0, 1);
+  for (let i = 0; i <= n; i++) T.D[i].copy(G[i]).lerp(P[i], st);
+  // 8. BACK TO BONE ROTATIONS, root-outward, each bone's parent world read AFTER the one above
   // it has been written. The wanted world direction is `parentWorld * q * dir`, so
   // `q * dir = inv(parentWorld) * want` and the minimal rotation taking `dir` there IS the
   // answer -- up to a twist about it, which a tail cannot show.
   for (let i = 0; i < n; i++) {
     const b = T.bones[i];
-    _tv.copy(P[i + 1]).sub(P[i]);
+    _tv.copy(T.D[i + 1]).sub(T.D[i]);
     if (_tv.lengthSq() < 1e-10) continue;
     _tv.normalize();
     // decomposed off the matrix we have just updated rather than `getWorldQuaternion`, which
@@ -1967,7 +2077,7 @@ async function init() {
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
-  clipCyclic, trackSwing, clipRoles, tailFind, tailStep, wearChar,
+  clipCyclic, trackSwing, clipRoles, tailFind, tailStep, capDist, wearChar,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

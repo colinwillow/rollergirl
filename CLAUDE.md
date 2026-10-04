@@ -157,6 +157,39 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   Underdamped, the chain whips -- the tip outruns her three or four times over -- at EVERY
   stiffness; raising `stiff` alone only shortens the whip. Past `drag` 6 nothing more is bought.
 
+- **THE TAIL SPEAKS HIS CINEMA 4D VOCABULARY NOW (r16, `TAIL.strength/posHold/rotHold/damping/
+  pin/body`) -- AND THE CONCEPTS TRANSLATE WHILE THE NUMBERS DO NOT.** C4D integrates per frame
+  in its own units; this integrates per second in metres. So the dials carry his names and
+  start near his values, and what each one IS carries over exactly:
+      strength   how much of the sim you SEE: the authored chain moved that far toward the
+                 simulated one, blended as POINTS in the world -- never as bone quaternions,
+                 because a slerp blends the TWIST too and a half-twisted parent throws every
+                 child off the direction it was authored for
+      posHold    the spring to the animated pose (`posK` is what 1.0 means)
+      rotHold    bending stiffness against the PARENT segment -- the solver had none
+      damping    internal friction, relative to her body
+      pin        "I started the IK a joint or two further down": those bones are the animation's
+      body       capsules between her own bones, which C4D's collider tag gave him for free
+  **ROTATION HOLD HAS TO RUN AFTER THE VELOCITY IS TAKEN.** Before it, the bend correction was
+  recovered AS velocity like every other correction, which made it a stiff undamped spring
+  fighting position hold over two ideas of where the tail should be: rotHold 0.3 took a gentle
+  dash's tip from 7.9 m/s to **33.8** and made the kinking WORSE. A HOLD may only take energy
+  out, and a correction that moves the shape without counting as motion is exactly that. After
+  the move: 95th-percentile kink through a turn **7.9 -> 4.7 deg** at no energy cost.
+  **AND THEN THE COLLIDER NEEDS THE LAST WORD**, or the hold walks points back inside her --
+  2.7 cm into a leg with collision in only one place. `tailCollide` runs after both.
+  **A point whose AUTHORED position is already inside a capsule is left alone** -- the root of a
+  tail lives inside the pelvis by construction, and pushing it out would fight the animation.
+  **HIS LITERAL 100% HOLD UNDER 30% STRENGTH IS A TAIL WELDED ON**: a stiff sim shown at 30%
+  moves the visible tail **2 cm** through a turn. His look was a loose sim shown small, so
+  `posHold` ships at 0.30 (0.26 m shown in a dash, 0.06 in a turn, kink still 6.3 deg).
+  **`npm run sim tail` MEASURES THE SHOWN CHAIN (`T.D`) AS WELL AS THE SIMULATED ONE (`T.P`)**,
+  because with `strength` they are no longer the same chain and only one of them is on screen.
+  Its kink check is the 95th percentile over a skater's turn: the first version took the single
+  worst frame of a paint-shaker test and read 166 against 161 deg, which says nothing. And the
+  body check requires CONTACT as well as no penetration, or a tail that never reached the
+  capsule passes "nothing went through" without the collider doing a thing.
+
 - **THE STICKS FLOAT, AND A FIXED PAD IS WHY SHE COULD NOT JUMP.** *"I'm having trouble jumping
   and I can't tell if it's a thumb location thing."* It was exactly that. The pad used to be a
   132 px circle and `far` — how far the thumb has travelled — was measured **from the circle's
