@@ -439,7 +439,7 @@ CASES.tap = async () => {
     const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
     const air = () => { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 6; P.vel.y = 3; P.flip = null; };
     air(); await swipe(0, -52);
-    good = P.jump === 0 && !P.flip && P.mel && P.mel.kind === 'kick';
+    good = P.jump === 0 && !P.flip && P.mel && P.mel.kind === 'strike' && P.mel.air;     // r44: the air melee
     console.log(`  RIGHT swipe up in the air     -> ${P.flip ? P.flip.dir + ' flip (WRONG)' : what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     const L = document.getElementById('stkL');
@@ -1684,13 +1684,36 @@ function meleeCase() {
   const s0 = sp(0), s1 = sp(rg.MELEE.slideV);
   console.log(`  slide tackle: ${fix(s1, 1)} m/s against ${fix(s0, 1)} without the shove`);
   if (!(s1 > s0 + rg.MELEE.slideV * 0.7)) ok = false;
-  // the flying kick, open plaza: driven toward the flick
-  flat(); P.grounded = false; P.coyote = 0; P.pos.y += 3; P.vel.set(0, 2, 2);
+  // r44: THE AIR MELEE, open plaza: the same chain, shoved toward the flick, played from its AIRBORNE window,
+  // a second flick queued and strung, and each one ends IN THE AIR -- back to the air pose, not a standing one
+  flat(); P.grounded = false; P.coyote = 0; P.pos.y += 12; P.vel.set(0, 2, 2);
   rg.rightFlick(0, -52);                                   // up = away from the lens = +Z
-  const kv = P.vel.z, again = rg.rightFlick(0, -52);
-  console.log(`  flying kick in the open: ${fix(kv, 1)} m/s toward the flick; a second one in the same air: ${again ? 'TAKEN (wrong)' : 'refused'}`);
-  if (!(kv >= rg.MELEE.airV - 0.01 && !again)) ok = false;
-  // ONTO EVERY RAIL: jump beside it, 5 m off, the lens turned so a flick UP points at it
+  const first = P.mel && { ...P.mel }, kv = P.vel.z; rg.rightFlick(0, -52);
+  const airSeen = []; let endedInAir = 0, groundedAtEnd = 0;
+  run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0;
+    if (P.mel && airSeen[airSeen.length - 1] !== P.mel.nm) airSeen.push(P.mel.nm);
+    if (!P.mel && airSeen.length && !endedInAir) { endedInAir = 1; groundedAtEnd = P.grounded ? 1 : 0; } });
+  const w = first ? first.win : null;
+  console.log(`  air strike: ${first ? first.nm : 'none'} from its window ${w ? w.map(v => fix(v)).join('..') : '-'}, ${fix(kv, 1)} m/s toward the flick; strung: ${airSeen.join(' -> ')}; ended ${groundedAtEnd ? 'ON THE GROUND (wrong)' : 'in the air'}`);
+  if (!(first && first.air && w && w[0] > 0 && kv > 4 && airSeen.length >= 2 && endedInAir && !groundedAtEnd)) ok = false;
+  // ...and THE WINDOW TABLE IS STILL TRUE OF THE CLIPS: re-measured on her rig, the same rule the table states
+  { const { root, by } = skelFromGLB(alien), mixer = new THREE.AnimationMixer(root), V = () => new THREE.Vector3();
+    const ft = ['LeftFoot', 'RightFoot', 'LeftToeBase', 'RightToeBase'].map(n => by['mixamorig_' + n]); root.updateMatrixWorld(true);
+    const rest = Math.min(...ft.map(f => f.getWorldPosition(V()).y));
+    const leg = by.mixamorig_LeftUpLeg.getWorldPosition(V()).distanceTo(by.mixamorig_LeftFoot.getWorldPosition(V()));
+    const bad = [];
+    for (const nm of rg.MELEE.fist) {
+      const c = clips.find(x => x.name === nm); if (!c) continue; const a = mixer.clipAction(c); a.play(); const N = 40, up = [];
+      for (let i = 0; i <= N; i++) { a.time = c.duration * i / N; mixer.update(0); root.updateMatrixWorld(true); up.push((Math.min(...ft.map(f => f.getWorldPosition(V()).y)) - rest) / leg > 0.12); }
+      a.stop(); let best = [0, -1], cur = -1;
+      for (let i = 0; i <= N; i++) { if (up[i]) { if (cur < 0) cur = i; if (i - cur > best[1] - best[0]) best = [cur, i]; } else cur = -1; }
+      const want = best[1] - best[0] >= 4 ? [Math.max(0, best[0] / N - 0.04), Math.min(1, best[1] / N + 0.04)] : rg.MELEE.airDef;
+      const have = rg.MELEE.airWin[nm] || rg.MELEE.airDef;
+      if (Math.abs(want[0] - have[0]) > 0.03 || Math.abs(want[1] - have[1]) > 0.03) bad.push(`${nm} measures ${want.map(v => fix(v)).join('..')}, table ${have.map(v => fix(v)).join('..')}`);
+    }
+    console.log(`  air windows against her rig: ${bad.length ? 'STALE -- ' + bad.join('; ') : 'all match'}`);
+    if (bad.length) ok = false; }
+  // ONTO EVERY RAIL: jump beside it, 5 m off, the lens turned so a flick UP points at it (r44: an AIR STRIKE now)
   const keepR = rg.MELEE.aimR;
   const tryRail = (R, side, aim) => {
     rg.MELEE.aimR = aim;

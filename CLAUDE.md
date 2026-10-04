@@ -302,6 +302,23 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **r44: THE AIR FLICK IS THE MELEE CHAIN, PLAYED FROM EACH CLIP'S AIRBORNE WINDOW (`MELEE.airWin`).**
+  *"The animation just holds on the last pose and the last pose is her standing on the ground -- she
+  looks like she's standing in the air."* Zap's strikes are GROUND clips: several open with a run-up
+  hop and every one ends planted. So in the air only the part of each clip where her feet are off
+  the floor is played -- measured on her rig as the longest run with the lower foot above 0.12 of a
+  leg, padded 0.04 (`melee_01` .26-.72, `_02` .26-.61, `_03` .34-.64, `_04` .31-.64, `_05` .06-.94;
+  `airDef` for anything unlisted) -- squeezed into the same beat, and the strike ENDS at the window's
+  end and hands back to `in_air`. `npm run sim melee` re-measures the table against her rig and fails
+  if a window drifts. **The flying kick is gone from the air flick**: a right flick in the air is the
+  next strike of the chain (strung, queued, never cutting), with a little `airLunge` toward the flick
+  and an `airLift` on the first of an airtime; aimed at a rail inside `aimR`/`aimCone` it is still
+  SOLVED onto it and grinds (`airAim`). The left-flick slide tackle on the ground is unchanged.
+  A GROUND strike that leaves the ground (off a lip) now ends at `airDef[1]` of its beat instead of
+  playing its planted finish in mid-air.
+  **AND THE TAP HOP NEVER CLEARED `p.kickRail` (r41-r43)**, which turns the air thrust off -- so after
+  any tap onto a rail, holding forward in the air did nothing for the rest of the session. It clears
+  on touching the ground now.
 - **r42: THE LEAN IS AT THE HIPS, THE CAMERA EASES IN, GRABS, STYLE SKATES, A SOFTER SWIVEL.**
   - *"The rotation at the origin makes it feel like a boat -- lean at the hips and the legs compensate, she bends
     her inside knee."* `RIG.hipLean` 1 takes the turn lean off the whole body (`p.bq`'s Z term) and puts the SAME

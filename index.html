@@ -161,7 +161,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r43</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r44</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -178,7 +178,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r43';
+const BUILD = 'r44';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -251,7 +251,8 @@ const RIG = {
 // In the air, on a rail and in a bail it eases out.
 const FOOTIK = { on: 1, maxDrop: 0.25, maxRaise: 0.06, near: 0.16, align: 1, alignMax: 40 * Math.PI / 180, hl: 0.05, sink: 0.0 };
 
-// MELEE, BORROWED FROM ZAP (r39, `MELEE`, `meleeStrike`, `meleeSlide`, `meleeKick`, `stepMelee`).
+// MELEE, BORROWED FROM ZAP (r39, `MELEE`, `meleeStrike`, `meleeSlide`, `stepMelee`). r44: the flying kick is
+// gone -- a right flick in the air is the same melee chain, played from each clip's airborne window.
 // *"I love his melee system -- for now a flick of the right stick on the ground strings them the way he
 // does. Left stick flick is the slide tackle. In the air a right flick is the flying kick, which drives
 // her forward -- and near a grind pole, flicked toward it, she targets the pole and kicks into a grind,
@@ -279,6 +280,18 @@ const MELEE = {
   air: 'flying_kick', airDur: 0.85, airV: 10, airUp: 2.5,
   aimR: 13, aimCone: 0.75, lead: 1.5, vyMax: 15, grindV: 9,
   liftMax: 0.9,        // how far a ground strike may lift her to keep the lowest skate on the surface
+  // r44: MELEE IN THE AIR. *"Get rid of the in-air flying kick -- make it the same as the melee on the ground,
+  // so you can string melees in the air. Some need clipping for the air: one starts with her doing a little hop
+  // off the ground, and you wouldn't jump off the ground, you're in the air."* So in the air each clip plays
+  // only its WINDOW -- the part where her feet are off the floor, MEASURED on her rig (longest run of the lower
+  // foot over .12 of a leg, padded .04 each side; `npm run sim melee` re-measures and fails if this table goes
+  // stale). A clip that never leaves the ground (the standing punches) plays to `airDef`'s end, before its
+  // settle. When the window is spent she goes back to the AIR POSE -- never a standing pose in mid-air.
+  airWin: { melee_01: [0.26, 0.72], melee_02: [0.26, 0.61], melee_03: [0.34, 0.64], melee_04: [0.31, 0.64], melee_05: [0.06, 0.94] },
+  airDef: [0, 0.85],
+  airLunge: 3,         // m/s toward the flick in the air
+  airLift: 2,          // the first strike of an airtime props her up this much (m/s); later ones do not
+  airAim: 1,           // an air strike flicked toward a rail is solved onto it (what the flying kick used to do)
 };
 
 // THE ROSTER. ONE CHARACTER AT A TIME -- a switch is a menu action, not a parade, so there is
@@ -2358,8 +2371,9 @@ function girlAnimMoves(dt) {
     // played over its beat. A kick holds its last frame until she meets something.
     girl.bail = null;
     const M = p.mel;
-    if (girl.melSeen !== M) { girl.melSeen = M; rewind(M.nm); snap = true; }
-    clipScale(M.nm, clipLen(M.nm, 1) / Math.max(0.2, M.dur));
+    const W = M.win || [0, 1];
+    if (girl.melSeen !== M) { girl.melSeen = M; rewind(M.nm); snap = true; const ac = girl.actions[M.nm]; if (ac) ac.time = W[0] * clipLen(M.nm, 1); }
+    clipScale(M.nm, clipLen(M.nm, 1) * (W[1] - W[0]) / Math.max(0.2, M.dur));
     add(M.nm, 1);
   } else if (p.grind && m.grind[p.grind.side]) {
     // ON A RAIL: the side she came at it from picks the clip. Snapped in, because a grind is a
@@ -3260,8 +3274,18 @@ function meleeStrike(wx, wz) {
   let nm = null;
   for (let i = 0; i < pool.length && !nm; i++) { const c = pool[girl.melDeal % pool.length]; girl.melDeal++; if (melOk(c)) nm = c; }
   if (!nm) return false;
-  p.mel = { kind: 'strike', nm, t: 0, dur: meleeBeat(nm), h: Math.atan2(wx, wz) };
-  if (p.grounded) { p.vel.x += wx * MELEE.lunge; p.vel.z += wz * MELEE.lunge; }
+  const air = !p.grounded, win = air ? (MELEE.airWin[nm] || MELEE.airDef) : [0, 1];
+  p.mel = { kind: 'strike', nm, t: 0, dur: Math.max(0.3, meleeBeat(nm) * (win[1] - win[0])), h: Math.atan2(wx, wz), air, win };
+  if (!air) { p.vel.x += wx * MELEE.lunge; p.vel.z += wz * MELEE.lunge; return true; }
+  // IN THE AIR: toward a rail that way it is SOLVED onto the bar (the old flying kick's aim, kept); otherwise
+  // a shove toward the flick, and the first strike of the airtime props her up a little
+  const tg = MELEE.airAim > 0.5 && RAILS.length ? kickTarget(wx, wz) : null;
+  if (tg) { p.vel.set((tg.cx - p.pos.x) / tg.T, tg.vy, (tg.cz - p.pos.z) / tg.T); p.kickRail = { R: tg.R, dir: tg.dir }; p.vertLock = 0; p.xferKick = null; }
+  else {
+    p.vel.x += wx * MELEE.airLunge; p.vel.z += wz * MELEE.airLunge;
+    if (!p.airStrikes) p.vel.y = Math.max(p.vel.y, MELEE.airLift);
+  }
+  p.airStrikes = (p.airStrikes || 0) + 1; p.flip = null; p.autoTurn = null;
   return true;
 }
 function meleeSlide() {
@@ -3296,32 +3320,21 @@ function kickTarget(dx, dz) {
   }
   return best;
 }
-function meleeKick(wx, wz) {
-  const p = player;
-  if (!MELEE.on || p.grounded || p.grind || p.kicked || p.bailT > 0 || !melOk(MELEE.air)) return false;
-  const tg = RAILS.length ? kickTarget(wx, wz) : null;
-  if (tg) {
-    p.vel.set((tg.cx - p.pos.x) / tg.T, tg.vy, (tg.cz - p.pos.z) / tg.T);
-    p.kickRail = { R: tg.R, dir: tg.dir };
-  } else {
-    const hv = Math.max(MELEE.airV, p.hSpeed);
-    p.vel.x = wx * hv; p.vel.z = wz * hv; p.vel.y = Math.max(p.vel.y, MELEE.airUp);
-    p.kickRail = null;
-  }
-  const h = Math.atan2(p.vel.x, p.vel.z);
-  p.heading = h; p.flip = null; p.autoTurn = null; p.vertLock = 0; p.xferKick = null; p.kicked = 1;
-  p.mel = { kind: 'kick', nm: MELEE.air, t: 0, dur: MELEE.airDur, h }; p.melQ = null;
-  return true;
-}
 function stepMelee(dt) {
   const p = player, m = p.mel;
-  if (p.grounded && !p.grind) p.kicked = 0;
+  if (p.grounded && !p.grind) { p.kicked = 0; p.airStrikes = 0; }
+  // r44: an aim at a rail is spent the moment she touches anything (r41's tap hop never cleared it, which
+  // left the air thrust switched off until a respawn)
+  if (p.grounded) p.kickRail = null;
   if (!m) return;
   m.t += dt;
-  const over = m.kind === 'kick' ? (p.grounded || !!p.grind) : m.t >= m.dur;
+  // AN AIR STRIKE ENDS AT ITS WINDOW (or the moment she lands); A GROUND STRIKE THAT LEFT THE GROUND ends
+  // before its clip's settle -- either way, in the air she goes back to the air pose, never a standing one
+  const over = m.kind === 'kick' ? (p.grounded || !!p.grind)
+    : m.air ? (m.t >= m.dur || p.grounded || !!p.grind)
+    : (m.t >= m.dur || (!p.grounded && m.t >= m.dur * MELEE.airDef[1]));
   if (!over && p.bailT <= 0) return;
   p.mel = null;
-  if (m.kind === 'kick') p.kickRail = null;
   const q = p.melQ; p.melQ = null;
   if (q && p.bailT <= 0) meleeStrike(q.x, q.z);
 }
@@ -3346,7 +3359,7 @@ function rightFlick(dx, dy) {
     if (dir === 'up' && p.n.y < MELEE.xferN) { p.jump = 2; return 'transfer'; }
     return meleeStrike(w.x, w.z) ? 'strike' : null;
   }
-  return meleeKick(w.x, w.z) ? 'kick' : null;
+  return meleeStrike(w.x, w.z) ? 'strike' : null;      // r44: in the air it is the same chain
 }
 
 function stepPlayer(dt) {
@@ -3870,9 +3883,11 @@ const TAILUI = [
   ['MELEE.rate',     'Melee speed', 0.8, 3, 0.05, ''],
   ['MELEE.lunge',    'Strike lunge m/s', 0, 8, 0.25, ''],
   ['MELEE.slideV',   'Slide tackle shove m/s', 0, 10, 0.25, ''],
-  ['MELEE.airV',     'Flying kick speed', 4, 20, 0.5, ''],
-  ['MELEE.aimR',     'Kick finds rails within m', 0, 25, 0.5, ''],
-  ['MELEE.aimCone',  'Kick aim cone', 10, 90, 1, '', 'deg'],
+  ['MELEE.airV',     'Air strike to a rail: speed', 4, 20, 0.5, ''],
+  ['MELEE.airLunge', 'Air strike shove m/s', 0, 10, 0.25, ''],
+  ['MELEE.airAim',   'Air strike aims onto rails', 0, 1, 1, ''],
+  ['MELEE.aimR',     'Air strike finds rails within m', 0, 25, 0.5, ''],
+  ['MELEE.aimCone',  'Air strike aim cone', 10, 90, 1, '', 'deg'],
   ['GRIND.home',     'Tap near a rail grinds', 0, 1, 1, ''],
   ['GRIND.homeR',    'Rail tap reach (side) m', 0, 10, 0.25, ''],
   ['GRIND.homeUp',   'Rail tap reach (above) m', 0, 15, 0.5, ''],
@@ -4049,7 +4064,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, meleeKick, kickTarget, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
