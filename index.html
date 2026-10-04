@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r33</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r34</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r33';
+const BUILD = 'r34';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -184,7 +184,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/roller_girl.glb":"7efbefe3"};
+const ASSETS = {"images/HDRI_01_2K.jpg":"69af8105","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/roller_girl.glb":"7efbefe3"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -575,7 +575,7 @@ const LAND = {
 const CAM = {
   el: 0.20,            // downward pitch, FIXED -- the right pad orbits in a circle only
   look: 1.05,          // how far up her body the lens aims
-  dist: 6.0, distV: 0.17, min: 1.7, max: 13,
+  dist: 5.2, distV: 0.17, min: 1.7, max: 13,   // r34: 6.0 -> 5.2, *"so the character seems a little bigger, just a touch"*
   yawRate: 2.9,        // how fast the right pad swings the shot
   idle: 0.55,          // how long after letting go before the lens comes back behind her
   follow: 2.6,
@@ -638,7 +638,25 @@ const GRIND = {
   cool: 0.35,        // after leaving a rail she cannot re-catch THAT rail for this long
   swap: 0,           // 1 swaps which clip is "left" -- the one convention a look can settle
 };
-const LIGHT = { sun: 2.5, hemi: 1.15, dir: new THREE.Vector3(0.45, 0.78, 0.42).normalize() };
+const LIGHT = { sun: 2.6, hemi: 0.95, dir: new THREE.Vector3(0.45, 0.78, 0.42).normalize() };
+// THE LOOK (r34). *"I like this bright, illuminated aesthetic -- ours is dreary and dark."* His
+// reference is Robits, and what makes Robits read that way is three things, all borrowed:
+//   1. ITS DAYLIGHT HDRI (`images/HDRI_01_2K.jpg`, copied from the robits repo) as the SKY, softened,
+//      and -- the half that matters most -- prefiltered by `PMREMGenerator` into `scene.environment`,
+//      so every PBR surface (her textures, the ramps, the rails) is LIT BY THE SKY instead of only by
+//      two lights. That is the "illumination on textures".
+//   2. A PALE floor and pale ramps (the white plane), so the bounce and the sky colour show.
+//   3. ACES at a little over 1, and a light hazy fog that matches the sky instead of a purple murk.
+// `LOOK.bright` 0 puts r33's dusk back (needs a reload: the park's colours are baked into its mesh).
+const LOOK = {
+  bright: 1,
+  hdri: 'images/HDRI_01_2K.jpg',
+  exposure: 1.15,      // ACES exposure (dusk was 1.0)
+  envI: 0.9,           // how much the sky lights her and the park (scene.environmentIntensity)
+  bgI: 1.0,            // how bright the sky itself is drawn (scene.backgroundIntensity)
+  blurW: 384,          // the sky is drawn from a copy this wide: soft, so it sits behind the game
+};
+try { const v = localStorage.getItem('rg.look'); if (v === '0' || v === '1') LOOK.bright = +v; } catch (e) {}
 
 // ---------- renderer & scene ----------
 const canvas = document.getElementById('gl');
@@ -646,17 +664,18 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE, powerPref
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, MOBILE ? 2 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = LOOK.bright ? LOOK.exposure : 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x3a3350, 70, 300);
+scene.fog = LOOK.bright ? new THREE.Fog(0xd8e6f6, 90, 460) : new THREE.Fog(0x3a3350, 70, 300);
 const camera = new THREE.PerspectiveCamera(CAM.fov, 1, 0.1, 900);
 
-const hemi = new THREE.HemisphereLight(0xbfd4ff, 0x6a5a52, LIGHT.hemi);
+// bright: a light ground colour, because the floor is pale and bounces pale light back up
+const hemi = LOOK.bright ? new THREE.HemisphereLight(0xe2ecff, 0xd9d2ea, LIGHT.hemi) : new THREE.HemisphereLight(0xbfd4ff, 0x6a5a52, 1.15);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff0dd, LIGHT.sun);
+const sun = new THREE.DirectionalLight(LOOK.bright ? 0xfff5e8 : 0xfff0dd, LOOK.bright ? LIGHT.sun : 2.5);
 sun.castShadow = true;
 sun.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 140;
@@ -666,7 +685,7 @@ sun.shadow.bias = -0.0009; sun.shadow.normalBias = 0.035;
 // A SHADOW IS NOT ALLOWED TO BE A HOLE. A projected map removes the WHOLE of the sun, which
 // against a bright key light reads as a hole cut in the picture rather than as shade.
 // r180 carries `shadowIntensity` as a real uniform, so this needs no shader patch.
-sun.shadow.intensity = 0.42;
+sun.shadow.intensity = LOOK.bright ? 0.34 : 0.42;
 scene.add(sun); scene.add(sun.target);
 
 // A gradient dome rather than a flat clear colour -- it costs one draw call and it is the
@@ -675,8 +694,9 @@ const sky = new THREE.Mesh(
   new THREE.SphereGeometry(500, 24, 16),
   new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { uTop: { value: new THREE.Color(0x2b2a5e) }, uMid: { value: new THREE.Color(0x6f5a95) },
-                uBot: { value: new THREE.Color(0xffb188) } },
+    uniforms: LOOK.bright   // the dome is only the stand-in until the HDRI arrives (and if it never does)
+      ? { uTop: { value: new THREE.Color(0x4f8fe0) }, uMid: { value: new THREE.Color(0x9cc6f2) }, uBot: { value: new THREE.Color(0xf4e6dc) } }
+      : { uTop: { value: new THREE.Color(0x2b2a5e) }, uMid: { value: new THREE.Color(0x6f5a95) }, uBot: { value: new THREE.Color(0xffb188) } },
     vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `varying vec3 vP; uniform vec3 uTop, uMid, uBot;
       void main(){ float h = normalize(vP).y;
@@ -685,6 +705,29 @@ const sky = new THREE.Mesh(
         gl_FragColor = vec4(c, 1.0); }`,
   }));
 sky.frustumCulled = false; scene.add(sky);
+// THE HDRI. Colour space set BEFORE the prefilter (City's landmine: `PMREMGenerator` reads the texture
+// as it finds it, and a loader hands one back tagged linear -- every sky value would go into the
+// environment undecoded and a bright sky turns into a white sheen on everything). The background is
+// a small copy, which is the blur: drawn into 384x192 and stretched back up by the GPU's own filtering,
+// it goes soft without `ctx.filter`, which iOS Safari does not have.
+function loadSky() {
+  if (!LOOK.bright) return;
+  try {
+    new THREE.TextureLoader().load(A(LOOK.hdri), tex => {
+      tex.mapping = THREE.EquirectangularReflectionMapping; tex.colorSpace = THREE.SRGBColorSpace;
+      let bg = tex;
+      try {
+        const cv = document.createElement('canvas'); cv.width = LOOK.blurW; cv.height = LOOK.blurW >> 1;
+        cv.getContext('2d').drawImage(tex.image, 0, 0, cv.width, cv.height);
+        bg = new THREE.CanvasTexture(cv); bg.mapping = THREE.EquirectangularReflectionMapping; bg.colorSpace = THREE.SRGBColorSpace;
+      } catch (e) { bg = tex; }
+      try { const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromEquirectangular(tex).texture; pm.dispose(); }
+      catch (e) { console.warn('[sky] environment failed', e); }
+      scene.background = bg; sky.visible = false; LOOK.loaded = 1;
+    }, undefined, e => { LOOK.failed = 1; console.warn('[sky] HDRI did not load', e); });
+  } catch (e) { LOOK.failed = 1; }
+}
+loadSky();
 
 // ---------- the collider: real triangles, in a grid ----------
 // EVERY RIDEABLE SURFACE IN THIS GAME IS PROCEDURAL, AND ITS COLLIDER COMES FROM THE SAME
@@ -788,7 +831,13 @@ const quad = (a, b, c, d, hex, solid) => {
   pushTri(a[0],a[1],a[2], b[0],b[1],b[2], c[0],c[1],c[2], hex, solid);
   pushTri(a[0],a[1],a[2], c[0],c[1],c[2], d[0],d[1],d[2], hex, solid);
 };
-const CONC = 0x8d919c, RAMP = 0xc0ae95, COPE = 0x5fe1ff, DECK = 0x757b8a, SIDE = 0x4a4f5c;
+// THE PARK'S COLOURS (r34): pale and warm for the bright look, the r33 greys for dusk.
+const PALS = {
+  bright: { conc: 0xd9d5e8, ramp: 0xf2dccb, cope: 0x3fd3ff, deck: 0xc7c0de, side: 0xa69ec6, plazaA: 0xe8e5f4, plazaB: 0xdcd8ec },
+  dusk:   { conc: 0x8d919c, ramp: 0xc0ae95, cope: 0x5fe1ff, deck: 0x757b8a, side: 0x4a4f5c, plazaA: 0x8d919c, plazaB: 0x838792 },
+};
+const PAL = LOOK.bright ? PALS.bright : PALS.dusk;
+const CONC = PAL.conc, RAMP = PAL.ramp, COPE = PAL.cope, DECK = PAL.deck, SIDE = PAL.side;
 
 // A piece: origin, yaw, and a profile [{u, y, c}] extruded from w=-halfW to +halfW.
 function extrude(ox, oz, yaw, halfW, prof, skirt) {
@@ -938,7 +987,7 @@ function plaza(S, cell, hole) {
   for (let i = -n; i < n; i++) for (let k = -n; k < n; k++) {
     if (cut && i >= cut.i0 && i < cut.i1 && k >= cut.k0 && k < cut.k1) continue;
     const x0 = i * cell, x1 = x0 + cell, z0 = k * cell, z1 = z0 + cell;
-    const tint = ((i + k) & 1) ? 0x8d919c : 0x838792;
+    const tint = ((i + k) & 1) ? PAL.plazaA : PAL.plazaB;
     quad([x0, 0, z0], [x0, 0, z1], [x1, 0, z1], [x1, 0, z0], tint);
   }
   if (!cut) return;
@@ -968,7 +1017,7 @@ function plaza(S, cell, hole) {
     if (a1 - a0 < 1e-6) continue;
     const r0 = [hole.x + Math.cos(a0) * hole.r, 0, hole.z + Math.sin(a0) * hole.r];
     const r1 = [hole.x + Math.cos(a1) * hole.r, 0, hole.z + Math.sin(a1) * hole.r];
-    quad(boxPt(a0), r0, r1, boxPt(a1), 0x8d919c);
+    quad(boxPt(a0), r0, r1, boxPt(a1), PAL.plazaA);
   }
 }
 
@@ -3109,7 +3158,9 @@ function hud(dt) {
       (player.grind ? ` · GRIND ${player.grind.side.toUpperCase()} ${player.grind.s.toFixed(1)}` : '') +
       (girl.tail && girl.tail.n
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
-        : ''); }
+        : '') +
+      // a console warning is invisible on a phone, and "the sky never loaded" looks like "it is meant to be grey"
+      (LOOK.failed ? ' · NO SKY JPG' : ''); }
 }
 function setBoot(msg, frac) {
   const m = document.getElementById('bootMsg'), b = document.getElementById('bootBar');
@@ -3142,6 +3193,10 @@ function frame() {
   sparkStep(dt);
   stepCam(dt);
   hud(dt);
+  // the Bright look switch is read at LOAD (the park's colours are baked), so it is remembered here
+  if (LOOK.at === undefined) LOOK.at = LOOK.bright;
+  if (LOOK.bright !== LOOK.at) { LOOK.at = LOOK.bright; try { localStorage.setItem('rg.look', LOOK.bright ? '1' : '0'); } catch (e) {} }
+  if (LOOK.bright) { renderer.toneMappingExposure = LOOK.exposure; scene.environmentIntensity = LOOK.envI; scene.backgroundIntensity = LOOK.bgI; }
   renderer.render(scene, camera);
 }
 
@@ -3243,6 +3298,12 @@ const TAILUI = [
   ['SK.coastAfter',  'Fade after flat', 0,  5,   0.1,  's'],
   ['LAND.bail',      'Bails on landing', 0, 1,   1,    ''],
   ['MOVES.useBack',  'Backward clips in fakie', 0, 1, 1, ''],
+  ['Look (r34)', ''],
+  ['LOOK.bright',    'Bright look (reload)', 0, 1, 1, ''],
+  ['LOOK.exposure',  'Exposure',       0.5, 2,   0.05, ''],
+  ['LOOK.envI',      'Sky light on her', 0, 2,   0.05, ''],
+  ['LOOK.bgI',       'Sky brightness', 0.2, 2,   0.05, ''],
+  ['CAM.dist',       'Camera distance', 3,  9,   0.1,  'm'],
   ['Feel (r27)', ''],
   ['RIG.centre',     'Turn about hips', 0,  1,   0.05, ''],
   ['SK.turnV',       'Turn rate fast', 0.5, 6,   0.1,  ''],
@@ -3278,7 +3339,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };

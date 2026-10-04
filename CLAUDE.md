@@ -275,6 +275,20 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **THE BRIGHT LOOK IS ROBITS' (r34, `LOOK`, `PALS`, `loadSky`).** *"I like this bright, illuminated
+  aesthetic -- ours is dreary and dark."* His reference screenshot is Robits. Borrowed from it:
+  `images/HDRI_01_2K.jpg` (copied from the robits repo) is the sky AND -- the part that matters --
+  prefiltered by `PMREMGenerator` into `scene.environment`, so every PBR surface is lit by the sky
+  rather than only by two lights. Colour space is set BEFORE the prefilter (City's landmine: done
+  after, the sky goes into the environment undecoded and everything gets a white sheen). The
+  BACKGROUND is a 384x192 copy, which is the blur -- `ctx.filter` does not exist on iOS Safari.
+  The park is pale (`PALS.bright`: lavender plaza, peach ramps, cyan coping), the hemisphere's
+  ground colour is pale to match, ACES is 1.15, the fog is a light sky haze, and the camera sits
+  at 5.2 m (was 6.0). `LOOK.bright` 0 is r33's dusk; it is read at LOAD because the park's colours
+  are baked into its vertices, so the panel row says "reload" and the choice is remembered under
+  its own key, `rg.look`. The chip says `NO SKY JPG` if the HDRI fails. Exposure, sky light, sky
+  brightness and camera distance are live on the panel. **None of it is visible to any harness** --
+  there is no GPU here -- so the look is his to judge.
 - **RAILS ARE A FRACTION OF HER APEX, AND SHE CAN SETTLE ONTO A RAMP (r33, `RAIL_DEF`, `AIR.settle*`,
   `AIR.preAlign`).** *"She jumps so high it's hard to land on a rail -- put it just below her apex."*
   A rail's middle number is now the fraction of her flat-ground apex (`AIR.jump^2 / 2g`) above the
