@@ -275,6 +275,36 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **THE SIDE SKATE (r35, `TWIN`, `twinStep`, `p.twist`) -- AN EXPERIMENT, ON BY DEFAULT.** *"Her movement is
+  still the left stick, but her rotation could be the right stick -- holding left on the left stick and
+  up on the right, she moves left but faces forward."* The PHYSICS heading is untouched (the left stick
+  steers the wheels exactly as before); `p.twist` turns only her BODY off it, so the push clip she has
+  plays sideways, which is what his side-skate clips are anyway. The right pad is read through the
+  camera, past `TWIN.at` (over `AIR.tapFar`, so a tap is still a jump); with TWIN on the right pad does
+  NOT orbit on the ground, and the follow camera holds still while she is twisted so "up" stays up.
+  Let go and the twist eases back. **A skin with backward clips turns its stance over past `TWIN.swap`**
+  (110 deg) -- heading and stance flip, the twist gives back the half turn, the body does not move --
+  so a body turned round past side-on plays the backward clips. **The twist goes into the air as her
+  heading** (`leaveGround`), so a landing judges the real body. Panel: Side skate (r35); `TWIN.on` 0 is
+  r34's right pad. `npm run sim twin` covers travel vs facing, release, off, a tap, the stance swap and
+  the takeoff fold.
+  **A STROKE IN FLIGHT IS IN THE HEADING'S FRAME, SO A HALF TURN HAS TO TURN IT TOO.** `p.shoveDir`
+  is +1/-1 along `p.heading`; flip the heading under a live stroke and the rest of it pushes her the
+  OTHER way. The twin case caught it from a standstill (she shot off backwards and the stance flipped
+  back to fwd as "reversed"); the swivel had the same latent fault and both now negate `shoveDir`.
+- **THE LOOK IS WEIRDPORT'S (r35, `LOOK.style` 2, `stepLights`, `skyBand`), AND r34 COPIED THE WRONG
+  GAME.** *"That's what the screenshots were from and that's the one I like the look of the most."* His
+  reference was WEIRDPORT, not Robits. Ported from weirdport's own measured numbers: his painted sky
+  `images/hdri_game.png` (1774x887 8-bit, copied over) at `bgI` 1.35 with the bounce at .35 of that,
+  NEUTRAL tone mapping at 1.0 (weirdport: ACES desaturates as it rolls off), the key sun dropped to
+  30 deg on the same bearing, hemi 0xe4f0ff over dark purple 0x2a1f3d at 1.75, a cool fill opposite the
+  sun, a PINK RIM 40 m beyond her along the lens shining back (it follows `cam.az`, so whatever she is
+  in front of gets the edge), a TEAL bounce straight up, and the fog colour SAMPLED off the sky's
+  horizon band in linear. The sky is drawn full resolution (`blurW` 0). `LOOK.style` 0 dusk / 1 robits /
+  2 weirdport is read at load and remembered under `rg.style`. **The panel saves every row**, so look
+  dials saved under another style (or under r34, before styles) are SKIPPED on load (`lookStyle` in
+  `rg.tail`) -- otherwise r34's exposure 1.15 / sky 1.0 would sit on weirdport's sky. `NO SKY IMG` in the
+  chip if it fails. Not ported: weirdport's toon/paint/outline shading, its characters and its kits.
 - **THE BRIGHT LOOK IS ROBITS' (r34, `LOOK`, `PALS`, `loadSky`).** *"I like this bright, illuminated
   aesthetic -- ours is dreary and dark."* His reference screenshot is Robits. Borrowed from it:
   `images/HDRI_01_2K.jpg` (copied from the robits repo) is the sky AND -- the part that matters --

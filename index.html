@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r34</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r35</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r34';
+const BUILD = 'r35';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -184,7 +184,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"images/HDRI_01_2K.jpg":"69af8105","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/roller_girl.glb":"7efbefe3"};
+const ASSETS = {"images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/roller_girl.glb":"7efbefe3"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -639,43 +639,64 @@ const GRIND = {
   swap: 0,           // 1 swaps which clip is "left" -- the one convention a look can settle
 };
 const LIGHT = { sun: 2.6, hemi: 0.95, dir: new THREE.Vector3(0.45, 0.78, 0.42).normalize() };
-// THE LOOK (r34). *"I like this bright, illuminated aesthetic -- ours is dreary and dark."* His
-// reference is Robits, and what makes Robits read that way is three things, all borrowed:
-//   1. ITS DAYLIGHT HDRI (`images/HDRI_01_2K.jpg`, copied from the robits repo) as the SKY, softened,
-//      and -- the half that matters most -- prefiltered by `PMREMGenerator` into `scene.environment`,
-//      so every PBR surface (her textures, the ramps, the rails) is LIT BY THE SKY instead of only by
-//      two lights. That is the "illumination on textures".
-//   2. A PALE floor and pale ramps (the white plane), so the bounce and the sky colour show.
-//   3. ACES at a little over 1, and a light hazy fog that matches the sky instead of a purple murk.
-// `LOOK.bright` 0 puts r33's dusk back (needs a reload: the park's colours are baked into its mesh).
+// THE LOOK. Three of them, picked by `LOOK.style` and read at LOAD (the park's colours are baked into
+// its vertices), remembered under `rg.style`:
+//   0  dusk     r33's purple evening
+//   1  robits   r34 -- Robits' daylight HDRI as sky and as image-based light, ACES 1.15, a pale park.
+//               *"I like this bright illuminated aesthetic"* -- but his screenshots were WEIRDPORT,
+//               not Robits, which is what r35 corrects:
+//   2  weirdport (r35, the default) -- his own painted sky (`images/hdri_game.png`, copied from the
+//               weirdport repo) at weirdport's measured exposure 1.35, NEUTRAL tone mapping (ACES is a
+//               film curve that desaturates as it rolls off, weirdport's own note), and weirdport's
+//               light rig: a low warm key sun at 30 degrees that is the only shadow caster, a cool
+//               blue fill from the opposite side, a hemisphere warm-white over dark purple, a PINK RIM
+//               light that sits beyond her along the lens and shines back (so it rims whatever you are
+//               looking at), and a TEAL bounce up off the floor. The fog colour is SAMPLED off the
+//               sky's horizon band rather than typed, so the distance and the sky are one colour.
 const LOOK = {
-  bright: 1,
+  style: 2,
+  bright: 1,           // derived: anything but dusk uses the pale park
   hdri: 'images/HDRI_01_2K.jpg',
-  exposure: 1.15,      // ACES exposure (dusk was 1.0)
+  exposure: 1.15,      // tone-mapping exposure
   envI: 0.9,           // how much the sky lights her and the park (scene.environmentIntensity)
   bgI: 1.0,            // how bright the sky itself is drawn (scene.backgroundIntensity)
-  blurW: 384,          // the sky is drawn from a copy this wide: soft, so it sits behind the game
+  blurW: 384,          // robits: the sky is drawn from a copy this wide, soft (0 = the full image)
+  fogNear: 90, fogFar: 460,
+  rimI: 1.15, rimUp: 0.34, bncI: 0.38, fillI: 0.85,   // weirdport's extra lamps
 };
-try { const v = localStorage.getItem('rg.look'); if (v === '0' || v === '1') LOOK.bright = +v; } catch (e) {}
+try {
+  const v = localStorage.getItem('rg.style');
+  if (v === '0' || v === '1' || v === '2') LOOK.style = +v;
+} catch (e) {}
+LOOK.bright = LOOK.style > 0 ? 1 : 0;
+if (LOOK.style === 2) {
+  // weirdport's measured numbers: imgK 1.35 for the sky, envInt .35 of that for the bounce
+  Object.assign(LOOK, { hdri: 'images/hdri_game.png', exposure: 1.0, envI: 0.47, bgI: 1.35, blurW: 0, fogNear: 60, fogFar: 280 });
+  // the sun at 30 degrees, on the same bearing -- a low golden key, weirdport's own pick
+  const h = Math.hypot(LIGHT.dir.x, LIGHT.dir.z);
+  LIGHT.dir.set(LIGHT.dir.x / h * Math.cos(Math.PI / 6), Math.sin(Math.PI / 6), LIGHT.dir.z / h * Math.cos(Math.PI / 6));
+}
+const WEIRD = LOOK.style === 2;
 
 // ---------- renderer & scene ----------
 const canvas = document.getElementById('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, MOBILE ? 2 : 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = WEIRD ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = LOOK.bright ? LOOK.exposure : 1.0;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.fog = LOOK.bright ? new THREE.Fog(0xd8e6f6, 90, 460) : new THREE.Fog(0x3a3350, 70, 300);
+scene.fog = LOOK.bright ? new THREE.Fog(WEIRD ? 0xd9bf9d : 0xd8e6f6, LOOK.fogNear, LOOK.fogFar) : new THREE.Fog(0x3a3350, 70, 300);
 const camera = new THREE.PerspectiveCamera(CAM.fov, 1, 0.1, 900);
 
 // bright: a light ground colour, because the floor is pale and bounces pale light back up
-const hemi = LOOK.bright ? new THREE.HemisphereLight(0xe2ecff, 0xd9d2ea, LIGHT.hemi) : new THREE.HemisphereLight(0xbfd4ff, 0x6a5a52, 1.15);
+const hemi = WEIRD ? new THREE.HemisphereLight(0xe4f0ff, 0x2a1f3d, 1.75)
+  : LOOK.bright ? new THREE.HemisphereLight(0xe2ecff, 0xd9d2ea, LIGHT.hemi) : new THREE.HemisphereLight(0xbfd4ff, 0x6a5a52, 1.15);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(LOOK.bright ? 0xfff5e8 : 0xfff0dd, LOOK.bright ? LIGHT.sun : 2.5);
+const sun = new THREE.DirectionalLight(WEIRD ? 0xfff3e0 : LOOK.bright ? 0xfff5e8 : 0xfff0dd, WEIRD ? 2.4 : LOOK.bright ? LIGHT.sun : 2.5);
 sun.castShadow = true;
 sun.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 140;
@@ -687,6 +708,27 @@ sun.shadow.bias = -0.0009; sun.shadow.normalBias = 0.035;
 // r180 carries `shadowIntensity` as a real uniform, so this needs no shader patch.
 sun.shadow.intensity = LOOK.bright ? 0.34 : 0.42;
 scene.add(sun); scene.add(sun.target);
+// WEIRDPORT'S THREE EXTRA LAMPS (r35). None casts a shadow, which is what makes them affordable: the
+// cost is two or three more iterations of the lighting loop per lit pixel, not another pass of the
+// park. Built for every look and switched to zero outside weirdport's, so the shader set is the same.
+const fill = new THREE.DirectionalLight(0xbfd8ff, WEIRD ? LOOK.fillI : 0);     // cool, from opposite the sun
+const rim = new THREE.DirectionalLight(0xff7a9e, WEIRD ? LOOK.rimI : 0);       // pink, beyond her along the lens
+const bounce = new THREE.DirectionalLight(0x3fd9c4, WEIRD ? LOOK.bncI : 0);    // teal, straight up off the floor
+for (const l of [fill, rim, bounce]) { scene.add(l); scene.add(l.target); }
+// A RIM LIGHT COMES FROM BEHIND THE SUBJECT, NOT FROM BEHIND THE CAMERA -- a lamp behind the lens is a
+// frontal fill and flattens everything. It sits 40 m out along where the lens LOOKS and shines back
+// past her, and it follows the lens, so whatever she is in front of gets the coloured edge.
+function stepLights(tgt, az) {
+  const k = WEIRD ? 1 : 0;
+  fill.intensity = LOOK.fillI * k; rim.intensity = LOOK.rimI * k; bounce.intensity = LOOK.bncI * k;
+  if (!k) return;
+  const d = 40;
+  rim.position.set(tgt.x + Math.sin(az) * d, tgt.y + LOOK.rimUp * d, tgt.z + Math.cos(az) * d);
+  rim.target.position.copy(tgt); rim.target.updateMatrixWorld();
+  bounce.position.set(tgt.x, tgt.y - 10, tgt.z); bounce.target.position.copy(tgt); bounce.target.updateMatrixWorld();
+  fill.position.set(tgt.x - LIGHT.dir.x * 20, tgt.y + 8, tgt.z - LIGHT.dir.z * 20);
+  fill.target.position.copy(tgt); fill.target.updateMatrixWorld();
+}
 
 // A gradient dome rather than a flat clear colour -- it costs one draw call and it is the
 // difference between "a 3D scene" and "outside".
@@ -694,8 +736,9 @@ const sky = new THREE.Mesh(
   new THREE.SphereGeometry(500, 24, 16),
   new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: LOOK.bright   // the dome is only the stand-in until the HDRI arrives (and if it never does)
-      ? { uTop: { value: new THREE.Color(0x4f8fe0) }, uMid: { value: new THREE.Color(0x9cc6f2) }, uBot: { value: new THREE.Color(0xf4e6dc) } }
+    uniforms: WEIRD          // the dome is only the stand-in until the sky arrives (and if it never does)
+      ? { uTop: { value: new THREE.Color(0x3b8fd9) }, uMid: { value: new THREE.Color(0x9fb6d8) }, uBot: { value: new THREE.Color(0xd9bf9d) } }
+      : LOOK.bright ? { uTop: { value: new THREE.Color(0x4f8fe0) }, uMid: { value: new THREE.Color(0x9cc6f2) }, uBot: { value: new THREE.Color(0xf4e6dc) } }
       : { uTop: { value: new THREE.Color(0x2b2a5e) }, uMid: { value: new THREE.Color(0x6f5a95) }, uBot: { value: new THREE.Color(0xffb188) } },
     vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `varying vec3 vP; uniform vec3 uTop, uMid, uBot;
@@ -716,7 +759,7 @@ function loadSky() {
     new THREE.TextureLoader().load(A(LOOK.hdri), tex => {
       tex.mapping = THREE.EquirectangularReflectionMapping; tex.colorSpace = THREE.SRGBColorSpace;
       let bg = tex;
-      try {
+      if (LOOK.blurW > 0) try {
         const cv = document.createElement('canvas'); cv.width = LOOK.blurW; cv.height = LOOK.blurW >> 1;
         cv.getContext('2d').drawImage(tex.image, 0, 0, cv.width, cv.height);
         bg = new THREE.CanvasTexture(cv); bg.mapping = THREE.EquirectangularReflectionMapping; bg.colorSpace = THREE.SRGBColorSpace;
@@ -724,8 +767,23 @@ function loadSky() {
       try { const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromEquirectangular(tex).texture; pm.dispose(); }
       catch (e) { console.warn('[sky] environment failed', e); }
       scene.background = bg; sky.visible = false; LOOK.loaded = 1;
+      // THE FOG IS THE SKY'S HORIZON, MEASURED (weirdport's rule): the mean of a band either side of
+      // the centre row, averaged in LINEAR -- an sRGB mean lands a stop light and loses the colour.
+      if (WEIRD && scene.fog) { const f = skyBand(tex.image); if (f) scene.fog.color.setRGB(f[0], f[1], f[2], THREE.LinearSRGBColorSpace); }
     }, undefined, e => { LOOK.failed = 1; console.warn('[sky] HDRI did not load', e); });
   } catch (e) { LOOK.failed = 1; }
+}
+function skyBand(img) {
+  try {
+    const W = 128, H = 64, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); if (!g) return null;
+    g.drawImage(img, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data, y0 = Math.round(H * 0.44), y1 = Math.round(H * 0.56);
+    const lin = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    let r = 0, gg = 0, b = 0, n = 0;
+    for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) { const o = (y * W + x) * 4; r += lin(d[o]); gg += lin(d[o + 1]); b += lin(d[o + 2]); n++; }
+    return n ? [r / n, gg / n, b / n] : null;
+  } catch (e) { return null; }
 }
 loadSky();
 
@@ -2423,7 +2481,7 @@ function stickWorld() {
 // ---------- her, moving ----------
 const player = {
   pos: SPAWN.clone(), vel: new THREE.Vector3(),
-  heading: 0, faceH: 0, grounded: true, speed: 0, along: 0,
+  heading: 0, faceH: 0, twist: 0, twinning: false, grounded: true, speed: 0, along: 0,
   n: new THREE.Vector3(0, 1, 0),
   airT: 0, coyote: 0, jump: 0, landHard: 0, rHold: 0,
   pushing: false, pushT: 0, pushOff: 9, pushPeriod: SK.pushFast,
@@ -2474,9 +2532,25 @@ function groundQ(out) {
 // LOCKED air (a tap, or rolling over the lip) she now turns 180 over `turnFrac` of the air she has;
 // spin with the stick on top of it as before -- an extra 180 is how you land fakie on purpose.
 const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6 };
+// TWIN-STICK FACING (r35, an experiment). *"Her movement is still the left stick, but her rotation
+// could be the right stick -- holding left on the left stick and up on the right, she moves left but
+// faces forward, a side skate."* The PHYSICS heading stays the left stick's -- the wheels roll where
+// it says and nothing about the skating changes -- and `p.twist` turns her BODY off it, so the push
+// clip she already has plays sideways, which is what his side-skate clips are anyway. The right pad
+// is read through the camera, and the camera stops following while it is held, so "up" stays up.
+//   at     how far the thumb has to go before it twists her -- over `AIR.tapFar`, so a tap is a jump
+//   rate   how fast her body comes round onto the thumb, and back onto her line when it lets go
+//   swap   a skin that can skate backwards turns her stance over past this, so a body twisted round
+//          past side-on plays the BACKWARD clips -- the swivel's own mechanics, done gradually
+// In the air the twist is folded into her heading as she leaves, so a landing judges her real body.
+const TWIN = { on: 1, at: 0.5, rate: 14, back: 9, swap: 110 * Math.PI / 180 };
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
+  // A TWISTED BODY TAKES ITS TWIST INTO THE AIR AS ITS HEADING (r35): in the air the heading IS the
+  // body, and a landing judges stance off the body, so the side skate is exactly what she lands on.
+  if (p.twist) { p.heading = wrapAngle(p.heading + p.twist); p.twist = 0; }
+  p.twinning = false;
   p.vertLock = 0; p.xferKick = null; p.autoTurn = null;
   const h = Math.hypot(n.x, n.z);
   if (n.y < Math.cos(VERT.at) && h > 1e-4) {
@@ -2508,7 +2582,7 @@ function leaveGround(coy, xfer) {
 
 function respawn() {
   const p = player;
-  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0; p.drift = 0;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0; p.twist = 0; p.twinning = false; p.drift = 0;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
@@ -2917,6 +2991,7 @@ function swivel() {
   if (!p.stanceLock || !p.grounded || p.grind || p.bailT > 0) return false;
   setStance(-p.stance, 'swivel');
   p.heading = wrapAngle(p.heading + Math.PI);
+  p.shoveDir = -(p.shoveDir || 1);      // r35: a stroke in flight is in the HEADING's frame, so it turns too
   return true;
 }
 function startFlip(dir) {
@@ -2952,8 +3027,34 @@ function stepPlayer(dt) {
   // ...except just after a landing squared her onto her line (r33): that turn is the landing's, not
   // the thumb's, and taken at full rate it read as a snap -- so it eases at `landYaw` for a moment
   if (p.faceSlowT > 0) p.faceSlowT -= dt;
-  p.faceH += wrapAngle(p.heading - p.faceH) * Math.min(1, (p.faceSlowT > 0 ? SK.landYaw : SK.faceRate) * dt);
+  twinStep(dt);
+  p.faceH += wrapAngle(p.heading + p.twist - p.faceH) * Math.min(1, (p.faceSlowT > 0 ? SK.landYaw : SK.faceRate) * dt);
   p.lean = damp(p.lean, leanWant(dt), SK.leanHL, dt);
+}
+// THE SIDE SKATE (r35, `TWIN`). The right pad, read through the camera exactly the way `stickWorld`
+// reads the left, is a WORLD direction for her body to face; `p.twist` is that direction measured
+// off her heading, eased. On the ground only -- in the air the right pad is the settle and the heading
+// is already the body. Let go and the twist eases back to nothing, so she faces her line again.
+function twinStep(dt) {
+  const p = player, R = stick.R;
+  const m = Math.hypot(R.x, R.y);
+  p.twinning = !!(TWIN.on > 0.5 && R.down && m > TWIN.at && p.grounded && !p.grind && p.bailT <= 0);
+  let want = 0;
+  if (p.twinning) {
+    const sa = Math.sin(cam.az), ca = Math.cos(cam.az);
+    const dx = -R.y * sa - R.x * ca, dz = -R.y * ca + R.x * sa;
+    want = wrapAngle(Math.atan2(dx, dz) - p.heading);
+  } else if (!p.grounded || p.grind) { p.twist = 0; return; }
+  p.twist = wrapAngle(p.twist + wrapAngle(want - p.twist) * Math.min(1, (p.twinning ? TWIN.rate : TWIN.back) * dt));
+  // PAST SIDE-ON A SKIN THAT CAN SKATE BACKWARDS TURNS ITS STANCE OVER -- heading and stance flip,
+  // the twist gives back the half turn, and her body does not move at all. The hysteresis is the
+  // gap between `swap` and 180 - `swap`, so it cannot flap.
+  if (p.stanceLock && Math.abs(p.twist) > TWIN.swap) {
+    setStance(-p.stance, 'twist');
+    p.heading = wrapAngle(p.heading + Math.PI);
+    p.shoveDir = -(p.shoveDir || 1);    // a stroke in flight keeps pushing the way it was pushing
+    p.twist = wrapAngle(p.twist - Math.PI);
+  }
 }
 // SHE LEANS INTO THE TURN (r27). Her travel's bearing, how fast it is bending, and so the sideways
 // acceleration `v * w`; the lean is toward the centre of that, as an angle about HER forward axis.
@@ -3080,9 +3181,11 @@ function stepCam(dt) {
   // THE RIGHT PAD ORBITS IN A CIRCLE AND NOTHING ELSE. `cam.el` is a constant: there is no
   // pitch on this stick, by design -- a skating camera that can be pointed at the sky is a
   // camera you spend the whole session putting back.
-  const rx = stick.R.x;
+  // r35: WITH TWIN-STICK FACING ON, THE RIGHT PAD IS HER BODY ON THE GROUND, not the lens -- and the
+  // follow holds still while she is twisted, so "up" on that pad stays the same way up.
+  const rx = TWIN.on > 0.5 && p.grounded ? 0 : stick.R.x;
   const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
-  if (yaw) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
+  if (yaw || p.twinning) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
   if (!stick.L.down) cam.steerAz = cam.az;          // no left thumb: the frames agree (see stickWorld)
   // AND THEN IT COMES BACK BEHIND HER. A skater goes where she points, so the lens wants to be
   // behind her and letting go of the pad should not leave you looking at her side. In the AIR
@@ -3116,6 +3219,7 @@ function stepCam(dt) {
   camera.fov = CAM.fov + cam.rush * CAM.fovRush; camera.updateProjectionMatrix();
   sky.position.copy(camera.position);
   sun.position.copy(p.pos).addScaledVector(LIGHT.dir, 60); sun.target.position.copy(p.pos);
+  stepLights(cam.tgt, cam.az);
 }
 
 // ---------- HUD ----------
@@ -3156,11 +3260,13 @@ function hud(dt) {
                       ? (player.stance < 0 ? ' · FAKIE·' : ' · fwd·') + player.stanceWhy
                       : (player.stance < 0 ? ' · FAKIE' : '')) + (girl.top ? ' · ' + girl.top.replace(/^blade_/, '') : '') : '') +
       (player.grind ? ` · GRIND ${player.grind.side.toUpperCase()} ${player.grind.s.toFixed(1)}` : '') +
+      // r35: how far her body is turned off her line, while the side skate is in use
+      (Math.abs(player.twist) > 0.1 ? ` · SIDE ${Math.round(player.twist * 180 / Math.PI)}°` : '') +
       (girl.tail && girl.tail.n
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : '') +
       // a console warning is invisible on a phone, and "the sky never loaded" looks like "it is meant to be grey"
-      (LOOK.failed ? ' · NO SKY JPG' : ''); }
+      (LOOK.failed ? ' · NO SKY IMG' : ''); }
 }
 function setBoot(msg, frac) {
   const m = document.getElementById('bootMsg'), b = document.getElementById('bootBar');
@@ -3194,8 +3300,8 @@ function frame() {
   stepCam(dt);
   hud(dt);
   // the Bright look switch is read at LOAD (the park's colours are baked), so it is remembered here
-  if (LOOK.at === undefined) LOOK.at = LOOK.bright;
-  if (LOOK.bright !== LOOK.at) { LOOK.at = LOOK.bright; try { localStorage.setItem('rg.look', LOOK.bright ? '1' : '0'); } catch (e) {} }
+  if (LOOK.at === undefined) LOOK.at = LOOK.style;
+  if (LOOK.style !== LOOK.at) { LOOK.at = LOOK.style; try { localStorage.setItem('rg.style', String(Math.round(LOOK.style))); } catch (e) {} }
   if (LOOK.bright) { renderer.toneMappingExposure = LOOK.exposure; scene.environmentIntensity = LOOK.envI; scene.backgroundIntensity = LOOK.bgI; }
   renderer.render(scene, camera);
 }
@@ -3298,11 +3404,19 @@ const TAILUI = [
   ['SK.coastAfter',  'Fade after flat', 0,  5,   0.1,  's'],
   ['LAND.bail',      'Bails on landing', 0, 1,   1,    ''],
   ['MOVES.useBack',  'Backward clips in fakie', 0, 1, 1, ''],
+  ['Side skate (r35)', ''],
+  ['TWIN.on',        'Twin-stick facing', 0, 1, 1, ''],
+  ['TWIN.rate',      'Twist speed', 2, 30, 0.5, ''],
+  ['TWIN.back',      'Twist return speed', 1, 30, 0.5, ''],
+  ['TWIN.swap',      'Turn to backwards past', 95, 170, 1, '', 'deg'],
   ['Look (r34)', ''],
-  ['LOOK.bright',    'Bright look (reload)', 0, 1, 1, ''],
+  ['LOOK.style',     'Look 0 dusk 1 robits 2 weirdport (reload)', 0, 2, 1, ''],
   ['LOOK.exposure',  'Exposure',       0.5, 2,   0.05, ''],
   ['LOOK.envI',      'Sky light on her', 0, 2,   0.05, ''],
   ['LOOK.bgI',       'Sky brightness', 0.2, 2,   0.05, ''],
+  ['LOOK.rimI',      'Pink rim light (weirdport)', 0, 3, 0.05, ''],
+  ['LOOK.bncI',      'Teal bounce (weirdport)', 0, 2, 0.05, ''],
+  ['LOOK.fillI',     'Cool fill (weirdport)', 0, 2, 0.05, ''],
   ['CAM.dist',       'Camera distance', 3,  9,   0.1,  'm'],
   ['Feel (r27)', ''],
   ['RIG.centre',     'Turn about hips', 0,  1,   0.05, ''],
@@ -3339,7 +3453,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, TWIN };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -3348,13 +3462,20 @@ const TAILKEYS = TAILUI.filter(r => r.length > 2).map(r => r[0]);
 // THE SHIPPED VALUES OF EVERY ROW, captured before `tailLoad` applies anything saved
 const UI_DEF = {}; for (const k of TAILKEYS) UI_DEF[k] = uiGet(k);
 function tailSave() {
-  try { const o = { mode: TAIL.mode }; for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}
+  try { const o = { mode: TAIL.mode, lookStyle: LOOK.at === undefined ? LOOK.style : LOOK.at };
+    for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}
 }
 function tailLoad() {
   try {
     const o = JSON.parse(localStorage.getItem('rg.tail') || 'null'); if (!o) return;
     if (o.mode === 'wave' || o.mode === 'sim') TAIL.mode = o.mode;
+    // r35: THE LOOK DIALS BELONG TO THE LOOK THEY WERE SET UNDER. The panel saves every row, so a phone
+    // that ever touched a slider in r34 holds Robits' exposure 1.15 and sky 1.0 -- applied to weirdport's
+    // sky they are not its look at all. Saved under another style (or before styles), they are skipped;
+    // and the style itself has its own key (`rg.style`), so it is never read from here.
+    const lookOk = o.lookStyle === LOOK.style;
     for (const k of TAILKEYS) {
+      if (k === 'LOOK.style' || (k.startsWith('LOOK.') && !lookOk)) continue;
       // r20 saved bare tail keys (`sway`); r21 saves paths (`TAIL.sway`). Both are read.
       const v = k in o ? o[k] : (k.startsWith('TAIL.') ? o[k.slice(5)] : undefined);
       if (typeof v === 'number' && Number.isFinite(v)) uiSet(k, v);
@@ -3449,7 +3570,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel,
+  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, TWIN, twinStep,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
