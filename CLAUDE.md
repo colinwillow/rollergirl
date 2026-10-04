@@ -63,6 +63,12 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
 - `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`.
+- `icons/` — `npm run icons [art.png]` (`tools/icons.mjs`, City's tool, needs the `sharp` dev dependency)
+  turns one square artwork (`icons/source.png`, his alien-on-skates art since r31) into the 180/167/152
+  apple-touch icons, 192/512 for the manifest and the 32 favicon. **THE VERSION IS IN THE FILENAME
+  (`-v3`), NEVER A QUERY STRING** -- iOS drops an apple-touch-icon link whose href carries one. Raise
+  `V` with new art, re-run, repoint `index.html` and `manifest.webmanifest`. iOS only re-reads the icon
+  when the home-screen shortcut is removed and re-added.
 
 **`npm run clips` READS WHAT IS ACTUALLY IN EACH ANIMATION**, straight out of the GLB's samplers
 — they are NOT draco compressed, draco only touches mesh primitives — so "she holds the pose" is

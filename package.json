@@ -9,7 +9,11 @@
     "check": "npm run check:syntax && npm run check:boot",
     "rig": "node tools/rig.mjs",
     "sim": "node tools/sim.mjs",
-    "clips": "node tools/clips.mjs"
+    "clips": "node tools/clips.mjs",
+    "icons": "node tools/icons.mjs"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "sharp": "^0.35.5"
+  }
 }

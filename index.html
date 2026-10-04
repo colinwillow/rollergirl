@@ -11,8 +11,10 @@
 <link rel="manifest" href="manifest.webmanifest">
 <!-- The version is in the FILENAME, never a query string: iOS drops an apple-touch-icon link
      whose href carries one, and the home screen falls back to a screenshot of the page. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon-v2.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32-v2.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-v3.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/apple-touch-icon-167-v3.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/apple-touch-icon-152-v3.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32-v3.png">
 <!-- THE CRASH TRAP IS THE FIRST THING IN THE HEAD, before the import map and before the
      module -- an error the trap is not installed for is an error nobody sees, and that
      includes a module that fails to PARSE and an import that never resolves. Registered
@@ -146,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r30</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r31</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -163,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r30';
+const BUILD = 'r31';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
