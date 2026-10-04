@@ -63,6 +63,11 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
 - `models/melee_zap.glb` — **Zap's melee set, borrowed from weirdport (r39)** by `npm run borrow` (`tools/borrow.mjs`,
   reads `../colinwillow/weirdport/models/characters/zap.glb` or a path you pass): nodes + 12 animations, no mesh,
   632 KB. Re-run it if he re-exports Zap. Delete it the day she has her own melee clips.
+- `models/kit/` — **his weirdport building kit (r45)**, copied from `../colinwillow/weirdport/models/building_kit/`:
+  `building_kit_pieces.glb` (the piece library: `wall_window`, `wall_solid`, `wall_door_C`, `wall_wide`, `wall_parapet`,
+  `corner`, `roof` ... on a 3 m bay / 3 m floor) skins every procedural building, and
+  `building_kit_generated_visual.glb` + `building_kit_collision.glb` are his four generated buildings BKG0-3, imported
+  whole. No draco (custom attributes), WebP textures. `models/props/prop_hydrant.glb` is his hydrant.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
 - `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`.
@@ -302,6 +307,67 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE CITY (r45, `SOLID`, `building`, `KIT`, `LEVEL`, `railPath`, `HYD`/`GEY`, `GEM`, `buildCity`, `cityRails`).**
+  *"Start building out the level -- a system where I can bring in custom textures or meshes, like weirdport ... extremely
+  multilevel, buildings with sections of different height, jump onto another building, grind a rail to another, a zip
+  line, rails with twists and turns to impossible heights, fire hydrants that spew, loops with collectibles."* First pass:
+  a district NORTH of the park, out through a GATE in the north bank (`PARK.gate`, the half width), standing on the
+  apron, which now runs 230 m out in every direction and ends in an outer bank (9 m, nearly vert) with an invisible wall
+  on its deck (`PARK.edge`) -- the world is bounded, `npm run sim solid` reads 0 frames off the map.
+  **SOLIDS** are oriented boxes (`solidAdd`): the TOP goes into the floor collider (a roof is ridden like the plaza),
+  the SIDES push her out along the face she is least deep into (`solidPush`, after every sub-step, never on a rail),
+  `bounce` of the into-speed sent back, a ceiling from underneath, and a box top within `SK.step` is a kerb she rolls up.
+  **A graze turns her nose along the wall** (the leading end, so fakie too): left pointing into it the wheels steer the
+  velocity back into the face every frame and the face takes it away -- a scrape that ate the run (12 -> 8.6 m/s in
+  1.2 s). `hydrant` boxes have NO floor (`top: false`) and are walls all the way up.
+  **BUILDINGS ARE STRINGS** (`building(x0, z0, rows, o)`): one string per 3 m row, a character per cell, `'1'..'9'`
+  floors, `'a'` = 10, `'.'` empty -- so the Steps are `'111222333444'`. Runs merge into boxes for collision; the PICTURE
+  is his kit instanced on the same grid (`kitPut`, `kitBuild`): walls on every exposed face at every level, corners
+  where two exposed faces meet, a roof on every cell, parapets where `o.parapet(i, k, di, dk)` says (each with its own
+  0.25 x 1.02 m box). **One InstancedMesh per piece per material: 650 pieces are 23 draw calls.** The conventions were
+  CHECKED against his own BKG export rather than derived: a wall runs +X 0..3 with its outside face at z = 0 looking
+  +Z; west = yaw -90 at the cell's min-z corner, +Z = yaw 0 at the max-z corner, corner yaw 0 at (min x, max z), roof
+  origin (min x, max z) -- all four match his file. Until the kit arrives (and on a phone where it fails) the city is
+  plain vertex-coloured boxes (`CITY.fallback`), hidden the moment it lands; the chip says `NO KIT GLB` if it never does.
+  **IMPORTS** (`LEVEL.imports`, `levelIngest`): any GLB he exports, placed with `at`/`yaw`, read with weirdport's own
+  naming -- `deck_` `ramp_` `ground_` `road_` are floor triangles, `bld_` `solid_` `prop_` are boxes (`obbOf` finds the
+  yaw that makes the points' box smallest, so a rotated box comes back as that box), a `metal` box is a grind rail along
+  its top, and a root with `cells`/`heights` extras (his generator) gets its WALLS from those, because the export bakes
+  no collider for an intact wall. The visual is merged per material after cutting every member down to
+  position/normal/uv/colour (Float32, filled in where missing) -- `mergeGeometries` refuses a mixed bucket and a
+  refused bucket is a material that silently vanishes. A metal rail INSIDE a building (stair railings) is dropped, and
+  the cells have to be in the grid (`solidBuild`) before that filter asks -- the first run kept 18 such rails.
+  His BKG0-3: 1306 meshes -> 14 draws, 35 cells, 176 boxes, 1992 floor triangles, at (-125, 0, 175), with a bank onto
+  BKG2's roof (to its parapet top, 4.06 m).
+  **RAILS ARE PATHS** (`railPath(points, o)`): `RAILS` holds SEGMENTS, each with the fields a straight rail always had
+  plus `prev`/`next` and its path, so the catch, the tap hop and the air strike's aim needed only "skip a steep
+  segment" and "same PATH, not same segment". A grind walks across joints carrying the overshoot. Path options:
+  `boost` (her speed is pulled to it, `RAILX.boostK`/`boostV` on the panel -- the only way up 31 m), `ups` (per-point
+  up vectors: her body is built from the tangent and this, so a LOOP turns her upside down), `hang` (a ZIP LINE: the
+  segments are her feet, the cable is drawn `hang` above; she holds the air pose -- a placeholder for a hang clip),
+  `maxV`, `drag`, `catchR`, `catchBelow` (the zip's wide catch, so rolling off the gap catches it). `railLine` cuts a
+  straight run into 2 m segments so a tap near ANY part finds a near point (`railHome` clamps inside a segment).
+  **THE DISTRICT** (all measured in `npm run sim city`): the STEPS (3/6/9/12 m, a bank up each, a kicker off the top),
+  the GAP (Steps' kicker at 16 m/s lands on B at x 62), the B -> C down rail, the TOWER (30 m, a 2.75-turn booster
+  SPIRAL to the roof, 17 s, ending heading for the east parapet -- the first version curled straight out through the
+  zip's gap and fell 30 m; the top had to clear the parapet, 31.4 m), the ZIP LINE from the roof's parapet gap to
+  z 300, the LOOP (booster, `boostK` 12, upside down at the top), a bench rail ending at a hydrant, five hydrants.
+  `CITY.spots` + the **➤ key** walk her round them (he has no console), and the chip names where she went.
+  **HYDRANTS** (`hydrant`, `hydBreak`): skate into one past `HYD.breakV`, strike it, or grind within `grindReach`, and the
+  cap flies; the GEYSER is a column of points that LIFTS her (`GEY.acc` to `GEY.vmax` while inside `r`/`h`) -- 11.5 m
+  from the one at the foot of C, whose roof is at 6. His model has one mesh and no separate cap, so the cap is the
+  triangles above `HYD.seam` (`hydFrom`).
+  **GEMS** (`gem`, `gemsAlong`): strung along the lines (`◆ n/N` under the speed), picked up by her body centre.
+  **`npm run sim city` LOADS HIS REAL FILES** through the vendored GLTFLoader with the textures cut out of the GLB
+  (`glbNoTex` -- node has no image decoder and a texture that never decodes is a load that never ends): the kit's
+  every requested piece exists, BKG0-3 merge per material and block her, the hydrant splits into body and cap. Plus a
+  check that nothing is placed inside anything (it caught the spiral's top running through the tower's parapet and the
+  B -> C rail 13 cm into B's roof). Revert-tested: `solidPush` off fails every wall row.
+  **NOT YET**: destructible walls (his `wallB_*` pieces carry `_CHUNK` and chunk tables for exactly that), fire and
+  explosions, a real LOOP surface (the collider answers "height at x,z", so a surface you ride upside down needs a
+  different collider -- the loop is a rail for that reason), climbing his `climb_` ladders, KTX2 textures (weirdport
+  ships `_ktx2` variants because ~80 MB of decoded 1024 WebP is a lot for a phone -- **if the phone reloads in the city,
+  suspect texture memory first**), and per-building styles.
 - **r44: THE AIR FLICK IS THE MELEE CHAIN, PLAYED FROM EACH CLIP'S AIRBORNE WINDOW (`MELEE.airWin`).**
   *"The animation just holds on the last pose and the last pose is her standing on the ground -- she
   looks like she's standing in the air."* Zap's strikes are GROUND clips: several open with a run-up

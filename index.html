@@ -87,6 +87,8 @@
   #build i{font-style:normal;opacity:.7;margin-left:7px}
   #speed{top:calc(44px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left))}
   #speed b{font-size:17px;color:#ff6fa5}
+  #gems{top:calc(76px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left))}
+  #gems b{font-size:15px;color:#7ff3ff}
   .key{position:fixed;z-index:6;top:calc(12px + env(safe-area-inset-top));width:44px;height:38px;
     display:flex;align-items:center;justify-content:center;font-size:17px;border-radius:9px;
     border:0;border-bottom:3px solid #00000066;background:#ffffff1c;color:#e8e4f2;
@@ -98,6 +100,7 @@
   #resetB{right:calc(14px + env(safe-area-inset-right))}
   #charB{right:calc(62px + env(safe-area-inset-right))}
   #tailB{right:calc(110px + env(safe-area-inset-right))}
+  #goB{right:calc(158px + env(safe-area-inset-right))}
   /* THE TAIL PANEL. He tunes on a phone with no console, so every dial is a slider he can drag
      with a thumb. Above the pads (z 5) so a touch on it is never also a stick. */
   #tailP{position:fixed;z-index:8;display:none;top:calc(58px + env(safe-area-inset-top));left:50%;
@@ -161,11 +164,13 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r44</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r45</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
+<div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
 <button class="key" id="tailB" aria-label="settings">&#9881;</button>
+<button class="key" id="goB" aria-label="go somewhere">&#10148;</button>
 <div id="tailP"></div>
 <button id="newer">build ready &middot; tap</button>
 
@@ -177,8 +182,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
+import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r44';
+const BUILD = 'r45';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -197,7 +203,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3"};
+const ASSETS = {"images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -674,7 +680,10 @@ const CAM = {
 // has to be steep enough to turn her round; what stops her is HEIGHT). At 6.6 m it holds anything
 // arriving under about 11.5 m/s and takes most of the speed off the rest, and there is an apron
 // behind it for the launches that do get over.
-const PARK = { S: 70, cell: 5, wallR: 10.0, wallSweep: 70 * Math.PI / 180, wallBack: 14, apron: 30,
+// r45: the apron is the CITY'S GROUND now -- it runs on 230 m past the bank in every direction, so the
+// district to the north stands on the same floor the park does -- and the north bank has a GATE in it
+// (`gate` is its half width) so she can roll out at street level as well as over the top.
+const PARK = { S: 70, cell: 5, wallR: 10.0, wallSweep: 70 * Math.PI / 180, wallBack: 14, apron: 230, gate: 9,
   // HOW VERTICAL THE HALF PIPE'''S WALLS ARE IS THE WHOLE OF "you come back down the same pipe".
   // Leaving a face at angle T from horizontal, the outward drift over the flight is
   // v^2 sin(2T) / g -- so at 85 degrees a 12 m/s launch drifts 1.25 m and lands on the deck,
@@ -883,7 +892,9 @@ loadSky();
 // second description of the ramp to drift out of agreement with the one on screen, and no
 // analytic special case for a curve. A transition is a floor she rolls up, exactly like the
 // flat, and the slope term in `stepGround` does the rest with no new code.
-const TRI = { cell: 4, x0: -160, z0: -160, w: 80, h: 80, cells: null, v: null, n: 0, up: 0.03 };
+// r45: the grid covers the CITY now (960 m square), not just the park. A cell nobody stands in costs
+// one empty slot.
+const TRI = { cell: 4, x0: -480, z0: -480, w: 240, h: 240, cells: null, v: null, n: 0, up: 0.03 };
 let _triRaw = [];
 function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz) {
   const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
@@ -896,8 +907,10 @@ function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz) {
   _triRaw.push(ax, ay, az, bx, by, bz, cx, cy, cz, nx / nl, ny / nl, nz / nl);
 }
 function triBuild() {
+  // r45: THE RAW LIST IS KEPT, because an imported level arrives AFTER the park is built -- its floors
+  // are added with `triAdd` and the grid is simply built again.
   TRI.n = _triRaw.length / 12;
-  TRI.v = new Float32Array(_triRaw); _triRaw = null;
+  TRI.v = new Float32Array(_triRaw);
   TRI.cells = new Array(TRI.w * TRI.h);
   const V = TRI.v;
   for (let t = 0; t < TRI.n; t++) {
@@ -991,6 +1004,7 @@ const CONC = PAL.conc, RAMP = PAL.ramp, COPE = PAL.cope, DECK = PAL.deck, SIDE =
 function extrude(ox, oz, yaw, halfW, prof, skirt) {
   const fx = Math.sin(yaw), fz = Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw);
   const P = (u, y, w) => [ox + fx * u + sx * w, y, oz + fz * u + sz * w];
+  let yb = Infinity; for (const q of prof) yb = Math.min(yb, q.y);
   for (let i = 0; i < prof.length - 1; i++) {
     const a = prof[i], b = prof[i + 1];
     if (Math.abs(a.u - b.u) < 1e-6 && Math.abs(a.y - b.y) < 1e-6) continue;
@@ -1009,9 +1023,10 @@ function extrude(ox, oz, yaw, halfW, prof, skirt) {
     // the inside of its deck, which is culled too, so you saw the world behind it. Worked out
     // rather than flipped and re-flipped: F x up is -S, so the +halfW face needs the order that
     // puts its normal along +S.
-    if (skirt !== false && (a.y > 0.02 || b.y > 0.02)) {
-      quad(P(a.u, a.y, halfW), P(b.u, b.y, halfW), P(b.u, 0, halfW), P(a.u, 0, halfW), SIDE, false);
-      quad(P(a.u, 0, -halfW), P(b.u, 0, -halfW), P(b.u, b.y, -halfW), P(a.u, a.y, -halfW), SIDE, false);
+    // r45: down to the profile's OWN floor, not to y = 0 -- a kicker on a roof is not a wall to the street.
+    if (skirt !== false && (a.y > yb + 0.02 || b.y > yb + 0.02)) {
+      quad(P(a.u, a.y, halfW), P(b.u, b.y, halfW), P(b.u, yb, halfW), P(a.u, yb, halfW), SIDE, false);
+      quad(P(a.u, yb, -halfW), P(b.u, yb, -halfW), P(b.u, b.y, -halfW), P(a.u, a.y, -halfW), SIDE, false);
     }
   }
 }
@@ -1104,10 +1119,10 @@ function funBox(ox, oz, yaw, halfW, len, h, rise) {
 }
 // A kicker ENDS ABRUPTLY, and that is the point: the drop at the lip is what makes the launch
 // test fire and puts her in the air carrying the velocity she rode up with.
-function kicker(ox, oz, yaw, halfW, r, sweep) {
-  const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep);
-  const p = [{ u: 0, y: 0, c: RAMP }];
-  arcUp(p, 0, 0, r, sweep, 12, RAMP);
+function kicker(ox, oz, yaw, halfW, r, sweep, base) {
+  const H = r * (1 - Math.cos(sweep)), lip = r * Math.sin(sweep), y0 = base || 0;
+  const p = [{ u: 0, y: y0, c: RAMP }];
+  arcUp(p, 0, y0, r, sweep, 12, RAMP);
   // NO FLAT COPING BAND HERE, and that is not cosmetic: a ten-centimetre flat on top of a 38
   // degree lip is a LANDING PAD. She meets it with her velocity pointing 38 degrees up, the
   // re-projection takes the whole normal component, and she leaves the ramp with no vertical
@@ -1199,10 +1214,39 @@ function perimeter(S, r, sweep, back, apron) {
   prof.push({ u: lip + 4.0, y: H, c: DECK });
   prof.push({ u: lip + 4.0 + back, y: 0, c: RAMP });
   prof.push({ u: lip + 4.0 + back + apron, y: 0, c: CONC });
+  // r45: AND THE CITY HAS AN EDGE. The apron is the whole district's ground now, and at its far side it
+  // banks up 9 m to a deck with a wall on it, so the world ends in something she rides rather than a drop.
+  const u0 = prof[prof.length - 1].u, i0 = prof.length - 1;
+  arcUp(prof, u0, 0, 12, 75 * Math.PI / 180, 10, RAMP);
+  prof[prof.length - 1].c = DECK;
+  prof.push({ u: prof[prof.length - 1].u + 6, y: prof[prof.length - 1].y, c: DECK });
+  PARK.edge = { u: prof[prof.length - 1].u - 2.5, y: prof[prof.length - 1].y };
   // the four edges: origin on the edge, the profile running outward
   for (let i = 0; i < 4; i++) {
     const yaw = i * Math.PI / 2;
+    // r45: THE NORTH EDGE IS TWO PIECES WITH A GATE BETWEEN THEM, each with its end wall drawn, and the
+    // gap floored at street level all the way out -- a hole in the bank must not be a hole in the world.
+    if (i === 0 && PARK.gate > 0) {
+      const g = PARK.gate, hw = (S - g) / 2;
+      for (const sx of [-1, 1]) extrude(sx * (g + hw), S, 0, hw, prof, true);
+      extrude(0, S, 0, g, prof.slice(i0), false);           // the outer bank runs across the gate too
+      continue;
+    }
     extrude(Math.sin(yaw) * S, Math.cos(yaw) * S, yaw, S, prof, false);
+  }
+  if (PARK.gate > 0) { const g = PARK.gate, L = u0;
+    quad([-g, 0, S], [-g, 0, S + L], [g, 0, S + L], [g, 0, S], CONC); }
+  // the wall on the edge deck: four straight runs and a ring of chords round each corner -- invisible,
+  // and no floor on top, so nothing can stand on it and nothing gets past it
+  const E = PARK.edge, D = S + E.u, wy0 = E.y - 0.5, wy1 = E.y + 40;
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2;
+    solidAdd(Math.sin(a) * D, Math.cos(a) * D, S + 1, 0.6, wy0, wy1, a, { top: false, tag: 'edge' }); }
+  for (const [cx, cz, a0] of [[S, S, 0], [S, -S, -Math.PI / 2], [-S, -S, Math.PI], [-S, S, Math.PI / 2]]) {
+    const n = 10, r = E.u, half = r * Math.sin(Math.PI / 4 / n) + 1;
+    for (let k = 0; k < n; k++) { const a = a0 + (k + 0.5) / n * Math.PI / 2;
+      // angle measured from +X toward +Z, the way `revolve` sweeps
+      const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
+      solidAdd(x, z, half, 0.6, wy0, wy1, Math.atan2(Math.cos(a), Math.sin(a)), { top: false, tag: 'edge' }); }   // local z radial
   }
   // the four corners: the same profile, revolved a quarter turn about the corner POINT, each
   // covering exactly the quadrant its two edges leave behind
@@ -1228,15 +1272,22 @@ function buildPark() {
   kicker(11, 14, Math.PI, 2.6, 4.0, 38 * Math.PI / 180);
   funBox(14, -16, Math.PI / 2, 4.0, 8, 1.6, 4.5);
   bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
+  buildCity();       // r45: the district -- its floors and walls go into the same collider
   triBuild();
+  solidBuild();
   buildRails();      // AFTER the collider: each post is measured down to the ground under it
-  const geo = (a, b) => { const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(MESH.pos.slice(a, b), 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(MESH.nrm.slice(a, b), 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(MESH.col.slice(a, b), 3));
+  cityRails();
+  hydDraw(); geyMake();
+  const geo = (...rs) => { const g = new THREE.BufferGeometry(), cat = (A) => rs.flatMap(([a, b]) => A.slice(a, b));
+    g.setAttribute('position', new THREE.Float32BufferAttribute(cat(MESH.pos), 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(cat(MESH.nrm), 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cat(MESH.col), 3));
     g.computeBoundingSphere(); return g; };
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0.0 });
-  parkMesh = new THREE.Mesh(geo(nPlaza, MESH.pos.length), mat);
+  // THE CITY'S STAND-IN BOXES ARE THEIR OWN MESH, so the kit can switch them off when it arrives
+  const F = CITY.fall || [MESH.pos.length, MESH.pos.length];
+  parkMesh = new THREE.Mesh(geo([nPlaza, F[0]], [F[1], MESH.pos.length]), mat);
+  if (F[1] > F[0]) { CITY.fallback = new THREE.Mesh(geo(F), mat); CITY.fallback.castShadow = CITY.fallback.receiveShadow = true; CITY.fallback.name = 'city boxes'; scene.add(CITY.fallback); }
   parkMesh.receiveShadow = true; parkMesh.castShadow = true;
   scene.add(parkMesh);
   // r40: THE PLAZA IS PUSHED BACK IN DEPTH, so anything at its height wins over it instead of fighting
@@ -1244,7 +1295,7 @@ function buildPark() {
   // is coplanar with the floor to within depth precision whatever the geometry does. `polygonOffset`
   // moves only the depth the floor is tested at, not where it is drawn or collided, so her skates and
   // the collider are untouched.
-  const plazaMesh = new THREE.Mesh(geo(0, nPlaza), mat.clone());
+  const plazaMesh = new THREE.Mesh(geo([0, nPlaza]), mat.clone());
   Object.assign(plazaMesh.material, { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 });
   plazaMesh.receiveShadow = true; plazaMesh.name = 'plaza';
   scene.add(plazaMesh);
@@ -1254,33 +1305,99 @@ function buildPark() {
 
 // NOT IN THE COLLIDER. A rail is a thing she catches, not a floor or a wall -- a bar thin enough to
 // look right is thin enough to trip on, and riding past one must never snag her.
-const RAILS = [];
+// r45: A RAIL IS A PATH OF SEGMENTS NOW, and `RAILS` holds the SEGMENTS. *"Rails that have twists and
+// turns and get you to high impossible heights."* Every segment carries the same fields a straight rail
+// always had (`a`, `b`, `d`, `len`, `hx/hz/hl`), so the catch, the tap hop and the air strike's aim work
+// on a spiral exactly as they did on a straight bar -- plus `prev`/`next`, so a grind runs off the end of
+// one segment straight onto the next, and its PATH, which carries what is special about it:
+//   boost   a booster rail: her speed is pulled to this whatever the slope (`boostK` how hard) -- the
+//           only way up a 30 m spiral or round a loop, and why those glow
+//   hang    a ZIP LINE: the segments are where her FEET are and the cable is drawn `hang` above them
+//   ups     per point "up" vectors: her body is built from the rail's tangent and this, so a LOOP turns
+//           her upside down. Without it she stands plumb, as on every straight rail.
+// Only a segment that is mostly horizontal (`flat`) can be CAUGHT; a steep one can only be ridden into.
+// Comparisons that used to be "the same rail" are "the same PATH" -- a spiral is one rail, not 180.
+const RAILS = [], PATHS = [];
+const RAILX = { boostK: 3, boostV: 1, tube: 0.045 };   // boostV scales every booster's speed (a panel dial)
+const samePath = (A, B) => !!A && !!B && A.path === B.path;
+function railPath(pts, o) {
+  o = o || {};
+  const P = { segs: [], boost: o.boost || 0, boostK: o.boostK || 0, hang: o.hang || 0, maxV: o.maxV || 0,
+    drag: o.drag, slope: o.slope, ups: o.ups || null, name: o.name || '', catchR: o.catchR || 0, catchBelow: o.catchBelow || 0 };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i].clone(), b = pts[i + 1].clone(), d = b.clone().sub(a), len = d.length();
+    if (len < 1e-3) continue;
+    d.divideScalar(len);
+    const hx = b.x - a.x, hz = b.z - a.z, hl0 = Math.hypot(hx, hz), hl = Math.max(hl0, 1e-3);
+    const R = { a, b, d, len, hx: hl0 > 1e-6 ? hx / hl : 1, hz: hl0 > 1e-6 ? hz / hl : 0, hl, path: P,
+      prev: null, next: null, flat: hl0 > 0.5 * len, mx: (a.x + b.x) / 2, mz: (a.z + b.z) / 2, rr: len / 2 + 1.5,
+      ua: P.ups ? P.ups[i].clone().normalize() : null, ub: P.ups ? P.ups[i + 1].clone().normalize() : null };
+    if (P.segs.length) { R.prev = P.segs[P.segs.length - 1]; R.prev.next = R; }
+    P.segs.push(R); RAILS.push(R);
+  }
+  PATHS.push(P);
+  return P;
+}
+// a straight run cut into `step`-metre pieces, so a tap near ANY part of it finds a near point
+function railLine(a, b, step) {
+  const n = Math.max(1, Math.round(a.distanceTo(b) / (step || 2))), out = [];
+  for (let i = 0; i <= n; i++) out.push(a.clone().lerp(b, i / n));
+  return out;
+}
+const RAILMAT = {};
+function railMats() {
+  if (RAILMAT.bar) return RAILMAT;
+  RAILMAT.bar = new THREE.MeshStandardMaterial({ color: 0xc9cdd6, metalness: 0.85, roughness: 0.32 });
+  RAILMAT.post = new THREE.MeshStandardMaterial({ color: 0x7c8190, metalness: 0.6, roughness: 0.5 });
+  RAILMAT.boost = new THREE.MeshStandardMaterial({ color: 0xff6fa5, emissive: 0xff3d8a, emissiveIntensity: 0.9, metalness: 0.4, roughness: 0.3 });
+  RAILMAT.cable = new THREE.MeshStandardMaterial({ color: 0x2a2633, metalness: 0.5, roughness: 0.5 });
+  return RAILMAT;
+}
+// DRAWING A PATH: a straight two-point rail is the old cylinder; anything else is a tube through its
+// points. The bar's TOP is the line she rides, so the tube is dropped by its radius along "up"; a zip
+// line's cable is drawn `hang` above her feet. Posts go down to whatever is under them, short ones only.
+function railDraw(P, o) {
+  o = o || {};
+  const M = railMats(), R0 = RAILX.tube, Y = new THREE.Vector3(0, 1, 0);
+  const mat = P.hang ? M.cable : P.boost ? M.boost : M.bar;
+  const r = P.hang ? 0.028 : R0;
+  const pts = [P.segs[0].a, ...P.segs.map(s => s.b)];
+  const up = i => (P.ups ? (i < P.segs.length ? P.segs[i].ua : P.segs[P.segs.length - 1].ub) : Y);
+  const cen = pts.map((q, i) => q.clone().addScaledVector(up(i), P.hang ? P.hang : -r));
+  let mesh;
+  if (cen.length === 2) {
+    const d = cen[1].clone().sub(cen[0]), len = d.length();
+    mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat);
+    mesh.position.copy(cen[0]).add(cen[1]).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(Y, d.normalize());
+  } else {
+    const curve = new THREE.CatmullRomCurve3(cen, false, 'centripetal');
+    mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(8, cen.length * 2), r, 10, false), mat);
+  }
+  mesh.castShadow = true; scene.add(mesh);
+  if (o.posts === false) return mesh;
+  // posts every ~3 m along the line, only where the bar is low enough over what is under it
+  const maxH = o.postMax || 6, every = o.every || 3;
+  let next = every / 2, cum = 0;
+  for (const S of P.segs) {
+    while (next <= cum + S.len) {
+      const q = S.a.clone().lerp(S.b, (next - cum) / S.len); next += every;
+      if (P.ups && S.ua.y < 0.9) continue;
+      const top = q.y - r * 2, g = groundAt(q.x, q.z, top, 40), floor = g.hit ? g.floor : 0, h = top - floor;
+      if (h < 0.05 || h > maxH) continue;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, h, 8), M.post);
+      post.position.set(q.x, floor + h / 2, q.z); post.castShadow = true; scene.add(post);
+    }
+    cum += S.len;
+  }
+  return mesh;
+}
 function buildRails() {
-  RAILS.length = 0;
-  const mat = new THREE.MeshStandardMaterial({ color: 0xc9cdd6, metalness: 0.85, roughness: 0.32 });
-  const postMat = new THREE.MeshStandardMaterial({ color: 0x7c8190, metalness: 0.6, roughness: 0.5 });
-  const Y = new THREE.Vector3(0, 1, 0);
   const apex = AIR.jump * AIR.jump / (2 * SK.g);
   const atop = (q) => { const g = groundAt(q[0], q[2], 50, 100); return new THREE.Vector3(q[0], (g.hit ? g.floor : 0) + q[1] * apex, q[2]); };
   for (const r of RAIL_DEF) {
-    const a = atop(r.a), b = atop(r.b);
-    const d = b.clone().sub(a), len = d.length(); d.normalize();
-    const hx = r.b[0] - r.a[0], hz = r.b[2] - r.a[2], hl = Math.hypot(hx, hz);
-    RAILS.push({ a, b, d, len, hx: hx / hl, hz: hz / hl, hl });
-    const R = 0.045;
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(R, R, len, 12), mat);
-    bar.position.copy(a).add(b).multiplyScalar(0.5).y -= R;    // the TOP of the bar is the line
-    bar.quaternion.setFromUnitVectors(Y, d);
-    bar.castShadow = true; scene.add(bar);
-    const posts = Math.max(2, Math.round(len / 3) + 1);
-    for (let i = 0; i < posts; i++) {
-      const u = (i + 0.5) / posts, x = a.x + (b.x - a.x) * u, z = a.z + (b.z - a.z) * u;
-      const top = a.y + (b.y - a.y) * u - R * 2;
-      const g = groundAt(x, z, top, 20), floor = g.hit ? g.floor : 0;
-      const h = Math.max(0.05, top - floor);
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, h, 8), postMat);
-      post.position.set(x, floor + h / 2, z); post.castShadow = true; scene.add(post);
-    }
+    const P = railPath([atop(r.a), atop(r.b)], { name: 'park' });
+    railDraw(P, { every: P.segs[0].len / Math.max(2, Math.round(P.segs[0].len / 3) + 1) });
   }
 }
 // THE CATCH. Swept along the frame's own travel -- at 15 m/s a frame is a quarter of a metre, and
@@ -1291,15 +1408,17 @@ function railCatch(p0, p1, vel) {
   if (p.grindCool > 0 && !p.grindLast) return null;
   const vh = Math.hypot(vel.x, vel.z);
   for (const R of RAILS) {
+    if (!R.flat || Math.abs(p1.x - R.mx) > R.rr || Math.abs(p1.z - R.mz) > R.rr) continue;
     // r39: A FLYING KICK SOLVED ONTO THIS RAIL is caught on a wider window, rising or square-on, in the
     // direction it was aimed -- the aim already decided it is a grind; the gates are for an ordinary jump.
-    const kt = p.kickRail && p.kickRail.R === R;
-    if (p.grindCool > 0 && R === p.grindLast && !kt) continue;
-    const cR = kt ? 0.9 : GRIND.catchR, ab = kt ? 0.7 : GRIND.above, be = kt ? 0.6 : GRIND.below;
+    const kt = p.kickRail && samePath(p.kickRail.R, R);
+    if (p.grindCool > 0 && samePath(R, p.grindLast) && !kt) continue;
+    const cR = kt ? 0.9 : (R.path.catchR || GRIND.catchR), ab = kt ? 0.7 : GRIND.above, be = kt ? 0.6 : (R.path.catchBelow || GRIND.below);
+    const t0 = R.prev ? 0 : 0.02, t1 = R.next ? 1 : 0.98;     // a joint between segments is not an end
     for (const k of [0.34, 0.67, 1]) {
       const qx = p0.x + (p1.x - p0.x) * k, qy = p0.y + (p1.y - p0.y) * k, qz = p0.z + (p1.z - p0.z) * k;
       const t = ((qx - R.a.x) * R.hx + (qz - R.a.z) * R.hz) / R.hl;
-      if (t < 0.02 || t > 0.98) continue;
+      if (t < t0 || t > t1) continue;
       const cx = R.a.x + (R.b.x - R.a.x) * t, cy = R.a.y + (R.b.y - R.a.y) * t, cz = R.a.z + (R.b.z - R.a.z) * t;
       const off = (qx - cx) * -R.hz + (qz - cz) * R.hx;       // signed distance, + to the rail's RIGHT
       if (Math.abs(off) > cR) continue;
@@ -1349,20 +1468,36 @@ function enterGrind(c) {
 // ON THE RAIL: locked to the line, slowed by `drag`, sped up or slowed by the slope, and off it
 // when she runs out of rail, runs out of speed, or taps off.
 function stepGrind(dt) {
-  const p = player, G = p.grind, R = G.rail;
-  const ux = R.d.x * G.dir, uy = R.d.y * G.dir, uz = R.d.z * G.dir;
-  G.s += -SK.g * uy * GRIND.slope * dt;
-  G.s = decay(G.s, GRIND.drag, dt);
+  const p = player, G = p.grind;
+  let R = G.rail; const P = R.path;
+  let ux = R.d.x * G.dir, uy = R.d.y * G.dir, uz = R.d.z * G.dir;
+  G.s += -SK.g * uy * (P.slope != null ? P.slope : GRIND.slope) * dt;
+  G.s = decay(G.s, P.drag != null ? P.drag : GRIND.drag, dt);
+  // r45: A BOOSTER pulls her speed to its own whatever the slope -- what gets her up a 30 m spiral
+  if (P.boost) G.s += (P.boost * RAILX.boostV - G.s) * (1 - Math.exp(-(P.boostK || RAILX.boostK) * dt));
+  if (P.maxV) G.s = Math.min(G.s, P.maxV);
   G.t += G.dir * G.s * dt / R.len;
+  // r45: OFF THE END OF ONE SEGMENT AND ONTO THE NEXT, carrying the overshoot in metres
+  while (G.t > 1 && G.dir > 0 && R.next) { G.t = (G.t - 1) * R.len / R.next.len; R = G.rail = R.next; }
+  while (G.t < 0 && G.dir < 0 && R.prev) { G.t = 1 + G.t * R.len / R.prev.len; R = G.rail = R.prev; }
+  ux = R.d.x * G.dir; uy = R.d.y * G.dir; uz = R.d.z * G.dir;
   G.time += dt;
   const end = G.t <= 0 || G.t >= 1;
   G.t = clamp(G.t, 0, 1);
   p.pos.copy(R.a).lerp(R.b, G.t);
   p.vel.set(ux * G.s, uy * G.s, uz * G.s);
-  p.heading = Math.atan2(ux, uz) + (p.stance < 0 ? Math.PI : 0);
-  p.bq.setFromAxisAngle(UP, p.heading);
+  // the heading follows the rail where it has a horizontal direction; straight up a loop it keeps the last
+  if (Math.hypot(ux, uz) > 0.3) p.heading = Math.atan2(ux, uz) + (p.stance < 0 ? Math.PI : 0);
+  if (R.ua) {
+    // r45: ON A LOOP OR A TWIST HER BODY IS BUILT FROM THE RAIL: forward along it, up from the path
+    const f = _v.set(ux, uy, uz).multiplyScalar(p.stance < 0 ? -1 : 1);
+    const u = _v2.copy(R.ua).lerp(R.ub, G.t); u.addScaledVector(f, -u.dot(f)).normalize();
+    const x = _v3.crossVectors(u, f).normalize();
+    p.bq.setFromRotationMatrix(_m4.makeBasis(x, u, f));
+  } else p.bq.setFromAxisAngle(UP, p.heading);
   if (end || G.s < GRIND.stall) grindLeave(false);
 }
+const _v3 = new THREE.Vector3(), _m4 = new THREE.Matrix4();
 function grindLeave(pop) {
   const p = player, G = p.grind;
   if (!G) return;
@@ -1371,8 +1506,678 @@ function grindLeave(pop) {
   if (pop) p.vel.y += AIR.jump * GRIND.popK;
   // dropped off for want of speed: tipped off the side she came from, so she does not fall
   // straight back down onto the bar she just lost
-  else if (G.s < GRIND.stall) { const sd = G.side === 'right' ? -1 : 1, R = G.rail;
+  else if (G.s < GRIND.stall && !G.rail.ua) { const sd = G.side === 'right' ? -1 : 1, R = G.rail;
     p.vel.x += -R.hz * G.dir * sd * 1.5; p.vel.z += R.hx * G.dir * sd * 1.5; }
+}
+
+// =====================================================================================================
+// THE CITY (r45)
+// *"Let's start building out the level... a system where I can bring in custom textures or custom meshes
+// ... extremely multilevel: buildings big and wide enough with different sections of different height,
+// go off a jump onto another building, grind a rail to another, go higher, take a zip line, rails with
+// twists and turns to impossible heights... fire hydrants you knock the top off and they spew... loops
+// with collectibles."* The first pass of that, in four systems that the rest builds on:
+//   SOLIDS   boxes that STOP her (walls) and whose tops are floors (roofs). The park never needed walls --
+//            every surface in it is a floor she rolls up -- and a city is nothing but walls.
+//   BUILDINGS a footprint of 3 m cells, each with its own number of floors, so setbacks and stepped
+//            roofs are one string per row. Collision is the cells; the PICTURE is his weirdport kit
+//            (`building_kit_pieces.glb`: walls, windows, doors, roofs, corners, parapets) instanced over
+//            the same grid -- the same 3 m bay and 3 m floor his Blender generator uses.
+//   IMPORTS  any GLB he exports, with weirdport's collision naming: `deck_` `ramp_` `ground_` `road_` are
+//            floors, `bld_` `solid_` `prop_` are boxes, a `metal` box is a grind rail, and a root with
+//            `cells`/`heights` extras (his generator's output) gets its walls from those. The first one
+//            in is his own four generated buildings, BKG0..BKG3, unchanged.
+//   PATHS    rails as chains of segments (above): spirals, loops, zip lines, boosters.
+// The district sits NORTH of the park, through the gate in the north bank.
+// =====================================================================================================
+const CITY = { on: 1, bay: 3, floor: 3 };
+// ---- SOLIDS ----------------------------------------------------------------------------------------
+// An ORIENTED box: centre, half sizes, a yaw, a bottom and a top. Its top is added to the floor collider
+// (so a roof is ridden exactly like the plaza), and its sides push her out along the face she is least
+// deep into -- the one rule that gives a wall, a corner and a ceiling. Only the part of her velocity
+// going INTO the face is touched (and `bounce` of it sent back), so a graze along a wall keeps its speed.
+// A box top within `SK.step` of her feet is a kerb she rolls up, which is the same rule the floors use.
+const SOLID = { cell: 8, x0: -480, z0: -480, w: 120, h: 120, cells: null, all: [], r: 0.3, hgt: 1.7, bounce: 0.12 };
+function solidAdd(cx, cz, hx, hz, y0, y1, yaw, o) {
+  yaw = yaw || 0; o = o || {};
+  const b = { cx, cz, hx, hz, y0, y1, c: Math.cos(yaw), s: Math.sin(yaw), yaw, live: true, tag: o.tag || '',
+    on: o.on || null, floor: o.top !== false };
+  if (b.floor) {
+    const P = (lx, lz) => [cx + lx * b.c + lz * b.s, y1, cz - lx * b.s + lz * b.c];
+    const A = P(-hx, -hz), B = P(-hx, hz), C = P(hx, hz), D = P(hx, -hz);
+    triAdd(A[0], A[1], A[2], B[0], B[1], B[2], C[0], C[1], C[2]);
+    triAdd(A[0], A[1], A[2], C[0], C[1], C[2], D[0], D[1], D[2]);
+  }
+  SOLID.all.push(b);
+  return b;
+}
+function solidBuild() {
+  const S = SOLID; S.cells = new Array(S.w * S.h);
+  for (const b of S.all) {
+    const ex = Math.abs(b.hx * b.c) + Math.abs(b.hz * b.s) + 1, ez = Math.abs(b.hx * b.s) + Math.abs(b.hz * b.c) + 1;
+    const i0 = clamp(Math.floor((b.cx - ex - S.x0) / S.cell), 0, S.w - 1), i1 = clamp(Math.floor((b.cx + ex - S.x0) / S.cell), 0, S.w - 1);
+    const k0 = clamp(Math.floor((b.cz - ez - S.z0) / S.cell), 0, S.h - 1), k1 = clamp(Math.floor((b.cz + ez - S.z0) / S.cell), 0, S.h - 1);
+    for (let k = k0; k <= k1; k++) for (let i = i0; i <= i1; i++) { const c = k * S.w + i; (S.cells[c] || (S.cells[c] = [])).push(b); }
+  }
+}
+function solidList(x, z) {
+  const S = SOLID; if (!S.cells) return null;
+  const i = Math.floor((x - S.x0) / S.cell), k = Math.floor((z - S.z0) / S.cell);
+  if (i < 0 || k < 0 || i >= S.w || k >= S.h) return null;
+  return S.cells[k * S.w + i] || null;
+}
+// is this point inside a box (grown by `m`)? The camera's question, and the import's.
+function solidAt(x, y, z, m, pred) {
+  const L = solidList(x, z); if (!L) return null;
+  for (const b of L) {
+    if (!b.live || y < b.y0 - m || y > b.y1 + m || (pred && !pred(b))) continue;
+    const dx = x - b.cx, dz = z - b.cz, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c;
+    if (Math.abs(lx) < b.hx + m && Math.abs(lz) < b.hz + m) return b;
+  }
+  return null;
+}
+function solidPush() {
+  const p = player, L = solidList(p.pos.x, p.pos.z); if (!L) return false;
+  let hit = false;
+  for (const b of L) {
+    if (!b.live || p.pos.y + SOLID.hgt <= b.y0 || p.pos.y >= b.y1 - (b.floor ? SK.step : 0)) continue;
+    const dx = p.pos.x - b.cx, dz = p.pos.z - b.cz, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c;
+    const r = SOLID.r, ex = b.hx + r - Math.abs(lx), ez = b.hz + r - Math.abs(lz);
+    if (ex <= 0 || ez <= 0) continue;
+    // FROM UNDERNEATH: her head into the bottom of something in the air
+    const ey = p.pos.y + SOLID.hgt - b.y0;
+    if (b.y0 > 0.05 && p.pos.y < b.y0 && ey < Math.min(ex, ez)) {
+      p.pos.y = b.y0 - SOLID.hgt; if (p.vel.y > 0) p.vel.y = 0; hit = true; continue;
+    }
+    let nlx = 0, nlz = 0, pen;
+    if (ex < ez) { nlx = lx >= 0 ? 1 : -1; pen = ex; } else { nlz = lz >= 0 ? 1 : -1; pen = ez; }
+    const nx = nlx * b.c + nlz * b.s, nz = -nlx * b.s + nlz * b.c;
+    p.pos.x += nx * pen; p.pos.z += nz * pen;
+    const vn = p.vel.x * nx + p.vel.z * nz;
+    if (vn < 0) { const k = (1 + SOLID.bounce) * vn; p.vel.x -= nx * k; p.vel.z -= nz * k; }
+    // A GRAZE TURNS HER ALONG THE WALL. Left pointing into it, the wheels keep steering her velocity back
+    // into the face every frame and the face takes it away again -- a scrape that bleeds the whole run.
+    // A skater glancing off a wall comes away parallel to it, so the nose is laid along the face.
+    if (p.grounded && p.hSpeed > 2) {
+      // the LEADING end -- in fakie that is her tail
+      const sg = (p.vel.x * Math.sin(p.heading) + p.vel.z * Math.cos(p.heading)) < 0 ? -1 : 1;
+      const fx = Math.sin(p.heading) * sg, fz = Math.cos(p.heading) * sg, fd = fx * nx + fz * nz;
+      if (fd < -0.02 && fd > -0.9) { const tx = fx - fd * nx, tz = fz - fd * nz; p.heading = Math.atan2(tx * sg, tz * sg); }
+    }
+    if (b.on) b.on(b, Math.max(-vn, 0));
+    hit = true;
+  }
+  return hit;
+}
+
+// ---- THE PICTURE BEFORE THE KIT ARRIVES -------------------------------------------------------------
+// Plain boxes in the park's own vertex colours, so the city is there (and solid) from the first frame,
+// and still there on a phone whose download of the kit failed. They are hidden the moment it lands.
+function boxDraw(x0, x1, y0, y1, z0, z1, wall, top, floors) {
+  const band = floors ? Math.max(1, Math.round((y1 - y0) / CITY.floor)) : 1, fh = (y1 - y0) / band;
+  for (let f = 0; f < band; f++) {
+    for (let part = 0; part < (floors ? 2 : 1); part++) {
+      const ya = y0 + f * fh + (part ? fh * 0.38 : 0), yb = floors ? (part ? y0 + (f + 1) * fh : y0 + f * fh + fh * 0.38) : y1;
+      const c = part ? (wall & 0xfefefe) >> 1 | 0x202838 : wall;
+      quad([x0, ya, z1], [x1, ya, z1], [x1, yb, z1], [x0, yb, z1], c, false);
+      quad([x1, ya, z0], [x0, ya, z0], [x0, yb, z0], [x1, yb, z0], c, false);
+      quad([x1, ya, z1], [x1, ya, z0], [x1, yb, z0], [x1, yb, z1], c, false);
+      quad([x0, ya, z0], [x0, ya, z1], [x0, yb, z1], [x0, yb, z0], c, false);
+    }
+  }
+  if (top != null) quad([x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], top, false);
+}
+
+// ---- BUILDINGS ---------------------------------------------------------------------------------------
+// `rows` is one string per 3 m row of cells (row 0 at z0, going +Z), one character per cell (going +X):
+// '1'..'9' floors, 'a' = 10, 'b' = 11 ..., '.' nothing. So a setback is a different digit:
+//     building(12, 150, ['111222333444', ...])   is four stepped roofs at 3, 6, 9 and 12 m.
+// Collision is the cells (runs merged into boxes); the picture is his kit, placed on the same grid.
+const KIT = { file: 'models/kit/building_kit_pieces.glb', place: [], lib: null, ready: false, failed: false, meshes: [] };
+const BLDG = [];
+const cellH = ch => ch === '.' || ch === ' ' ? 0 : ch >= 'a' ? 10 + ch.charCodeAt(0) - 97 : +ch || 0;
+function kitPut(name, x, y, z, yaw) { KIT.place.push([name, x, y, z, yaw]); }
+function building(x0, z0, rows, o) {
+  o = o || {};
+  const B = CITY.bay, F = CITY.floor, H = rows.map(r => [...r].map(cellH)), nz = H.length;
+  const nx = Math.max(...H.map(r => r.length));
+  const h = (i, k) => (k >= 0 && k < nz && i >= 0 && i < H[k].length ? H[k][i] : 0);
+  const name = o.name || 'bldg' + BLDG.length;
+  // runs along X, then merged down Z where the run below is identical -- a handful of boxes per building
+  const runs = [];
+  for (let k = 0; k < nz; k++) for (let i = 0; i < nx;) {
+    const f = h(i, k); if (!f) { i++; continue; }
+    let j = i; while (j + 1 < nx && h(j + 1, k) === f) j++;
+    const prev = runs.find(r => r.i === i && r.j === j && r.f === f && r.k1 === k - 1);
+    if (prev) prev.k1 = k; else runs.push({ i, j, f, k0: k, k1: k });
+    i = j + 1;
+  }
+  const wall = o.col || 0xc9bfd8;
+  for (const r of runs) {
+    const xa = x0 + r.i * B, xb = x0 + (r.j + 1) * B, za = z0 + r.k0 * B, zb = z0 + (r.k1 + 1) * B;
+    solidAdd((xa + xb) / 2, (za + zb) / 2, (xb - xa) / 2, (zb - za) / 2, 0, r.f * F, 0, { tag: name });
+    boxDraw(xa, xb, 0, r.f * F, za, zb, wall, DECK, true);
+  }
+  // A ROOF EDGE CAN CARRY A PARAPET: a 1 m wall she has to jump, and the thing that keeps her ON a roof
+  // she landed on at speed. `parapet(i, k, side)` says which edges; `true` is every one.
+  const par = o.parapet === true ? () => true : (typeof o.parapet === 'function' ? o.parapet : () => false);
+  // THE KIT, on the same grid. A wall piece runs along +X from 0 to 3 with its OUTSIDE face at z = 0
+  // looking +Z, so a yaw turns it onto any side: outward normal (sin yaw, cos yaw), run (cos yaw, -sin yaw).
+  const sides = [ // [di, dk, yaw, origin offset (in cells) of the piece's 0 end]
+    [0, 1, 0, 0, 1],            // north (+Z): starts at the cell's west end
+    [0, -1, Math.PI, 1, 0],     // south (-Z): starts at the east end, runs -X
+    [1, 0, Math.PI / 2, 1, 1],  // east (+X): starts at the north end, runs -Z
+    [-1, 0, -Math.PI / 2, 0, 0],// west (-X): starts at the south end, runs +Z
+  ];
+  let seed = Math.abs(Math.round(x0 * 7 + z0 * 13)) + 1;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let k = 0; k < nz; k++) for (let i = 0; i < nx; i++) {
+    const f = h(i, k); if (!f) continue;
+    const cx = x0 + i * B, cz = z0 + k * B;
+    for (const [di, dk, yaw, oi, ok] of sides) {
+      const nb = h(i + di, k + dk);
+      for (let L = nb; L < f; L++) {
+        const q = rnd();
+        const piece = L === 0 ? (q < 0.18 ? 'wall_door_C' : q < 0.3 ? 'wall_wide' : 'wall_window') : (q < 0.72 ? 'wall_window' : 'wall_solid');
+        kitPut(piece, cx + oi * B, L * F, cz + ok * B, yaw);
+      }
+      if (nb < f && par(i, k, di, dk)) {
+        kitPut('wall_parapet', cx + oi * B, f * F, cz + ok * B, yaw);
+        // the parapet's box: 0.25 thick, just inside the cell's edge
+        const t = 0.125, mx = cx + B / 2 + di * (B / 2 - t), mz = cz + B / 2 + dk * (B / 2 - t);
+        solidAdd(mx, mz, di ? t : B / 2, dk ? t : B / 2, f * F, f * F + 1.02, 0, { tag: name + ':parapet' });
+        boxDraw(mx - (di ? t : B / 2), mx + (di ? t : B / 2), f * F, f * F + 1.02, mz - (dk ? t : B / 2), mz + (dk ? t : B / 2), wall, DECK, false);
+      }
+    }
+    kitPut('roof', cx, f * F, cz + B, 0);
+    // corner posts where two exposed walls meet: the four corners of the cell, at every level both faces show
+    const corn = [[0, 1, 0, -1, 0, 1], [1, 1, Math.PI / 2, 1, 0, 1], [1, 0, Math.PI, 1, 0, -1], [0, 0, -Math.PI / 2, -1, 0, -1]];
+    for (const [ci, ck, yaw, di, , dk] of corn) {
+      const a = h(i + di, k), b = h(i, k + dk);
+      for (let L = Math.max(a, b); L < f; L++) kitPut('corner', cx + ci * B, L * F, cz + ck * B, yaw);
+    }
+  }
+  const bd = { name, x0, z0, nx, nz, H, top: Math.max(...H.flat()) * F };
+  BLDG.push(bd);
+  return bd;
+}
+// A WEDGE from `y0` up to `y0 + rise` over `run`, its high end against whatever it leans on. How she gets
+// up a step in the skyline: a bank is a floor like every ramp in the park, so it needs no new physics.
+function bank(ox, oz, yaw, halfW, y0, rise, run) {
+  extrude(ox, oz, yaw, halfW, [{ u: 0, y: y0, c: RAMP }, { u: run, y: y0 + rise, c: COPE }]);
+}
+// A BENCH: a box to ollie onto, with a rail on its top edge
+function bench(xa, za, xb, zb) {
+  const cx = (xa + xb) / 2, cz = (za + zb) / 2, len = Math.hypot(xb - xa, zb - za), yaw = Math.atan2(xb - xa, zb - za);
+  solidAdd(cx, cz, 0.28, len / 2, 0, 0.48, yaw, { tag: 'bench' });
+  CITY.benches.push({ a: new THREE.Vector3(xa, 0.53, za), b: new THREE.Vector3(xb, 0.53, zb), cx, cz, len, yaw });
+}
+
+// ---- KIT: his pieces, instanced -----------------------------------------------------------------------
+// One InstancedMesh per piece PER MATERIAL, so the whole district is a couple of dozen draw calls however
+// many buildings there are -- weirdport's own warning about thousands of pieces on a phone, answered.
+const _kitMats = new Map();
+function kitMat(m, roof) {
+  if (!roof) return m;
+  // A ROOF IS PUSHED BACK IN DEPTH, like the plaza, so a ramp's toe resting on it wins instead of fighting it
+  let c = _kitMats.get(m);
+  if (!c) { c = m.clone(); Object.assign(c, { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 }); _kitMats.set(m, c); }
+  return c;
+}
+async function kitLoad() {
+  if (!KIT.place.length) return;
+  try { kitFrom((await loadGLB(KIT.file)).scene); }
+  catch (e) { KIT.failed = true; console.warn('[kit] ' + KIT.file + ' did not arrive -- the city stays as plain boxes', e); }
+}
+// split out so `npm run sim city` can hand it the REAL file, parsed by the real loader
+function kitFrom(scene) {
+  {
+    const g = { scene }; g.scene.updateMatrixWorld(true);
+    const lib = {};
+    for (const root of g.scene.children) {
+      // THE PIECE'S OWN NODE TRANSFORM IS THE FILE'S LAYOUT (they sit in a row), NOT ITS SHAPE -- every part
+      // is taken relative to its root, and the collider children (`col_`) are not drawn
+      const inv = root.matrixWorld.clone().invert(), parts = [];
+      root.traverse(o => { if (o.isMesh && !/^col_/.test(o.name)) parts.push({ geo: o.geometry, mat: o.material, m: inv.clone().multiply(o.matrixWorld) }); });
+      lib[root.name] = parts;
+    }
+    KIT.lib = lib; kitBuild(); KIT.ready = true;
+  }
+}
+function kitBuild() {
+  const by = {};
+  for (const pl of KIT.place) (by[pl[0]] || (by[pl[0]] = [])).push(pl);
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S1 = new THREE.Vector3(1, 1, 1);
+  let miss = 0;
+  for (const name in by) {
+    const parts = KIT.lib[name]; if (!parts) { miss++; console.warn('[kit] no piece called ' + name); continue; }
+    for (const part of parts) {
+      const im = new THREE.InstancedMesh(part.geo, kitMat(part.mat, name === 'roof'), by[name].length);
+      by[name].forEach((pl, i) => { Q.setFromAxisAngle(UP, pl[4]); M.compose(V.set(pl[1], pl[2], pl[3]), Q, S1).multiply(part.m); im.setMatrixAt(i, M); });
+      im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere();
+      im.castShadow = true; im.receiveShadow = true; im.name = 'kit:' + name;
+      scene.add(im); KIT.meshes.push(im);
+    }
+  }
+  if (CITY.fallback) CITY.fallback.visible = false;
+  console.log(`[kit] ${KIT.place.length} pieces placed as ${KIT.meshes.length} instanced meshes` + (miss ? ` -- ${miss} piece names missing` : ''));
+}
+
+// ---- IMPORTS: a GLB he exports, dropped into the world ------------------------------------------------
+// `vis` is drawn (merged per material, so a whole file is a draw call per material); `col`, if there is
+// one, is read with weirdport's naming. `at`/`yaw` place the whole file. Add a line here, run
+// `npm run bump`, and a new building -- or a skatepark he modelled -- is in the game.
+const LEVEL = {
+  imports: [
+    { name: 'his buildings (BKG0-3)', vis: 'models/kit/building_kit_generated_visual.glb', col: 'models/kit/building_kit_collision.glb', at: [-125, 0, 175], yaw: 0 },
+  ],
+  done: [], failed: [],
+};
+async function levelImports() {
+  for (const L of LEVEL.imports) {
+    try {
+      const [vis, col] = await Promise.all([loadGLB(L.vis), L.col ? loadGLB(L.col) : Promise.resolve(null)]);
+      const place = new THREE.Matrix4().compose(new THREE.Vector3().fromArray(L.at), new THREE.Quaternion().setFromAxisAngle(UP, L.yaw || 0), new THREE.Vector3(1, 1, 1));
+      const st = levelIngest(vis.scene, col ? col.scene : null, place, L.name);
+      LEVEL.done.push(L.name); console.log('[level] ' + L.name + ': ' + JSON.stringify(st));
+    } catch (e) { LEVEL.failed.push(L.name); console.warn('[level] ' + L.name + ' did not arrive', e); }
+  }
+}
+// THE BOX A HANDFUL OF POINTS FILLS, at the yaw that makes it smallest -- a collider exported as a box in
+// world space at any rotation comes back as that box.
+function obbOf(pts) {
+  let y0 = Infinity, y1 = -Infinity;
+  for (const q of pts) { y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  const cand = [0];
+  for (let i = 0; i < Math.min(pts.length, 12); i++) for (let j = i + 1; j < Math.min(pts.length, 12); j++) {
+    const dx = pts[j].x - pts[i].x, dz = pts[j].z - pts[i].z;
+    if (dx * dx + dz * dz > 1e-4) cand.push(Math.atan2(-dz, dx));
+  }
+  let best = null;
+  for (const yaw of cand) {
+    const c = Math.cos(yaw), s = Math.sin(yaw);
+    let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+    for (const q of pts) { const lx = q.x * c - q.z * s, lz = q.x * s + q.z * c; a0 = Math.min(a0, lx); a1 = Math.max(a1, lx); b0 = Math.min(b0, lz); b1 = Math.max(b1, lz); }
+    const area = (a1 - a0) * (b1 - b0);
+    if (!best || area < best.area - 1e-6) {
+      const lx = (a0 + a1) / 2, lz = (b0 + b1) / 2;
+      best = { area, yaw, hx: (a1 - a0) / 2, hz: (b1 - b0) / 2, cx: lx * c + lz * s, cz: -lx * s + lz * c };
+    }
+  }
+  return { ...best, y0, y1 };
+}
+function levelIngest(vis, col, place, name) {
+  const st = { meshes: 0, mats: 0, floors: 0, boxes: 0, cells: 0, rails: 0 };
+  const _p = new THREE.Vector3();
+  if (vis) {
+    vis.updateMatrixWorld(true);
+    // THE PICTURE, merged per material. Every member of a merge must carry the SAME attributes, or
+    // `mergeGeometries` refuses the lot and a whole material vanishes (Shredworld lost a third of a city to
+    // exactly that) -- so each is cut down to position/normal/uv/colour and the missing ones filled in.
+    const buckets = new Map();
+    vis.traverse(o => {
+      if (!o.isMesh || /^col_/.test(o.name)) return;
+      const g0 = o.geometry, g = g0.index ? g0.toNonIndexed() : g0.clone();
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
+      for (const k of ['normal', 'uv', 'color']) {
+        const a = g.attributes[k]; if (!a) continue;
+        const n = k === 'uv' ? 2 : 3, out = new Float32Array(a.count * n);
+        for (let i = 0; i < a.count; i++) { out[i * n] = a.getX(i); out[i * n + 1] = a.getY(i); if (n === 3) out[i * n + 2] = a.getZ(i); }
+        g.setAttribute(k, new THREE.Float32BufferAttribute(out, n));
+      }
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(place, o.matrixWorld));
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      const m = mats[0];
+      if (!buckets.has(m)) buckets.set(m, []);
+      buckets.get(m).push(g); st.meshes++;
+    });
+    for (const [m, gs] of buckets) {
+      const want = ['normal', 'uv', 'color'].filter(k => gs.some(g => g.attributes[k]));
+      for (const g of gs) for (const k of want) {
+        if (g.attributes[k]) continue;
+        if (k === 'normal') { g.computeVertexNormals(); continue; }
+        const n = k === 'uv' ? 2 : 3, a = new Float32Array(g.attributes.position.count * n);
+        if (k === 'color') a.fill(1);
+        g.setAttribute(k, new THREE.Float32BufferAttribute(a, n));
+      }
+      const merged = mergeGeometries(gs);
+      if (!merged) { console.warn('[level] could not merge material ' + (m && m.name)); continue; }
+      merged.computeBoundingSphere();
+      const mesh = new THREE.Mesh(merged, m);
+      mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = 'level:' + name + ':' + (m && m.name);
+      scene.add(mesh); st.mats++;
+    }
+    // HIS GENERATOR'S ROOTS SAY WHICH CELLS ARE BUILDING AND HOW TALL, and that is the wall collider: the
+    // export bakes no box for an intact wall (weirdport builds those out of chunk boxes).
+    vis.traverse(o => {
+      const u = o.userData || {};
+      if (!u.cells || !u.heights) return;
+      let cells, hts; try { cells = JSON.parse(u.cells); hts = JSON.parse(u.heights); } catch (e) { return; }
+      const bay = u.bay_m || 3, fl = u.floor_m || 3, M = new THREE.Matrix4().multiplyMatrices(place, o.matrixWorld);
+      const yaw = Math.atan2(M.elements[8], M.elements[10]) || 0;     // its local Z is (sin yaw, cos yaw)
+      for (const [cx, cy] of cells) {
+        const f = hts[cx + ',' + cy] || 0; if (!f) continue;
+        // a cell [x, y] is Blender's x and y: x -> +X, y -> -Z, from the root
+        _p.set(cx * bay + bay / 2, 0, -cy * bay - bay / 2).applyMatrix4(M);
+        solidAdd(_p.x, _p.z, bay / 2, bay / 2, _p.y, _p.y + f * fl, yaw, { tag: 'cell:' + name }); st.cells++;
+      }
+    });
+  }
+  if (col) {
+    col.updateMatrixWorld(true);
+    const rails = [];
+    col.traverse(o => {
+      if (!o.isMesh) return;
+      const nm = o.name, M = new THREE.Matrix4().multiplyMatrices(place, o.matrixWorld);
+      const pos = o.geometry.attributes.position, idx = o.geometry.index;
+      const W = i => new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(M);
+      if (/^(deck|ramp|ground|road)_/.test(nm)) {
+        const n = idx ? idx.count : pos.count;
+        for (let t = 0; t < n; t += 3) {
+          const a = W(idx ? idx.getX(t) : t), b = W(idx ? idx.getX(t + 1) : t + 1), c = W(idx ? idx.getX(t + 2) : t + 2);
+          triAdd(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); st.floors++;
+        }
+      } else if (/^(bld|solid|prop)_/.test(nm)) {
+        const pts = []; for (let i = 0; i < pos.count; i++) pts.push(W(i));
+        const B = obbOf(pts);
+        solidAdd(B.cx, B.cz, B.hx, B.hz, B.y0, B.y1, B.yaw, { tag: 'col:' + nm }); st.boxes++;
+        // A METAL BOX IS A GRIND RAIL along the top of its long side
+        if (o.material && /metal/i.test(o.material.name) && Math.max(B.hx, B.hz) > 0.6) {
+          const lx = B.hx >= B.hz, c = Math.cos(B.yaw), s = Math.sin(B.yaw), L = lx ? B.hx : B.hz;
+          const ax = lx ? c : s, az = lx ? -s : c;
+          rails.push([new THREE.Vector3(B.cx - ax * L, B.y1, B.cz - az * L), new THREE.Vector3(B.cx + ax * L, B.y1, B.cz + az * L)]);
+        }
+      }
+    });
+    // a railing INSIDE a building (round a stair hole) is not a rail she can reach -- and a tap near the
+    // building must not hop her into its walls -- so only rails standing outside every cell are kept
+    solidBuild();        // the cells just added have to be IN the grid before anything can ask about them
+    for (const [a, b] of rails) {
+      const m = a.clone().lerp(b, 0.5);
+      if (solidAt(m.x, m.y - 0.5, m.z, 0.1, bx => bx.tag.startsWith('cell:'))) continue;
+      railPath(railLine(a, b, 2), { name: name + ' rail' }); st.rails++;
+    }
+  }
+  triBuild(); solidBuild();
+  return st;
+}
+
+// ---- HYDRANTS ------------------------------------------------------------------------------------------
+// *"Grind over a bench that knocks off the top of a fire hydrant and spews liquid."* His weirdport hydrant
+// (`prop_hydrant.glb`, `on_break: water_geyser`). Hit it hard enough -- skate into it, strike it, or
+// grind past it -- and the cap comes off and a column of water goes up. AND THE WATER LIFTS HER: ride into
+// the column and it carries her up, which is what turns a broken hydrant into a way onto a roof.
+const HYD = { file: 'models/props/prop_hydrant.glb', breakV: 6, seam: 0.62, reach: 1.7, grindReach: 2.2, list: [], parts: null };
+const GEY = { life: 18, rate: 140, v: 12.5, spread: 1.4, n: 700, plife: 1.5, g: 14, h: 7.5, r: 0.95, acc: 60, vmax: 13 };
+function hydrant(x, z) {
+  const g = groundAt(x, z, 2, 4), y = g.hit ? g.floor : 0;
+  const H = { x, y, z, broken: false, t: 0, acc: 0, cap: null, group: null, capG: null };
+  H.b = solidAdd(x, z, 0.24, 0.24, y, y + 0.88, 0, { tag: 'hydrant', top: false, on: (b, vn) => {
+    if (!H.broken && (vn > HYD.breakV * 0.6 || player.speed > HYD.breakV)) hydBreak(H);
+  } });
+  HYD.list.push(H);
+  return H;
+}
+function hydDraw() {
+  // the procedural stand-in, until his model arrives
+  const mat = new THREE.MeshStandardMaterial({ color: 0xd8342c, roughness: 0.5, metalness: 0.2 });
+  const body = new THREE.CylinderGeometry(0.17, 0.2, HYD.seam, 12).translate(0, HYD.seam / 2, 0);
+  const cap = new THREE.CylinderGeometry(0.05, 0.19, 0.26, 12).translate(0, HYD.seam + 0.13, 0);
+  for (const H of HYD.list) hydMount(H, [{ geo: body, mat }], [{ geo: cap, mat }]);
+}
+function hydMount(H, bodyParts, capParts) {
+  if (H.group) scene.remove(H.group);
+  H.group = new THREE.Group(); H.group.position.set(H.x, H.y, H.z); scene.add(H.group);
+  H.capG = new THREE.Group(); H.group.add(H.capG);
+  for (const p of bodyParts) { const m = new THREE.Mesh(p.geo, p.mat); m.castShadow = true; H.group.add(m); }
+  for (const p of capParts) { const m = new THREE.Mesh(p.geo, p.mat); m.castShadow = true; H.capG.add(m); }
+  H.capG.visible = !H.broken;
+}
+async function hydLoad() {
+  if (!HYD.list.length) return;
+  try { hydFrom((await loadGLB(HYD.file)).scene); }
+  catch (e) { HYD.failed = true; console.warn('[hydrant] ' + HYD.file + ' did not arrive', e); }
+}
+function hydFrom(scene) {
+  {
+    const g = { scene }; g.scene.updateMatrixWorld(true);
+    const body = [], cap = [];
+    // ONE MESH, THREE MATERIALS, NO SEPARATE CAP -- so the cap is the triangles above the seam
+    g.scene.traverse(o => {
+      if (!o.isMesh) return;
+      const geo = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(o.matrixWorld);
+      const P = geo.attributes.position, keys = Object.keys(geo.attributes);
+      const split = [[], []];
+      for (let t = 0; t < P.count; t += 3) split[(P.getY(t) + P.getY(t + 1) + P.getY(t + 2)) / 3 > HYD.seam ? 1 : 0].push(t);
+      split.forEach((tris, w) => {
+        if (!tris.length) return;
+        const out = new THREE.BufferGeometry();
+        for (const k of keys) {
+          const a = geo.attributes[k], n = a.itemSize, arr = new Float32Array(tris.length * 3 * n);
+          tris.forEach((t, j) => { for (let v = 0; v < 3; v++) for (let c = 0; c < n; c++) arr[(j * 3 + v) * n + c] = a.getComponent(t + v, c); });
+          out.setAttribute(k, new THREE.BufferAttribute(arr, n));
+        }
+        (w ? cap : body).push({ geo: out, mat: o.material });
+      });
+    });
+    HYD.parts = { body, cap };
+    for (const H of HYD.list) hydMount(H, body, cap);
+  }
+}
+function hydBreak(H) {
+  if (H.broken) return;
+  H.broken = true; H.t = 0; H.b.y1 = H.y + HYD.seam;
+  const a = Math.random() * Math.PI * 2;
+  H.cap = { x: H.x, y: H.y + HYD.seam + 0.1, z: H.z, vx: Math.cos(a) * 2.5, vy: 8.5, vz: Math.sin(a) * 2.5, sx: 7, sz: 4, rx: 0, rz: 0 };
+  sparkBurst(10);
+}
+// THE WATER: one pool of points shared by every geyser, each a droplet with a life
+const geyPos = new Float32Array(GEY.n * 3), geyVel = new Float32Array(GEY.n * 3), geyAge = new Float32Array(GEY.n).fill(99);
+const geyGeo = new THREE.BufferGeometry();
+geyGeo.setAttribute('position', new THREE.BufferAttribute(geyPos, 3));
+let geyPts = null, geyHead = 0;
+function geyMake() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d');
+  if (x && x.createRadialGradient) {
+    const gr = x.createRadialGradient(32, 32, 2, 32, 32, 30);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(200,235,255,0.8)'); gr.addColorStop(1, 'rgba(160,210,255,0)');
+    x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  geyPts = new THREE.Points(geyGeo, new THREE.PointsMaterial({ size: 0.42, map: tex, color: 0xcfeaff, transparent: true, depthWrite: false, opacity: 0.85 }));
+  geyPts.frustumCulled = false; scene.add(geyPts);
+}
+function stepHydrants(dt) {
+  const p = player;
+  for (const H of HYD.list) {
+    if (!H.broken) {
+      // a strike, or a grind going past, knocks the top off too
+      const d = Math.hypot(p.pos.x - H.x, p.pos.z - H.z);
+      if (p.mel && p.mel.kind !== 'kick' && d < HYD.reach && Math.abs(p.pos.y - H.y) < 1.5) hydBreak(H);
+      else if (p.grind && d < HYD.grindReach && Math.abs(p.pos.y - H.y) < 1.8) hydBreak(H);
+      continue;
+    }
+    H.t += dt;
+    if (H.cap) {
+      const C = H.cap; C.vy -= SK.g * dt; C.x += C.vx * dt; C.y += C.vy * dt; C.z += C.vz * dt; C.rx += C.sx * dt; C.rz += C.sz * dt;
+      if (C.y < H.y - 0.5 || H.t > 4) { H.cap = null; H.capG.visible = false; }
+      else { H.capG.visible = true; H.capG.position.set(C.x - H.x, C.y - H.y - HYD.seam - 0.1, C.z - H.z); H.capG.rotation.set(C.rx, 0, C.rz); }
+    }
+    if (H.t > GEY.life) continue;
+    const k = H.t > GEY.life - 2 ? (GEY.life - H.t) / 2 : 1;
+    H.acc += GEY.rate * k * dt;
+    while (H.acc >= 1) {
+      H.acc -= 1; const i = geyHead; geyHead = (geyHead + 1) % GEY.n;
+      const a = Math.random() * Math.PI * 2, sp = Math.random() * GEY.spread;
+      geyPos[i * 3] = H.x; geyPos[i * 3 + 1] = H.y + HYD.seam; geyPos[i * 3 + 2] = H.z;
+      geyVel[i * 3] = Math.cos(a) * sp; geyVel[i * 3 + 1] = GEY.v * (0.8 + Math.random() * 0.35) * k; geyVel[i * 3 + 2] = Math.sin(a) * sp;
+      geyAge[i] = 0;
+    }
+    // THE COLUMN LIFTS HER
+    if (!p.grind && Math.hypot(p.pos.x - H.x, p.pos.z - H.z) < GEY.r && p.pos.y < H.y + GEY.h * k && p.pos.y > H.y - 0.5) {
+      if (p.grounded) leaveGround(0, false);
+      p.vel.y = Math.min(Math.max(p.vel.y, 0) + GEY.acc * dt, GEY.vmax);
+      p.geyT = 0.2;
+    }
+  }
+  if (!geyPts) return;
+  for (let i = 0; i < GEY.n; i++) {
+    if (geyAge[i] > GEY.plife) { geyPos[i * 3 + 1] = -999; continue; }
+    geyAge[i] += dt; geyVel[i * 3 + 1] -= GEY.g * dt;
+    geyPos[i * 3] += geyVel[i * 3] * dt; geyPos[i * 3 + 1] += geyVel[i * 3 + 1] * dt; geyPos[i * 3 + 2] += geyVel[i * 3 + 2] * dt;
+    if (geyPos[i * 3 + 1] < 0.02) { geyPos[i * 3 + 1] = 0.02; geyVel[i * 3 + 1] *= -0.25; geyVel[i * 3] *= 1.6; geyVel[i * 3 + 2] *= 1.6; }
+  }
+  geyGeo.attributes.position.needsUpdate = true;
+}
+
+// ---- COLLECTIBLES ---------------------------------------------------------------------------------------
+// *"Loops with collectibles."* Gems strung along the lines -- up the spiral, round the loop, under the zip,
+// over the gap -- so they say where the lines ARE as much as they reward riding them. Picked up by her
+// body passing within `r`; the count is on screen.
+const GEM = { r: 1.35, list: [], got: 0, mesh: null };
+function gem(x, y, z) { GEM.list.push({ x, y, z, got: false }); }
+function gemsAlong(P, every, lift, first) {
+  let next = first == null ? every / 2 : first, cum = 0;
+  for (const S of P.segs) {
+    while (next <= cum + S.len) {
+      const u = (next - cum) / S.len, q = S.a.clone().lerp(S.b, u);
+      const up = S.ua ? S.ua.clone().lerp(S.ub, u).normalize() : UP;
+      gem(q.x + up.x * lift, q.y + up.y * lift, q.z + up.z * lift); next += every;
+    }
+    cum += S.len;
+  }
+}
+function gemBuild() {
+  if (!GEM.list.length) return;
+  const geo = new THREE.OctahedronGeometry(0.34, 0);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x7ff3ff, emissive: 0x29c7ff, emissiveIntensity: 1.1, metalness: 0.2, roughness: 0.25 });
+  GEM.mesh = new THREE.InstancedMesh(geo, mat, GEM.list.length);
+  GEM.mesh.frustumCulled = false; scene.add(GEM.mesh);
+  gemStep(0);
+}
+const _gm = new THREE.Matrix4(), _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gsc = new THREE.Vector3();
+function gemStep(dt) {
+  if (!GEM.mesh) return;
+  GEM.t = (GEM.t || 0) + dt;
+  const p = player;
+  _v.set(0, 0.9, 0).applyQuaternion(p.bq).add(p.pos);
+  GEM.list.forEach((g, i) => {
+    if (!g.got && dt > 0 && Math.hypot(_v.x - g.x, _v.y - g.y, _v.z - g.z) < GEM.r) { g.got = true; GEM.got++; sparkBurst(8); }
+    const s = g.got ? 0 : 1;
+    _gq.setFromAxisAngle(UP, GEM.t * 2.2 + i);
+    _gm.compose(_gv.set(g.x, g.y + Math.sin(GEM.t * 2.4 + i) * 0.12, g.z), _gq, _gsc.set(s, s * 1.35, s));
+    GEM.mesh.setMatrixAt(i, _gm);
+  });
+  GEM.mesh.instanceMatrix.needsUpdate = true;
+}
+
+// ---- THE DISTRICT ---------------------------------------------------------------------------------------
+// Placed by construction on the 3 m grid, so nothing overlaps and every line is a measured distance:
+//   THE STEPS     four stepped roofs, 3 / 6 / 9 / 12 m, a bank up each step, and a kicker off the top
+//   B and C       the gap: 12 m across a street from the Steps' top onto B (9 m), then a down rail to C (6 m)
+//   THE TOWER     30 m, a BOOSTER SPIRAL three times round it from the street to the roof, a parapet to
+//                 keep her up there, and a gap in the parapet where the ZIP LINE leaves for the far end
+//   THE LOOP      a booster rail that goes all the way round a vertical loop, with gems round it
+//   HIS BUILDINGS BKG0-3 from his generator, imported as they are, with a bank onto the low one
+//   STREET STUFF  a bench rail that ends at a hydrant, more hydrants, one at the foot of C's wall
+CITY.benches = [];
+CITY.spots = {};
+function buildCity() {
+  if (!CITY.on) return;
+  const f0 = MESH.pos.length;
+  const rep = (s, n) => Array(n).fill(s);
+  building(12, 150, rep('111222333444', 4), { name: 'steps', col: 0xd9a48f });
+  building(60, 147, rep('333333', 6), { name: 'B', col: 0xa9b8d9 });
+  building(60, 186, rep('222222', 6), { name: 'C', col: 0xb9cf9a });
+  // the parapet goes round the tower's roof except for three cells of the north edge, where the zip leaves
+  building(-57.5, 202.5, rep('aaaaa', 5), { name: 'tower', col: 0xd4c4e8,
+    parapet: (i, k, di, dk) => !(dk === 1 && i >= 1 && i <= 3) });
+  CITY.fall = [f0, MESH.pos.length];
+  // the Steps: up from the street, then up each roof against the next wall; and the kicker off the top
+  bank(3, 156, Math.PI / 2, 5, 0, 3, 9);
+  bank(15, 156, Math.PI / 2, 5, 3, 3, 6);
+  bank(24, 156, Math.PI / 2, 5, 6, 3, 6);
+  bank(33, 156, Math.PI / 2, 5, 9, 3, 6);
+  kicker(46, 156, Math.PI / 2, 5, 4, 30 * Math.PI / 180, 12);
+  // onto HIS low building: to the top of its parapet (4.02 m), so she rolls over it and drops onto the roof
+  bank(-85.5, 143, 0, 6, 0, 4.06, 9);
+  bench(-20, 236, -20, 248);
+  for (const b of CITY.benches) {
+    const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), sx = Math.cos(b.yaw), sz = -Math.sin(b.yaw);
+    // drawn as a slab on two feet (scenery: the box above is what she hits)
+    const L = b.len / 2, W = 0.28;
+    const c = (u, w, y) => [b.cx + fx * u + sx * w, y, b.cz + fz * u + sz * w];
+    quad(c(-L, -W, 0.48), c(L, -W, 0.48), c(L, W, 0.48), c(-L, W, 0.48), 0x9a6b4a, false);
+    quad(c(L, W, 0.36), c(-L, W, 0.36), c(-L, W, 0.48), c(L, W, 0.48), 0x7d5539, false);
+    quad(c(-L, -W, 0.36), c(L, -W, 0.36), c(L, -W, 0.48), c(-L, -W, 0.48), 0x7d5539, false);
+    // the feet, drawn both ways round (they are seen from both sides and cost nothing)
+    for (const u of [-L + 0.4, L - 0.4]) for (const w of [W - 0.05, -W + 0.05]) {
+      const A = c(u - 0.1, w, 0), B = c(u + 0.1, w, 0), C = c(u + 0.1, w, 0.36), D = c(u - 0.1, w, 0.36);
+      quad(A, B, C, D, 0x55505c, false); quad(B, A, D, C, 0x55505c, false); }
+  }
+  hydrant(58.6, 195);       // at the foot of C's wall: its geyser is a lift onto C's roof
+  hydrant(-20, 250.4);      // at the end of the bench rail: grind off the end into it
+  hydrant(12, 132); hydrant(-12, 141); hydrant(40, 214);
+  CITY.spots = { park: [0, 0.2, -6, 0], street: [0, 0.2, 128, 0], steps: [0, 0.2, 156, Math.PI / 2],
+    top: [42, 12.2, 156, Math.PI / 2], tower: [-50, 0.2, 192, Math.PI / 2], roof: [-50, 30.2, 208, 0],
+    loop: [30, 0.2, 218, 0], his: [-85.5, 0.2, 136, 0], hydrant: [55.5, 0.2, 195, Math.PI / 2] };
+}
+// THE RAILS OF THE DISTRICT, after the collider exists (posts are measured down to what is under them)
+function cityRails() {
+  if (!CITY.on) return;
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  // B -> C: off B's north edge, down three metres onto C
+  const bc = railPath(railLine(V(69, 9.4, 162.5), V(69, 6.4, 188.5), 2), { name: 'B to C' });
+  railDraw(bc, { postMax: 10 }); gemsAlong(bc, 6, 0.9);
+  for (const b of CITY.benches) { const P = railPath(railLine(b.a, b.b, 2), { name: 'bench' }); railDraw(P, { posts: false }); }
+  // THE SPIRAL: two and three quarter turns round the tower at 12.5 m, 0.9 m off the street to 31.4 m,
+  // then curling in over the roof -- heading for the EAST parapet, never for the gap the zip leaves by. A BOOSTER, because 30 m of climb is 24 m/s of speed she does not have.
+  const cx = -50, cz = 210, R = 12.5, turns = 2.75, y0 = 0.9, y1 = 31.4, a0 = -Math.PI / 2, sp = [];   // y1 clears the parapet (31.02)
+  const N = Math.ceil(turns * 2 * Math.PI * R / 1.5);
+  for (let i = 0; i <= N; i++) { const u = i / N, a = a0 + u * turns * 2 * Math.PI; sp.push(V(cx + R * Math.cos(a), y0 + (y1 - y0) * u, cz + R * Math.sin(a))); }
+  const aE = a0 + turns * 2 * Math.PI;
+  for (let i = 1; i <= 12; i++) { const u = i / 12, a = aE + u * 1.2, r = R + (3.5 - R) * u * u * (3 - 2 * u); sp.push(V(cx + r * Math.cos(a), y1, cz + r * Math.sin(a))); }
+  const spiral = railPath(sp, { boost: 15, maxV: 18, name: 'spiral' });
+  railDraw(spiral, { posts: false }); gemsAlong(spiral, 14, 0.9, 6);
+  // struts from the spiral back to the tower wall
+  const sm = railMats(), strut = [];
+  for (let i = 0; i < N; i += 6) {
+    const q = sp[i], dx = q.x - cx, dz = q.z - cz, d = Math.hypot(dx, dz), wall = 7.5 / Math.max(Math.abs(dx), Math.abs(dz)) * d;
+    const len = d - wall - 0.1; if (len < 0.2) continue;
+    const g = new THREE.CylinderGeometry(0.04, 0.04, len, 6).rotateZ(Math.PI / 2).translate(-len / 2, 0, 0);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationY(-Math.atan2(dz, dx))).translate(q.x, q.y - 0.12, q.z);
+    strut.push(g);
+  }
+  if (strut.length) { const m = new THREE.Mesh(mergeGeometries(strut), sm.post); m.castShadow = true; scene.add(m); }
+  // THE LOOP: in along Z, all the way round a 6 m vertical loop (shifting 2.5 m sideways so it clears
+  // itself), out along Z. Her "up" points at the loop's centre all the way round, so at the top she is
+  // upside down -- the rail is the frame.
+  const lp = [], ups = [], LR = 6, LN = 44;
+  for (let z = 226; z < 240.9; z += 1.5) { lp.push(V(30, 1, z)); ups.push(V(0, 1, 0)); }
+  for (let i = 0; i <= LN; i++) { const ph = i / LN * Math.PI * 2; lp.push(V(30 + 2.5 * i / LN, 1 + LR - LR * Math.cos(ph), 241 + LR * Math.sin(ph))); ups.push(V(0, Math.cos(ph), -Math.sin(ph))); }
+  for (let z = 242.5; z <= 257.1; z += 1.5) { lp.push(V(32.5, 1, z)); ups.push(V(0, 1, 0)); }
+  const loop = railPath(lp, { boost: 16, boostK: 12, ups, name: 'loop' });
+  railDraw(loop, {});
+  gemsAlong({ segs: loop.segs.filter(S => S.ua.y < 0.97 || S.ub.y < 0.97) }, 4, 0.9, 2);
+  // THE ZIP LINE: off the tower roof through the gap in the parapet, down to the far end of the district.
+  // The segments are where her FEET hang; the cable is drawn above. A wide catch: roll off the gap onto it.
+  const zA = V(-50, 29.6, 218.2), zB = V(-6, 3.4, 300);
+  const zip = railPath(railLine(zA, zB, 2), { hang: 2.0, maxV: 20, drag: 0.12, catchR: 1.6, catchBelow: 0.9, name: 'zip' });
+  railDraw(zip, { posts: false }); gemsAlong(zip, 12, 1.0, 8);
+  for (const [x, y0p, z, y1p] of [[-50, 30, 217.2, 31.75], [-6, 0, 301.2, 5.75]]) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, y1p - y0p, 8), sm.post);
+    pole.position.set(x, (y0p + y1p) / 2, z); pole.castShadow = true; scene.add(pole);
+  }
+  // the gap over the street, the Steps' roofs, his low roof, the tower roof
+  for (const [x, y, z] of [[50.5, 13.9, 156], [53.5, 14.2, 156], [56.5, 13.6, 156], [16.5, 4.2, 156], [27, 7.2, 156], [36, 10.2, 156],
+    [44, 13.2, 152], [69, 10.2, 156], [-85.5, 4.2, 156], [-50, 31.2, 210], [69, 7.2, 195]]) gem(x, y, z);
+  gemBuild();
+}
+function stepCity(dt) {
+  if (!CITY.on) return;
+  stepHydrants(dt);
+  gemStep(dt);
 }
 
 // ---------- sparks ----------
@@ -1404,7 +2209,7 @@ function sparkOne() {
 function sparkBurst(n) { for (let i = 0; i < n; i++) sparkOne(); }
 function sparkStep(dt) {
   const G = player.grind;
-  if (G) { sparkAcc += SPARK.rate * clamp(G.s / 10, 0.3, 2) * dt; while (sparkAcc >= 1) { sparkOne(); sparkAcc -= 1; } }
+  if (G && !(G.rail && G.rail.path.hang)) { sparkAcc += SPARK.rate * clamp(G.s / 10, 0.3, 2) * dt; while (sparkAcc >= 1) { sparkOne(); sparkAcc -= 1; } }
   for (let i = 0; i < SPARK.n; i++) {
     if (sparkAge[i] > SPARK.life) { sparkCol[i * 3] = sparkCol[i * 3 + 1] = sparkCol[i * 3 + 2] = 0; continue; }
     sparkAge[i] += dt;
@@ -2379,7 +3184,8 @@ function girlAnimMoves(dt) {
     // ON A RAIL: the side she came at it from picks the clip. Snapped in, because a grind is a
     // landing, and played a little quicker the faster she is sliding.
     girl.bail = null;
-    const nm = m.grind[p.grind.side];
+    // r45: hanging from a ZIP LINE she holds the air pose -- a placeholder until there is a hang clip
+    const nm = p.grind.rail && p.grind.rail.path.hang && m.air ? m.air : m.grind[p.grind.side];
     if (p.grind.time < 0.05) snap = true;
     clipScale(nm, clamp(p.grind.s / 8, 0.75, 1.4));
     add(nm, 1);
@@ -2805,6 +3611,23 @@ function respawn() {
   if (g.hit) { p.pos.y = g.floor; p.n.set(g.nx, g.ny, g.nz); }
 }
 document.getElementById('resetB').addEventListener('click', respawn);
+// r45: THE CITY IS BIG AND HE TESTS ON A PHONE WITH NO CONSOLE, so a key walks round the places worth
+// looking at: the street, the Steps, the top of the Steps, the tower's spiral, its roof, the loop, his
+// buildings, the hydrant by C. The chip names where she went.
+const GO = ['street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
+let goI = -1;
+function goSpot(name) {
+  const s = CITY.spots[name]; if (!s) return false;
+  respawn();
+  const p = player;
+  p.pos.set(s[0], s[1] + 2, s[2]); p.heading = p.faceH = s[3]; groundQ(p.bq);
+  const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 1, 4);
+  if (g.hit) { p.pos.y = g.floor; p.n.set(g.nx, g.ny, g.nz); }
+  cam.az = cam.steerAz = s[3]; cam.pos.set(0, 0, 0);
+  CITY.goMsg = name; CITY.goAt = performance.now();
+  return true;
+}
+document.getElementById('goB').addEventListener('click', () => { goI = (goI + 1) % GO.length; goSpot(GO[goI]); });
 
 // THE SURFACE IS THE FRAME, NOT THE WORLD. Her velocity is decomposed against the face she is
 // standing on -- forward along the wheels, sideways across them, and nothing into the surface.
@@ -2847,7 +3670,8 @@ function railHome() {
   let best = null, bs = Infinity;
   const hv = Math.hypot(p.vel.x, p.vel.z);
   for (const R of RAILS) {
-    if (p.grindCool > 0 && R === p.grindLast) continue;
+    if (!R.flat || Math.abs(p.pos.x - R.mx) > R.rr + GRIND.homeR || Math.abs(p.pos.z - R.mz) > R.rr + GRIND.homeR) continue;
+    if (p.grindCool > 0 && samePath(R, p.grindLast)) continue;
     let t = ((p.pos.x - R.a.x) * R.hx + (p.pos.z - R.a.z) * R.hz) / R.hl;
     const along = p.vel.x * R.hx + p.vel.z * R.hz;
     const dir = Math.abs(along) > 0.5 ? Math.sign(along) : (Math.sin(p.heading) * R.hx + Math.cos(p.heading) * R.hz >= 0 ? 1 : -1);
@@ -3303,6 +4127,7 @@ function meleeSlide() {
 function kickTarget(dx, dz) {
   const p = player; let best = null, bs = Infinity;
   for (const R of RAILS) {
+    if (!R.flat || Math.abs(p.pos.x - R.mx) > R.rr + MELEE.aimR || Math.abs(p.pos.z - R.mz) > R.rr + MELEE.aimR) continue;
     let t = ((p.pos.x - R.a.x) * R.hx + (p.pos.z - R.a.z) * R.hz) / R.hl;
     const along = dx * R.hx + dz * R.hz, vAlong = p.vel.x * R.hx + p.vel.z * R.hz;
     const dir = Math.abs(along) > 0.25 ? Math.sign(along) : (Math.abs(vAlong) > 0.5 ? Math.sign(vAlong) : 1);
@@ -3378,7 +4203,10 @@ function stepPlayer(dt) {
   // samples, and that is speed x dt -- so the count follows her speed and a 120 Hz phone does
   // not silently get a different game from a 30 Hz one.
   const n = clamp(Math.ceil(p.speed * dt / SK.sub), 1, SK.subMax), sdt = dt / n;
-  for (let i = 0; i < n; i++) { if (p.grind) stepGrind(sdt); else if (p.grounded) stepGround(sdt); else stepAir(sdt); }
+  for (let i = 0; i < n; i++) {
+    if (p.grind) stepGrind(sdt); else if (p.grounded) stepGround(sdt); else stepAir(sdt);
+    if (!p.grind) solidPush();          // r45: the city's walls, after every sub-step
+  }
   // TWO SPEEDS, AND THE CAMERA NEEDS THE HORIZONTAL ONE. Straight up a vert wall her
   // horizontal speed is nearly zero while she is doing fifteen -- so a bearing taken from
   // the horizontal velocity there is pure noise, and the lens would spin.
@@ -3617,7 +4445,8 @@ const cam = { az: 0, steerAz: 0, el: CAM.el, dist: CAM.dist, idle: 9, rush: 0,
 // failure a lens INSIDE a ramp is.
 function camBlocked(x, y, z) {
   const g = groundAt(x, z, y, 12);
-  return g.hit && g.floor > y - CAM.clear;
+  // r45: and never inside a building -- the floors only know about a roof within 12 m of the lens
+  return (g.hit && g.floor > y - CAM.clear) || !!solidAt(x, y, z, 0.3);
 }
 function camFree(tx, ty, tz, dx, dy, dz, want) {
   const step = 0.55, n = Math.ceil(want / step);
@@ -3691,6 +4520,7 @@ function stepCam(dt) {
 // ---------- HUD ----------
 const buildEl = document.getElementById('build'), buildN = document.getElementById('buildN');
 const buildI = document.getElementById('buildI'), speedB = document.getElementById('speed').querySelector('b');
+const gemsEl = document.getElementById('gems'), gemsB = gemsEl && gemsEl.querySelector('b'), gemsN = gemsEl && gemsEl.querySelector('span');
 buildN.textContent = BUILD; buildN.classList.add('pulse');
 document.getElementById('bootB').textContent = BUILD;
 // THE TOP-LEFT GUTTER BELONGS TO THE BUILD CHIP, and a constant somebody has to remember to
@@ -3730,7 +4560,11 @@ function hud(dt) {
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : '') +
       // a console warning is invisible on a phone, and "the sky never loaded" looks like "it is meant to be grey"
-      (LOOK.failed ? ' · NO SKY IMG' : '') + (MELEE.failed ? ' · NO MELEE GLB' : ''); }
+      (LOOK.failed ? ' · NO SKY IMG' : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') +
+      // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
+      (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.length : '') +
+      (HYD.failed ? ' · NO HYDRANT GLB' : '') + (performance.now() - (CITY.goAt || -1e9) < 3000 ? ' · → ' + CITY.goMsg : '') + (player.grind && player.grind.rail && player.grind.rail.path.name !== 'park' ? ' ' + player.grind.rail.path.name : '');
+    if (gemsB) { gemsB.textContent = GEM.got; gemsN.textContent = GEM.list.length; } }
 }
 function setBoot(msg, frac) {
   const m = document.getElementById('bootMsg'), b = document.getElementById('bootBar');
@@ -3761,6 +4595,7 @@ function frame() {
   girlAnim(dt);
   poseGirl(dt);
   sparkStep(dt);
+  stepCity(dt);
   stepCam(dt);
   trailStep(dt);
   hud(dt);
@@ -3939,6 +4774,14 @@ const TAILUI = [
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
   ['AIR.spin',       'Air spin speed', 1,   16,  0.25, ''],
   ['LAND.flipMax',   'Longest flip',   0.4, 2.5, 0.05, 's'],
+  ['City (r45)', ''],
+  ['SOLID.bounce',   'Wall bounce',    0,   0.8, 0.02, ''],
+  ['RAILX.boostV',   'Booster rail speed x', 0.5, 1.8, 0.05, ''],
+  ['RAILX.boostK',   'Booster grip (spiral)', 0.5, 12, 0.25, ''],
+  ['HYD.breakV',     'Hydrant breaks at m/s', 1, 20, 0.5, ''],
+  ['GEY.vmax',       'Geyser lift m/s', 4, 24, 0.5, ''],
+  ['GEY.h',          'Geyser column height', 2, 16, 0.5, ''],
+  ['GEM.r',          'Gem pickup reach', 0.5, 3, 0.05, ''],
   ['Grinding', ''],
   ['GRIND.catchR',   'Rail catch reach', 0.2, 1.5, 0.05, ''],
   ['GRIND.drag',     'Rail drag',      0,   2,   0.05, ''],
@@ -3947,7 +4790,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -4055,6 +4898,8 @@ async function init() {
   respawn();
   hudGutter(); resize();
   ready = true;
+  // r45: the city's pictures come down AFTER she is skating -- the boxes and the collider are already up
+  kitLoad(); hydLoad(); levelImports();
   document.getElementById('boot').classList.add('gone');
   setTimeout(() => { const b = document.getElementById('boot'); if (b && b.parentNode) b.parentNode.removeChild(b); }, 700);
 }
@@ -4064,6 +4909,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
+  CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
   RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

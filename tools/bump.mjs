@@ -29,7 +29,7 @@ s = s.replace(/<b id="buildN">[^<]*<\/b>/, `<b id="buildN">${next}</b>`);
 
 // Every asset the game fetches at runtime. NOT icons/ -- iOS drops an apple-touch-icon link
 // whose href carries a query string, which is why those version their FILENAME instead.
-const DIRS = ['images', 'models', 'models/ramps', 'models/chars', 'audio', 'audio/songs', 'audio/skateboarding_sound_effects', 'audio/jetpack_sound'];
+const DIRS = ['images', 'models', 'models/kit', 'models/props', 'models/ramps', 'models/chars', 'audio', 'audio/songs', 'audio/skateboarding_sound_effects', 'audio/jetpack_sound'];
 const EXT = /\.(png|jpe?g|webp|glb|mp3|ogg|wav)$/i;
 const map = {};
 for (const d of DIRS) {

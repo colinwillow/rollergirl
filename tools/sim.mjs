@@ -1569,8 +1569,163 @@ CASES.r42 = () => {
 // she grinds on it."* Every rail: a tap from the ground 3.5 m to its side, from the air 6 m above it and
 // 2.5 m off, and rolling past it at speed -- each must end up GRINDING that rail. Controls: the same taps
 // with `GRIND.home` off do not, and a tap 9 m away is an ordinary jump.
+// r45: HIS REAL FILES THROUGH THE REAL LOADER. Node has no image decoder, so the textures are cut out of
+// the GLB before it is parsed -- which leaves exactly what the city code reads: nodes, meshes, materials,
+// extras. A harness that fabricated the scene would be testing a scene he never exported.
+function glbNoTex(file) {
+  const b = fs.readFileSync(file), dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const jl = dv.getUint32(12, true), json = JSON.parse(b.slice(20, 20 + jl).toString('utf8')), rest = b.slice(20 + jl);
+  delete json.textures; delete json.images; delete json.samplers;
+  for (const m of json.materials || []) {
+    const pb = m.pbrMetallicRoughness || {}; delete pb.baseColorTexture; delete pb.metallicRoughnessTexture;
+    delete m.normalTexture; delete m.occlusionTexture; delete m.emissiveTexture; delete m.extensions;
+  }
+  for (const k of ['extensionsUsed', 'extensionsRequired']) if (json[k]) json[k] = json[k].filter(e => e !== 'EXT_texture_webp');
+  let js = Buffer.from(JSON.stringify(json)); const pad = (4 - js.length % 4) % 4; js = Buffer.concat([js, Buffer.alloc(pad, 0x20)]);
+  const head = Buffer.alloc(20); head.write('glTF', 0); head.writeUInt32LE(2, 4); head.writeUInt32LE(20 + js.length + rest.length, 8);
+  head.writeUInt32LE(js.length, 12); head.writeUInt32LE(0x4E4F534A, 16);
+  const out = Buffer.concat([head, js, rest]);
+  return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
+}
+let _gltf = null;
+async function realGLB(file) {
+  if (!_gltf) { const { GLTFLoader } = await import(pathToFileURL(path.resolve('vendor/GLTFLoader.js')).href); _gltf = new GLTFLoader(); }
+  return new Promise((res, rej) => _gltf.parse(glbNoTex(file), '', res, rej));
+}
+// r45: THE CITY. Walls that stop her, a gap that lands, the booster spiral to the tower roof, the loop
+// (and that she is upside down at the top of it), the zip line off the roof, a hydrant's geyser lifting
+// her past C's roof, gems, the camera kept out of buildings, and an IMPORT built in memory the way
+// GLTFLoader hands one over, run through the shipped `levelIngest`.
+CASES.city = async () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(44)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.SOLID, path = n => rg.PATHS.find(q => q.name === n);
+  console.log(`  ${S.all.length} solid boxes, ${rg.KIT.place.length} kit pieces placed, ${rg.PATHS.length} rail paths, ${rg.GEM.list.length} gems, ${rg.HYD.list.length} hydrants`);
+  const inside = () => !!rg.solidAt(P.pos.x, P.pos.y + 0.5, P.pos.z, -0.05);
+  // 0. NOTHING PLACED INSIDE ANYTHING ELSE: no gem in a wall, no rail through one, no hydrant in a building
+  { const inGem = rg.GEM.list.filter(g => rg.solidAt(g.x, g.y, g.z, 0.3));
+    const inRail = rg.RAILS.filter(R => R.path.name !== 'park' && rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench'));
+    const inHyd = rg.HYD.list.filter(H => rg.solidAt(H.x, 0.4, H.z, 0.3, b => b.tag !== 'hydrant'));
+    say('nothing placed inside anything', !inGem.length && !inRail.length && !inHyd.length,
+      `${inGem.length} gems, ${inRail.length} rail segments, ${inHyd.length} hydrants inside a box` + (inRail.length ? ' -- ' + [...new Set(inRail.map(R => R.path.name))].join(', ') : '')); }
+  // 1. a wall: straight into B's west face at 10 m/s
+  { place(54, 0, 150.5, Math.PI / 2, 10); let worst = 0, inAny = false;
+    run(1.5, () => { worst = Math.max(worst, P.pos.x); inAny = inAny || inside(); });
+    say('square into a wall at 10 m/s', worst < 60 - rg.SOLID.r + 0.03 && !inAny && P.hSpeed < 3, `stopped at x ${fix(worst)} (face at 60), ${fix(P.hSpeed)} m/s after`); }
+  // 2. a graze: 15 degrees into the same wall at 12 m/s keeps most of it
+  { place(57, 0, 149, Math.PI / 2 - 1.31, 12); let inAny = false;
+    run(1.2, () => { inAny = inAny || inside(); });
+    say('grazing it at 15 deg, 12 m/s', !inAny && P.hSpeed > 9, `${fix(P.hSpeed)} m/s along it, never inside`); }
+  // 3. off a roof: east across B at 8 m/s, over the edge, down to the street
+  { place(70, 9, 156, Math.PI / 2, 8); let left = false;
+    run(3, () => { if (!P.grounded) left = true; });
+    say('rolled off B\'s roof', left && P.grounded && P.pos.y < 0.3 && P.pos.x > 78, `landed at x ${fix(P.pos.x)} y ${fix(P.pos.y)}`); }
+  // 4. up the first bank of the Steps at 12 m/s
+  { place(-2, 0, 156, Math.PI / 2, 12); let top = 0, inAny = false;
+    run(2.5, () => { top = Math.max(top, P.pos.y); inAny = inAny || inside(); });
+    say('up the Steps\' first bank at 12 m/s', top > 2.9 && !inAny, `got to ${fix(top)} m (roof at 3), never inside`); }
+  // 5. THE GAP: off the kicker on the Steps' top at 16 m/s, across the street onto B
+  { place(40, 12, 156, Math.PI / 2, 16); let air = false, land = null;
+    run(3, () => { if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
+    say('the gap: Steps (12 m) -> B (9 m) at 16 m/s', !!land && Math.abs(land.y - 9) < 0.3 && land.x > 60 && land.x < 78,
+      land ? `landed at x ${fix(land.x)} y ${fix(land.y)}` : 'never landed'); }
+  // 6. THE SPIRAL: a tap at its foot hops her on; it carries her to the roof
+  { const sp = path('spiral'); place(-50, 0, 194.5, Math.PI / 2, 4); P.jump = 1; let on = false;
+    run(2, () => { if (P.grind && P.grind.rail.path === sp) on = true; });
+    say('a tap at the foot of the spiral', on, on ? 'hopped on' : 'missed it');
+    place(-50, 1, 196, Math.PI / 2, 0);
+    rg.enterGrind({ rail: sp.segs[0], t: 0.05, dir: 1, s: 10, side: 'left' });
+    let t = 0, low = 99; run(40, () => { if (P.grind) { t += DT; low = Math.min(low, P.grind.s); } });
+    const onRoof = P.grounded && Math.abs(P.pos.y - 30) < 0.3 && P.pos.x > -57.5 && P.pos.x < -42.5 && P.pos.z > 202.5 && P.pos.z < 217.5;
+    say('the spiral, street to roof', onRoof, `${fix(t, 1)} s on it, slowest ${fix(low, 1)} m/s, ended at ${fix(P.pos.x, 1)}, ${fix(P.pos.y, 1)}, ${fix(P.pos.z, 1)}`); }
+  // 7. THE LOOP: all the way round, upside down at the top, out the far end
+  { const lp = path('loop'); place(30, 1, 227, 0, 0);
+    rg.enterGrind({ rail: lp.segs[0], t: 0.1, dir: 1, s: 12, side: 'left' });
+    let minUp = 1, done = false, slow = 99;
+    run(8, () => { if (P.grind) { const u = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq); minUp = Math.min(minUp, u.y); slow = Math.min(slow, P.grind.s); } else done = true; });
+    say('the loop, round and out', done && minUp < -0.9 && P.pos.z > 254, `her up reached y ${fix(minUp)}, slowest ${fix(slow, 1)} m/s, out at z ${fix(P.pos.z, 1)}`); }
+  // 8. THE ZIP LINE: a tap at the gap in the tower's parapet; and rolling off the gap with no tap
+  { const zp = path('zip');
+    for (const [label, tap] of [['tap at the roof\'s gap onto the zip', 1], ['roll off the gap onto the zip', 0]]) {
+      place(-50, 30, tap ? 216 : 213, 0, tap ? 2 : 7); if (tap) P.jump = 1; let on = false, rode = 0, off = null, land = null;
+      run(12, () => { if (P.grind && P.grind.rail.path === zp) { on = true; rode += DT; } else if (on && !off) off = P.pos.clone();
+        if (off && !land && P.grounded) land = P.pos.clone(); });
+      say(label, on && !!off && off.z > 295 && !!land && land.y < 0.3, `${on ? 'rode it ' + fix(rode, 1) + ' s, off at z ' + (off ? fix(off.z, 1) : '-') : 'never caught'}, landed ${land ? 'z ' + fix(land.z, 1) + ' y ' + fix(land.y, 1) : 'never'}`);
+    } }
+  // 9. A HYDRANT: skate into it and the cap comes off; stand in the water and it lifts her past C's roof
+  { const H = rg.HYD.list[0]; place(H.x - 6, 0, H.z, Math.PI / 2, 9);
+    run(1.5, () => rg.stepCity(DT));
+    say('skated into the hydrant at 9 m/s', H.broken, H.broken ? 'cap off' : 'still intact');
+    place(H.x - 0.7, 0, H.z, Math.PI / 2, 0); let top = 0;
+    run(3, () => { rg.stepCity(DT); top = Math.max(top, P.pos.y); });
+    say('...and its geyser lifts her', top > 6.5, `up to ${fix(top)} m (C's roof is at 6)`); }
+  // 10. GEMS on the B -> C rail
+  { const bc = path('B to C'), g0 = rg.GEM.got; place(69, 9, 160, 0, 0);
+    rg.enterGrind({ rail: bc.segs[0], t: 0.05, dir: 1, s: 8, side: 'left' });
+    run(4, () => rg.stepCity(DT));
+    say('gems along the B -> C rail', rg.GEM.got - g0 >= 3, `${rg.GEM.got - g0} picked up`); }
+  // THE EDGE OF THE WORLD: flat out at the far bank, she comes back rather than off
+  { const E = rg.PARK.edge; let far = 0; place(0, 0, 300, 0, 24);
+    run(6, () => { far = Math.max(far, P.pos.z); });
+    say('flat out at the edge of the world', far < rg.PARK.S + E.u && P.pos.y > -1, `got to z ${fix(far, 1)} (the wall is at ${fix(rg.PARK.S + E.u, 1)}), ended y ${fix(P.pos.y, 1)}`); }
+  // 11. THE CAMERA stays out of buildings
+  say('camera inside the tower is blocked', rg.camBlocked(-50, 15, 210) && !rg.camBlocked(-50, 15, 190), 'in: blocked, out: clear');
+  // 12. AN IMPORT, built in memory the way GLTFLoader builds one, through the shipped levelIngest
+  { const before = S.all.length, railsBefore = rg.PATHS.length;
+    const vis = new THREE.Group(), root = new THREE.Group(); root.name = 'TEST0';
+    root.userData = { cells: '[[0, 0], [1, 0], [0, 1]]', heights: '{"0,0": 2, "1,0": 1, "0,1": 3}', bay_m: 3, floor_m: 3 };
+    root.position.set(0, 0, 0); vis.add(root);
+    const wallMat = new THREE.MeshStandardMaterial(); wallMat.name = 'brick';
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 0.2).translate(3, 3, 0), wallMat); pane.name = 'TEST0_wall'; root.add(pane);
+    const col = new THREE.Group();
+    const deck = new THREE.Mesh(new THREE.PlaneGeometry(4, 4).rotateX(-Math.PI / 2).translate(12, 1, -2), wallMat); deck.name = 'deck_test'; col.add(deck);
+    const bx = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 1).rotateY(0.5).translate(20, 1, -2), wallMat); bx.name = 'bld_test'; col.add(bx);
+    const metal = new THREE.MeshStandardMaterial(); metal.name = 'metal';
+    const rl = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 0.1).translate(12, 1.2, 6), metal); rl.name = 'solid_rail'; col.add(rl);
+    const at = new THREE.Matrix4().makeTranslation(150, 0, -250);
+    const st = rg.levelIngest(vis, col, at, 'test');
+    const cell = rg.solidAt(151.5, 4, -251.5, 0), cell1 = rg.solidAt(154.5, 2, -251.5, 0), tall = rg.solidAt(151.5, 8, -254.5, 0);
+    const g = rg.groundAt(162, -252, 1.2, 0.5);
+    const b = rg.solidAt(170, 1, -252, 0);
+    const yawOk = b && Math.abs(((b.yaw - 0.5) % (Math.PI / 2) + Math.PI / 2) % (Math.PI / 2)) < 0.01 || (b && Math.abs(((b.yaw - 0.5) % (Math.PI / 2) + Math.PI / 2) % (Math.PI / 2) - Math.PI / 2) < 0.01);
+    const rp = rg.PATHS.slice(railsBefore).find(q => /test rail/.test(q.name));
+    say('import: cells become walls of their height', cell && cell1 && tall && cell.y1 === 6 && cell1.y1 === 3 && tall.y1 === 9, `cells ${st.cells}, tops ${cell && cell.y1}/${cell1 && cell1.y1}/${tall && tall.y1}`);
+    say('import: deck_ is a floor, bld_ a box at its own yaw', g.hit && Math.abs(g.floor - 1) < 0.01 && !!b && yawOk && Math.abs(Math.max(b.hx, b.hz) - 2) < 0.02,
+      `floor ${g.hit ? fix(g.floor) : 'none'}, box yaw ${b ? fix(b.yaw * 180 / Math.PI, 1) : '-'} deg, half ${b ? fix(b.hx) + 'x' + fix(b.hz) : '-'}`);
+    say('import: a metal box is a rail along its top', !!rp && Math.abs(rp.segs[0].a.y - 1.25) < 0.01, rp ? `${rp.segs.length} segments at y ${fix(rp.segs[0].a.y)}` : 'none');
+    place(146, 0, -251.5, Math.PI / 2, 8); let worst = 0; run(1.5, () => { worst = Math.max(worst, P.pos.x); });
+    say('import: she stops at an imported wall', worst < 150 - rg.SOLID.r + 0.03, `stopped at x ${fix(worst)} (face at 150)`);
+    say('import: added boxes', S.all.length - before >= 4, `${S.all.length - before}`); }
+  // 13. HIS REAL FILES: the kit pieces skin the district, his four generated buildings come in whole
+  { const kit = await realGLB('models/kit/building_kit_pieces.glb');
+    rg.kitFrom(kit.scene);
+    const names = new Set(rg.KIT.place.map(q => q[0])), miss = [...names].filter(n => !rg.KIT.lib[n] || !rg.KIT.lib[n].length);
+    say('kit: every piece the city asks for is in his file', !miss.length && rg.KIT.meshes.length > 0 && !rg.CITY.fallback.visible,
+      `${names.size} piece kinds -> ${rg.KIT.meshes.length} instanced meshes${miss.length ? ', MISSING ' + miss.join(' ') : ''}, stand-in boxes hidden`);
+    const L = rg.LEVEL.imports[0];
+    const [vis, col] = await Promise.all([realGLB(L.vis), realGLB(L.col)]);
+    const at = new THREE.Matrix4().makeTranslation(L.at[0], L.at[1], L.at[2]);
+    const nMats = new Set(); vis.scene.traverse(o => { if (o.isMesh && !/^col_/.test(o.name)) nMats.add(o.material); });
+    const st = rg.levelIngest(vis.scene, col.scene, at, L.name);
+    say('his BKG0-3: drawn, one mesh per material', st.mats === nMats.size && st.meshes > 300, `${st.meshes} meshes -> ${st.mats} draws (${nMats.size} materials)`);
+    say('his BKG0-3: cells -> walls, decks -> floors, bld -> boxes', st.cells === 35 && st.floors > 100 && st.boxes > 150, JSON.stringify(st));
+    // up the bank onto BKG2, over its parapet, onto its roof
+    place(-85.5, 0, 139, 0, 16); let top = 0, land = null;
+    run(3, () => { top = Math.max(top, P.pos.y); if (P.grounded && !land && P.pos.z > 152.4 && Math.abs(P.pos.y - 3) < 0.1) land = P.pos.clone(); });
+    say('up the bank onto his low building\'s roof at 16 m/s', !!land, land ? `over the parapet (top ${fix(top)} m), on the roof at ${fix(land.x, 1)}, ${fix(land.y)}, ${fix(land.z, 1)}` : `top ${fix(top)} m, never on the roof`);
+    // a wall of his: straight at BKG0's south face
+    place(-118.5, 0, 148, 0, 9); let worst = 0; run(1.2, () => { worst = Math.max(worst, P.pos.z); });
+    say('his BKG0 is a wall', worst < 152 - rg.SOLID.r + 0.05, `stopped at z ${fix(worst)} (face at 152)`);
+    const hyd = await realGLB('models/props/prop_hydrant.glb');
+    rg.hydFrom(hyd.scene);
+    say('his hydrant: a body and a cap', rg.HYD.parts.body.length > 0 && rg.HYD.parts.cap.length > 0, `${rg.HYD.parts.body.length} body parts, ${rg.HYD.parts.cap.length} cap parts`); }
+  return ok;
+};
+
+// r45: the PARK's four rails -- the city's paths (spirals, loops, a zip) have their own case
+const parkRails = () => rg.RAILS.filter(R => R.path.name === 'park');
 CASES.home = () => {
-  let ok = true; const keep = rg.GRIND.home, R0 = rg.RAILS;
+  let ok = true; const keep = rg.GRIND.home, R0 = parkRails();
   const grinds = (R, setup) => {
     setup(); P.jump = 1;
     let got = null; run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && !got) got = P.grind; });
@@ -1727,7 +1882,7 @@ function meleeCase() {
     rg.MELEE.aimR = keepR;
     return got && got.rail === R;
   };
-  const rows = rg.RAILS.map((R, i) => `${i}: ${tryRail(R, 1, keepR) ? 'GRIND' : 'missed'}/${tryRail(R, -1, keepR) ? 'GRIND' : 'missed'} (aim off: ${tryRail(R, 1, 0) ? 'grind' : 'missed'})`);
+  const rows = parkRails().map((R, i) => `${i}: ${tryRail(R, 1, keepR) ? 'GRIND' : 'missed'}/${tryRail(R, -1, keepR) ? 'GRIND' : 'missed'} (aim off: ${tryRail(R, 1, 0) ? 'grind' : 'missed'})`);
   console.log('  kicked at each rail from either side: ' + rows.join('  '));
   if (rows.some(r => /missed\//.test(r) || /\/missed/.test(r))) ok = false;
   return ok;
@@ -1889,7 +2044,7 @@ CASES.feel = () => {
 // rails `buildPark` built. Each row puts her in the air near a rail and lets the physics decide.
 CASES.grind = () => {
   let ok = true;
-  const R = rg.RAILS;
+  const R = parkRails();
   console.log(`  ${R.length} rails`);
   // r33: HOW HIGH SHE ACTUALLY GOES, measured by jumping on open flat ground -- the rails are judged
   // against THIS, not against the formula that places them.
