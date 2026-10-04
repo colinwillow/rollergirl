@@ -183,6 +183,11 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   **HIS LITERAL 100% HOLD UNDER 30% STRENGTH IS A TAIL WELDED ON**: a stiff sim shown at 30%
   moves the visible tail **2 cm** through a turn. His look was a loose sim shown small, so
   `posHold` ships at 0.30 (0.26 m shown in a dash, 0.06 in a turn, kink still 6.3 deg).
+  **GRAVITY IS OFF (r17), ON HIS C4D SETUP, AND IT IS FREE**: the same swing (0.25 m shown in a
+  dash), half the kinking (6.3 -> 3.0 deg), and no sag at rest -- standing still the tail IS the
+  authored pose. Gravity was a constant load the holds spent their effort fighting. The floor
+  and body checks in `npm run sim tail` set their own gravity explicitly, so they still test
+  the collision rather than a tail that never falls onto anything.
   **`npm run sim tail` MEASURES THE SHOWN CHAIN (`T.D`) AS WELL AS THE SIMULATED ONE (`T.P`)**,
   because with `strength` they are no longer the same chain and only one of them is on screen.
   Its kink check is the 95th percentile over a skater's turn: the first version took the single

@@ -128,7 +128,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r16</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r17</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -143,7 +143,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r16';
+const BUILD = 'r17';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -268,7 +268,16 @@ const TAIL = {
   // `air` is drag against still air, which is what makes a tail trail at speed at all -- the
   // one term that may legitimately hold it back, about `air * v / posK` of lag.
   air: 0.9,
-  grav: 0.30,          // of the game's own gravity. A tail is light; full weight drags it dead.
+  // GRAVITY IS OFF, ON HIS C4D SETUP -- *"I think I removed gravity on the dynamics, which is
+  // less realistic, but it could create a nice ease."* It does, and it costs nothing: the swing
+  // is the same size and the curve comes out smoother, because gravity was a constant load the
+  // holds spent their effort fighting rather than a motion anybody reads as a tail.
+  //     grav   sag at rest   shown in a dash   shown in a turn   kink (95th pct)   tip
+  //     0.30     0.094 m         0.256 m           0.062 m           6.3 deg      12.3
+  //     0.15     0.054           0.258             0.055             4.4          11.0
+  //     0.00     0.000           0.247             0.045             3.0           9.9   <- shipped
+  // And at zero the tail at rest IS his authored pose, exactly, which is worth having.
+  grav: 0,             // of the game's own gravity
   // NO ITERATION COUNT, AND SUBSTEPPING AT ONE, BOTH MEASURED. The length projection is
   // root-outward and DIRECT, so it is exact after one pass -- 3 passes and 10 gave byte-identical
   // numbers. And substepping made the violent cases WORSE (a 5.6 rad/s shake went 35 -> 169 m/s
