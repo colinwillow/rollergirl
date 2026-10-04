@@ -146,7 +146,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r21</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r22</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -163,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r21';
+const BUILD = 'r22';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -557,6 +557,35 @@ const PARK = { S: 70, cell: 5, wallR: 10.0, wallSweep: 70 * Math.PI / 180, wallB
   // over 88 degrees makes that chord 85.3, and the drift goes as sin(2T), so the segment count
   // is worth as much here as the sweep is. 28 puts it at 86.4.
   hpSweep: 88 * Math.PI / 180, hpSeg: 28, cope: 0.45 };
+// ---- THE RAILS (r22) ----
+// *"Let's put some grind rails in the park."* Four, each on flat open plaza with 3 m clear either
+// side -- MEASURED with `groundAt` before any was placed, the way every ramp here was, because a
+// rail dropped by eye ends half inside a funbox. Away from the x = +/-60 strips the sim skates.
+// `a` and `b` are the TOP of the bar, where her wheels sit; a sloped one is a down rail.
+const RAIL_DEF = [
+  { a: [-40, 0.6, -6], b: [-40, 0.6, 16] },    // flat, along Z, off to the left of the spawn
+  { a: [-12, 0.8, -46], b: [12, 0.8, -46] },   // flat, along X, the south side
+  { a: [38, 1.5, 2], b: [38, 0.5, 18] },       // a DOWN rail, a metre of drop over 16
+  { a: [30, 0.7, 30], b: [44, 0.7, 46] },      // diagonal, so nothing assumes a rail runs on an axis
+];
+// HOW A GRIND IS CAUGHT AND HELD. Caught in the AIR only -- dropping onto a rail or ollieing onto
+// one -- so riding past a rail can never snag her.
+const GRIND = {
+  catchR: 0.55,      // how close in PLAN her feet must pass to the bar
+  above: 0.35,       // ...and how far above its top, or
+  below: 0.25,       //    below it (the frame sampled her a little past it), still counts
+  rise: 1.5,         // rising faster than this she is jumping OVER it, not onto it
+  minCos: 0.25,      // crossing it squarer than ~75 degrees is a jump over, not a grind
+  minV: 4,           // she locks on at least this fast, so a slow catch still slides
+  drag: 0.08,        // per second along the bar, exponential. 0.35 took 8 m/s to 2.4 over a 22 m
+                     // rail -- grinds in every skating game barely bleed speed, and at 0.08 she
+                     // comes off that rail at about 7.
+  slope: 1,          // of gravity along a sloped rail -- a down rail speeds her up
+  stall: 1.2,        // slower than this she drops off
+  popK: 0.85,        // a tap off the rail is an ollie this size (of AIR.jump)
+  cool: 0.35,        // after leaving a rail she cannot re-catch THAT rail for this long
+  swap: 0,           // 1 swaps which clip is "left" -- the one convention a look can settle
+};
 const LIGHT = { sun: 2.5, hemi: 1.15, dir: new THREE.Vector3(0.45, 0.78, 0.42).normalize() };
 
 // ---------- renderer & scene ----------
@@ -943,6 +972,7 @@ function buildPark() {
   funBox(14, -16, Math.PI / 2, 4.0, 8, 1.6, 4.5);
   bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
   triBuild();
+  buildRails();      // AFTER the collider: each post is measured down to the ground under it
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(MESH.pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(MESH.nrm, 3));
@@ -954,6 +984,146 @@ function buildPark() {
   scene.add(parkMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
+}
+
+// NOT IN THE COLLIDER. A rail is a thing she catches, not a floor or a wall -- a bar thin enough to
+// look right is thin enough to trip on, and riding past one must never snag her.
+const RAILS = [];
+function buildRails() {
+  RAILS.length = 0;
+  const mat = new THREE.MeshStandardMaterial({ color: 0xc9cdd6, metalness: 0.85, roughness: 0.32 });
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x7c8190, metalness: 0.6, roughness: 0.5 });
+  const Y = new THREE.Vector3(0, 1, 0);
+  for (const r of RAIL_DEF) {
+    const a = new THREE.Vector3(...r.a), b = new THREE.Vector3(...r.b);
+    const d = b.clone().sub(a), len = d.length(); d.normalize();
+    const hx = r.b[0] - r.a[0], hz = r.b[2] - r.a[2], hl = Math.hypot(hx, hz);
+    RAILS.push({ a, b, d, len, hx: hx / hl, hz: hz / hl, hl });
+    const R = 0.045;
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(R, R, len, 12), mat);
+    bar.position.copy(a).add(b).multiplyScalar(0.5).y -= R;    // the TOP of the bar is the line
+    bar.quaternion.setFromUnitVectors(Y, d);
+    bar.castShadow = true; scene.add(bar);
+    const posts = Math.max(2, Math.round(len / 3) + 1);
+    for (let i = 0; i < posts; i++) {
+      const u = (i + 0.5) / posts, x = a.x + (b.x - a.x) * u, z = a.z + (b.z - a.z) * u;
+      const top = a.y + (b.y - a.y) * u - R * 2;
+      const g = groundAt(x, z, top, 20), floor = g.hit ? g.floor : 0;
+      const h = Math.max(0.05, top - floor);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, h, 8), postMat);
+      post.position.set(x, floor + h / 2, z); post.castShadow = true; scene.add(post);
+    }
+  }
+}
+// THE CATCH. Swept along the frame's own travel -- at 15 m/s a frame is a quarter of a metre, and
+// sampling only where she ended up lets a fast pass straddle the bar with neither end inside the
+// window. Returns where on which rail, which way along it, how fast, and from which SIDE.
+function railCatch(p0, p1, vel) {
+  const p = player;
+  if (p.grindCool > 0 && !p.grindLast) return null;
+  const vh = Math.hypot(vel.x, vel.z);
+  for (const R of RAILS) {
+    if (p.grindCool > 0 && R === p.grindLast) continue;
+    for (const k of [0.34, 0.67, 1]) {
+      const qx = p0.x + (p1.x - p0.x) * k, qy = p0.y + (p1.y - p0.y) * k, qz = p0.z + (p1.z - p0.z) * k;
+      const t = ((qx - R.a.x) * R.hx + (qz - R.a.z) * R.hz) / R.hl;
+      if (t < 0.02 || t > 0.98) continue;
+      const cx = R.a.x + (R.b.x - R.a.x) * t, cy = R.a.y + (R.b.y - R.a.y) * t, cz = R.a.z + (R.b.z - R.a.z) * t;
+      const off = (qx - cx) * -R.hz + (qz - cz) * R.hx;       // signed distance, + to the rail's RIGHT
+      if (Math.abs(off) > GRIND.catchR) continue;
+      const dy = qy - cy;
+      if (dy > GRIND.above || dy < -GRIND.below || vel.y > GRIND.rise) continue;
+      const cos = vh > 0.5 ? (vel.x * R.hx + vel.z * R.hz) / vh : Math.cos(p.heading - Math.atan2(R.hx, R.hz));
+      if (vh > 0.5 && Math.abs(cos) < GRIND.minCos) continue;
+      const dir = cos >= 0 ? 1 : -1;
+      const ux = R.d.x * dir, uy = R.d.y * dir, uz = R.d.z * dir;
+      const sp = Math.max(Math.abs(vel.x * ux + vel.y * uy + vel.z * uz), GRIND.minV);
+      // WHICH SIDE: *"approaching from the left side of the rail, going at an angle toward the
+      // right, she goes into a right side."* Her sideways speed against the direction she will
+      // grind decides it; landing dead straight on, which side of the bar she came down on does.
+      const rx = -uz, rz = ux, rh = Math.hypot(rx, rz) || 1;  // her right, along the grind
+      const lat = (vel.x * rx + vel.z * rz) / rh;
+      let right = Math.abs(lat) > 0.5 ? lat > 0 : off * dir < 0;
+      if (GRIND.swap) right = !right;
+      return { rail: R, t, dir, s: Math.min(sp, SK.max), side: right ? 'right' : 'left' };
+    }
+  }
+  return null;
+}
+function enterGrind(c) {
+  const p = player;
+  p.grind = { rail: c.rail, t: c.t, dir: c.dir, s: c.s, side: c.side, time: 0 };
+  p.grounded = true; p.n.set(0, 1, 0); p.flip = null; p.drift = 0; p.landHard = 2;
+  sparkBurst(14);
+}
+// ON THE RAIL: locked to the line, slowed by `drag`, sped up or slowed by the slope, and off it
+// when she runs out of rail, runs out of speed, or taps off.
+function stepGrind(dt) {
+  const p = player, G = p.grind, R = G.rail;
+  const ux = R.d.x * G.dir, uy = R.d.y * G.dir, uz = R.d.z * G.dir;
+  G.s += -SK.g * uy * GRIND.slope * dt;
+  G.s = decay(G.s, GRIND.drag, dt);
+  G.t += G.dir * G.s * dt / R.len;
+  G.time += dt;
+  const end = G.t <= 0 || G.t >= 1;
+  G.t = clamp(G.t, 0, 1);
+  p.pos.copy(R.a).lerp(R.b, G.t);
+  p.vel.set(ux * G.s, uy * G.s, uz * G.s);
+  p.heading = Math.atan2(ux, uz) + (p.stance < 0 ? Math.PI : 0);
+  p.bq.setFromAxisAngle(UP, p.heading);
+  if (end || G.s < GRIND.stall) grindLeave(false);
+}
+function grindLeave(pop) {
+  const p = player, G = p.grind;
+  if (!G) return;
+  p.grindLast = G.rail; p.grindCool = GRIND.cool;
+  p.grind = null; p.grounded = false; p.airT = 0; p.coyote = 0; p.drift = 0;
+  if (pop) p.vel.y += AIR.jump * GRIND.popK;
+  // dropped off for want of speed: tipped off the side she came from, so she does not fall
+  // straight back down onto the bar she just lost
+  else if (G.s < GRIND.stall) { const sd = G.side === 'right' ? -1 : 1, R = G.rail;
+    p.vel.x += -R.hz * G.dir * sd * 1.5; p.vel.z += R.hx * G.dir * sd * 1.5; }
+}
+
+// ---------- sparks ----------
+// *"Put sparks on the grind rails -- everything's gonna be really exaggerated."* A ring of points
+// thrown off her wheels at a rate that follows her speed, additive, and faded by colour toward
+// BLACK -- which is invisible under additive blending, so no per-point alpha and no custom
+// shader. Visual only; nothing reads it.
+const SPARK = { n: 160, life: 0.42, rate: 70, size: 0.07 };
+const sparkPos = new Float32Array(SPARK.n * 3), sparkCol = new Float32Array(SPARK.n * 3);
+const sparkVel = new Float32Array(SPARK.n * 3), sparkAge = new Float32Array(SPARK.n).fill(9);
+const sparkGeo = new THREE.BufferGeometry();
+sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkCol, 3));
+const sparkPts = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ size: SPARK.size, vertexColors: true,
+  blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+sparkPts.frustumCulled = false;
+scene.add(sparkPts);
+let sparkHead = 0, sparkAcc = 0;
+function sparkOne() {
+  const p = player, G = p.grind, i = sparkHead; sparkHead = (sparkHead + 1) % SPARK.n;
+  const s = G ? G.s : 6, ux = G ? G.rail.d.x * G.dir : 0, uz = G ? G.rail.d.z * G.dir : 0;
+  sparkPos[i * 3] = p.pos.x; sparkPos[i * 3 + 1] = p.pos.y + 0.02; sparkPos[i * 3 + 2] = p.pos.z;
+  const sp = 0.25 + Math.random() * 0.35;
+  sparkVel[i * 3] = -ux * s * sp + (Math.random() - 0.5) * 2.4;
+  sparkVel[i * 3 + 1] = 0.6 + Math.random() * 2.6;
+  sparkVel[i * 3 + 2] = -uz * s * sp + (Math.random() - 0.5) * 2.4;
+  sparkAge[i] = 0;
+}
+function sparkBurst(n) { for (let i = 0; i < n; i++) sparkOne(); }
+function sparkStep(dt) {
+  const G = player.grind;
+  if (G) { sparkAcc += SPARK.rate * clamp(G.s / 10, 0.3, 2) * dt; while (sparkAcc >= 1) { sparkOne(); sparkAcc -= 1; } }
+  for (let i = 0; i < SPARK.n; i++) {
+    if (sparkAge[i] > SPARK.life) { sparkCol[i * 3] = sparkCol[i * 3 + 1] = sparkCol[i * 3 + 2] = 0; continue; }
+    sparkAge[i] += dt;
+    sparkVel[i * 3 + 1] -= 14 * dt;
+    sparkPos[i * 3] += sparkVel[i * 3] * dt; sparkPos[i * 3 + 1] += sparkVel[i * 3 + 1] * dt; sparkPos[i * 3 + 2] += sparkVel[i * 3 + 2] * dt;
+    const k = Math.max(0, 1 - sparkAge[i] / SPARK.life);
+    sparkCol[i * 3] = 1.0 * k; sparkCol[i * 3 + 1] = 0.62 * k * k; sparkCol[i * 3 + 2] = 0.18 * k * k * k;
+  }
+  sparkGeo.attributes.position.needsUpdate = true; sparkGeo.attributes.color.needsUpdate = true;
 }
 
 // ---------- her ----------
@@ -1204,7 +1374,10 @@ function buildMoves(has) {
   const idleBack = MOVES.idleBack.filter(n => has[n]);
   const flip = {};
   for (const k in MOVES.flip) if (has[MOVES.flip[k]]) flip[k] = MOVES.flip[k];
-  return { fwd, back, flip,
+  const grind = {};
+  for (const k of ['left', 'right']) if (has['grind_' + k]) grind[k] = 'grind_' + k;
+  if (!grind.left) grind.left = grind.right; if (!grind.right) grind.right = grind.left;
+  return { fwd, back, flip, grind,
            idleFwd: idleFwd.length ? idleFwd : [fwd[0]],
            idleBack: idleBack.length ? idleBack : (idleFwd.length ? [idleFwd[0]] : [back[0]]),
            air: has[MOVES.air] ? MOVES.air : null,
@@ -1682,6 +1855,14 @@ function girlAnimMoves(dt) {
     const B = girl.bail, down = B.T - p.bailT < B.fT;
     if (!down && !B.rose) { rewind(B.up); B.rose = true; }
     add(down ? B.fall : B.up, 1);
+  } else if (p.grind && m.grind[p.grind.side]) {
+    // ON A RAIL: the side she came at it from picks the clip. Snapped in, because a grind is a
+    // landing, and played a little quicker the faster she is sliding.
+    girl.bail = null;
+    const nm = m.grind[p.grind.side];
+    if (p.grind.time < 0.05) snap = true;
+    clipScale(nm, clamp(p.grind.s / 8, 0.75, 1.4));
+    add(nm, 1);
   } else if (!p.grounded) {
     girl.bail = null;
     const f = p.flip;
@@ -1919,12 +2100,13 @@ const player = {
   // and back down it), not re-derived from her velocity every frame -- see `stanceLock`.
   stance: 1, stanceLock: false, shoveDir: 1,
   flip: null, bailId: 0, landAng: 0,
+  grind: null, grindCool: 0, grindLast: null,
   bq: new THREE.Quaternion(),      // THE BODY'S FULL ORIENTATION. On the ground it is derived
                                    // from the surface; in the air it is integrated and is the
                                    // only thing that says which way up she is.
 };
 const _F = new THREE.Vector3(), _R = new THREE.Vector3(), _N = new THREE.Vector3(), _q = new THREE.Quaternion();
-const _qa = new THREE.Quaternion(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
+const _qa = new THREE.Quaternion(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _pp = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0), XAX = new THREE.Vector3(1, 0, 0), ZAX = new THREE.Vector3(0, 0, 1);
 // The orientation of a skater standing on the surface she is on, facing her heading. Composed
 // align-then-yaw-then-lean, which is exactly what the old three-node chain multiplied out to --
@@ -1970,7 +2152,7 @@ function respawn() {
   const p = player;
   p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0; p.drift = 0;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
-  p.lean = 0; p.stance = 1; p.flip = null; groundQ(p.bq);
+  p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
   if (g.hit) { p.pos.y = g.floor; p.n.set(g.nx, g.ny, g.nz); }
 }
@@ -2221,7 +2403,14 @@ function stepAir(dt) {
   if (h > SK.max) { p.vel.x *= SK.max / h; p.vel.z *= SK.max / h; }
 
   const y0 = p.pos.y;
+  _pp.copy(p.pos);
   p.pos.addScaledVector(p.vel, dt);
+  // A RAIL BEFORE THE GROUND -- it is above it. Not mid-flip: coming down on a bar half way round
+  // is a bail on whatever is under it, not a grind.
+  if (RAILS.length && p.bailT <= 0 && !(p.flip && p.flip.t < p.flip.dur * LAND.flipDone)) {
+    const c = railCatch(_pp, p.pos, p.vel);
+    if (c) { enterGrind(c); return; }
+  }
   // SWEPT FROM THE HIGHER OF THE TWO. A fast fall can put her under the deck between two
   // frames, and a query at her NEW position then finds that deck ABOVE her, reports no floor
   // at all, and lets her carry on down. It only ever bites at speed, which is the worst time.
@@ -2307,12 +2496,13 @@ function startFlip(dir) {
 function stepPlayer(dt) {
   const p = player;
   p.rHold = stick.R.down ? p.rHold + dt : 0;
-  if (p.jump) { p.jump = 0; if (p.grounded || p.coyote > 0) doJump(); }
+  if (p.jump) { p.jump = 0; if (p.grind) grindLeave(true); else if (p.grounded || p.coyote > 0) doJump(); }
+  p.grindCool = Math.max(0, p.grindCool - dt);
   // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
   // samples, and that is speed x dt -- so the count follows her speed and a 120 Hz phone does
   // not silently get a different game from a 30 Hz one.
   const n = clamp(Math.ceil(p.speed * dt / SK.sub), 1, SK.subMax), sdt = dt / n;
-  for (let i = 0; i < n; i++) { if (p.grounded) stepGround(sdt); else stepAir(sdt); }
+  for (let i = 0; i < n; i++) { if (p.grind) stepGrind(sdt); else if (p.grounded) stepGround(sdt); else stepAir(sdt); }
   // TWO SPEEDS, AND THE CAMERA NEEDS THE HORIZONTAL ONE. Straight up a vert wall her
   // horizontal speed is nearly zero while she is doing fifteen -- so a bearing taken from
   // the horizontal velocity there is pure noise, and the lens would spin.
@@ -2457,6 +2647,7 @@ function hud(dt) {
       // WHICH CLIP IS UP, AND WHICH WAY ROUND SHE IS. "Why is she doing that" is a question about
       // the move brain's choice, and the answer is one glance here rather than a guess.
       (girl.moves ? (player.stance < 0 ? ' · FAKIE' : '') + (girl.top ? ' · ' + girl.top.replace(/^blade_/, '') : '') : '') +
+      (player.grind ? ` · GRIND ${player.grind.side.toUpperCase()} ${player.grind.s.toFixed(1)}` : '') +
       (girl.tail && girl.tail.n
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : ''); }
@@ -2489,6 +2680,7 @@ function frame() {
   stepPlayer(dt);
   girlAnim(dt);
   poseGirl(dt);
+  sparkStep(dt);
   stepCam(dt);
   hud(dt);
   renderer.render(scene, camera);
@@ -2591,10 +2783,15 @@ const TAILUI = [
   ['MOVES.speeds.2', 'Hard at m/s',    6,   28,  0.5,  ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
+  ['Grinding', ''],
+  ['GRIND.catchR',   'Rail catch reach', 0.2, 1.5, 0.05, ''],
+  ['GRIND.drag',     'Rail drag',      0,   2,   0.05, ''],
+  ['GRIND.minV',     'Rail min speed', 0,   12,  0.5,  ''],
+  ['GRIND.swap',     'Swap L/R clips', 0,   1,   1,    ''],
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -2704,6 +2901,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
+  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

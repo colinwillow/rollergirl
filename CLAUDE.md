@@ -313,6 +313,30 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   she leaves skips it -- the transfer -- and the existing hold-forward air push carries her over.
   13/17/21 m/s and both pops now land below the lip, FAKIE (no spin); holding forward lands on
   the deck, 15-29 m past the lip, which is `AIR.driftMax` and is on the panel as Transfer push.
+- **GRIND RAILS (r22, `RAIL_DEF`, `RAILS`, `railCatch`, `stepGrind`, `grindLeave`).** Four rails --
+  flat along Z (x -40), flat along X (z -46), a DOWN rail (x 38, 1.5 -> 0.5 m), and a diagonal --
+  each on flat open plaza with 3 m clear either side, MEASURED with `groundAt` before any was
+  placed, and away from the x = +/-60 strips the sim skates. **A rail is NOT in the collider**:
+  she catches it, she does not stand on it or stop against it, so riding past one cannot snag her.
+  **CAUGHT IN THE AIR ONLY**, swept along the frame's travel (three samples) because at 16 m/s a
+  20 Hz frame is most of a metre: within `catchR` in plan, inside a band around the bar's top, not
+  rising faster than `rise`, and not crossing it squarer than `minCos` (that is a jump over). On
+  it she is locked to the line, `drag` 0.08/s (0.35 took 8 m/s down to 2.4 over one rail), sped up
+  or slowed by the slope, and off when she runs out of rail (into the air with her speed), runs
+  out of speed (tipped off the side she came from, with `cool` before she can re-catch it), or
+  taps -- an ollie off the rail.
+  **WHICH CLIP IS THE SIDE SHE CAME FROM, RELATIVE TO HER TRAVEL.** *"Approaching from the left
+  side, going at an angle toward the right, she goes into a right side."* Her sideways speed
+  against the direction she will grind decides it; landing dead straight on, which side of the bar
+  she came down on. Going -Z her right is +X, so the same world drift is the OPPOSITE grind going
+  the other way -- `npm run sim grind` has a row for exactly that. `GRIND.swap` (on the panel)
+  flips the convention if the clips turn out to be named the other way round.
+  **SPARKS** are a ring of additive points thrown off her wheels at a rate that follows her speed,
+  faded toward BLACK -- invisible under additive blending, so no per-point alpha and no shader.
+  **A CHECK THAT TAKES ITS PASS MARK FROM THE THING UNDER TEST CANNOT FAIL.** The "rising fast past
+  the rail" row first compared against the live `GRIND.rise`; with the gate removed (rise 99) the
+  pass mark moved to 99 too and the row passed while she was caught climbing at 5 m/s. It uses its
+  own definition now, and was verified by removing the gate: fail, then pass with it restored.
 - **THE PANEL IS PATHS NOW (`TAILUI`, `UIOBJ`, the ⚙ key).** A row names `OBJ.key[.index]`, so one
   table drives TAIL, LAND, MOVES, VERT and AIR. A `deg` row is shown in degrees and STORED in
   radians -- crossed units would hand the landing check 53 radians and nothing would ever bail,
@@ -672,8 +696,8 @@ Each of these cost a round in the build that found it.
 
 ## Not there yet
 
-- **The rest of his r21 plan**, in roughly his order: grinds (`grind_left/right` by which side she
-  meets the rail; no rails in the park yet), grabs on the other stick, rail poses / a balance bar,
+- **The rest of his r21 plan**, in roughly his order: grabs on the other stick, the half pipe's
+  coping as a grindable rail, rail poses / a balance bar,
   trick points (+10 +25 ...), sparks, hand/foot trails, a speed tunnel / blur, landing and bail
   shake, the swivel (tap the left stick to switch stance), and the variety skates (`onefoot*`,
   `daffy`, `swizzle`, `tiptoe`, `pose_duck/swan`) which have no trigger yet. `tuck` and

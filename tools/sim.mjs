@@ -62,7 +62,7 @@ function place(x, y, z, heading, speed) {
   P.pos.set(x, y, z); P.heading = P.faceH = heading; P.grounded = true;
   P.vel.set(Math.sin(heading) * (speed || 0), 0, Math.cos(heading) * (speed || 0));
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
-  P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1;
+  P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1; P.grind = null; P.grindCool = 0; P.grindLast = null;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
   rg.groundQ(P.bq);        // standing on whatever she was just placed on
@@ -1103,7 +1103,7 @@ CASES.moves = () => {
     setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; },
     setEffectiveTimeScale(v) { this.ts = v; return this; }, setLoop() { return this; } };
   const step = (sec, f) => { for (let i = 0; i < Math.round(sec / DT); i++) { if (f) f(i * DT); rg.girlAnimMoves(DT); } };
-  const state = (o) => { P.grounded = true; P.flip = null; P.bailT = 0; P.landHard = 0; Object.assign(P, o); };
+  const state = (o) => { P.grounded = true; P.flip = null; P.bailT = 0; P.landHard = 0; P.grind = null; Object.assign(P, o); };
   const top = () => rg.girl.top;
   const check = (label, cond, extra = '') => { console.log(`  ${label.padEnd(36)} ${cond ? 'ok' : 'WRONG'} ${extra}`); if (!cond) ok = false; };
   // standing, and the idles rotating
@@ -1136,6 +1136,13 @@ CASES.moves = () => {
         `x${fix(fa.ts)} (clip ${fix(R.len.front_twist_flip__mirror)} s into 0.9 s)`);
   step(0.8, () => (P.flip.t += DT));
   check('...and the air pose once it is round', top() === 'in_air', top());
+  // ON A RAIL: the side she came at it from picks the clip
+  for (const side of ['right', 'left']) {
+    state({ speed: 8, grounded: true }); P.grind = { side, s: 8, time: 1, t: 0.5, dir: 1 };
+    step(0.6);
+    check(`grinding, came at it ${side === 'right' ? 'moving RIGHT' : 'moving LEFT'}`, top() === 'grind_' + side, top());
+    P.grind = null;
+  }
   // a bail: down, then up, filling the bail
   state({ speed: 3, bailT: rg.LAND.bailT }); P.bailId++;
   step(0.2, () => (P.bailT -= DT));
@@ -1145,6 +1152,93 @@ CASES.moves = () => {
   check('a bail: down, then back up', /^fall_to/.test(down) && /^get_up/.test(up), `${down} > ${up}`);
   Object.assign(rg.girl, { actions: keep.a, cw: keep.cw, clipLen: keep.len, moves: keep.m, ready: keep.r, idle: null, bail: null });
   state({ speed: 0, stance: 1 });
+  return ok;
+};
+
+// ---------------------------------------------------------------- the rails
+// THE SHIPPED `railCatch` / `stepGrind` / `grindLeave` through the real `stepPlayer`, over the real
+// rails `buildPark` built. Each row puts her in the air near a rail and lets the physics decide.
+CASES.grind = () => {
+  let ok = true;
+  const R = rg.RAILS;
+  console.log(`  ${R.length} rails`);
+  // 1. every rail floats over flat ground, at a height an ollie reaches
+  for (const [i, r] of R.entries()) {
+    const ga = rg.groundAt(r.a.x, r.a.z, r.a.y, 0.01), gb = rg.groundAt(r.b.x, r.b.z, r.b.y, 0.01);
+    const ca = r.a.y - ga.floor, cb = r.b.y - gb.floor;
+    const good = ga.hit && gb.hit && ca > 0.3 && cb > 0.3 && ca < 2 && cb < 2;
+    console.log(`  rail ${i}: ${fix(r.len, 1)} m, ${fix(ca, 2)}..${fix(cb, 2)} m off the ground${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+  }
+  const keepLock = P.stanceLock; P.stanceLock = true;
+  // in the air at (x, y, z) with velocity v; run and watch
+  const go = (x, y, z, v, sec, during) => {
+    place(x, 1, z, Math.atan2(v[0], v[2]), 0);
+    P.grounded = false; P.pos.y = y; P.airT = 0.3; P.vel.set(...v); P.grindCool = 0; P.grindLast = null;
+    let caught = null, s0 = 0, sMax = 0, tGr = 0, exitAt = null, t = 0, vyWas = 0;
+    run(sec, () => {
+      const g = P.grind;
+      if (g && !caught) { caught = { side: g.side, rail: R.indexOf(g.rail), s: g.s, vy: vyWas }; s0 = g.s; }
+      vyWas = P.vel.y;                               // what she was doing on the frame she caught it
+      rg.stick.L.x = rg.stick.L.y = 0;
+      if (during) during(t);
+      if (g) { tGr += DT; sMax = Math.max(sMax, g.s); }
+      if (caught && !g && !exitAt) exitAt = { x: P.pos.x, y: P.pos.y, z: P.pos.z, vy: P.vel.y, air: !P.grounded, v: Math.hypot(P.vel.x, P.vel.z) };
+      t += DT;
+    });
+    return { caught, s0, sMax, tGr, exitAt };
+  };
+  const row = (label, r, good, extra) => { console.log(`  ${label.padEnd(34)} ${good ? '' : 'WRONG  '}${extra}`); if (!good) ok = false; };
+  // 2. dropped onto the flat rail along it: catches, grinds the length, flies off the end
+  let r = go(-40, 1.6, -3, [0, 0, 8], 4);
+  row('dropped onto rail 0, along it', r, r.caught && r.caught.rail === 0 && r.exitAt && r.exitAt.z > 15.5 && r.exitAt.air,
+      r.caught ? `caught at ${fix(r.s0, 1)} m/s, ${fix(r.tGr, 2)} s on it, off at z ${fix(r.exitAt && r.exitAt.z, 2)} (end 16) ${r.exitAt && r.exitAt.air ? 'into the air' : ''}` : 'NO CATCH');
+  // 3. crossing it square is a jump over
+  r = go(-42, 1.6, 5, [8, 0, 0], 2);
+  row('crossing it square, 90 deg', r, !r.caught, r.caught ? 'CAUGHT' : 'passed over, no grind');
+  // 4. the side: moving to her right onto it is a RIGHT grind, to her left a LEFT one
+  r = go(-39.5, 1.6, -3, [-2, 0, 8], 3);
+  const sR = r.caught && r.caught.side;
+  r = go(-40.5, 1.6, -3, [2, 0, 8], 3);
+  const sL = r.caught && r.caught.side;
+  row('from its left, moving right', null, sR === 'right', sR || 'no catch');
+  row('from its right, moving left', null, sL === 'left', sL || 'no catch');
+  // ...and the same, going the OTHER way along it (her right flips with her)
+  // GOING -Z HER RIGHT IS +X, so drifting -X onto the rail from the +X side is moving to HER LEFT:
+  // the side is judged against her travel, not against the world
+  r = go(-39.5, 1.6, 12, [-2, 0, -8], 3);
+  row('going -Z, drifting -X (her LEFT)', null, r.caught && r.caught.side === 'left', r.caught ? r.caught.side : 'no catch');
+  // 5. a tap on the rail pops her off it
+  r = go(-40, 1.6, -3, [0, 0, 8], 2, t => { if (t > 0.6 && t < 0.62 && P.grind) P.jump = 1; });
+  row('a tap mid-rail pops her off', r, r.exitAt && r.exitAt.z < 14 && r.exitAt.vy > 6,
+      r.exitAt ? `off at z ${fix(r.exitAt.z, 1)}, rising at ${fix(r.exitAt.vy, 1)} m/s` : 'never left');
+  // 6. the DOWN rail speeds her up, and going UP it slowly she runs out and drops off
+  r = go(38, 2.3, 3, [0, 0, 6], 4);
+  row('down rail 2, downhill', r, r.caught && r.exitAt && r.exitAt.v > r.s0 + 0.5,
+      r.caught ? `${fix(r.s0, 1)} m/s on, ${fix(r.exitAt && r.exitAt.v, 1)} off the bottom` : 'NO CATCH');
+  r = go(38, 1.3, 17, [0, 0, -4.5], 4);
+  row('down rail 2, UPHILL and slow', r, r.caught && r.exitAt && r.exitAt.z > 2.6,
+      r.caught ? `dropped off at z ${fix(r.exitAt && r.exitAt.z, 1)} before the top (2.0)` : 'NO CATCH');
+  // 7. the diagonal rail, so nothing assumes an axis
+  { const d = R[3], u = 0.3, x = d.a.x + (d.b.x - d.a.x) * u, z = d.a.z + (d.b.z - d.a.z) * u;
+    r = go(x, 1.7, z, [d.hx * 8, 0, d.hz * 8], 4);
+    row('diagonal rail 3, along it', r, r.caught && r.caught.rail === 3 && r.tGr > 0.8, r.caught ? `${fix(r.tGr, 2)} s on it` : 'NO CATCH'); }
+  // 8. FAST, AT A PHONE'S FRAME RATE: the catch is swept, so a quarter metre a frame still finds it
+  { const keepDT = DT; DT = 1 / 20;
+    r = go(-8, 1.05, -46, [16, -3, 0], 2);
+    DT = keepDT;
+    row('16 m/s onto rail 1, at 20 Hz', r, r.caught && r.caught.rail === 1, r.caught ? `caught at ${fix(r.s0, 1)} m/s` : 'MISSED IT'); }
+  // 9. rising fast past it is a jump over, not a grind
+  // 9. RISING FAST PAST IT IS A JUMP OVER. She comes back down onto it later, which is a perfectly
+  // good catch -- so what is checked is her vertical speed AT the catch, not whether one happened.
+  r = go(-40, 0.45, 2, [0, 5, 6], 2);      // INSIDE the catch band, rising -- the gate is all that stops it
+  // THE TEST'S OWN DEFINITION OF "RISING FAST", NOT `GRIND.rise`. Read off the live value, a gate
+  // turned off (rise 99) also moved the pass mark to 99 and the row went on passing while she was
+  // caught climbing at 5 m/s -- a check that takes its threshold from the thing under test cannot fail.
+  const RISING = 2;
+  row('rising fast up past it', r, !r.caught || r.caught.vy <= RISING,
+      !r.caught ? 'no catch' : r.caught.vy > RISING ? `CAUGHT RISING at ${fix(r.caught.vy, 1)} m/s` : `went over, caught it coming DOWN at ${fix(r.caught.vy, 1)} m/s`);
+  P.stanceLock = keepLock;
   return ok;
 };
 
