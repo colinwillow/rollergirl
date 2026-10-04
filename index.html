@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r40</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r41</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r40';
+const BUILD = 'r41';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -685,6 +685,14 @@ const GRIND = {
   popK: 0.85,        // a tap off the rail is an ollie this size (of AIR.jump)
   cool: 0.35,        // after leaving a rail she cannot re-catch THAT rail for this long
   swap: 0,           // 1 swaps which clip is "left" -- the one convention a look can settle
+  // THE TAP THAT FINDS THE RAIL (r41, `railHome`). *"Make the interaction distance of a rail much more
+  // gracious -- tap even though you're fairly high above it or off to the side, and she does the little
+  // kick over so she grinds on it."* A TAP within `homeR` of a rail in plan, from up to `homeUp` above
+  // its top to `homeBelow` under it -- on the ground OR in the air -- is a SOLVED hop onto the bar
+  // instead of an ordinary jump: a little pop (`homeHop` over the higher of her and the bar), the
+  // horizontal speed that arrives at the bar as she comes down onto it, and the catch relaxed for
+  // that rail. She keeps the speed she had (at least `MELEE.grindV`). `home` 0 is the old jump.
+  home: 1, homeR: 4.5, homeUp: 7, homeBelow: 4, homeHop: 0.5, homeLead: 1.2,
 };
 const LIGHT = { sun: 2.6, hemi: 0.95, dir: new THREE.Vector3(0.45, 0.78, 0.42).normalize() };
 // THE LOOK. Three of them, picked by `LOOK.style` and read at LOAD (the park's colours are baked into
@@ -1267,7 +1275,7 @@ function railCatch(p0, p1, vel) {
       if (vh > 0.5 && Math.abs(cos) < GRIND.minCos && !kt) continue;
       const dir = kt ? p.kickRail.dir : cos >= 0 ? 1 : -1;
       const ux = R.d.x * dir, uy = R.d.y * dir, uz = R.d.z * dir;
-      const sp = Math.max(Math.abs(vel.x * ux + vel.y * uy + vel.z * uz), kt ? Math.max(MELEE.grindV, vh * 0.8) : GRIND.minV);
+      const sp = Math.max(Math.abs(vel.x * ux + vel.y * uy + vel.z * uz), kt ? Math.max(MELEE.grindV, vh * 0.8, p.kickRail.sp || 0) : GRIND.minV);
       // WHICH SIDE: *"approaching from the left side of the rail, going at an angle toward the
       // right, she goes into a right side."* Her sideways speed against the direction she will
       // grind decides it; landing dead straight on, which side of the bar she came down on does.
@@ -2761,6 +2769,38 @@ function popDir(out) {
   const k = clamp(out.y, 0, 1) * AIR.popTravel;
   return out.multiplyScalar(k).addScaledVector(UP, 1 - k).normalize();
 }
+// THE TAP NEAR A RAIL (r41). The nearest point of each rail, led along it the way she is going so she
+// arrives sliding ALONG it; the closest in 3D within the window wins. Ballistic and exact: a pop to
+// `homeHop` over the higher of her and the bar, then the descending time at which she is at the bar's
+// height, and the horizontal speed that covers the gap in that time. Returns false if nothing is near.
+function railHome() {
+  const p = player;
+  if (!GRIND.home || !RAILS.length || p.bailT > 0 || p.grind) return false;
+  let best = null, bs = Infinity;
+  const hv = Math.hypot(p.vel.x, p.vel.z);
+  for (const R of RAILS) {
+    if (p.grindCool > 0 && R === p.grindLast) continue;
+    let t = ((p.pos.x - R.a.x) * R.hx + (p.pos.z - R.a.z) * R.hz) / R.hl;
+    const along = p.vel.x * R.hx + p.vel.z * R.hz;
+    const dir = Math.abs(along) > 0.5 ? Math.sign(along) : (Math.sin(p.heading) * R.hx + Math.cos(p.heading) * R.hz >= 0 ? 1 : -1);
+    t = clamp(t + dir * GRIND.homeLead / R.hl, 0.1, 0.9);
+    const cx = R.a.x + (R.b.x - R.a.x) * t, cy = R.a.y + (R.b.y - R.a.y) * t, cz = R.a.z + (R.b.z - R.a.z) * t;
+    const d = Math.hypot(cx - p.pos.x, cz - p.pos.z), dy = cy - p.pos.y;      // dy > 0: the bar is above her
+    if (d > GRIND.homeR || dy < -GRIND.homeUp || dy > GRIND.homeBelow) continue;
+    const sc = Math.hypot(d, dy);
+    if (sc < bs) { bs = sc; best = { R, cx, cy: cy + 0.02, cz, dir }; }
+  }
+  if (!best) return false;
+  const g = SK.g, dy = best.cy - p.pos.y, a = Math.max(0, dy) + GRIND.homeHop;
+  const vy = Math.sqrt(2 * g * a), T = (vy + Math.sqrt(Math.max(0, vy * vy - 2 * g * dy))) / g;
+  p.vel.set((best.cx - p.pos.x) / T, vy, (best.cz - p.pos.z) / T);
+  if (p.grounded) leaveGround(0, false);
+  p.vertLock = 0; p.xferKick = null; p.autoTurn = null; p.flip = null;
+  p.kickRail = { R: best.R, dir: best.dir, sp: Math.max(hv, MELEE.grindV) };
+  // THE LITTLE KICK OVER: his flying kick, if the skin has it, held until she lands on the bar
+  if (melOk(MELEE.air) && (!p.mel || p.mel.kind !== 'kick')) { p.mel = { kind: 'kick', nm: MELEE.air, t: 0, dur: Math.max(0.3, T), h: Math.atan2(p.vel.x, p.vel.z) }; p.melQ = null; }
+  return true;
+}
 function doJump(xfer) {
   player.vel.addScaledVector(popDir(_N), AIR.jump);
   leaveGround(0, xfer);
@@ -3245,7 +3285,10 @@ function stepPlayer(dt) {
   p.rHold = stick.R.down ? p.rHold + dt : 0;
   // `jump` 1 is a TAP (constrained on vert), 2 is the right pad's SWIPE UP (the transfer)
   if (p.jump) { const xfer = p.jump === 2; p.jump = 0;
-    if (p.grind) grindLeave(true); else if (p.grounded || p.coyote > 0) doJump(xfer); }
+    // r41: a TAP near a rail -- on the ground or in the air -- is a hop onto it; the swipe (transfer) never is
+    if (p.grind) grindLeave(true);
+    else if (!xfer && railHome()) {}
+    else if (p.grounded || p.coyote > 0) doJump(xfer); }
   p.grindCool = Math.max(0, p.grindCool - dt);
   stepMelee(dt);
   // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
@@ -3727,6 +3770,9 @@ const TAILUI = [
   ['MELEE.airV',     'Flying kick speed', 4, 20, 0.5, ''],
   ['MELEE.aimR',     'Kick finds rails within m', 0, 25, 0.5, ''],
   ['MELEE.aimCone',  'Kick aim cone', 10, 90, 1, '', 'deg'],
+  ['GRIND.home',     'Tap near a rail grinds', 0, 1, 1, ''],
+  ['GRIND.homeR',    'Rail tap reach (side) m', 0, 10, 0.25, ''],
+  ['GRIND.homeUp',   'Rail tap reach (above) m', 0, 15, 0.5, ''],
   ['Feet & trails (r36)', ''],
   ['FOOTIK.on',      'Feet on the ground (IK)', 0, 1, 1, ''],
   ['FOOTIK.maxDrop', 'Most she sinks to reach', 0, 0.5, 0.01, ''],
@@ -3900,7 +3946,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, MELEE, meleeStrike, meleeSlide, meleeKick, kickTarget, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, MELEE, meleeStrike, meleeSlide, meleeKick, kickTarget, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

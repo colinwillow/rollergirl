@@ -1504,6 +1504,36 @@ CASES.swivel = () => {
   P.stanceLock = keepLock; P.stance = 1; rg.stick.L.y = 0; rg.stick.L.down = 0;
   return ok;
 };
+// ---------------------------------------------------------------- a tap near a rail (r41)
+// *"Tap even though you're fairly high above it or off to the side, and she does the little kick over so
+// she grinds on it."* Every rail: a tap from the ground 3.5 m to its side, from the air 6 m above it and
+// 2.5 m off, and rolling past it at speed -- each must end up GRINDING that rail. Controls: the same taps
+// with `GRIND.home` off do not, and a tap 9 m away is an ordinary jump.
+CASES.home = () => {
+  let ok = true; const keep = rg.GRIND.home, R0 = rg.RAILS;
+  const grinds = (R, setup) => {
+    setup(); P.jump = 1;
+    let got = null; run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && !got) got = P.grind; });
+    return !!got && got.rail === R;
+  };
+  const mid = (R, side, off) => [(R.a.x + R.b.x) / 2 - R.hz * off * side, (R.a.z + R.b.z) / 2 + R.hx * off * side];
+  const ground = (R, side, off, v) => () => { const [x, z] = mid(R, side, off); place(x, 1, z, Math.atan2(R.hx, R.hz), v || 0); };
+  const above = (R, side) => () => { const [x, z] = mid(R, side, 2.5); place(x, 1, z, Math.atan2(R.hx, R.hz), 3);
+    const top = (R.a.y + R.b.y) / 2; P.grounded = false; P.coyote = 0; P.pos.y = top + 6; P.vel.y = -2; };
+  const rows = [];
+  R0.forEach((R, i) => {
+    rg.GRIND.home = 1;
+    const g1 = grinds(R, ground(R, 1, 3.5)), g2 = grinds(R, ground(R, -1, 3.5)), g3 = grinds(R, above(R, 1)), g4 = grinds(R, ground(R, 1, 2.5, 10));
+    const far = grinds(R, ground(R, 1, 9));
+    rg.GRIND.home = 0;
+    const o1 = grinds(R, ground(R, 1, 3.5)), o3 = grinds(R, above(R, 1));
+    rows.push(`${i}: side ${g1 && g2 ? 'GRIND' : 'missed'}, above ${g3 ? 'GRIND' : 'missed'}, rolling ${g4 ? 'GRIND' : 'missed'}, 9 m ${far ? 'grind (wrong)' : 'a jump'} | home off: ${o1 || o3 ? 'grind' : 'missed'}`);
+    if (!(g1 && g2 && g3 && g4 && !far && !o1 && !o3)) ok = false;
+  });
+  rg.GRIND.home = keep;
+  console.log('  ' + rows.join('\n  '));
+  return ok;
+};
 // ---------------------------------------------------------------- no two surfaces on one plane (r40)
 // *"A little bit of artifacting on the ramp -- I think it's a little too low, below the ground plane, and
 // it's doing this weird triangle thing."* That is Z-FIGHTING: two drawn surfaces at the same height,

@@ -302,6 +302,18 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **A TAP NEAR A RAIL IS A HOP ONTO IT (r41, `railHome`, `GRIND.home*`).** *"It's really hard to get onto a
+  grind unless you hit it perfectly -- if you're in the vicinity and you tap, she should do the little kick
+  over so she grinds on it."* A right-pad TAP (never the swipe/transfer) within `homeR` 4.5 m of a rail in
+  plan, from `homeUp` 7 m above its top to `homeBelow` 4 m under it, on the ground or in the air, replaces
+  the jump with a SOLVED hop: a pop to `homeHop` over the higher of her and the bar, the descending moment
+  she is at the bar's height, and the horizontal speed that covers the gap in that time -- landing on the
+  nearest point led `homeLead` along the rail the way she is going. The catch is relaxed for that rail
+  (`p.kickRail`, the flying kick's mechanism) and she grinds at the speed she had, at least
+  `MELEE.grindV`. Zap's `flying_kick` plays for the hop if the skin has it. Off a rail she just left
+  (`grindCool`) it does not re-home onto the same one. `npm run sim home`: every rail from either side
+  on the ground, from 6 m above, and rolling past at 10 m/s all GRIND; a tap 9 m away is a jump; with
+  `home` off none of them grind.
 - **HER FEET ON THE GROUND (r36, `FOOTIK`, `footFind`, `legIK`, `footGround`).** *"The feet don't quite touch
   the ground -- it feels like she's floating slightly."* The alien's Hips TRANSLATION is constant in every
   clip, so every bent knee folds her legs up under a pelvis held at standing height and lifts the skates
