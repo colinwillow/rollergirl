@@ -195,6 +195,38 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   body check requires CONTACT as well as no penetration, or a tail that never reached the
   capsule passes "nothing went through" without the collider doing a thing.
 
+- **THE TAIL'S SPRING READ HER TRAVEL AS ERROR FOR FOUR BUILDS (r14-r17, fixed r18).** Position
+  hold compared THIS frame's goal against LAST frame's position, so a tail tracking her perfectly
+  saw one frame of her motion as error and was shoved by exactly that. Found because a sweep
+  showed the tail streaming back further with air drag OFF than ON, which cannot happen at a
+  steady speed; with air and gravity both off it sat **0.143 / 0.272 / 0.432 m** off the pose at
+  8 / 15 / 24 m/s -- speed x 1/60 s, to the millimetre. The goal is now the one from the START
+  of the step (last frame's, eased toward this frame's across substeps). **Every tail number
+  measured before r18 carried this**, which is why the r18 tuning was redone from scratch.
+  `npm run sim tail` cruises at 24 m/s with nothing pushing on the tail and requires it to sit
+  on the pose; **verified by putting the bug back**: 0.49 m off and a fail.
+  **A RESULT THAT CANNOT HAPPEN IS A BUG REPORT, NOT A DATA POINT.** Less drag streaming the
+  tail back further was the tell, and taking it seriously instead of tuning around it is what
+  found this.
+- **"A LONG STICK WITH THE END FLOPPY" IS UNIFORM STIFFNESS (r18, `rotTip`, `posTip`).** Measured:
+  46% of all the bending in the last 3 of 13 joints (even is ~23%), 4 cm of motion through a
+  turn. The tip is the least held-in and the longest lever, so with the same stiffness
+  everywhere the bend pools there. Rotation hold soft at the root and stiff at the tip (.15 ->
+  .70), with position hold fading to half at the tip, puts it back in the middle: 24% in the
+  last 3, a curve that grows smoothly root to tip, and kinking against the authored curve
+  13.6 -> 2.2 deg through a turn. Graded by ARC LENGTH, because his last three segments are the
+  longest. `air` came down 0.9 -> 0.4: since the spring fix it is the only thing that sweeps
+  the tail back at speed, and at 0.9 it held half the chain back at 24 m/s.
+- **A ONE-CLIP CHARACTER ANIMATES AT HER SPEED, NEVER AT THE STICK (r18, `ANIM.soloRef/soloMax`).**
+  *"If you push the stick all the way she animates like she's going really fast."* The rate came
+  off the push cadence while the thumb was forward -- SHORTEST at a standstill, so x3.5 on her
+  mocap from a stop, x1.75 at cruise -- and off a different rule the moment it let go (x0.55 at
+  most). Now `soloMax * (1 - exp(-speed / soloRef))`: x0.42 at 2 m/s up to x1.64 at 24, the same
+  with the thumb on or off. A ceiling, because a skater going faster glides longer rather than
+  striding faster. `npm run sim anim` asserts the thumb-independence directly. **roller_girl's
+  push is untouched**: her six-frame clip IS synced to the actual shoves, so the cadence is
+  right for her.
+
 - **THE STICKS FLOAT, AND A FIXED PAD IS WHY SHE COULD NOT JUMP.** *"I'm having trouble jumping
   and I can't tell if it's a thumb location thing."* It was exactly that. The pad used to be a
   132 px circle and `far` — how far the thumb has travelled — was measured **from the circle's

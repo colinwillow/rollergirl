@@ -128,7 +128,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r17</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r18</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -143,7 +143,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r17';
+const BUILD = 'r18';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -220,7 +220,7 @@ const TAIL = {
   // `strength` of the way toward it, segment by segment, so a lazy, loose simulation can still
   // read as a tail that mostly holds its shape. That is a different look from a stiff
   // simulation and the one his C4D setup had: big slow motion, shown small.
-  strength: 0.30,
+  strength: 0.50,
   // POSITION HOLD -- the spring pulling each point back to where the animation puts it. He ran
   // 100%. `posK` is what 100% means here (a rate, per second squared), so 1.0 is the r15 tail.
   // **AND HIS 100% UNDER HIS 30% STRENGTH IS A TAIL WELDED ON**, which is the clearest case of
@@ -240,7 +240,24 @@ const TAIL = {
   // the angle it makes with its PARENT segment in the authored pose -- so the tail keeps its
   // curve and moves as a curve. He ran about 30%. It is a fraction per 60 Hz frame, corrected
   // for the actual frame rate so a 20 Hz phone bends the same as a 60 Hz one.
-  rotHold: 0.30,
+  rotHold: 0.15,
+  // ...AND BOTH HOLDS ARE GRADED ROOT TO TIP, which is the middle ground between "a stick with a
+  // floppy end" and a rope (r18). `rotHold` / `posHold` are the values at the ROOT; `rotTip` is
+  // rotation hold at the tip, and `posTip` is the fraction of position hold left at the tip.
+  // Graded by ARC LENGTH, not by joint index -- his last three segments are the longest in the
+  // chain, and by index they would get a third of the falloff for over a quarter of the length.
+  // *"Now it is like a long stick with the end kind of floppy."* Measured, that is exactly what
+  // uniform holds produce: 46% of all the bending in the last 3 of 13 joints (even is about 23%),
+  // and the whole tail moving 4 cm through a turn. The tip is the least held-in (nothing beyond
+  // it) and the longest lever, so with the same stiffness everywhere the bend pools there.
+  // Soft at the root and stiff at the tip moves it into the middle -- through a turn:
+  //     rotHold/rotTip  posTip  strength   tip moves   bend in last 3   along the tail
+  //       .30 / .30       1.0     0.3       0.044 m        46%          000124567778999  (r17)
+  //       .15 / .70       1.0     0.3       0.076          24%          000112344455789
+  //       .15 / .70       0.5     0.5       0.184          24%          000112233445689  <- shipped
+  // (measured after the one-frame spring bug below was fixed; every number before r18 carried it)
+  rotTip: 0.70,
+  posTip: 0.50,
   // DAMPING -- the chain's internal friction, damped RELATIVE TO HER BODY (a tail travelling
   // along with her is not moving as far as that friction is concerned; damped against the WORLD,
   // keeping up with her reads as motion to damp and it settles 1.5 m behind a 0.88 m chain).
@@ -265,9 +282,13 @@ const TAIL = {
   ],
   r: 0.025,            // the tail's own thickness, for the body and the floor alike
   // ---- the rest, which are this solver's and not his ----
-  // `air` is drag against still air, which is what makes a tail trail at speed at all -- the
-  // one term that may legitimately hold it back, about `air * v / posK` of lag.
-  air: 0.9,
+  // `air` is drag against still air, which is what makes a tail trail at speed at all -- and
+  // since r18's spring fix it is the ONLY thing that sweeps the tail back at a steady speed, so
+  // it is measured at HER speeds, not at a jog. Shown, at a steady cruise:
+  //     air    8 m/s    15 m/s   24 m/s
+  //     0.9    0.163    0.291    0.386 m    -- half the chain held back at top speed
+  //     0.4    0.077    0.130    0.216      <- shipped: a sweep you can read as speed
+  air: 0.4,
   // GRAVITY IS OFF, ON HIS C4D SETUP -- *"I think I removed gravity on the dynamics, which is
   // less realistic, but it could create a nice ease."* It does, and it costs nothing: the swing
   // is the same size and the curve comes out smoother, because gravity was a constant load the
@@ -1067,7 +1088,7 @@ function buildGirl(gltf) {
 // it means the two can be compared by swapping one file.
 function tailFind(model, clips) {
   const T = { n: 0, baked: 0, bones: [], rest: [], off: [], dir: [], len: [],
-              P: [], O: [], V: [], G: [], D: [], caps: [], g0: new THREE.Vector3(), live: 0 };
+              P: [], O: [], V: [], G: [], Gp: [], D: [], KP: [], KR: [], caps: [], g0: new THREE.Vector3(), live: 0 };
   let b0 = null;
   model.traverse(o => { if (!b0 && o.isBone && /^tail$/.test(o.name)) b0 = o; });
   if (!b0) return T;
@@ -1097,7 +1118,7 @@ function tailFind(model, clips) {
   }
   for (let i = 0; i <= n; i++) { T.P.push(new THREE.Vector3()); T.O.push(new THREE.Vector3());
                                  T.V.push(new THREE.Vector3()); T.G.push(new THREE.Vector3());
-                                 T.D.push(new THREE.Vector3()); }
+                                 T.D.push(new THREE.Vector3()); T.Gp.push(new THREE.Vector3()); }
   // THE BODY CAPSULES, found by name. A pair whose bones are not both in this rig is simply
   // left out -- a borrowed skin with a different spine spelling loses a collider, not the tail.
   const byName = {};
@@ -1158,7 +1179,7 @@ function tailStep(dt) {
   for (let i = 0; i < n; i++) L[i] = Math.max(1e-4, G[i].distanceTo(G[i + 1]));
   // 2. a root that jumped is a respawn, not a skater
   if (!T.live || G[0].distanceTo(P[0]) > TAIL.snap) {
-    for (let i = 0; i <= n; i++) { P[i].copy(G[i]); V[i].set(0, 0, 0); }
+    for (let i = 0; i <= n; i++) { P[i].copy(G[i]); T.Gp[i].copy(G[i]); V[i].set(0, 0, 0); }
     T.g0.copy(G[0]); T.live = 1;
   }
   // the body, where the animation has put it this frame
@@ -1173,21 +1194,39 @@ function tailStep(dt) {
   T.g0.copy(G[0]);
   const sub = Math.max(1, TAIL.sub | 0), h = dt / sub;
   const kd = Math.exp(-TAIL.damping * h), ka = Math.exp(-TAIL.air * h), gy = SK.g * TAIL.grav * h;
-  const kp = TAIL.posHold * TAIL.posK * h;
-  // a fraction per 60 Hz frame, turned into the same fraction per however long this step is
-  const kr = 1 - Math.pow(1 - clamp(TAIL.rotHold, 0, 0.999), h * 60);
+  // THE GRADIENTS, by arc length along the chain as it is authored this frame. `kr` per joint is
+  // a fraction per 60 Hz frame, turned into the same fraction per however long this step is.
+  let tot = 0; for (let i = 0; i < n; i++) tot += L[i];
+  let run = 0, kr = 0;
+  for (let i = 0; i <= n; i++) {
+    const u = tot > 0 ? run / tot : 0;
+    T.KP[i] = TAIL.posHold * lerp(1, TAIL.posTip, u) * TAIL.posK * h;
+    const r = clamp(lerp(TAIL.rotHold, TAIL.rotTip, u), 0, 0.999);
+    T.KR[i] = 1 - Math.pow(1 - r, h * 60);
+    kr = Math.max(kr, T.KR[i]);
+    if (i < n) run += L[i];
+  }
   const inv = 1 / Math.max(1e-5, h);
   const pin = clamp(TAIL.pin | 0, 0, n);
   for (let i = 0; i <= pin; i++) { P[i].copy(G[i]); V[i].copy(rv); }
   for (let s = 0; s < sub; s++) {
     // 3. integrate: gravity, the two drags (`damping` in her frame, `air` in the world's) and
     // POSITION HOLD toward where the animation puts each point.
+    // **THE SPRING COMPARES POSITIONS FROM THE SAME MOMENT.** `P` here is where the tail was at
+    // the START of this step, so the goal it is held to is the goal at the start of the step
+    // too -- last frame's `G`, eased toward this frame's across the substeps. Held to THIS
+    // frame's goal instead, a tail tracking her perfectly still reads one frame of her travel
+    // as error, and the spring shoves it by exactly that: measured with air and gravity both
+    // off, 0.143 / 0.272 / 0.432 m off the pose at a steady 8 / 15 / 24 m/s, which is speed
+    // times 1/60 s to the millimetre. From r14 to r17 the whole tail sat a frame of motion off
+    // its pose whenever she moved -- 25 to 40 cm at her cruising speed, on a 0.88 m chain.
+    const at = s / sub;
     for (let i = pin + 1; i <= n; i++) {
       O[i].copy(P[i]);
       V[i].sub(rv).multiplyScalar(kd).add(rv);
       V[i].multiplyScalar(ka);
       V[i].y -= gy;
-      V[i].addScaledVector(_tv.copy(G[i]).sub(P[i]), kp);
+      V[i].addScaledVector(_tv.copy(T.Gp[i]).lerp(G[i], at).sub(P[i]), T.KP[i]);
       P[i].addScaledVector(V[i], h);
     }
     // 4. LENGTH, ROOT-OUTWARD. Only the child ever moves, so the body drives the tail and never
@@ -1225,7 +1264,7 @@ function tailStep(dt) {
             _tg.applyQuaternion(_tq);                             // ...and carry the bend with it
           }
         }
-        P[i].lerp(_ta.copy(P[i - 1]).addScaledVector(_tg, L[i - 1]), kr);
+        P[i].lerp(_ta.copy(P[i - 1]).addScaledVector(_tg, L[i - 1]), T.KR[i]);
       }
       tailLengths(P, L, pin, n);
       // and the body and the floor get the LAST word, or the hold walks points back inside
@@ -1233,6 +1272,7 @@ function tailStep(dt) {
       tailCollide(T, pin, n);
     }
   }
+  for (let i = 0; i <= n; i++) T.Gp[i].copy(G[i]);
   // STRENGTH: WHAT IS SHOWN IS THE AUTHORED CHAIN MOVED PART OF THE WAY TO THE SIMULATED ONE.
   // Blended as POINTS, so each displayed segment's direction is the normalised blend of the two
   // segment directions -- and blended in the world rather than as bone quaternions, because a
@@ -1277,7 +1317,19 @@ const ANIM = { cyc: 12, still: 3, coastLo: 0.85, coastHi: 1.3, airFill: 1, blend
   // A ONE-CLIP CHARACTER DRIVES HERSELF FROM THAT CLIP AND **THE RATE IS THE ANIMATION**: a
   // stride clip at a time scale of zero HOLDS A POSE, which is a skater standing still -- and
   // that is a better answer than the T-pose he said he would settle for.
-  soloAir: 0.30, soloCoast: 0.55, soloRoll: 6 };
+  // **AND THE RATE IS HER SPEED, NEVER THE STICK (r18).** *"Even though she's not technically
+  // going that fast, if you push the stick all the way she animates like she's going really
+  // fast."* It came off the PUSH CADENCE while the thumb was forward -- which is SHORTEST at a
+  // standstill (0.52 s strides, so x3.5 on a 1.83 s mocap cycle) and lengthens with speed --
+  // and off a separate, slower rule the moment the thumb let go. So the stick picked the rate,
+  // and pushing harder from slow made her stride FASTER than cruising did:
+  //     before   pushing from a stop x3.5   pushing at cruise x1.75   let go at 20 m/s x0.55
+  //     now      `soloMax * (1 - exp(-speed / soloRef))`, the same whatever the thumb does:
+  //              3 m/s x0.59   7 m/s x1.08   12 m/s x1.40   20 m/s x1.61   24 m/s x1.66
+  // A CEILING rather than a straight line, because a skater going faster mostly GLIDES longer
+  // rather than striding faster; at her top speed a linear rate is a cartoon scramble.
+  // `soloRef` is roughly the speed his capture plays at 1x; both are live on `rg.ANIM`.
+  soloAir: 0.30, soloRef: 7, soloMax: 1.7 };
 function clipLen(name, fb) { return (girl.clipLen && girl.clipLen[name]) || fb; }
 function clipScale(name, s) { const a = girl.actions[name]; if (a) a.setEffectiveTimeScale(s); }
 function setWeights(t, dt, snap) {
@@ -1308,14 +1360,13 @@ function girlAnim(dt) {
   if (!girl.ready) return;
   const p = player, t = {};
   if (girl.solo) {
-    // ONE CLIP, WEIGHT 1 FOR EVER, AND THE RATE DOES ALL THE WORK. Pushing, it is fitted to
-    // the stride period exactly as the three-clip gait fits it; coasting, it ticks over with
-    // her speed and falls to a HELD POSE at a standstill; in the air it idles. There is
-    // nothing to blend to, so there is nothing to blend.
+    // ONE CLIP, WEIGHT 1 FOR EVER, AND THE RATE DOES ALL THE WORK -- a function of her SPEED
+    // and nothing else, so it reads the same whether the thumb is pushing, coasting or off the
+    // stick (see `ANIM.soloRef`). Zero at a standstill, which is a held pose; in the air it
+    // idles. There is nothing to blend to, so there is nothing to blend.
     const nm = girl.solo;
     clipScale(nm, !p.grounded ? ANIM.soloAir
-                 : p.pushing ? (girl.cyc[nm] || 1) * clipLen(nm, 1) / Math.max(.2, p.pushPeriod)
-                 : clamp(p.speed / ANIM.soloRoll, 0, 1) * ANIM.soloCoast);
+                 : ANIM.soloMax * (1 - Math.exp(-p.speed / Math.max(.1, ANIM.soloRef))));
     t[nm] = 1;
     setWeights(t, dt, p.landHard > 4);
     p.landHard = 0;

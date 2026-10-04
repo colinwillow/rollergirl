@@ -533,8 +533,28 @@ CASES.anim = () => {
     if (tot < 0.9) { console.log('    -> THE T-POSE: nothing is driving her'); ok = false; }
     // a one-clip character holds a POSE at a standstill rather than skating on the spot
     if (R.solo && held > 0.02) { console.log('    -> skating on the spot'); ok = false; }
+    // 2a. A ONE-CLIP CHARACTER ANIMATES AT HER SPEED, NEVER AT THE STICK. *"Even though she's
+    // not technically going that fast, if you push the stick all the way she animates like she's
+    // going really fast."* So: the same speed with the thumb pushing and with it off the stick
+    // must give the same rate, and the rate must climb with speed. `girlAnim` is called with the
+    // state set directly -- the question is what it does with a given speed, not how she got it.
+    if (R.solo) {
+      const rateAt = (spd, push) => {
+        P.grounded = true; P.speed = spd; P.pushing = push; P.pushPeriod = rg.SK.pushFast;
+        rg.girlAnim(DT); return log[drive].ts;
+      };
+      const rows = [2, 5, 10, 18, 24].map(v => [v, rateAt(v, true), rateAt(v, false)]);
+      console.log('    rate by SPEED, thumb pushing / off: ' +
+                  rows.map(([v, a, b]) => `${v} m/s x${fix(a)}/x${fix(b)}`).join('   '));
+      if (rows.some(([, a, b]) => Math.abs(a - b) > 1e-6)) { console.log('    -> the STICK changes her animation rate'); ok = false; }
+      if (rows.some(([, a], k) => k && a <= rows[k - 1][1])) { console.log('    -> the rate does not climb with speed'); ok = false; }
+      if (rows[rows.length - 1][1] > 2.5) { console.log('    -> a cartoon scramble at top speed'); ok = false; }
+      continue;
+    }
     // 2. THE STRIDE. The clip's own cycle has to land on the stride period, or the feet and
-    // the shove are on two clocks -- and a clip at a fifth speed is a drift into a pose.
+    // the shove are on two clocks -- and a clip at a fifth speed is a drift into a pose. (This
+    // is roller_girl's push, which really IS synced to the shoves; the alien's mocap is a
+    // continuous cycle and is tested on speed above.)
     place(60, 1, -60, 0, 0);
     const rows = [];
     run(7, (t, i) => {
@@ -646,8 +666,11 @@ CASES.tail = () => {
     for (let k = 0; k < T.n; k++) stretch = Math.max(stretch, Math.abs(T.P[k].distanceTo(T.P[k + 1]) - T.len[k]) / T.len[k]);
     for (let k = 0; k <= Math.min(T.n, rg.TAIL.pin); k++) pinOff = Math.max(pinOff, T.P[k].distanceTo(T.G[k]));
   }
+  // BOTH ends of the rotation-hold gradient go to zero for the baseline -- zeroing only the root
+  // value left a stiff TIP in the "no rotation hold" run and the comparison measured nothing.
   const turnKink = (rot) => {
-    rg.TAIL.rotHold = rot; holder.position.set(60, 40, -60); holder.rotation.y = 0; T.live = 0;
+    rg.TAIL.rotHold = rot; rg.TAIL.rotTip = rot ? save.rotTip : 0;
+    holder.position.set(60, 40, -60); holder.rotation.y = 0; T.live = 0;
     for (let i = 0; i < 120; i++) rg.tailStep(1 / 60);
     const all = [];
     for (let i = 0; i < 300; i++) { holder.rotation.y = Math.sin(i / 60 * 2.2) * 0.8; rg.tailStep(1 / 60); kinks(all); }
@@ -655,11 +678,11 @@ CASES.tail = () => {
     return all[Math.floor(all.length * 0.95)];
   };
   kink0 = turnKink(0); kink1 = turnKink(save.rotHold);
-  rg.TAIL.rotHold = save.rotHold; holder.rotation.y = 0;
+  rg.TAIL.rotHold = save.rotHold; rg.TAIL.rotTip = save.rotTip; holder.rotation.y = 0;
   console.log(`  thrown about for 10 s: worst segment ${fix(stretch * 100, 2)}% off its length, ` +
               `pinned bones ${fix(pinOff, 5)} m off the pose`);
   console.log(`  kinking against the authored curve through a turn (95th pct): ${fix(kink0, 1)} deg ` +
-              `with no rotation hold, ${fix(kink1, 1)} deg at rotHold ${save.rotHold}`);
+              `with no rotation hold, ${fix(kink1, 1)} deg at rotHold ${save.rotHold} -> ${save.rotTip}`);
   if (stretch > 0.02) { console.log('  -> it stretches'); ok = false; }
   if (pinOff > 1e-4) { console.log('  -> the pinned bones are not following the animation'); ok = false; }
   if (!(kink1 < kink0 * 0.8)) { console.log('  -> rotation hold does not hold the curve'); ok = false; }
@@ -688,6 +711,20 @@ CASES.tail = () => {
   if (vtip > 40) { console.log('  -> the tip is carrying energy from nowhere'); ok = false; }
   // the shown chain is the authored one moved `strength` of the way: it cannot exceed the sim
   if (seen > swing + 1e-6) { console.log('  -> strength shows MORE than the simulation did'); ok = false; }
+  // 3b. AT A STEADY SPEED, WITH NOTHING PUSHING ON IT, IT SITS EXACTLY ON THE POSE. The spring
+  // used to compare this frame's goal against last frame's position, so a tail tracking her
+  // perfectly read one frame of travel as error and was shoved by exactly that -- 0.432 m at
+  // 24 m/s, speed x 1/60 s to the millimetre, from r14 to r17. Ramped up at her own rate, then
+  // read over the last second of a four-second cruise.
+  Object.assign(rg.TAIL, { air: 0, grav: 0 });
+  holder.position.set(-400, 30, -60); holder.rotation.y = 0; T.live = 0;
+  for (let i = 0; i < 60; i++) rg.tailStep(1 / 60);
+  let cx = -400, cu = 0, cruise = 0;
+  while (cu < 24) { cu = Math.min(24, cu + 5 / 60); cx += cu / 60; holder.position.x = cx; rg.tailStep(1 / 60); }
+  for (let i = 0; i < 240; i++) { cx += 24 / 60; holder.position.x = cx; rg.tailStep(1 / 60); if (i >= 180) cruise = Math.max(cruise, simOff()); }
+  Object.assign(rg.TAIL, save);
+  console.log(`  cruising at 24 m/s with no air and no gravity: ${fix(cruise, 4)} m off the pose`);
+  if (cruise > 0.01) { console.log('  -> the spring is reading her travel as error'); ok = false; }
   // 4. IT STAYS OUT OF THE FLOOR, at twice gravity on purpose.
   holder.position.set(60, 0.9, -60);
   T.live = 0; rg.TAIL.grav = 2;
