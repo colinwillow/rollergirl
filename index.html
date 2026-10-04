@@ -128,7 +128,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r14</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r15</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -143,7 +143,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r14';
+const BUILD = 'r15';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -211,7 +211,11 @@ const TAIL = {
   // THE ONE DIAL. How hard each point is pulled back to the pose the ANIMATION asks for:
   // high is a rigid tail welded to her hips, 0 is a rope hanging off them, and the interesting
   // range is in between. `rg.TAIL.stiff = 0` on the phone, with no rebuild and no push.
-  stiff: 70,
+  // 140 / 6 since r15, on his "needs more stiffness, it flops around kind of weird" -- and the
+  // sweep said the FLOP was the damping more than the spring: at drag 3.4 a gentle dash put the
+  // tip at 17-31 m/s on a 7.2 m/s body, an underdamped whip, at any stiffness from 70 to 320.
+  // At drag 6 the tip stays near 8 and a hard turn flares it about 0.2 m rather than 0.85.
+  stiff: 140,
   // TWO DRAGS, BECAUSE ONE NUMBER CANNOT DO BOTH JOBS -- and `npm run sim tail` is what found
   // that out. `drag` damps the velocity RELATIVE TO HER BODY: it is the chain's own internal
   // friction, the thing that stops it ringing for ever, and relative is the whole point
@@ -220,7 +224,7 @@ const TAIL = {
   // so the spring and the drag settle at an equilibrium a long way behind the pose: measured,
   // a dash at 7 m/s left the tail **1.51 m off a chain only 0.879 m long** and it never came
   // back -- permanently flattened out behind her rather than whipping and recovering.
-  drag: 3.4,
+  drag: 6,
   // `air` is the OTHER one, and it is small: drag against still air, which is what makes a
   // tail trail at speed at all. This is the term that may legitimately hold it back, so it is
   // the one that is allowed to be a constant offset -- about `air * v / stiff` of lag.

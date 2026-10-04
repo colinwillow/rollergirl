@@ -139,6 +139,24 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   was fine the whole time: the velocity profile along the chain is a clean monotone whip, 7.2
   at the root to about 20 at the tip, which is what a 15-link chain does.
 
+- **THE ALIEN'S HIPS: NO UP-AND-DOWN IS THE EXPORT, AND THE ROTATION IS THERE (r15).** *"Did you
+  remove the hips rotation, or is that just the animation?"* Read straight out of the file:
+      mixamorig_Hips.translation   2 keys, CONSTANT (0, 1.307, -43.504)   -- no bob was exported
+      mixamorig_Hips.rotation      56 keys: twist 21.3 deg, side-roll 9.2, pitch 2.5
+      (roller_girl, for scale:     twist 11.7, side-roll 15.5, pitch 2.9, and 6.3 units of bob)
+  Nothing here strips either: every quaternion track is kept, and `KEEPPOS` keeps the Hips
+  translation precisely so a re-export WITH a bob arrives untouched. The rotation is mostly
+  TWIST, which is the hardest axis to see from a camera sitting behind her. **Check the file
+  before the pipeline when an animation looks flat** -- `npm run clips` plus a per-axis
+  breakdown answers it in a second.
+- **THE TAIL'S FLOP WAS THE DAMPING MORE THAN THE SPRING (r15, `TAIL.drag` 3.4 -> 6, `stiff`
+  70 -> 140).** Swept against the shipped solver, a ramped 7.2 m/s dash at 30 m up:
+      stiff  70 drag 3.4   swing 1.26 m   tip 31 m/s      stiff  70 drag 6   swing 0.26   tip 8.6
+      stiff 140 drag 3.4   swing 0.99     tip 25          stiff 140 drag 6   swing 0.12   tip 8.0
+      stiff 320 drag 3.4   swing 0.61     tip 17          stiff 320 drag 6   swing 0.14   tip 7.9
+  Underdamped, the chain whips -- the tip outruns her three or four times over -- at EVERY
+  stiffness; raising `stiff` alone only shortens the whip. Past `drag` 6 nothing more is bought.
+
 - **THE STICKS FLOAT, AND A FIXED PAD IS WHY SHE COULD NOT JUMP.** *"I'm having trouble jumping
   and I can't tell if it's a thumb location thing."* It was exactly that. The pad used to be a
   132 px circle and `far` — how far the thumb has travelled — was measured **from the circle's
