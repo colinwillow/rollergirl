@@ -82,6 +82,24 @@
      adding a key can never hide the build chip the way a typed gutter let it */
   #resetB{right:calc(14px + env(safe-area-inset-right))}
   #charB{right:calc(62px + env(safe-area-inset-right))}
+  #tailB{right:calc(110px + env(safe-area-inset-right))}
+  /* THE TAIL PANEL. He tunes on a phone with no console, so every dial is a slider he can drag
+     with a thumb. Above the pads (z 5) so a touch on it is never also a stick. */
+  #tailP{position:fixed;z-index:8;display:none;top:calc(58px + env(safe-area-inset-top));left:50%;
+    transform:translateX(-50%);width:min(380px,94vw);max-height:calc(100vh - 76px);overflow-y:auto;
+    background:#0d0b13e6;border-radius:12px;padding:8px 12px 10px;color:#e8e4f2;font-size:12px;
+    letter-spacing:.03em;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+  #tailP.on{display:block}
+  #tailP h3{margin:4px 0 6px;font-size:12px;color:#5fe1ff;letter-spacing:.12em;font-weight:700}
+  #tailP .row{display:flex;align-items:center;gap:8px;margin:5px 0}
+  #tailP .lab{width:96px;flex:none;opacity:.85}
+  #tailP .trk{flex:1;height:28px;border-radius:14px;background:#ffffff1a;position:relative;touch-action:none}
+  #tailP .fill{position:absolute;left:0;top:0;bottom:0;border-radius:14px;background:#5fe1ff59;pointer-events:none}
+  #tailP .val{width:40px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
+  #tailP .btns{display:flex;gap:8px;margin:6px 0}
+  #tailP button{flex:1;height:32px;border:0;border-radius:9px;background:#ffffff1c;color:#e8e4f2;
+    font-size:12px;letter-spacing:.06em;touch-action:manipulation}
+  #tailP button.sel{background:#5fe1ff;color:#0d0b13;font-weight:700}
   #newer{position:fixed;left:50%;transform:translateX(-50%);z-index:9;display:none;
     top:calc(12px + env(safe-area-inset-top));padding:7px 14px;border-radius:999px;border:0;
     background:#5fe1ff;color:#0d0b13;font-weight:700;letter-spacing:.06em;font-size:13px}
@@ -128,10 +146,12 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r19</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r20</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
+<button class="key" id="tailB" aria-label="tail settings">&#8767;</button>
+<div id="tailP"></div>
 <button id="newer">build ready &middot; tap</button>
 
 <div class="pad" id="stkL"><div class="ring"></div><div class="knob"></div></div>
@@ -143,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r19';
+const BUILD = 'r20';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -228,6 +248,18 @@ const TAIL = {
   // steady spin at rate w leaves each joint about `w / rate` behind, and thirteen of those add
   // up -- so without a cap a long spin curls the tail round on itself.
   waveMax: 14,
+  // WHAT DRIVES THE BASE (r20). His visualizer's arm was driven by a WAVEFORM at its first
+  // segment; this tail was driven only by her hips, and *"there's no natural rotation in the hips
+  // really"* -- so on its own it read as stiff. These feed the base and the cascade above turns
+  // each of them into a wave down the tail, exactly as the waveform did there. All of them are
+  // read off the tail root's OWN motion, so any rig works and the headless test can drive them.
+  sway: 20,            // degrees of side-to-side at the base -- his waveform, standing in for hip
+  swayHz: 0.55,        //   travel the mocap does not have yet. Two sines, so it never reads as a
+                       //   metronome. 0 turns it off.
+  turnSwing: 10,       // degrees the base swings OUT per rad/s of turn -- a tail flung wide
+  lift: 1.5,           // degrees the base lifts per m/s^2 of forward acceleration (dips braking)
+  speedLift: 0.6,      // degrees it streams up per m/s of speed, capped at `liftMax`
+  liftMax: 24,
   // ---- HIS CINEMA 4D IK-DYNAMICS DIALS, BY NAME (r16) ----
   // *"I'm wondering if I were to give you the parameters inside of Cinema 4D if that would
   // translate at all."* **The CONCEPTS translate; the NUMBERS do not, one for one.** C4D
@@ -331,6 +363,10 @@ const TAIL = {
   snap: 1.5,
   tip: 1.0,            // `tail_13` has no child, so its own length stands in for the last span
 };
+
+// THE SHIPPED VALUES, captured before `tailLoad` applies anything saved on the phone -- read a
+// moment later this would be whatever is in `localStorage`, which is the opposite of a default.
+const TAIL_DEF = { ...TAIL };
 
 // THE SKATE MODEL. Velocity lives in world space and is decomposed against the SURFACE she
 // is on, not against the world -- which is the whole reason transitions work: on a quarter
@@ -1109,7 +1145,8 @@ function buildGirl(gltf) {
 function tailFind(model, clips) {
   const T = { n: 0, baked: 0, bones: [], rest: [], off: [], dir: [], len: [],
               P: [], O: [], V: [], G: [], Gp: [], D: [], KP: [], KR: [], caps: [], g0: new THREE.Vector3(), live: 0,
-              W: [], WR: [], hq: new THREE.Quaternion(), wv0: new THREE.Vector3(), waveLive: 0 };
+              W: [], WR: [], hq: new THREE.Quaternion(), wv0: new THREE.Vector3(), waveLive: 0,
+              wyaw: 0, wyr: 0, wp: new THREE.Vector3(), wv: new THREE.Vector3(), wacc: 0, wspd: 0, wt: 0 };
   let b0 = null;
   model.traverse(o => { if (!b0 && o.isBone && /^tail$/.test(o.name)) b0 = o; });
   if (!b0) return T;
@@ -1160,6 +1197,37 @@ const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _ts = new THREE.V
 // whatever local rotation puts it there. A pinned bone is simply rigid. No collision: the cap is
 // what keeps a lagging tail from swinging anywhere silly, and it is a far cheaper guarantee.
 const _tw = new THREE.Quaternion(), _tx = new THREE.Quaternion(), _th = new THREE.Quaternion(), _ti = new THREE.Quaternion();
+const _tdq = new THREE.Quaternion(), _tdp = new THREE.Quaternion(), _tf = new THREE.Vector3(), _tr = new THREE.Vector3(),
+      _tvv = new THREE.Vector3(), _TY = new THREE.Vector3(0, 1, 0);
+// WHAT SHE IS DOING, AS ONE ROTATION ON THE BASE (`_tdq`, world space, pivoting at the tail root).
+// Her forward is read off the TAIL: it points back, so forward is root-minus-tip in plan. Yaw
+// rate, speed and forward acceleration are all differenced off the root's own motion and
+// smoothed, because a raw finite difference of a position is a noise source, not a driver.
+function tailDrive(T, dt, seed) {
+  const n = T.n, D2R = Math.PI / 180;
+  _tf.copy(T.G[0]).sub(T.G[n]); _tf.y = 0;
+  if (_tf.lengthSq() < 1e-8) _tf.set(0, 0, 1);
+  _tf.normalize();
+  const yaw = Math.atan2(_tf.x, _tf.z);
+  if (seed) { T.wyaw = yaw; T.wp.copy(T.G[0]); T.wv.set(0, 0, 0); T.wyr = 0; T.wacc = 0; T.wspd = 0; }
+  const idt = 1 / Math.max(1e-4, dt);
+  const yr = wrapAngle(yaw - T.wyaw) * idt; T.wyaw = yaw;
+  _tvv.copy(T.G[0]).sub(T.wp).multiplyScalar(idt); _tvv.y = 0; T.wp.copy(T.G[0]);
+  const acc = _tf.dot(_tr.copy(_tvv).sub(T.wv)) * idt; T.wv.copy(_tvv);
+  T.wyr = damp(T.wyr, seed ? 0 : yr, 0.08, dt);
+  T.wacc = damp(T.wacc, seed ? 0 : clamp(acc, -40, 40), 0.12, dt);
+  T.wspd = damp(T.wspd, _tvv.length(), 0.15, dt);
+  // HIS WAVEFORM: two sines at an awkward ratio, so the sway never settles into a metronome
+  T.wt += dt * TAIL.swayHz * Math.PI * 2;
+  const sw = Math.sin(T.wt) * 0.75 + Math.sin(T.wt * 2.31 + 1.3) * 0.25;
+  const side = (TAIL.sway * sw - TAIL.turnSwing * T.wyr) * D2R;
+  const up = clamp(TAIL.lift * T.wacc + TAIL.speedLift * T.wspd, -TAIL.liftMax, TAIL.liftMax) * D2R;
+  // her right is (-fz, fx); a positive turn about it lifts the tail -- measured, not derived
+  _tr.set(-_tf.z, 0, _tf.x);
+  _tdq.setFromAxisAngle(_TY, side);
+  _tdp.setFromAxisAngle(_tr, -up);
+  _tdq.multiply(_tdp);
+}
 function tailWave(dt) {
   const T = girl.tail, n = T.n, L = T.len;
   const seed = !T.waveLive || T.G[0].distanceTo(T.wv0) > TAIL.snap;
@@ -1167,8 +1235,10 @@ function tailWave(dt) {
   let tot = 0; for (let i = 0; i < n; i++) tot += L[i];
   const pin = clamp(TAIL.pin | 0, 0, n), mx = TAIL.waveMax * Math.PI / 180;
   const r0 = Math.max(0.01, TAIL.waveRoot), r1 = Math.max(0.01, TAIL.waveTip);
-  // the body the tail hangs off, this frame and last
+  // the body the tail hangs off, this frame and last -- with the DRIVERS laid on top of it
   T.bones[0].parent.matrixWorld.decompose(_tp, _th, _ts);
+  tailDrive(T, dt, seed);
+  _th.premultiply(_tdq);
   if (seed) T.hq.copy(_th);
   // IN SMALL FIXED STEPS, WITH THE BODY'S MOTION SLID ACROSS THEM. An ease is frame-rate
   // independent only while its target holds still, and here every target is a parent that
@@ -2183,6 +2253,100 @@ document.getElementById('charB').addEventListener('pointerdown', e => {
   wearChar(charI + 1, null).catch(err => console.warn('[char] swap failed', err));
 });
 
+// ---------- the tail panel ----------
+// *"I'm testing on the phone so I can't type into the console -- you've got to put buttons on the
+// screen."* Every live dial is a SLIDER, built from this one table, so a dial added to `TAIL`
+// tomorrow is one line here. A mode picks which rows show. Saved to `localStorage` under its own
+// key (`rg.tail`) so a setting survives the reload every build needs, and RESET puts back the
+// values this build shipped with (`TAIL_DEF`, captured before anything saved was applied).
+// **CUSTOM SLIDERS, NOT `<input type=range>`**: the page root is `touch-action: none` (it is how
+// double-tap zoom is stopped on iOS), and a native range input under that is unreliable to drag
+// on Safari. Pointer events always fire, so the track is a div that reads the thumb itself.
+const TAILUI = [
+  ['Wave', 'wave'],
+  ['waveRoot',  'Ease at base',   2,   60,  1,    'wave'],
+  ['waveTip',   'Ease at tip',    0.5, 30,  0.5,  'wave'],
+  ['waveMax',   'Max bend/joint', 2,   40,  1,    'wave'],
+  ['sway',      'Sway',           0,   45,  1,    'wave'],
+  ['swayHz',    'Sway speed',     0.1, 2.5, 0.05, 'wave'],
+  ['turnSwing', 'Turn swing',     0,   40,  1,    'wave'],
+  ['lift',      'Accel lift',     -6,  6,   0.25, 'wave'],
+  ['speedLift', 'Speed lift',     -2,  2,   0.05, 'wave'],
+  ['Physics', 'sim'],
+  ['strength',  'Strength',       0,   1,   0.05, 'sim'],
+  ['posHold',   'Position hold',  0,   1.5, 0.05, 'sim'],
+  ['posTip',    'Pos hold at tip',0,   1.5, 0.05, 'sim'],
+  ['rotHold',   'Rot hold base',  0,   0.95,0.05, 'sim'],
+  ['rotTip',    'Rot hold tip',   0,   0.95,0.05, 'sim'],
+  ['damping',   'Damping',        0,   20,  0.5,  'sim'],
+  ['air',       'Air drag',       0,   2,   0.05, 'sim'],
+  ['grav',      'Gravity',        0,   1,   0.05, 'sim'],
+  ['Both', ''],
+  ['pin',       'Rigid base bones', 0, 6,   1,    ''],
+];
+const TAILKEYS = TAILUI.filter(r => r.length > 2).map(r => r[0]);
+function tailSave() {
+  try { const o = { mode: TAIL.mode }; for (const k of TAILKEYS) o[k] = TAIL[k]; localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}
+}
+function tailLoad() {
+  try {
+    const o = JSON.parse(localStorage.getItem('rg.tail') || 'null'); if (!o) return;
+    if (o.mode === 'wave' || o.mode === 'sim') TAIL.mode = o.mode;
+    for (const k of TAILKEYS) if (typeof o[k] === 'number' && Number.isFinite(o[k])) TAIL[k] = o[k];
+  } catch (e) {}
+}
+const tailP = document.getElementById('tailP');
+const fmt = v => (Math.abs(v) >= 10 || Number.isInteger(v)) ? String(Math.round(v * 10) / 10) : v.toFixed(2);
+function tailPanel() {
+  while (tailP.children.length) tailP.removeChild(tailP.children[0]);
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  const modes = el('div', 'btns');
+  for (const m of ['wave', 'sim']) {
+    const b = el('button', TAIL.mode === m ? 'sel' : '', m === 'wave' ? 'WAVE (visualizer)' : 'PHYSICS');
+    b.addEventListener('click', () => { TAIL.mode = m; tailSave(); tailPanel(); });
+    modes.appendChild(b);
+  }
+  tailP.appendChild(modes);
+  for (const r of TAILUI) {
+    if (r.length === 2) { if (r[1] && r[1] !== TAIL.mode) continue; tailP.appendChild(el('h3', '', r[0].toUpperCase())); continue; }
+    const [k, label, lo, hi, step, mode] = r;
+    if (mode && mode !== TAIL.mode) continue;
+    const row = el('div', 'row'), trk = el('div', 'trk'), fill = el('div', 'fill'), val = el('div', 'val');
+    row.appendChild(el('div', 'lab', label)); trk.appendChild(fill); row.appendChild(trk); row.appendChild(val);
+    const show = () => { fill.style.width = (clamp((TAIL[k] - lo) / (hi - lo), 0, 1) * 100) + '%'; val.textContent = fmt(TAIL[k]); };
+    const set = e => {
+      const b = trk.getBoundingClientRect(), u = clamp((e.clientX - b.left) / Math.max(1, b.width), 0, 1);
+      TAIL[k] = clamp(Math.round((lo + u * (hi - lo)) / step) * step, lo, hi);
+      show();
+    };
+    let held = null;
+    trk.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); held = e.pointerId;
+      try { trk.setPointerCapture(e.pointerId); } catch (_) {} set(e); });
+    trk.addEventListener('pointermove', e => { if (e.pointerId === held) set(e); });
+    const up = e => { if (e.pointerId !== held) return; held = null; tailSave(); };
+    trk.addEventListener('pointerup', up); trk.addEventListener('pointercancel', up);
+    show();
+    tailP.appendChild(row);
+  }
+  const foot = el('div', 'btns');
+  const rst = el('button', '', 'RESET');
+  rst.addEventListener('click', () => { TAIL.mode = TAIL_DEF.mode; for (const k of TAILKEYS) TAIL[k] = TAIL_DEF[k]; tailSave(); tailPanel(); });
+  const off = el('button', TAIL.on ? '' : 'sel', TAIL.on ? 'TAIL ON' : 'TAIL OFF');
+  off.addEventListener('click', () => { TAIL.on = TAIL.on ? 0 : 1; tailPanel(); });
+  const cls = el('button', '', 'CLOSE');
+  cls.addEventListener('click', () => tailP.classList.remove('on'));
+  foot.appendChild(rst); foot.appendChild(off); foot.appendChild(cls);
+  tailP.appendChild(foot);
+}
+// a touch on the panel is never a stick, a camera drag or a jump
+tailP.addEventListener('pointerdown', e => e.stopPropagation());
+document.getElementById('tailB').addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (tailP.classList.contains('on')) tailP.classList.remove('on');
+  else { tailPanel(); tailP.classList.add('on'); }
+});
+tailLoad();
+
 // ---------- boot ----------
 // EVERY STEP IS NAMED, AND ONE STEP CANNOT KILL THE WHOLE BOOT. A throw anywhere in here used
 // to take the card down with it and leave a game that is unreachable over a feature it does
@@ -2216,7 +2380,7 @@ async function init() {
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
-  clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar,
+  clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

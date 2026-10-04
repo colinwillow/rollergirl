@@ -252,6 +252,33 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   description and not from his code. Worth comparing against his arm the next time a session can
   read that file.
 
+- **HE TUNES ON A PHONE WITH NO CONSOLE, SO EVERY DIAL IS ON SCREEN (r20, `#tailB`, `TAILUI`).**
+  *"I can't type the things into the console, so you've got to put buttons on the screen."*
+  `rg.TAIL.x = ...` was useless advice. The `∿` key opens a panel of sliders built from ONE table
+  (`TAILUI`), so a new dial is one line; the mode buttons pick which rows show; RESET restores
+  `TAIL_DEF`, captured BEFORE `tailLoad` applies anything saved (read later, it would be his
+  phone's store, which is the opposite of a default). Saved under its OWN key, `rg.tail`.
+  **CUSTOM SLIDERS, NOT `<input type=range>`**: the root is `touch-action: none` (that is the iOS
+  double-tap fix), and a native range input under it is unreliable to drag on Safari. Pointer
+  events always fire, so the track reads the thumb itself. **Offer a control he can reach, not a
+  console command he cannot** -- the same rule as `missing()` in Shredworld, one step on.
+  `npm run sim panel` drives it through real listeners. Its first run caught the panel never
+  clearing between modes: the stub has no `firstChild`, and clearing by `children` is the form
+  both the stub and a browser support, so the harness now runs the phone's path.
+- **THE WAVE TAIL WAS STIFF BECAUSE NOTHING DROVE ITS BASE (r20, `tailDrive`, `TAIL.sway` ...).**
+  His visualizer's arm was driven by a WAVEFORM at the first segment; this one only by her hips,
+  and *"there's no natural rotation in the hips really."* Four drivers now feed the base, and
+  the cascade turns each into a wave: `sway` (two sines at an awkward ratio, his waveform,
+  standing in for hip travel the mocap lacks), `turnSwing` (flung out behind a turn), `lift`
+  (forward acceleration) and `speedLift` (streams up with speed). All read off the tail ROOT's
+  own motion -- forward is root-minus-tip in plan -- so any rig works and the harness drives
+  them. Signs MEASURED: turning +1 rad/s puts it at -25 deg, cruising at 10 m/s lifts the tip
+  0.14 m, and the sway moves it 8 cm standing still. Still frame-rate independent with all of
+  them on: 0.389 m at 60 Hz, 0.391 at 20.
+  **SLOWER EASING MOVES THE TAIL LESS, NOT MORE.** Easing in WORLD space means a slow tail barely
+  follows the base, so it soaks the motion up: sway 20 at 30/7 moves the tip 8 cm, at 12/4 only
+  3.4. Amplitude is the drivers' job; the ease rates set the CHARACTER of the wave.
+
 - **THE STICKS FLOAT, AND A FIXED PAD IS WHY SHE COULD NOT JUMP.** *"I'm having trouble jumping
   and I can't tell if it's a thumb location thing."* It was exactly that. The pad used to be a
   132 px circle and `far` — how far the thumb has travelled — was measured **from the circle's

@@ -807,6 +807,10 @@ CASES.wave = () => {
     b.position.set(t[0], t[1], t[2]); if (q) b.quaternion.set(q[0], q[1], q[2], q[3]); par.add(b); par = b; }
   const T = rg.girl.tail = rg.tailFind(holder, []);
   const modeWas = rg.TAIL.mode; rg.TAIL.mode = 'wave';
+  const saveAll = { ...rg.TAIL };
+  // THE CASCADE IS TESTED WITH THE DRIVERS OFF, then the drivers on their own: with a sway on,
+  // "standing still is the authored pose" is false by design and the check would measure the sway.
+  Object.assign(rg.TAIL, { sway: 0, turnSwing: 0, lift: 0, speedLift: 0 });
   const save = { ...rg.TAIL };
   let ok = true;
   const run = (sec, dt, f) => { const k = Math.round(sec / dt); for (let i = 0; i < k; i++) { if (f) f(i * dt); rg.tailStep(dt); } };
@@ -835,6 +839,13 @@ CASES.wave = () => {
   const t60 = turnAt(1 / 60), t20 = turnAt(1 / 20);
   console.log(`  a skater's turn: tip moves ${fix(t60, 3)} m at 60 Hz, ${fix(t20, 3)} m at 20 Hz`);
   if (Math.abs(t20 - t60) > t60 * 0.05) { console.log('  -> the frame rate changes the tail'); ok = false; }
+  // and with every driver ON -- they are differenced and smoothed per frame, so they are exactly
+  // the kind of thing that quietly depends on the frame rate
+  Object.assign(rg.TAIL, saveAll, { mode: 'wave' });
+  const d60 = turnAt(1 / 60), d20 = turnAt(1 / 20);
+  Object.assign(rg.TAIL, save);
+  console.log(`  ...with the drivers on: ${fix(d60, 3)} m at 60 Hz, ${fix(d20, 3)} m at 20 Hz`);
+  if (Math.abs(d20 - d60) > d60 * 0.08) { console.log('  -> the drivers change with the frame rate'); ok = false; }
   // 4. A LONG FAST SPIN IS CAPPED -- eases accumulate down a chain, so without `waveMax` a spin
   // curls the tail round on itself.
   reset(1 / 60);
@@ -852,8 +863,66 @@ CASES.wave = () => {
   const nan = T.bones.some(b => !Number.isFinite(b.quaternion.x + b.quaternion.y + b.quaternion.z + b.quaternion.w));
   console.log(`  drawn segments off their length: ${bad}; wave -> sim -> wave: ${nan ? 'NaN' : 'clean'}`);
   if (bad || nan) ok = false;
-  Object.assign(rg.TAIL, save); rg.TAIL.mode = modeWas;
+  // 6. THE DRIVERS, ONE AT A TIME, AND THEIR SIGNS -- which were MEASURED here rather than
+  // derived, because this file gets handedness backwards half the time when it argues.
+  const planAng = P => { const v = P[T.n].clone().sub(P[0]); return Math.atan2(v.x, v.z); };
+  // the sway moves it with nobody moving at all -- his waveform at the base
+  Object.assign(rg.TAIL, save, { sway: saveAll.sway, swayHz: saveAll.swayHz }); reset(1 / 60);
+  let sw = 0; run(6, 1 / 60, t => { if (t > 1.5) sw = Math.max(sw, T.D[T.n].distanceTo(T.G[T.n])); });
+  // a turn flings it OUT behind the turn: turning +, the tail sits at a NEGATIVE bearing
+  Object.assign(rg.TAIL, save, { turnSwing: 20, waveRoot: 60, waveTip: 60 }); reset(1 / 60);
+  let ya = 0; run(2, 1 / 60, () => { ya += 1 / 60; holder.rotation.y = ya; });
+  const out = Math.atan2(Math.sin(planAng(T.D) - planAng(T.G)), Math.cos(planAng(T.D) - planAng(T.G))) * 57.3;
+  // speed LIFTS it: cruising forward (the tail points -z, so forward is +z) the tip goes UP
+  Object.assign(rg.TAIL, save, { speedLift: 1.5 });
+  holder.position.set(0, 30, -300); holder.rotation.y = 0; T.waveLive = 0; run(0.5, 1 / 60);
+  let zz = -300; run(4, 1 / 60, () => { zz += 10 / 60; holder.position.z = zz; });
+  const rise = T.D[T.n].y - T.G[T.n].y;
+  console.log(`  drivers: sway moves the tip ${fix(sw, 3)} m standing still; turning +1 rad/s puts it at ` +
+              `${fix(out, 1)} deg (flung out behind); cruising at 10 m/s lifts the tip ${fix(rise, 3)} m`);
+  if (sw < 0.02) { console.log('  -> the sway does not reach the tail'); ok = false; }
+  if (!(out < -3)) { console.log('  -> a turn does not fling it out behind'); ok = false; }
+  if (!(rise > 0.02)) { console.log('  -> speed does not lift it'); ok = false; }
+  Object.assign(rg.TAIL, saveAll); rg.TAIL.mode = modeWas;
   rg.scene.remove(holder); rg.girl.tail = null;
+  return ok;
+};
+
+// ---------------------------------------------------------------- the tail panel
+// HE TUNES ON A PHONE WITH NO CONSOLE, SO THE PANEL IS THE ONLY WAY ANY DIAL GETS MOVED. Built
+// and driven through the stub's real listeners: a slider dragged with a synthesised thumb, the
+// mode buttons, RESET, and a reload of a saved store that has junk in it. Its first run found the
+// panel never clearing itself between modes -- `firstChild` does not exist on the stub, and the
+// clear loop is now written against `children`, which both the stub and a browser have.
+CASES.panel = () => {
+  const P = document.getElementById('tailP'), keep = { ...rg.TAIL }, store = localStorage.getItem('rg.tail');
+  let ok = true;
+  const rows = () => P.children.filter(c => c.className === 'row');
+  const click = b => (b._h.click || []).forEach(f => f({}));
+  Object.assign(rg.TAIL, rg.TAIL_DEF); rg.tailPanel();
+  const nWave = rows().length;
+  const sway = rows().find(r => r.children[0].textContent === 'Sway');
+  if (!sway) { console.log('  -> no Sway slider in wave mode'); return false; }
+  const trk = sway.children[1];
+  const fire = (t, x) => (trk._h[t] || []).forEach(f => f({ type: t, pointerId: 7, clientX: x, preventDefault() {}, stopPropagation() {} }));
+  fire('pointerdown', 150); fire('pointermove', 225); fire('pointerup', 225);
+  const saved = JSON.parse(localStorage.getItem('rg.tail') || '{}');
+  console.log(`  wave mode: ${nWave} sliders; Sway dragged to 75% -> ${rg.TAIL.sway}, saved ${saved.sway}`);
+  if (rg.TAIL.sway !== 34 || saved.sway !== 34) ok = false;
+  click(P.children[0].children[1]);
+  const simRows = rows().map(r => r.children[0].textContent);
+  console.log(`  PHYSICS: mode ${rg.TAIL.mode}, ${simRows.length} sliders, Sway still shown: ${simRows.includes('Sway')}`);
+  if (rg.TAIL.mode !== 'sim' || simRows.includes('Sway') || !simRows.includes('Strength')) ok = false;
+  if (new Set(simRows).size !== simRows.length) { console.log('  -> a slider appears twice'); ok = false; }
+  click(P.children[P.children.length - 1].children[0]);
+  console.log(`  RESET: mode ${rg.TAIL.mode}, sway ${rg.TAIL.sway} (shipped ${rg.TAIL_DEF.sway})`);
+  if (rg.TAIL.mode !== rg.TAIL_DEF.mode || rg.TAIL.sway !== rg.TAIL_DEF.sway) ok = false;
+  localStorage.setItem('rg.tail', JSON.stringify({ mode: 'sim', sway: 7, waveRoot: 'junk', pin: null }));
+  rg.tailLoad();
+  console.log(`  a saved store with junk in it: mode ${rg.TAIL.mode}, sway ${rg.TAIL.sway}, waveRoot ${rg.TAIL.waveRoot}, pin ${rg.TAIL.pin}`);
+  if (rg.TAIL.mode !== 'sim' || rg.TAIL.sway !== 7 || rg.TAIL.waveRoot !== rg.TAIL_DEF.waveRoot || rg.TAIL.pin !== rg.TAIL_DEF.pin) ok = false;
+  Object.assign(rg.TAIL, keep);
+  if (store == null) localStorage.removeItem('rg.tail'); else localStorage.setItem('rg.tail', store);
   return ok;
 };
 
