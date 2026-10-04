@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r37</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r38</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r37';
+const BUILD = 'r38';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3144,14 +3144,19 @@ function swingOf(q, out) {
   return out.copy(q).multiply(tw.invert());
 }
 const _q3 = new THREE.Quaternion();
-// THE LEGS, AND WHERE EACH SOLE IS. Measured in her BIND pose (`skeleton.pose()`), where the feet are
-// flat: the floor is the geometry's lowest point (`lo`, the same number that stood her on the ground),
-// the sole is the point on it straight under the ankle, and both it and "up" are stored in the FOOT
-// BONE's own frame -- so every frame the sole is `foot.localToWorld(sole)`, whatever the clip is doing.
+// THE LEGS, AND WHERE EACH SOLE IS. Measured in her REST pose (the file's own node transforms, before
+// any clip has run -- the same pose `hipsLocal` is read in), where the feet are flat: the floor is the
+// geometry's lowest point (`lo`, the same number that stood her on the ground), the sole is the point
+// on it straight under the ankle, and both it and "up" are stored in the FOOT BONE's own frame -- so
+// every frame the sole is `foot.localToWorld(sole)`, whatever the clip is doing.
+// **IT MUST NOT CALL `skeleton.pose()`, AND r36 DID -- SHE WAS INVISIBLE.** `pose()` rebuilds each
+// bone's LOCAL transform from the bind matrices, and for the ROOT bone (whose parent is the 0.01
+// armature, not a Bone) it writes the WORLD bind matrix in as the local one -- the armature's scale
+// and turn applied twice. Her clips carry no scale tracks (`normaliseClips` drops them), so nothing
+// ever put the Hips back: the whole body drawn at the wrong size, and gone. **A measurement must leave
+// what it measures exactly as it found it**; `npm run sim footik` now asserts that on her real rig.
 function footFind(model, lo) {
   const out = [];
-  let skel = null; model.traverse(o => { if (!skel && o.isSkinnedMesh) skel = o.skeleton; });
-  if (skel) skel.pose();
   model.updateMatrixWorld(true);
   const mq = model.getWorldQuaternion(new THREE.Quaternion());
   for (const side of ['Left', 'Right']) {

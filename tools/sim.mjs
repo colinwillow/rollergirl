@@ -1521,6 +1521,26 @@ CASES.footik = () => {
   console.log(`  a foot pointed ${fix(t0, 1)} deg off flat -> ${fix(t1, 2)} deg after align`);
   if (!(t0 > 10 && t1 < 0.5)) ok = false;
   // out of reach: clamped, never NaN
+  // HER REAL RIG, skinned the way GLTFLoader skins it (joints are Bones, the armature above them is NOT),
+  // so a `skeleton.pose()` inside `footFind` would do here exactly what it did on the phone in r36:
+  // rewrite the root bone with the armature's scale and turn baked in, and she vanished. Every bone's
+  // local transform must come out exactly as it went in.
+  { const J = readGLB('models/alien_rollerskate_blue.glb').json, joints = new Set(J.skins[0].joints);
+    const objs = J.nodes.map((n, i) => { const o = joints.has(i) ? new THREE.Bone() : new THREE.Object3D(); o.name = n.name || '';
+      if (n.translation) o.position.fromArray(n.translation); if (n.rotation) o.quaternion.fromArray(n.rotation);
+      if (n.scale) o.scale.fromArray(n.scale); return o; });
+    const rr = new THREE.Group(), kid = new Set();
+    J.nodes.forEach(n => (n.children || []).forEach(c => kid.add(c)));
+    J.nodes.forEach((n, i) => (n.children || []).forEach(c => objs[i].add(objs[c])));
+    J.nodes.forEach((n, i) => { if (!kid.has(i)) rr.add(objs[i]); });
+    rr.scale.setScalar(1.3); rr.updateMatrixWorld(true);
+    const bones = J.skins[0].joints.map(i => objs[i]);
+    const sm = new THREE.SkinnedMesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial()); rr.add(sm); sm.bind(new THREE.Skeleton(bones));
+    const snap = () => bones.map(b => [...b.position.toArray(), ...b.quaternion.toArray(), ...b.scale.toArray()]);
+    const before = snap(), FF = rg.footFind(rr, 0), after = snap();
+    let worst = 0; before.forEach((v, i) => v.forEach((x, k) => { worst = Math.max(worst, Math.abs(x - after[i][k])); }));
+    console.log(`  her real rig: legs found ${!!FF}, worst change to any bone's local transform ${worst.toExponential(1)} (must be 0)`);
+    if (!FF || worst > 1e-9) ok = false; }
   rg.legIK(f, new THREE.Vector3(0, -3, 0), N, 1);
   const a3 = f.ft.getWorldPosition(V());
   console.log(`  asked for 3 m: ankle at y ${fix(a3.y, 3)}, finite ${Number.isFinite(a3.x + a3.y + a3.z)}, leg ${fix(len()[0] + len()[1], 4)} long (straight is ${fix(L0[0] + L0[1], 4)})`);

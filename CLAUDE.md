@@ -279,13 +279,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   the ground -- it feels like she's floating slightly."* The alien's Hips TRANSLATION is constant in every
   clip, so every bent knee folds her legs up under a pelvis held at standing height and lifts the skates
   (Shredworld's borrowed-clip landmine). On the ground, after the mixer: each skate's SOLE is a point fixed
-  in the foot bone's frame (measured at load in the BIND pose as the floor under the ankle), the body drops
+  in the foot bone's frame (measured at load in the REST pose as the floor under the ankle), the body drops
   until the lower sole touches (`maxDrop` .25, eased), a two-bone IK pulls the other skate down if it is
   within `near` (.16 m) -- higher than that is a stride or a trick, left alone -- and both feet turn flat to
   the surface. It is undone before the next mixer update (`footUndo`), the tail's rule. Eases out in the air,
   on a rail and in a bail. `npm run sim footik` drives the shipped IK on a fabricated bent leg: 0.00 mm miss,
   lengths kept, a tilted foot laid flat, finite when asked for 3 m; revert-tested on the knee sign (119 mm
   miss). **How it LOOKS needs her skin, which is draco -- that half is his.**
+  **r36 MADE HER INVISIBLE AND r38 IS WHY: `footFind` CALLED `skeleton.pose()`.** That rebuilds every bone's
+  LOCAL transform from the bind matrices, and for the ROOT bone -- whose parent is the 0.01 armature, not a
+  Bone -- it writes the WORLD bind matrix in as the local one, so the armature's scale and turn land twice.
+  Her clips carry no scale tracks (dropped at load), so nothing ever put the Hips back and the whole body
+  was drawn at the wrong size. **A measurement must leave what it measures exactly as it found it.**
+  `npm run sim footik` now builds her REAL rig the way GLTFLoader skins it (joints are Bones, the armature
+  is not), runs `footFind`, and requires every bone's local transform unchanged: 0 with the fix, 1.1 with
+  r36's line put back. No offline gate had caught it because no harness here ever built a skinned rig.
 - **BLADE TRAILS (r36, `TRAIL`, `trailBuild`, `trailStep`).** A camera-facing ribbon off each SOLE (the same
   points the IK uses): the last `life` .22 s, widest at the skate and tapering to a point, white fading to a
   cool cyan, NOT additive (a pale floor turns additive into a smear). Earned by speed on the ground (9 -> 18
