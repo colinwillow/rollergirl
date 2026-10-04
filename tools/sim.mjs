@@ -557,7 +557,10 @@ CASES.pump = () => {
   });
   console.log(`  pumping: peaks ${peaks.slice(0, 9).map(v => fix(v)).join(' ')} m (coping is ${fix(H)})`);
   console.log(`  highest point reached ${fix(Math.max(...peaks, air))} m`);
-  return peaks.length > 2 && Math.max(...peaks) > H * 0.9;
+  // r40: TWO REAL SWINGS, not "more than two peaks" -- the old mark was passing on a 4 cm blip read as a
+  // third peak where the half pipe's flat bottom (no longer drawn, r40) met the plaza.
+  const real = peaks.filter(v => v > 0.5);
+  return real.length >= 2 && Math.max(...peaks) > H * 0.9;
 };
 // ---------------------------------------------------------------- the kicker
 CASES.kicker = () => {
@@ -1500,6 +1503,38 @@ CASES.swivel = () => {
   const ok = went && P.stance < 0 && Math.abs(bear) < 5 && P.hSpeed > 3;
   P.stanceLock = keepLock; P.stance = 1; rg.stick.L.y = 0; rg.stick.L.down = 0;
   return ok;
+};
+// ---------------------------------------------------------------- no two surfaces on one plane (r40)
+// *"A little bit of artifacting on the ramp -- I think it's a little too low, below the ground plane, and
+// it's doing this weird triangle thing."* That is Z-FIGHTING: two drawn surfaces at the same height,
+// trading pixels as the camera moves. The drawn park is scanned for flat triangles at plaza height
+// whose colour is not the plaza's -- each one is a surface lying ON the floor, which is the fault.
+CASES.zfight = () => {
+  let plaza = null, park = null;
+  rg.scene.traverse(o => { if (!o.isMesh || !o.geometry.attributes.color) return;
+    if (o.name === 'plaza') plaza = o;
+    else if (!park || o.geometry.attributes.position.count > park.geometry.attributes.position.count) park = o; });
+  if (!plaza || !park) { console.log('  plaza or park mesh not found'); return false; }
+  const Q = plaza.geometry.attributes.position.array, P3 = park.geometry.attributes.position.array, N = park.geometry.attributes.normal.array;
+  const plz = [];
+  for (let t = 0; t < Q.length / 9; t++) { const o = t * 9; if (Math.abs(Q[o + 1]) < 0.06) plz.push([Q[o], Q[o + 2], Q[o + 3], Q[o + 5], Q[o + 6], Q[o + 8], Q[o + 1]]); }
+  const inTri = (x, z, q) => { const d = (q[3] - q[5]) * (q[0] - q[4]) + (q[4] - q[2]) * (q[1] - q[5]);
+    const a = ((q[3] - q[5]) * (x - q[4]) + (q[4] - q[2]) * (z - q[5])) / d, b = ((q[5] - q[1]) * (x - q[4]) + (q[0] - q[4]) * (z - q[5])) / d;
+    return a > 0 && b > 0 && a + b < 1; };
+  // 1. NOTHING EXACTLY ON THE FLOOR: a flat, upward-facing park triangle at the plaza's height, over it
+  // 2. AND THE TOES: low near-flat slivers that the floor's depth offset has to win against
+  const exact = [], toes = [];
+  for (let t = 0; t < P3.length / 9; t++) {
+    const o = t * 9, ys = [P3[o + 1], P3[o + 4], P3[o + 7]];
+    if (N[o + 1] < 0.9 || Math.max(...ys) > 0.03) continue;
+    const x = (P3[o] + P3[o + 3] + P3[o + 6]) / 3, z = (P3[o + 2] + P3[o + 5] + P3[o + 8]) / 3;
+    if (!plz.some(q => inTri(x, z, q))) continue;
+    (Math.max(...ys) < 0.002 ? exact : toes).push(`${x.toFixed(1)},${z.toFixed(1)}`);
+  }
+  const off = plaza.material.polygonOffset && plaza.material.polygonOffsetFactor > 0;
+  console.log(`  park triangles lying EXACTLY on the plaza: ${exact.length}${exact.length ? ' at ' + exact.slice(0, 8).join(' ') : ''}`);
+  console.log(`  ramp toes within 3 cm of it: ${toes.length}, and the plaza is ${off ? 'pushed back in depth (polygonOffset)' : 'NOT offset -- they will fight'}`);
+  return exact.length === 0 && off;
 };
 // ---------------------------------------------------------------- Zap's melee (r39)
 // The borrowed file (`npm run borrow`) prepared exactly as the game prepares hers; the chain, the slide,

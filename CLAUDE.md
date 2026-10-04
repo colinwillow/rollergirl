@@ -810,6 +810,17 @@ Each of these cost a round in the build that found it.
   arithmetic, and the SAME typo also meant the bowl's hole was never cut, so she skated across
   the top of it. **One word, two bugs, neither of them visible in the code.** `pushTri` rejects
   and reports a non-finite vertex now.
+- **AND THE HALF PIPE'S FLAT BOTTOM WAS STILL ONE (fixed r40), WHICH IS WHY THIS IS A TEST NOW.** *"Artifacting
+  on the ramp -- it's a little too low, below the ground plane."* 15 x 6 m of peach at exactly y = 0 between the
+  two transitions, fighting the plaza: the stripes in his screenshot. Two fixes, both general: `extrude` no
+  longer draws a strip lying flat on the plaza (the plaza already draws AND collides there; off the plaza's
+  square, e.g. the apron, a flat strip is still drawn because it is the only floor), and the plaza is its OWN
+  mesh with `polygonOffset`, so every ramp's toe -- which starts at y = 0 and is coplanar with the floor to
+  within depth precision for its first few millimetres -- wins over it. The offset moves only the depth test,
+  never her skates or the collider. `npm run sim zfight` scans the drawn park for any upward triangle lying
+  exactly on the plaza and checks the offset; revert-tested (the strip put back reads 2 and fails).
+  **AND `npm run sim pump` HAD BEEN PASSING ON A BLIP**: "more than two peaks" counted a 4 cm bump where that
+  strip met the plaza as a third swing. It asks for two real swings over the coping now.
 - **A `y = 0` APRON IS COPLANAR WITH THE PLAZA THAT IS ALREADY UNDER IT.** Every ramp used to
   start and end with a few metres of flat run-up in its own profile, at exactly the height of
   the ground beneath — two surfaces fighting for the same pixels, which reads as patches of a
