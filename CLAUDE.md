@@ -478,8 +478,9 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   flip -- maybe we'll just have her rotate in the air for now, left and right"*, and *"in the air
   you'll hold forward"*, which is how you get over the back of one ramp and reach the next. Both
   read RAW off the pad rather than through `cam.az`: a spin is relative to her body and the
-  thrust is along her nose, and neither is a question about where the lens is. Measured: **293
-  degrees of spin** in 1.23 s of air, and holding forward carries her **19.0 m against 12.2**.
+  thrust is along her nose, and neither is a question about where the lens is. Measured: **523
+  degrees of spin** in 1.23 s of air (r26, `AIR.spin` 4.2 -> 7.5: *"she needs to rotate in the air
+  faster"*; flips likewise capped at `LAND.flipMax` 1.0 s, was 2.4), and holding forward carries her **19.0 m against 12.2**.
   `AIR.driftMax` caps the total so a long flight is not a free flight.
 - **THE BAIL IS DORMANT, AND IT CANNOT FIRE WHILE SHE IS UPRIGHT.** It compares her own up to the
   face she lands on, which only means anything while the body is free — upright in the air, every

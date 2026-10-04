@@ -146,7 +146,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r25</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r26</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -163,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r25';
+const BUILD = 'r26';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -496,7 +496,8 @@ const AIR = {
   // **NO FLIP.** *"I'm not sold on the flip -- maybe we'll just have her rotate in the air for
   // now, left and right."* So the pad's X is a yaw RATE and its Y is THRUST: *"in the air you'll
   // hold forward"*, which is how you clear the back of one ramp and reach the next.
-  spin: 4.2,           // rad/s of yaw
+  spin: 7.5,           // rad/s of yaw. r26: *"she needs to rotate in the air faster"* -- 4.2 was 240
+                       // deg/s, a 360 in 1.5 s, longer than most airs; 7.5 is a 360 in 0.84 s
   drift: 11,           // m/s^2 along her facing while the thumb is forward
   driftMax: 8,         // ...and the most it may add, so a long flight is not a free flight
   // AND SHE IS UPRIGHT UP THERE. *"Her rotation is matching the normals of the ramp -- I don't
@@ -530,7 +531,10 @@ const LAND = {
   minV: 2.0,               // slower than this along the surface there is no direction to be wrong against
   flipDone: 0.8,           // a flip less than this far round when she touches down is a bail
   // a flip is timed to the air she has LEFT when it is flicked: this much of it, inside these bounds
-  flipFill: 0.85, flipMin: 0.35, flipMax: 2.4,
+  // r26: flipMax 2.4 -> 1.0 and flipFill .85 -> .75 -- on a big air the flip was stretched across
+  // two seconds of hang time, which reads as slow motion; now it goes over quickly and she spots
+  // the landing in the air pose
+  flipFill: 0.75, flipMin: 0.35, flipMax: 1.0,
   bailT: 3.2,              // a bail's whole length: going down, and getting back up
   // OFF BY DEFAULT (r23): *"let's get rid of the falling over -- she lands no matter how you land,
   // forward or backward."* A sideways landing takes whichever end is nearer, and an unfinished flip
@@ -2999,6 +3003,8 @@ const TAILUI = [
   ['VERT.kick',      'Transfer kick',  0,   10,  0.5,  ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
+  ['AIR.spin',       'Air spin speed', 1,   16,  0.25, ''],
+  ['LAND.flipMax',   'Longest flip',   0.4, 2.5, 0.05, 's'],
   ['Grinding', ''],
   ['GRIND.catchR',   'Rail catch reach', 0.2, 1.5, 0.05, ''],
   ['GRIND.drag',     'Rail drag',      0,   2,   0.05, ''],
