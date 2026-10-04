@@ -67,6 +67,78 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE ROSTER, AND WHICH CLIPS PING-PONG IS NOW MEASURED RATHER THAN LISTED (r11, `CHARS`,
+  `clipRoles`, `clipCyclic`).** `models/alien_rollerskate_blue_test.glb` is the second
+  character: 80 joints, one 1.833 s / 56-key mocap clip also called `skate_fwd`, and a 15-bone
+  tail. One is loaded at a time -- a swap is a menu action, not a parade -- and the pick lives
+  in `localStorage`. A swap is LOAD-THEN-DROP, so the character on screen goes on skating for
+  the whole download instead of leaving a blank street.
+  **A HARD-CODED `PINGPONG` LIST WAS RIGHT FOR ONE EXPORT AND WRONG FOR THE OTHER, UNDER THE
+  SAME CLIP NAME.** First key against last, averaged over the bones that actually move:
+      roller_girl skate_fwd   mean 45.5 deg / worst 106   -- ONE PUSH, must ping-pong
+      alien       skate_fwd   mean  0.6 deg / worst   8   -- a CYCLE, a plain loop
+  Ping-ponged, a clip that already closes is played at half the rate it should be, which is
+  what "she holds the pose" looked like for three builds. `girl.cyc[name]` (1 or 2) comes out
+  of the same measurement, so the rate cannot drift from the loop mode.
+  **AND THE T-POSE FALLBACK CANNOT BE `Idle`.** The alien has exactly one clip, so a table
+  naming three she has not got sums to zero -- and a zero-weight bone is blended back to its
+  BIND value, which is the T-pose exactly. The fallback is the skin's OWN clip, and a skin with
+  neither an idle nor a coast drives itself entirely from that one clip (`girl.solo`): weight 1
+  for ever, and **the RATE is the animation** -- fitted to the stride while pushing, ticking
+  over with her speed while coasting, and a time scale of ZERO at a standstill, which holds a
+  pose rather than skating on the spot.
+  **`clipRoles` IS ONE SHIPPED FUNCTION THAT BOTH `buildGirl` AND `npm run sim anim` CALL.** The
+  harness cannot build a skin (draco wants a Worker) but it can read the clips, so the one
+  thing it must not do is restate the decision -- and the previous version of that case invented
+  its own durations AND its own "one stride is two clip lengths", so it reported a correct rate
+  on a clip the game was playing at half speed. It covers every character on the roster now.
+- **THE TAIL IS A CHAIN OF POINTS IN WORLD SPACE, SOLVED AND CONVERTED BACK TO BONE ROTATIONS
+  (r11, `TAIL`, `tailFind`, `tailStep`).** He drives the chain in Cinema 4D with an IK and
+  dynamics on; the choice is between solving it live here and baking that motion into the
+  joints, so this is the live half for him to compare against. **Baking is a drop-in**:
+  `tailFind` measures how far any tail bone turns in any clip and `tailStep` stands itself down
+  once that is real, so a baked export needs no code change.
+  **THE REST POSE IS READ EVERY FRAME AND NOTHING IS TYPED IN METRES.** The bones are put back
+  to their rest rotations, the subtree's world matrices are updated, and the goal positions AND
+  the segment lengths are measured off that -- so a re-export at any size or any shape lands
+  right, and at full stiffness the sim reproduces the authored pose to **0.0000 m**, which is
+  the self-consistency check the whole design rests on.
+  **RESET THE BONES EXPLICITLY; DO NOT TRUST THE MIXER TO REWRITE THEM.** It only writes a bone
+  a playing clip has TRACKS for, and a relative edit on a bone nothing rewrites accumulates a
+  few degrees a frame, which is a bone spinning. (Shredworld paid for exactly that with its aim
+  twist, on clips whose spine tracks had been stripped.)
+  **TWO DRAGS, BECAUSE ONE NUMBER CANNOT DO BOTH JOBS.** `drag` damps the velocity RELATIVE TO
+  HER BODY -- the chain's own internal friction, and relative is the point, because a tail
+  travelling along with her is not moving as far as that friction is concerned. Damped against
+  the WORLD instead, keeping up with her IS motion to be damped, so the spring and the drag
+  settle a long way behind the pose and it never comes back: a dash left the tail **1.51 m off
+  a chain only 0.879 m long**, permanently flattened out behind her. `air` is the other one and
+  it is small: drag against still air, which is what makes a tail trail at speed at all.
+  **NO ITERATION COUNT, AND NO SUBSTEPPING, AND BOTH OF THOSE ARE MEASUREMENTS.** The length
+  projection is root-outward and DIRECT, so one pass is exact -- 3 passes and 10 gave
+  byte-identical numbers, which is what said the residual was never the problem. And
+  substepping, the standard answer to a marginal chain, made the violent cases WORSE (a
+  5.6 rad/s shake went 35 -> 169 m/s at the tip as `sub` went 1 to 8), because the ground clamp
+  and the length projection are POSITION corrections whose size does not shrink with the step
+  while the velocity recovered from them is divided by it.
+  **THE SAME CONSTRAINT IS APPLIED AT THE VELOCITY LEVEL TOO**: a rod that cannot stretch
+  cannot have relative velocity along it either, or the positions are legal while the
+  velocities are not and every step puts back the violation the projection just corrected.
+  **AND `npm run sim tail` RUNS THE SHIPPED SOLVER ON A FABRICATED CHAIN CARRYING THE REAL BONE
+  OFFSETS**, which is enough because the solver only ever reads offsets and world matrices.
+  Five checks: it reproduces the pose when rigid, the lengths hold to **0.00%** through ten
+  seconds of being thrown about, it swings and recovers, it stays out of the floor at 2x
+  gravity, and -- the one that matters most -- **the BONES actually turned**, because every
+  other number is about the POINTS and a broken conversion back to quaternions passes all of
+  them while nothing on screen moves.
+  **THREE SEPARATE PROBE FAULTS IN THAT CASE EACH READ AS A SOLVER THAT CANNOT RECOVER**, and
+  they cost most of the round: the tail dragging on the plaza (so the number measured the
+  ground clamp), a 36 m dash from x = 60 straight into the **6.6 m perimeter berm** -- this
+  file's own written-down landmine about a probe on a site with a ramp in it -- and a dash that
+  reached 7.2 m/s in ONE FRAME, which is an infinite acceleration no skater does. The solver
+  was fine the whole time: the velocity profile along the chain is a clean monotone whip, 7.2
+  at the root to about 20 at the tip, which is what a 15-link chain does.
+
 - **THE STICKS FLOAT, AND A FIXED PAD IS WHY SHE COULD NOT JUMP.** *"I'm having trouble jumping
   and I can't tell if it's a thumb location thing."* It was exactly that. The pad used to be a
   132 px circle and `far` — how far the thumb has travelled — was measured **from the circle's

@@ -488,49 +488,209 @@ CASES.clips = () => {
   return ok;
 };
 // ---------------------------------------------------------------- what the mixer is asked for
-// NO HARNESS HERE CAN BUILD A SKIN -- her GLB is draco and `DRACOLoader` wants a Worker -- so
-// the actions are FABRICATED, carrying the real clip durations read out of the file. That is
-// enough, because the question is not what the clip looks like: it is what `girlAnim` ASKS the
-// mixer for. A weight table and a time scale are numbers, and "she holds the pose" is a claim
-// about numbers.
+// NO HARNESS HERE CAN BUILD A SKIN -- the GLBs are draco and `DRACOLoader` wants a Worker -- so
+// the actions are FABRICATED. That is enough, because the question is not what the clip looks
+// like: it is what `girlAnim` ASKS the mixer for. A weight table and a time scale are numbers,
+// and "she holds the pose" is a claim about numbers.
+// **BUT THE CLIPS AND THE ROLES ARE REAL.** An earlier version of this case invented its own
+// clip durations AND its own "one stride is two clip lengths", so it reported a correct rate on
+// a clip the game was playing at half speed -- a harness measuring a path the game does not
+// take, which is this repo's oldest mistake. The samplers are not compressed, so the clips are
+// read out of the file and handed to the SHIPPED `normaliseClips` and `clipRoles`: the loop
+// mode, the stride count, the fallback and the solo flag are the game's own answers, and the
+// case now covers every character on the roster rather than the one it was written for.
 CASES.anim = () => {
-  const LEN = { Idle: 17.667, coasting: 5.333, skate_fwd: 0.208, jump_start: 0.583, jump_in_air: 0.708 };
-  const log = {};
-  rg.girl.actions = {}; rg.girl.cw = {};
-  for (const nm of Object.keys(LEN)) {
-    const a = { w: 0, ts: 1, running: 0, resets: 0,
-      reset() { this.resets++; this.running = 1; return this; }, play() { this.running = 1; return this; },
-      stop() { this.running = 0; return this; }, isRunning() { return !!this.running; },
-      setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; },
-      setEffectiveTimeScale(v) { this.ts = v; return this; }, setLoop(m, n) { this.loop = m; return this; } };
-    rg.girl.actions[nm] = log[nm] = a;
+  let ok = true;
+  for (const C of rg.CHARS) {
+    if (!fs.existsSync(C.file)) { console.log(`  ${C.key}: ${C.file} is not here`); ok = false; continue; }
+    const clips = rg.normaliseClips(buildClips(readGLB(C.file), THREE));
+    const R = rg.clipRoles(clips);
+    const log = {};
+    rg.girl.actions = {}; rg.girl.cw = {};
+    for (const c of clips) {
+      const a = { w: 0, ts: 1, running: 0, resets: 0,
+        reset() { this.resets++; this.running = 1; return this; }, play() { this.running = 1; return this; },
+        stop() { this.running = 0; return this; }, isRunning() { return !!this.running; },
+        setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; },
+        setEffectiveTimeScale(v) { this.ts = v; return this; }, setLoop(m, n) { this.loop = m; return this; } };
+      rg.girl.actions[c.name] = log[c.name] = a;
+    }
+    rg.girl.clipLen = R.len; rg.girl.cyc = R.cyc; rg.girl.fallback = R.fallback;
+    rg.girl.solo = R.solo; rg.girl.ready = true;
+    const drive = R.solo || 'skate_fwd';
+    console.log(`  ${C.key}: ${clips.length} clip(s), ` + clips.map(c =>
+        `${c.name} x${R.cyc[c.name]}${R.pp[c.name] ? ' pingpong' : ''}`).join(', ') +
+      `; fallback ${R.fallback}${R.solo ? `, SOLO on ${R.solo}` : ''}`);
+    // 1. STANDING STILL SHE MUST NOT BE IN THE BIND POSE. A table that names nothing she has
+    // sums to zero, and a zero-weight bone is blended back to its bind value -- the T-pose.
+    place(60, 1, -60, 0, 0);
+    rg.stick.L.x = rg.stick.L.y = 0;
+    run(0.6, () => { rg.girlAnim(DT); });
+    let tot = 0; for (const k in log) tot += log[k].w;
+    const held = R.solo ? log[drive].ts : 0;
+    console.log(`    stopped: total weight ${fix(tot)} on ${Object.keys(log).filter(k => log[k].w > .2).join('+') || 'NOTHING'}` +
+                (R.solo ? `, rate x${fix(held)}` : ''));
+    if (tot < 0.9) { console.log('    -> THE T-POSE: nothing is driving her'); ok = false; }
+    // a one-clip character holds a POSE at a standstill rather than skating on the spot
+    if (R.solo && held > 0.02) { console.log('    -> skating on the spot'); ok = false; }
+    // 2. THE STRIDE. The clip's own cycle has to land on the stride period, or the feet and
+    // the shove are on two clocks -- and a clip at a fifth speed is a drift into a pose.
+    place(60, 1, -60, 0, 0);
+    const rows = [];
+    run(7, (t, i) => {
+      follow(); rg.stick.L.y = -1; rg.stick.L.x = 0;
+      rg.girlAnim(DT);
+      if (i % 120 === 0) rows.push(`${fix(t,1)}s v${fix(P.speed,1)} push${P.pushing ? 1 : 0} ` +
+        `[${Object.keys(log).filter(k => log[k].w > .05).map(k => `${k} ${fix(log[k].w)}`).join(' ') || '-'}] ` +
+        `x${fix(log[drive].ts)} period ${fix(P.pushPeriod)}`);
+    });
+    for (const r of rows) console.log('    ' + r);
+    const ts = log[drive].ts, cyc = R.len[drive] / ts * (R.cyc[drive] || 1);
+    console.log(`    ${drive}: ${fix(R.len[drive], 3)}s of clip x${fix(ts)} -> ${fix(cyc)}s per stride ` +
+                `against a ${fix(P.pushPeriod)}s stride, ${log[drive].resets} rewinds in 7 s`);
+    if (ts < 0.3) { console.log('    -> slow motion'); ok = false; }
+    if (Math.abs(cyc - P.pushPeriod) > 0.02) { console.log('    -> the cycle does not match the stride'); ok = false; }
+    // A CLIP REWOUND EVERY FRAME NEVER GETS PAST ITS FIRST KEY, which is a held pose exactly.
+    if (log[drive].resets > 20) { console.log('    -> rewound every frame'); ok = false; }
   }
-  rg.girl.clipLen = LEN; rg.girl.ready = true;
-  place(60, 1, -60, 0, 0);
-  const rows = [];
-  let resets0 = 0, dutyUp = 0, dutyN = 0;
-  run(7, (t, i) => {
-    follow(); rg.stick.L.y = -1; rg.stick.L.x = 0;
-    rg.girlAnim(DT);
-    if (i % 60 === 0) rows.push(`${fix(t,1)}s v${fix(P.speed,1)} push${P.pushing ? 1 : 0} ` +
-      `[idle ${fix(log.Idle.w)} coast ${fix(log.coasting.w)} skate ${fix(log.skate_fwd.w)}] ` +
-      `x${fix(log.skate_fwd.ts)} period ${fix(P.pushPeriod)}`);
-    // how much of each stride the push clip is actually up for -- it should be most of a
-    // standing start and a minority of a cruise, because that is what a glide is
-    if (t > 4) { dutyN++; if (log.skate_fwd.w > .5) dutyUp++; }
-  });
-  resets0 = log.skate_fwd.resets;
-  for (const r of rows) console.log('  ' + r);
-  const ts = log.skate_fwd.ts, cyc = LEN.skate_fwd / ts;
-  // ONE STRIDE IS AN OUT-AND-BACK, so the cycle the player sees is TWO clip lengths.
-  console.log(`  skate_fwd: ${LEN.skate_fwd}s of clip, x${fix(ts)} -> ${fix(cyc * 2)}s out-and-back ` +
-              `against a ${fix(P.pushPeriod)}s stride, up ${fix(dutyUp / Math.max(1, dutyN) * 100, 0)}% of the time`);
-  // A CLIP PLAYED AT A FIFTH SPEED IS A SLOW DRIFT INTO A POSE, not a stride -- and the
-  // out-and-back has to LAND on the stride period, or the feet and the shove are on two clocks.
-  if (ts < 0.3) { console.log('  -> slow motion'); return false; }
-  if (Math.abs(cyc * 2 - P.pushPeriod) > 0.02) { console.log('  -> cycle does not match the stride'); return false; }
-  // A CLIP REWOUND EVERY FRAME NEVER GETS PAST ITS FIRST KEY, which is a held pose exactly.
-  return resets0 < 20;
+  return ok;
+};
+
+// ---------------------------------------------------------------- the tail
+// THE SHIPPED `tailFind` AND `tailStep`, ON A FABRICATED CHAIN CARRYING THE REAL BONE OFFSETS
+// read out of his export. The skin cannot be built here, and it does not have to be: the tail
+// is a chain of `THREE.Bone` objects and the solver only ever reads their offsets and their
+// world matrices, so everything that can be wrong about it -- the lengths, the anchor, the
+// floor, the conversion back to quaternions -- is reachable.
+// What is NOT covered is how it LOOKS against the Cinema 4D version, which is the whole reason
+// it is being shipped for him to judge, and the baked-vs-procedural switch, which needs a clip
+// that actually drives those bones.
+CASES.tail = () => {
+  const C = rg.CHARS.find(c => /alien/.test(c.key));
+  if (!fs.existsSync(C.file)) { console.log(`  ${C.file} is not here`); return false; }
+  const g = readGLB(C.file);
+  // the chain straight out of the file: single matching child each step, offsets in armature
+  // units, which is exactly what the game's own bone graph hands `tailFind`
+  const N = g.json.nodes, kid = {};
+  N.forEach((n, i) => (n.children || []).forEach(c => (kid[i] = kid[i] || []).push(c)));
+  let root = N.findIndex(n => n.name === 'tail');
+  if (root < 0) { console.log('  no `tail` node in the file'); return false; }
+  const chain = [root];
+  for (;;) {
+    const nx = (kid[chain[chain.length - 1]] || []).find(c => /^tail/.test(N[c].name || ''));
+    if (nx === undefined) break;
+    chain.push(nx);
+  }
+  console.log(`  ${chain.length} bones: ${chain.map(i => N[i].name).join(' ')}`);
+  // rebuild it as bones under a root group, the way the loader would, and SCALE the armature
+  // the way the game does (0.01 in the file, then girl.scale on top)
+  const hips = new THREE.Bone(); hips.name = 'mixamorig_Hips';
+  const arm = new THREE.Group(); arm.scale.setScalar(0.01 * 1.70);
+  arm.add(hips);
+  const holder = new THREE.Group(); holder.add(arm);
+  rg.scene.add(holder);
+  let par = hips;
+  for (const i of chain) {
+    const b = new THREE.Bone(); b.name = N[i].name;
+    const t = N[i].translation || [0, 0, 0], q = N[i].rotation;
+    b.position.set(t[0], t[1], t[2]);
+    if (q) b.quaternion.set(q[0], q[1], q[2], q[3]);
+    par.add(b); par = b;
+  }
+  const model = new THREE.Group(); model.add(holder);
+  rg.girl.tail = rg.tailFind(holder, []);
+  const T = rg.girl.tail;
+  if (T.n !== chain.length) { console.log(`  tailFind found ${T.n}, the file has ${chain.length}`); return false; }
+  if (T.baked > 0.01) { console.log(`  tailFind says ${T.baked} deg of animation with no clips handed to it`); return false; }
+  let ok = true;
+  // 1. AT HIGH STIFFNESS IT REPRODUCES THE AUTHORED POSE. That is the self-consistency check
+  // the whole design rests on: the goals ARE the rest pose, so a rigid sim must land on it.
+  const save = { ...rg.TAIL };
+  rg.TAIL.stiff = 4000; rg.TAIL.drag = 40; rg.TAIL.grav = 0;
+  holder.position.set(60, 40, -60);
+  for (let i = 0; i < 180; i++) rg.tailStep(1 / 60);
+  let worst = 0;
+  for (let i = 0; i <= T.n; i++) worst = Math.max(worst, T.G[i].distanceTo(T.P[i]));
+  console.log(`  rigid: worst point ${fix(worst, 4)} m off the authored pose` +
+              `, chain ${fix(T.len.reduce((a, b) => a + b, 0), 3)} m long`);
+  if (worst > 0.02) { console.log('  -> the sim does not reproduce the pose it is given'); ok = false; }
+  // 2. THE LENGTHS ARE HARD. Whatever she is thrown through, the tail may not stretch.
+  Object.assign(rg.TAIL, save);
+  let stretch = 0, lowest = 0;
+  for (let i = 0; i < 600; i++) {
+    const t = i / 60;
+    holder.position.set(60 + Math.sin(t * 6) * 3, 40 + Math.sin(t * 9) * 2, -60 + Math.cos(t * 7) * 3);
+    holder.rotation.y = Math.sin(t * 5) * 2;
+    rg.tailStep(1 / 60);
+    for (let k = 0; k < T.n; k++) {
+      const d = T.P[k].distanceTo(T.P[k + 1]);
+      stretch = Math.max(stretch, Math.abs(d - T.len[k]) / T.len[k]);
+    }
+  }
+  console.log(`  thrown about for 10 s: worst segment ${fix(stretch * 100, 2)}% off its length`);
+  if (stretch > 0.02) { console.log('  -> it stretches'); ok = false; }
+  // 3. IT SWINGS. A chain that follows the body exactly is a rigid tail, and the whole point
+  // of shipping this is for him to see it move independently.
+  // CLEAR OF THE PARK, AND ACCELERATED RATHER THAN STEPPED -- two probe faults, both of which
+  // read exactly like a solver that cannot recover, and both of which cost a round here.
+  // The first version ran at y = 1.0 with a 0.88 m tail hanging down and back from her hips,
+  // so the plaza held the tip up for the whole dash; the second dashed 36 m from x = 60 and
+  // drove into the **6.6 m perimeter berm**, which is this repo's own written-down landmine
+  // (a probe on a test site with a ramp in it measures the ramp). And a dash that reaches
+  // 7.2 m/s in ONE FRAME is an infinite acceleration no skater does: what that measures is
+  // the solver's response to a step, which was most of the rest of it.
+  holder.position.set(20, 30, -60); holder.rotation.y = 0;
+  for (let i = 0; i < 240; i++) rg.tailStep(1 / 60);
+  let swing = 0, settled = 0, vtip = 0, x = 20;
+  for (let i = 0; i < 300; i++) {
+    x += 7.2 * Math.min(1, i / 30) / 60;            // up to 7.2 m/s over half a second
+    holder.position.x = x;
+    rg.tailStep(1 / 60);
+    vtip = Math.max(vtip, T.V[T.n].length());
+    for (let k = 1; k <= T.n; k++) {
+      const d = T.G[k].distanceTo(T.P[k]);
+      swing = Math.max(swing, d);
+      if (i > 240) settled = Math.max(settled, d);  // and WHIPS AND RECOVERS is not the same
+    }                                               // thing as PERMANENTLY DRAGGED
+  }
+  const CH = T.len.reduce((a, b) => a + b, 0);
+  console.log(`  dash to 7.2 m/s: swung ${fix(swing, 3)} m off the authored pose, settled back to ` +
+              `${fix(settled, 3)} m, tip reached ${fix(vtip, 1)} m/s (the chain is ${fix(CH, 3)} m long)`);
+  if (swing < 0.05) { console.log('  -> it does not move independently at all'); ok = false; }
+  // A TAIL THAT NEVER COMES BACK is one hanging off her rather than one that follows her, and
+  // `TAIL.stiff` is the dial between them -- so the settled number is what says which it is.
+  if (settled > CH * 0.45) { console.log('  -> it never recovers; TAIL.stiff is too low to follow her'); ok = false; }
+  // AND THE TIP MUST NOT OUTRUN HER ABSURDLY. A chain genuinely amplifies -- the tip of a
+  // whip moves several times faster than the hand -- but energy arriving from nowhere shows
+  // up here first, and it is the one symptom that is visible on screen as a snap.
+  if (vtip > 40) { console.log('  -> the tip is carrying energy from nowhere'); ok = false; }
+  // 4. AND IT STAYS OUT OF THE FLOOR, which is the one thing a dangling chain on a skater
+  // standing on the ground will do every single frame if nothing stops it.
+  holder.position.set(60, 0.9, -60);
+  rg.TAIL.grav = 2;                                 // drag it down hard on purpose
+  let under = 0;
+  for (let i = 0; i < 300; i++) {
+    rg.tailStep(1 / 60);
+    for (let k = 1; k <= T.n; k++) {
+      const gr = rg.groundAt(T.P[k].x, T.P[k].z, T.P[k].y, 0.4);
+      if (gr.hit) { lowest = Math.min(lowest, T.P[k].y - gr.floor); if (T.P[k].y < gr.floor - 0.01) under++; }
+    }
+  }
+  Object.assign(rg.TAIL, save);
+  console.log(`  held over the plaza at 2x gravity: ${under} point-frames through the floor, lowest ${fix(lowest, 3)} m`);
+  if (under) { console.log('  -> it goes through the ground'); ok = false; }
+  // 5. AND THE BONES ACTUALLY TURNED. Every number above is about the POINTS; if the
+  // conversion back to quaternions is wrong, nothing on screen moves and all of it still
+  // passes -- which is the shape of bug this repo keeps paying for.
+  const q0 = T.bones.map(b => b.quaternion.clone());
+  holder.position.set(60, 1.0, -60);
+  for (let i = 0; i < 120; i++) { holder.position.x = 60 + i * 0.15; rg.tailStep(1 / 60); }
+  let turn = 0;
+  for (let i = 0; i < T.n; i++) turn = Math.max(turn, 2 * Math.acos(Math.min(1, Math.abs(q0[i].dot(T.bones[i].quaternion)))) * 180 / Math.PI);
+  console.log(`  bones written: worst ${fix(turn, 1)} deg away from the rest rotation`);
+  if (turn < 1) { console.log('  -> the points moved and the BONES did not'); ok = false; }
+  rg.scene.remove(holder); rg.girl.tail = null;
+  return ok;
 };
 
 // A one-off trace, so a question that is not worth a permanent case still gets measured
