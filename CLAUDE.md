@@ -661,6 +661,11 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   follows the base, so it soaks the motion up: sway 20 at 30/7 moves the tip 8 cm, at 12/4 only
   3.4. Amplitude is the drivers' job; the ease rates set the CHARACTER of the wave.
 
+- **THE STICKS ARE STYLED (r43, CSS only).** *"More stylized, more visible, look cool -- weirdport has nice ones."*
+  Weirdport's shape in this game's colours: a coloured rim (`--pc`: cyan left, pink right -- different controls,
+  different hues) with eight ticks from one masked conic gradient, a dark ink outline so it reads on the pale floor
+  (the old white-on-glass rings vanished there), and a solid knob drawn as a skate WHEEL. Pseudo-elements only, so
+  `bindStick`'s `.ring` / `.knob` lookups and every gesture are unchanged; nothing animates under a resting thumb.
 - **THE STICKS FLOAT, AND A FIXED PAD IS WHY SHE COULD NOT JUMP.** *"I'm having trouble jumping
   and I can't tell if it's a thumb location thing."* It was exactly that. The pad used to be a
   132 px circle and `far` — how far the thumb has travelled — was measured **from the circle's

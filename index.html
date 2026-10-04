@@ -51,19 +51,32 @@
   .pad{position:fixed;bottom:0;width:50%;height:68%;touch-action:none;z-index:5}
   #stkL{left:0}
   #stkR{right:0}
+  /* THE STICKS, STYLED (r43). *"More stylized -- they don't need to match weirdport, but a little more visible
+     and cool."* Weirdport's shape, this game's colours: a COLOURED RIM with eight ticks, a SOLID knob with a dark
+     ink edge, and a different hue per pad, because they are different controls (the body and the verb) and
+     the thumb that lands on the wrong one should be told so. The old white-on-glass rings vanished on the pale
+     floor; everything here carries a dark outline so it reads on the floor AND the sky. The knob is a skate
+     WHEEL -- hub, bearing, tread. Nothing animates under a resting thumb; only the pop says a tap took. */
+  .pad{--pc:#5fe1ff;--ink:#1b1033}
+  #stkR{--pc:#ff6fa5}
   .ring,.knob{position:absolute;border-radius:50%;pointer-events:none;
     transform:translate(-50%,-50%);transition:opacity .13s}
-  .ring{width:132px;height:132px;border:2px solid #ffffff22;background:#ffffff0a;opacity:.5}
-  .knob{width:56px;height:56px;background:#ffffff30;border:2px solid #ffffff45;opacity:.5}
-  .pad.act .ring{opacity:1;border-color:#ffffff55;background:#ffffff1a}
-  .pad.act .knob{opacity:1;background:#ffffff3d;border-color:#ffffff55;transition:none}
-  #stkR .knob{background:#ff6fa526;border-color:#ff6fa555}
-  #stkR.act .knob{background:#ff6fa53d;border-color:#ff6fa588}
+  .ring{width:132px;height:132px;box-sizing:border-box;border:3px solid var(--pc);background:#1b103322;
+    box-shadow:0 0 0 2px #1b103370, inset 0 0 0 2px #1b103340;opacity:.5}
+  .ring::before{content:'';position:absolute;inset:7px;border-radius:50%;
+    background:repeating-conic-gradient(from -3deg, var(--pc) 0 6deg, #0000 6deg 45deg);
+    -webkit-mask:radial-gradient(closest-side,#0000 0 76%,#000 76%);mask:radial-gradient(closest-side,#0000 0 76%,#000 76%);opacity:.85}
+  .knob{width:58px;height:58px;box-sizing:border-box;background:var(--pc);border:3px solid var(--ink);
+    box-shadow:0 3px 0 #1b103399, inset 0 -4px 0 #1b103333, inset 0 3px 0 #ffffff55;opacity:.55}
+  .knob::after{content:'';position:absolute;inset:13px;border-radius:50%;border:3px solid #1b1033aa;
+    background:radial-gradient(circle,#fff8 0 22%,#0000 23%)}
+  .pad.act .ring{opacity:1;background:#1b103333}
+  .pad.act .knob{opacity:1;transition:none}
   /* and the tap that becomes a jump SAYS SO, because "did that register" is otherwise a
      question you can only answer by watching her */
-  .pad.pop .ring{animation:popr .28s ease-out}
-  @keyframes popr{0%{transform:translate(-50%,-50%) scale(1);border-color:#5fe1ff}
-                  100%{transform:translate(-50%,-50%) scale(1.5);border-color:#5fe1ff00}}
+  .pad.pop .ring{animation:popr .3s ease-out}
+  @keyframes popr{0%{transform:translate(-50%,-50%) scale(1);opacity:1}
+                  100%{transform:translate(-50%,-50%) scale(1.45);opacity:0}}
   .chip{position:fixed;z-index:4;font-size:12px;letter-spacing:.08em;color:#e8e4f2;
     background:#00000055;padding:4px 9px;border-radius:7px;pointer-events:none}
   #build{top:calc(12px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));
@@ -148,7 +161,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r42</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r43</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +178,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r42';
+const BUILD = 'r43';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
