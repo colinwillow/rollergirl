@@ -227,6 +227,31 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   push is untouched**: her six-frame clip IS synced to the actual shoves, so the cadence is
   right for her.
 
+- **THE TAIL HAS TWO MODES AND THE DEFAULT IS HIS VISUALIZER'S (r19, `TAIL.mode`, `tailWave`).**
+  *"Every subsequent position in the arm looks at the previous one and eases to it, but the rate
+  it eases is slower than the layer above -- like a wave down a rope, it dissipates."* `'wave'`
+  is that and nothing else: each bone's WORLD orientation eases toward where its parent, as
+  drawn, would carry it rigidly, at a rate falling geometrically root to tip by arc length
+  (`waveRoot` 30 -> `waveTip` 7 per second). No physics, so it cannot go unstable -- an ease is a
+  weighted average and an average cannot overshoot. The drivers are her turning and the 21 deg
+  of hip twist in every stride of her mocap: the stride alone sends a 7 cm wave to the tip, a
+  turn bends it 23 cm in a curve that grows smoothly root to tip, and standing still it is the
+  authored pose to 0.00000 m. `'sim'` is the physics with the C4D-named dials, kept for the A/B,
+  and the chip says which is running (`TAIL wave` / `TAIL sim`).
+  **AN EASE IS FRAME-RATE INDEPENDENT ONLY WHILE ITS TARGET HOLDS STILL**, and in a cascade every
+  target is a parent that moves every frame -- so eased once per frame, the fast joints near the
+  root jumped most of the way in one step at 20 Hz and the tail moved **22% less** through the
+  same turn than at 60 Hz. The cascade runs at 240 Hz with the body's motion slid across the
+  substeps, quaternion arithmetic only: 0.232 m at 60 Hz, 0.231 at 20. `npm run sim wave`
+  asserts it within 5%, and **was verified by turning the substepping off**: 0.213 vs 0.166, fail.
+  **EASES ACCUMULATE DOWN A CHAIN** -- a steady spin leaves each joint about `w / rate` behind,
+  and thirteen of those add up -- so `waveMax` (14 deg) caps any one joint's lag, which is also
+  what stands in for a body collider in this mode.
+  **His visualizer repo (`colinwillow/visualizer`) is public and was cloned, but reading its
+  `index.html` was blocked by this session's permission rules**, so `tailWave` is built from his
+  description and not from his code. Worth comparing against his arm the next time a session can
+  read that file.
+
 - **THE STICKS FLOAT, AND A FIXED PAD IS WHY SHE COULD NOT JUMP.** *"I'm having trouble jumping
   and I can't tell if it's a thumb location thing."* It was exactly that. The pad used to be a
   132 px circle and `far` — how far the thumb has travelled — was measured **from the circle's

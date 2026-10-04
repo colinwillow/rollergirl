@@ -128,7 +128,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r18</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r19</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -143,7 +143,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r18';
+const BUILD = 'r19';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -208,6 +208,26 @@ const CHARS = [
 const TAIL = {
   on: 1,
   match: /^tail/,      // found by name from `tail` outward, taking the single matching child
+  // ---- TWO WAYS TO MOVE IT, AND WHICH IS HIS CALL (r19) ----
+  // 'wave'  HIS VISUALIZER'S METHOD, and the default. *"Every subsequent position in the arm looks
+  //         at the previous one and eases to it, but the rate it eases is slower than the layer
+  //         above it -- like sending a wave down a rope, it dissipates as it goes down."* No
+  //         physics at all: each bone's orientation eases toward where its PARENT, as it is
+  //         actually drawn, would carry it rigidly -- quickly at the root, slower at every joint
+  //         toward the tip. The driver is whatever the body does: her turning, and the 21 degrees
+  //         of hip twist in every stride of her mocap. It cannot go unstable, because an ease is
+  //         a weighted average and an average cannot overshoot.
+  // 'sim'   the position-based dynamics below, with his C4D-named dials. Kept for the A/B.
+  mode: 'wave',
+  // HOW FAST EACH JOINT CATCHES ITS PARENT, per second, falling GEOMETRICALLY from root to tip
+  // by arc length -- "exponentially less", his words. Frame-rate independent: the fraction
+  // eased in a step is `1 - exp(-rate * dt)`, so a 20 Hz phone and a 60 Hz one wave the same.
+  waveRoot: 30,
+  waveTip: 7,
+  // THE MOST ANY ONE JOINT MAY LAG ITS PARENT, in degrees. Eases ACCUMULATE down a chain -- a
+  // steady spin at rate w leaves each joint about `w / rate` behind, and thirteen of those add
+  // up -- so without a cap a long spin curls the tail round on itself.
+  waveMax: 14,
   // ---- HIS CINEMA 4D IK-DYNAMICS DIALS, BY NAME (r16) ----
   // *"I'm wondering if I were to give you the parameters inside of Cinema 4D if that would
   // translate at all."* **The CONCEPTS translate; the NUMBERS do not, one for one.** C4D
@@ -1088,7 +1108,8 @@ function buildGirl(gltf) {
 // it means the two can be compared by swapping one file.
 function tailFind(model, clips) {
   const T = { n: 0, baked: 0, bones: [], rest: [], off: [], dir: [], len: [],
-              P: [], O: [], V: [], G: [], Gp: [], D: [], KP: [], KR: [], caps: [], g0: new THREE.Vector3(), live: 0 };
+              P: [], O: [], V: [], G: [], Gp: [], D: [], KP: [], KR: [], caps: [], g0: new THREE.Vector3(), live: 0,
+              W: [], WR: [], hq: new THREE.Quaternion(), wv0: new THREE.Vector3(), waveLive: 0 };
   let b0 = null;
   model.traverse(o => { if (!b0 && o.isBone && /^tail$/.test(o.name)) b0 = o; });
   if (!b0) return T;
@@ -1107,6 +1128,7 @@ function tailFind(model, clips) {
   }
   for (let i = 0; i < n; i++) {
     T.rest.push(T.bones[i].quaternion.clone());
+    T.W.push(new THREE.Quaternion()); T.WR.push(0);
     // the offset of point i+1 in bone i's OWN frame -- a child's `position` is expressed in
     // its parent's local space, which is the frame after the parent's own rotation, so this is
     // exactly the direction the segment runs. The tip has no child and borrows its own length.
@@ -1131,6 +1153,60 @@ function tailFind(model, clips) {
 const _tv = new THREE.Vector3(), _tq = new THREE.Quaternion(), _ts = new THREE.Vector3(), _tp = new THREE.Vector3(),
       _trv = new THREE.Vector3(), _ta = new THREE.Vector3(), _tb = new THREE.Vector3(), _tc = new THREE.Vector3(),
       _tg = new THREE.Vector3(), _cd = new THREE.Vector3(), _ce = new THREE.Vector3(), _tk = new THREE.Vector3();
+// HIS VISUALIZER'S ARM, ON A TAIL. Root-outward, because each joint chases its parent AS IT IS
+// DRAWN this frame -- that is what makes a wiggle at the base arrive at the tip later and
+// smaller, which is the whole look. The state is each bone's WORLD orientation (`T.W`), eased
+// toward the orientation its drawn parent would carry it to rigidly; the bone is then given
+// whatever local rotation puts it there. A pinned bone is simply rigid. No collision: the cap is
+// what keeps a lagging tail from swinging anywhere silly, and it is a far cheaper guarantee.
+const _tw = new THREE.Quaternion(), _tx = new THREE.Quaternion(), _th = new THREE.Quaternion(), _ti = new THREE.Quaternion();
+function tailWave(dt) {
+  const T = girl.tail, n = T.n, L = T.len;
+  const seed = !T.waveLive || T.G[0].distanceTo(T.wv0) > TAIL.snap;
+  T.wv0.copy(T.G[0]); T.waveLive = 1; T.live = 0;
+  let tot = 0; for (let i = 0; i < n; i++) tot += L[i];
+  const pin = clamp(TAIL.pin | 0, 0, n), mx = TAIL.waveMax * Math.PI / 180;
+  const r0 = Math.max(0.01, TAIL.waveRoot), r1 = Math.max(0.01, TAIL.waveTip);
+  // the body the tail hangs off, this frame and last
+  T.bones[0].parent.matrixWorld.decompose(_tp, _th, _ts);
+  if (seed) T.hq.copy(_th);
+  // IN SMALL FIXED STEPS, WITH THE BODY'S MOTION SLID ACROSS THEM. An ease is frame-rate
+  // independent only while its target holds still, and here every target is a parent that
+  // moves every frame -- so at 20 Hz the fast joints near the root jumped most of the way in one
+  // step and the whole tail moved 22% LESS through the same turn than at 60 Hz. Interpolating the
+  // driver and easing at 240 Hz makes the frame rate stop mattering: a phone and a desktop wave
+  // the same. It is quaternion arithmetic only -- no matrices until the end.
+  let run = 0;
+  for (let i = 0; i < n; i++) {
+    const u = tot > 0 ? (run + L[i] * 0.5) / tot : 0;      // by ARC LENGTH, segment midpoint
+    T.WR[i] = r0 * Math.pow(r1 / r0, u);                   // "exponentially less", root to tip
+    run += L[i];
+  }
+  const m = Math.max(1, Math.ceil(dt * 240)), h = dt / m;
+  for (let s = 1; s <= m; s++) {
+    _ti.copy(T.hq).slerp(_th, s / m);                       // the body, part-way through the frame
+    for (let i = 0; i < n; i++) {
+      const W = T.W[i];
+      _tw.copy(i ? T.W[i - 1] : _ti).multiply(T.rest[i]);  // where the parent carries it rigidly
+      if (seed || i < pin) W.copy(_tw);
+      else {
+        W.slerp(_tw, 1 - Math.exp(-T.WR[i] * h));
+        if (W.angleTo(_tw) > mx) { _tx.copy(_tw).rotateTowards(W, mx); W.copy(_tx); }
+      }
+    }
+  }
+  T.hq.copy(_th);
+  // and each bone is given whatever local rotation puts it there, under its parent AS DRAWN
+  for (let i = 0; i < n; i++) {
+    const b = T.bones[i];
+    b.parent.matrixWorld.decompose(_tp, _tq, _ts);
+    b.quaternion.copy(_tq).invert().multiply(T.W[i]);
+    b.updateWorldMatrix(false, false);
+  }
+  // the chain as drawn, so the same measurements work on either mode
+  T.D[0].copy(T.G[0]);
+  for (let i = 0; i < n; i++) T.D[i + 1].copy(T.off[i]).applyMatrix4(T.bones[i].matrixWorld);
+}
 // every segment back to its length, root-outward -- only the child moves, so one pass is exact
 function tailLengths(P, L, pin, n) {
   for (let i = pin + 1; i <= n; i++) {
@@ -1177,6 +1253,9 @@ function tailStep(dt) {
   G[0].setFromMatrixPosition(T.bones[0].matrixWorld);
   for (let i = 0; i < n; i++) G[i + 1].copy(T.off[i]).applyMatrix4(T.bones[i].matrixWorld);
   for (let i = 0; i < n; i++) L[i] = Math.max(1e-4, G[i].distanceTo(G[i + 1]));
+  if (TAIL.mode === 'wave') { tailWave(dt); return; }
+  // the sim re-seeds whenever it comes back, so flipping modes mid-run starts it from the pose
+  T.waveLive = 0;
   // 2. a root that jumped is a respawn, not a skater
   if (!T.live || G[0].distanceTo(P[0]) > TAIL.snap) {
     for (let i = 0; i <= n; i++) { P[i].copy(G[i]); T.Gp[i].copy(G[i]); V[i].set(0, 0, 0); }
@@ -2012,7 +2091,7 @@ function hud(dt) {
       // and those are one glance apart here.
       (girl.who ? ' · ' + girl.who.name : '') + (girl.loading ? ' · LOADING' : '') +
       (girl.tail && girl.tail.n
-        ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL' + girl.tail.n : ' · TAIL OFF'))
+        ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : ''); }
 }
 function setBoot(msg, frac) {
@@ -2137,7 +2216,7 @@ async function init() {
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
-  clipCyclic, trackSwing, clipRoles, tailFind, tailStep, capDist, wearChar,
+  clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

@@ -631,6 +631,9 @@ CASES.tail = () => {
   if (T.baked > 0.01) { console.log(`  tailFind says ${T.baked} deg of animation with no clips handed to it`); return false; }
   if (T.caps.length !== 1) { console.log(`  tailFind found ${T.caps.length} body capsules, the rig has 1`); return false; }
   let ok = true;
+  // THIS CASE IS THE PHYSICS MODE. The default is 'wave' since r19, and every `Object.assign(rg.TAIL,
+  // save)` below restores whatever `save` caught -- so the mode is set BEFORE it is caught.
+  const modeWas = rg.TAIL.mode; rg.TAIL.mode = 'sim';
   const save = { ...rg.TAIL };
   const CH = () => T.len.reduce((a, b) => a + b, 0);
   const shown = () => { let w = 0; for (let k = 1; k <= T.n; k++) w = Math.max(w, T.G[k].distanceTo(T.D[k])); return w; };
@@ -778,6 +781,78 @@ CASES.tail = () => {
   for (let i = 0; i < T.n; i++) turn = Math.max(turn, 2 * Math.acos(Math.min(1, Math.abs(q0[i].dot(T.bones[i].quaternion)))) * 180 / Math.PI);
   console.log(`  bones written: worst ${fix(turn, 1)} deg away from where the last case left them`);
   if (turn < 1) { console.log('  -> the points moved and the BONES did not'); ok = false; }
+  rg.TAIL.mode = modeWas;
+  rg.scene.remove(holder); rg.girl.tail = null;
+  return ok;
+};
+
+// ---------------------------------------------------------------- the tail, his way
+// HIS VISUALIZER'S METHOD -- every joint easing toward where its parent carries it, slower toward
+// the tip -- on the same fabricated chain carrying the real bone offsets. No physics, so the
+// checks are about the SHAPE of the response: it holds the pose at rest, a wiggle at the root
+// arrives at the tip, a long spin is capped, and the frame rate does not change any of it.
+CASES.wave = () => {
+  const C = rg.CHARS.find(c => /alien/.test(c.key));
+  if (!fs.existsSync(C.file)) { console.log(`  ${C.file} is not here`); return false; }
+  const g = readGLB(C.file), N = g.json.nodes, kid = {};
+  N.forEach((n, i) => (n.children || []).forEach(c => (kid[i] = kid[i] || []).push(c)));
+  const chain = [N.findIndex(n => n.name === 'tail')];
+  for (;;) { const nx = (kid[chain[chain.length - 1]] || []).find(c => /^tail/.test(N[c].name || '')); if (nx === undefined) break; chain.push(nx); }
+  const hips = new THREE.Bone(); hips.name = 'mixamorig_Hips';
+  const arm = new THREE.Group(); arm.scale.setScalar(0.01 * 1.70); arm.add(hips);
+  const holder = new THREE.Group(); holder.add(arm); rg.scene.add(holder);
+  let par = hips;
+  for (const i of chain) { const b = new THREE.Bone(); b.name = N[i].name;
+    const t = N[i].translation || [0, 0, 0], q = N[i].rotation;
+    b.position.set(t[0], t[1], t[2]); if (q) b.quaternion.set(q[0], q[1], q[2], q[3]); par.add(b); par = b; }
+  const T = rg.girl.tail = rg.tailFind(holder, []);
+  const modeWas = rg.TAIL.mode; rg.TAIL.mode = 'wave';
+  const save = { ...rg.TAIL };
+  let ok = true;
+  const run = (sec, dt, f) => { const k = Math.round(sec / dt); for (let i = 0; i < k; i++) { if (f) f(i * dt); rg.tailStep(dt); } };
+  const reset = (dt) => { holder.position.set(20, 30, -60); holder.rotation.y = 0; T.waveLive = 0; run(1, dt); };
+  const shown = () => { let w = 0; for (let k = 1; k <= T.n; k++) w = Math.max(w, T.G[k].distanceTo(T.D[k])); return w; };
+  // 1. STANDING STILL IT IS THE AUTHORED POSE, EXACTLY. An ease with nothing moving settles on
+  // its target, and with gravity out of the picture there is nothing else for it to settle on.
+  reset(1 / 60); run(2, 1 / 60);
+  console.log(`  at rest: ${fix(shown(), 5)} m off the authored pose`);
+  if (shown() > 1e-4) { console.log('  -> it does not settle on the pose'); ok = false; }
+  // 2. HER STRIDE'S HIP TWIST SENDS A WAVE DOWN IT -- +-10 deg at 0.8 Hz, which is what her
+  // mocap does every stride -- and the motion GROWS toward the tip, rather than the base and
+  // the middle sitting still under a floppy end.
+  reset(1 / 60);
+  const pk = new Array(T.n + 1).fill(0);
+  run(5, 1 / 60, t => { holder.rotation.y = 0.18 * Math.sin(t * 2 * Math.PI * 0.8);
+    if (t > 2) for (let k = 0; k <= T.n; k++) pk[k] = Math.max(pk[k], T.G[k].distanceTo(T.D[k])); });
+  const tip = pk[T.n], half = pk[Math.round(T.n / 2)];
+  console.log(`  stride hip twist: tip moves ${fix(tip, 3)} m, the middle ${fix(half, 3)} m -- along the tail ` +
+              pk.slice(1).map(v => Math.round(v / Math.max(1e-6, tip) * 9)).join(''));
+  if (tip < 0.02) { console.log('  -> the stride does not reach the tail'); ok = false; }
+  if (half < tip * 0.2) { console.log('  -> a stick with a floppy end: the middle is not moving'); ok = false; }
+  // 3. THE FRAME RATE DOES NOT CHANGE IT. The same turn at 60 and at 20 Hz -- the first version
+  // eased once per frame and moved 22% LESS at 20 Hz, because its targets move every frame.
+  const turnAt = (dt) => { reset(dt); let w = 0; run(5, dt, t => { holder.rotation.y = 0.8 * Math.sin(t * 2.2); w = Math.max(w, shown()); }); return w; };
+  const t60 = turnAt(1 / 60), t20 = turnAt(1 / 20);
+  console.log(`  a skater's turn: tip moves ${fix(t60, 3)} m at 60 Hz, ${fix(t20, 3)} m at 20 Hz`);
+  if (Math.abs(t20 - t60) > t60 * 0.05) { console.log('  -> the frame rate changes the tail'); ok = false; }
+  // 4. A LONG FAST SPIN IS CAPPED -- eases accumulate down a chain, so without `waveMax` a spin
+  // curls the tail round on itself.
+  reset(1 / 60);
+  let a = 0, lag = 0;
+  run(2, 1 / 60, () => { a += 5 / 60; holder.rotation.y = a; });
+  for (let i = 0; i < T.n; i++) lag = Math.max(lag, T.bones[i].quaternion.angleTo(T.rest[i]) * 57.3);
+  console.log(`  spinning at 5 rad/s: worst joint ${fix(lag, 1)} deg off its authored rotation (cap ${rg.TAIL.waveMax})`);
+  if (lag > rg.TAIL.waveMax + 0.5) { console.log('  -> the cap does not hold'); ok = false; }
+  // 5. THE CHAIN AS DRAWN KEEPS ITS LENGTHS -- it is rotations only, so anything else is the
+  // conversion back to bone space being wrong -- AND FLIPPING MODES MID-RUN IS CLEAN.
+  let bad = 0;
+  for (let k = 0; k < T.n; k++) if (Math.abs(T.D[k].distanceTo(T.D[k + 1]) - T.len[k]) > 1e-4) bad++;
+  rg.TAIL.mode = 'sim'; run(0.5, 1 / 60, t => { holder.rotation.y = a + t; });
+  rg.TAIL.mode = 'wave'; run(0.5, 1 / 60, t => { holder.rotation.y = a - t; });
+  const nan = T.bones.some(b => !Number.isFinite(b.quaternion.x + b.quaternion.y + b.quaternion.z + b.quaternion.w));
+  console.log(`  drawn segments off their length: ${bad}; wave -> sim -> wave: ${nan ? 'NaN' : 'clean'}`);
+  if (bad || nan) ok = false;
+  Object.assign(rg.TAIL, save); rg.TAIL.mode = modeWas;
   rg.scene.remove(holder); rg.girl.tail = null;
   return ok;
 };
