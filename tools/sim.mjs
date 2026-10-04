@@ -124,6 +124,17 @@ CASES.push = () => {
               `(a STROKE, not a step -- a staircase here is the bug), ${air} airborne frames`);
   return top > 14 && worst < 0.8 && air === 0;
 };
+// ---------------------------------------------------------------- letting go (r23)
+// *"If you let go you continue rolling, but your momentum does fade."* Thumb off on open plaza:
+// she keeps going, and loses speed faster than rolling drag alone -- `SK.coast` 0 is the control.
+CASES.coast = () => {
+  const ride = k => { const keep = rg.SK.coast; rg.SK.coast = k; place(60, 1, -60, 0, 12);
+    run(4, () => { rg.cam.az = 0; rg.stick.L.x = rg.stick.L.y = 0; });
+    rg.SK.coast = keep; return Math.hypot(P.vel.x, P.vel.z); };
+  const off = ride(0), on = ride(rg.SK.coast);
+  console.log(`  12 m/s, thumb off 4 s: ${fix(on, 2)} m/s with the fade (${fix(rg.SK.coast, 2)}/s), ${fix(off, 2)} on rolling drag alone`);
+  return on > 3 && on < off - 1;
+};
 // ---------------------------------------------------------------- the brake
 CASES.brake = () => {
   let ok = true;
@@ -288,6 +299,20 @@ CASES.tap = async () => {
     if (got !== want) ok = false;
     P.jump = 0;
   }
+  // THE LEFT PAD'S TAP IS THE SWIVEL (r23) -- through the shipped binding, for a fakie-capable skin
+  { const L = document.getElementById('stkL'), keepLock = P.stanceLock;
+    const evL = (type, x, y) => ({ type, pointerId: 8, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
+    for (const [name, x1, ms, want] of [['left pad, quick tap', 150, 40, true], ['left pad, dragged', 200, 40, false], ['left pad, held', 150, 420, false]]) {
+      P.stanceLock = true; place(60, 1, -60, 0, 5); P.stance = 1;
+      L.dispatchEvent(evL('pointerdown', 150, 150));
+      if (x1 !== 150) L.dispatchEvent(evL('pointermove', x1, 150));
+      await wait(ms);
+      L.dispatchEvent(evL('pointerup', x1, 150));
+      const got = P.stance === -1;
+      console.log(`  ${name.padEnd(26)} -> ${got ? 'SWIVEL' : 'no swivel'}${got === want ? '' : '   <- WRONG'}`);
+      if (got !== want) ok = false;
+    }
+    P.stanceLock = keepLock; P.stance = 1; rg.stick.L.x = rg.stick.L.y = 0; rg.stick.L.down = 0; }
   return ok;
 };
 
@@ -366,7 +391,9 @@ CASES.pipe = () => {
   console.log(`  peaks: ${peaks.slice(0, 8).map(v => fix(v)).join(' ')} m`);
   const keep = peaks.length > 1 ? peaks[1] / peaks[0] : 0;
   console.log(`  ${peaks.length} swings in 14 s, second peak keeps ${fix(keep * 100, 0)}% of the first`);
-  return peaks.length >= 4 && keep > 0.6;
+  // 0.85, not 0.6: r23's coast fade on the pipe's flat bottom took this to 0.72 and the old mark
+  // passed it while the ramp visibly died. Rolling drag alone keeps ~95%.
+  return peaks.length >= 4 && keep > 0.85;
 };
 CASES.pump = () => {
   const H = 2.6 * (1 - Math.cos(rg.PARK.hpSweep));
@@ -1010,8 +1037,9 @@ CASES.mirror = () => {
 // her in the air over open plaza (x = 60, no ramps) and lets the real `stepPlayer` land her.
 CASES.stance = () => {
   const { moves } = gameClips('models/alien_rollerskate_blue.glb');
-  const keep = { moves: rg.girl.moves, lock: P.stanceLock };
+  const keep = { moves: rg.girl.moves, lock: P.stanceLock, bail: rg.LAND.bail };
   rg.girl.moves = moves; P.stanceLock = true;
+  rg.LAND.bail = 1;                       // the rows below test the bail MECHANISM; r23 ships it off
   let ok = true;
   const drop = (heading, travel, speed, setup) => {
     place(60, 1, -40, heading, 0);
@@ -1055,6 +1083,18 @@ CASES.stance = () => {
   { const r = drop(0, 0, 6, () => { P.pos.y += 3; P.vel.y = 2; rg.startFlip('down'); P.flip.dur = 9; });
     console.log(`  landed half way round a flip  -> ${r.bail ? 'BAIL' : 'landed it (should bail)'}`);
     if (!r.bail) ok = false; }
+  // AS SHIPPED (r23): `LAND.bail` 0 -- however she comes down she rides away, on the nearer end
+  rg.LAND.bail = 0;
+  for (const [label, h, want] of [['bails off: 80 deg -> forward', 80 * D, 1], ['bails off: 100 deg -> FAKIE', 100 * D, -1]]) {
+    const r = drop(h, 0, 8);
+    const good = r.landed && !r.bail && r.stance === want && r.v > 4.5;   // squared onto her line, not skidded to a stop
+    console.log(`  ${label.padEnd(28)} -> ${r.bail ? 'BAIL' : r.stance > 0 ? 'forward' : 'FAKIE'}, ${fix(r.v, 1)} m/s after${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+  }
+  { const r = drop(0, 0, 6, () => { P.pos.y += 3; P.vel.y = 2; rg.startFlip('down'); P.flip.dur = 9; });
+    console.log(`  bails off: half way round     -> ${r.bail ? 'BAIL (should land)' : 'landed it'}`);
+    if (r.bail) ok = false; }
+  rg.LAND.bail = 1;
   // STRAIGHT UP A VERT WALL AND BACK DOWN, NO SPIN: she comes down FAKIE -- which is skating
   // READ AT THE LANDING: five seconds later she has ridden fakie down, up the far wall and back
   // down it, which correctly makes her forward again -- so the final stance says nothing.
@@ -1077,7 +1117,25 @@ CASES.stance = () => {
     const fwd = Math.cos(P.heading);
     console.log(`  no stanceLock, slow, thumb fwd -> nose ${fwd > 0.9 ? 'turned to face it (as before)' : 'NOT turned'}`);
     if (!(fwd > 0.9)) ok = false; }
-  rg.girl.moves = keep.moves; P.stanceLock = keep.lock;
+  // THE SWIVEL: a tap on the left pad swaps the end she leads with and leaves her travel alone
+  { P.stanceLock = true; place(60, 1, -60, 0, 0); P.vel.set(0, 0, 6); P.stance = 1;
+    const h0 = P.heading, v0 = P.vel.clone(), took = rg.swivel();
+    const turned = Math.abs(Math.abs(Math.atan2(Math.sin(P.heading - h0), Math.cos(P.heading - h0))) - Math.PI) < 1e-6;
+    const good = took && P.stance === -1 && turned && P.vel.distanceTo(v0) < 1e-9;
+    console.log(`  swivel on the ground          -> ${took ? (P.stance < 0 ? 'FAKIE' : 'forward') : 'refused'}, heading ${turned ? '+180' : 'NOT turned'}, travel ${P.vel.distanceTo(v0) < 1e-9 ? 'unchanged' : 'CHANGED'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    run(1, () => { rg.cam.az = 0; rg.stick.L.x = rg.stick.L.y = 0; });
+    console.log(`  ...a second later             -> ${P.stance < 0 ? 'still FAKIE' : 'turned back to forward'}, ${fix(P.vel.z, 1)} m/s along z${P.stance < 0 ? '' : '   <- WRONG'}`);
+    if (P.stance !== -1) ok = false;
+    P.grounded = false; const s1 = P.stance;
+    const air = rg.swivel();
+    console.log(`  swivel in the air             -> ${air ? 'SWIVELLED (should refuse)' : 'refused'}`);
+    if (air || P.stance !== s1) ok = false;
+    P.stanceLock = false; place(60, 1, -60, 0, 0); P.stance = 1;
+    const nl = rg.swivel();
+    console.log(`  swivel without stanceLock     -> ${nl ? 'SWIVELLED (should refuse)' : 'refused (roller_girl has no fakie clips)'}`);
+    if (nl) ok = false; }
+  rg.girl.moves = keep.moves; P.stanceLock = keep.lock; rg.LAND.bail = keep.bail;
   return ok;
 };
 
@@ -1089,9 +1147,12 @@ CASES.moves = () => {
   const { clips, moves, R } = gameClips('models/alien_rollerskate_blue.glb');
   if (!moves) { console.log('  no move table built'); return false; }
   let ok = true;
-  console.log(`  forward ${moves.fwd.join(' / ')}\n  backward ${moves.back.join(' / ')}`);
+  console.log(`  forward push ${moves.fwd.push.join(' / ')}, roll ${moves.fwd.roll}\n  backward push ${moves.back.push.join(' / ')}, roll ${moves.back.roll}`);
   console.log(`  idles ${moves.idleFwd.length} forward, ${moves.idleBack.join(',')} back; flips ${Object.keys(moves.flip).join(',')}; falls ${moves.falls.length}; fallback ${R.fallback}, solo ${R.solo}`);
-  if (moves.back[2] !== 'blade_medium_backward') { console.log('  -> a fast fakie should borrow medium'); ok = false; }
+  // r23: medium is gone; a hard push in fakie (which he has not drawn) borrows casual_backward
+  if (moves.fwd.push.join() !== 'blade_casual_forward,blade_hard_forward' ||
+      moves.back.push.join() !== 'blade_casual_backward,blade_casual_backward' ||
+      moves.fwd.roll !== 'idle_normal' || moves.back.roll !== 'idle_backward') { console.log('  -> wrong push / roll clips'); ok = false; }
   if (Object.keys(moves.flip).length !== 4 || R.solo || !/^idle/.test(R.fallback)) ok = false;
   const keep = { a: rg.girl.actions, cw: rg.girl.cw, len: rg.girl.clipLen, m: rg.girl.moves, r: rg.girl.ready };
   const log = {};
@@ -1114,18 +1175,22 @@ CASES.moves = () => {
   check('after a long stand, she shifts', new Set(seen).size >= 3 && !repeat, seen.join(' > '));
   state({ speed: 0, stance: -1 }); step(1);
   check('standing in FAKIE', top() === 'idle_backward', top());
-  // the tiers by speed, forward and back
-  for (const [v, st, want] of [[2, 1, 'blade_soft_forward'], [9, 1, 'blade_medium_forward'], [20, 1, 'blade_hard_forward'],
-                               [2, -1, 'blade_soft_backward'], [20, -1, 'blade_medium_backward']]) {
-    state({ speed: v, stance: st }); step(1);
+  // ROLLING WITH THE THUMB OFF is the neutral pose; PUSHING eases casual -> hard with her speed
+  for (const [v, st, go, want] of [[6, 1, false, 'idle_normal'], [6, -1, false, 'idle_backward'],
+                                   [2, 1, true, 'blade_casual_forward'], [20, 1, true, 'blade_hard_forward'],
+                                   [2, -1, true, 'blade_casual_backward'], [20, -1, true, 'blade_casual_backward']]) {
+    state({ speed: v, stance: st, thumbGo: go }); step(1.5);
     const a = log[want];
-    check(`${v} m/s ${st > 0 ? 'forward' : 'FAKIE'}`, top() === want, `${top()} x${fix(a.ts)} weight ${fix(a.w)}`);
+    check(`${v} m/s ${st > 0 ? 'forward' : 'FAKIE'}, thumb ${go ? 'pushing' : 'off'}`, top() === want && a.w > 0.95, `${top()} x${fix(a.ts)} weight ${fix(a.w)}`);
   }
-  // between two tiers BOTH play, and the weights still sum to one
-  state({ speed: 6, stance: 1 }); step(2);
-  const s6 = log.blade_soft_forward.w, m6 = log.blade_medium_forward.w;
-  let sum = 0; for (const k in log) sum += log[k].w;
-  check('6 m/s blends soft and medium', s6 > 0.3 && m6 > 0.3 && Math.abs(sum - 1) < 0.02, `soft ${fix(s6)} medium ${fix(m6)}, all ${fix(sum)}`);
+  // half way between the two pushes BOTH play, and the weights still sum to one
+  { const V = rg.MOVES.pushV; state({ speed: (V[0] + V[1]) / 2, stance: 1, thumbGo: true }); step(2);
+    const c = log.blade_casual_forward.w, h = log.blade_hard_forward.w;
+    let sum = 0; for (const k in log) sum += log[k].w;
+    check(`${fix((V[0] + V[1]) / 2, 0)} m/s pushing blends casual and hard`, c > 0.3 && h > 0.3 && Math.abs(sum - 1) < 0.02, `casual ${fix(c)} hard ${fix(h)}, all ${fix(sum)}`); }
+  // and nothing in the table is the medium push any more
+  check('medium never asked for', !Object.keys(log).some(k => /medium/.test(k) && log[k].w > 0.01), '');
+  state({ thumbGo: false });
   // the air, a flip timed to the air left, and back to the air pose when it is done
   state({ grounded: false, speed: 6 }); step(1);
   check('in the air', top() === 'in_air', top());

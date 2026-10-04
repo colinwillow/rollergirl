@@ -54,8 +54,8 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   dropped. **Every clip starts at 1/24 s rather than zero**, which is one held frame at the top
   of every loop; `normaliseClips` shifts the track times back.
 - `models/alien_rollerskate_blue.glb` — **the alien, r21 onward.** 81 joints (65 Mixamo + 15
-  tail), 49 clips named as a schema the move brain reads: `blade_<soft|medium|hard>_<forward|
-  backward>` (no `blade_hard_backward` -- a fast fakie borrows medium), `idle_*` (5 forward +
+  tail), 49 clips named as a schema the move brain reads: `blade_<soft|medium|hard|casual>_<forward|
+  backward>` (r23 uses only casual and hard; no `blade_hard_backward` -- a hard fakie borrows casual), `idle_*` (5 forward +
   `idle_backward`), `in_air`, `tuck`, `flip_pose`, `front_flip`/`back_flip`/`front_twist_flip`,
   `fall_to_*` + `get_up_*`/`kip_up_from_back`, `grind_left/right`, and the variety skates
   (`casual`, `daffy`, `swizzle`, `tiptoe`, `onefoot*`, `pose_duck/swan`) not yet triggered.
@@ -264,12 +264,32 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   table a frame, top down: a BAIL (a fall, then its get-up, filling `LAND.bailT`), the AIR (a flip
   if one was flicked, else `in_air`; a flip that finishes before she lands hands back to `in_air`),
   then the ground -- standing (`idle_normal`, shifting to another idle every `idleHold` s, never
-  the same twice; `idle_backward` in fakie) and skating (soft / medium / hard centred on
-  `MOVES.speeds` 3 / 9 / 16 m/s, two neighbours blended between centres, each played x0.5-1.35
-  by how far she is off its centre). Every row sums to 1. The chip names the clip that is up.
+  the same twice; `idle_backward` in fakie) and skating (r23: a roll pose with the thumb off,
+  casual -> hard with it on -- see below). Every row sums to 1. The chip names the clip that is up.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **r23: PUSH IS THE THUMB, MEDIUM IS GONE, AND NOBODY FALLS OVER.** *"Blade medium looks weird --
+  arms swinging big and the feet barely moving."* The ground row is now two states, not three
+  tiers: thumb OFF is the neutral roll pose (`idle_normal`, `idle_backward` in fakie, held -- the
+  standing idles still rotate only when she is still); thumb ON eases `blade_casual_*` into
+  `blade_hard_*` across `MOVES.pushV` (4 -> 14 m/s), each played x0.55-1.35 by speed against its
+  own reference. `p.thumbGo` (set in `stepGround`, false while braking) is what the brain reads,
+  so the push clip and the push PHYSICS cannot disagree. He has not drawn `blade_hard_backward`,
+  so a hard fakie push borrows `blade_casual_backward`.
+  **THE COAST FADE (`SK.coast`) IS GATED ON TIME ON THE FLAT (`coastAfter`, `p.flatT`), AND THAT
+  GATE IS THE DESIGN.** *"If you let go you continue rolling, but your momentum does fade."* A
+  half pipe's bottom is flat too: fading on `n.y > 0.97` alone took a no-input swing from 95% of
+  its peak kept to 72% -- the ramp dying under her -- and `npm run sim pipe`'s old pass mark (0.6)
+  passed it. The mark is 0.85 now, verified by setting `coastAfter` 0: fail.
+  **`LAND.bail` 0 (on the panel as Bails on landing).** A sideways landing takes the NEARER end AND
+  is squared onto her line -- without the squaring she rode away with her wheels across her travel
+  and skidded from 8 to 1.1 m/s, which is a bail by another name (`npm run sim stance` catches
+  that: verified by removing it). An unfinished flip lands. The bail rows in that case set
+  `LAND.bail = 1` explicitly, because they test the mechanism, which is kept.
+  **THE SWIVEL (`swivel`, a tap on the LEFT pad, key Q).** Stance flips, heading turns 180, travel is
+  untouched, so she rolls the same line the other way up. Ground only, off a rail, not mid-bail,
+  and only for a skin with backward clips. `npm run sim tap` drives it through the real binding.
 - **ONE-SHOTS ARE ONE-SHOTS BY NAME (`ONCE_RE`), AND THE PING-PONG THRESHOLD IS 30, NOT 12.** Flips,
   falls and get-ups measured 15-48 deg "open" as loops and were classified ping-pong -- every fall
   would have played forwards then backwards. Real loops in his export close to 9-18 deg, so 12
@@ -698,8 +718,8 @@ Each of these cost a round in the build that found it.
 
 - **The rest of his r21 plan**, in roughly his order: grabs on the other stick, the half pipe's
   coping as a grindable rail, rail poses / a balance bar,
-  trick points (+10 +25 ...), sparks, hand/foot trails, a speed tunnel / blur, landing and bail
-  shake, the swivel (tap the left stick to switch stance), and the variety skates (`onefoot*`,
+  trick points (+10 +25 ...), hand/foot trails, a speed tunnel / blur, landing and bail
+  shake, a swivel CLIP (the swivel itself is r23, on `faceH`'s ease), and the variety skates (`onefoot*`,
   `daffy`, `swizzle`, `tiptoe`, `pose_duck/swan`) which have no trigger yet. `tuck` and
   `flip_pose` are loaded and unused. The right pad's flick does nothing ON THE GROUND yet.
 - No audio at all.

@@ -146,7 +146,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r22</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r23</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -163,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r22';
+const BUILD = 'r23';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -374,6 +374,15 @@ const TAIL_DEF = { ...TAIL };
 // down on the way up and gives it back on the way down.
 const SK = {
   g: 20,               // gravity. Games are not 9.81; this is the number the jumps are tuned to.
+  // LETTING GO OF THE STICK ON THE FLAT COSTS MOMENTUM (r23) -- *"you have to actually push the
+  // stick forward to pump; if you let go you continue rolling, but your momentum does fade."* On
+  // top of `roll`, only with the thumb off, and only once she has been on FLAT ground for
+  // `coastAfter` seconds. That second half is the whole design: a half pipe's bottom is flat too,
+  // and fading there took a no-input swing from 1.86 m peaks to 1.52 / 1.10 / 0.75 -- the ramp
+  // dying under her, which is the landmine `roll` was lowered for. She crosses a pipe's flat in
+  // well under a second; a stretch of plaza is several.
+  coast: 0.12,
+  coastAfter: 1.2,
   roll: 0.04,          // rolling resistance along the wheels (per second, exponential).
                        // 0.16 was a 4.3 s half life, which is a third of her energy per
                        // swing of a transition -- the half pipe visibly died under her.
@@ -523,6 +532,10 @@ const LAND = {
   // a flip is timed to the air she has LEFT when it is flicked: this much of it, inside these bounds
   flipFill: 0.85, flipMin: 0.35, flipMax: 2.4,
   bailT: 3.2,              // a bail's whole length: going down, and getting back up
+  // OFF BY DEFAULT (r23): *"let's get rid of the falling over -- she lands no matter how you land,
+  // forward or backward."* A sideways landing takes whichever end is nearer, and an unfinished flip
+  // simply lands. The mechanism stays; 1 here (or the panel) brings it back.
+  bail: 0,
 };
 
 const CAM = {
@@ -1339,13 +1352,18 @@ function mirrorClip(clip, root, name) {
 // neighbour IN THE SAME DIRECTION (there is no `blade_hard_backward` in the r21 export, so a fast
 // fakie plays medium), and a skin with no `blade_*_forward` at all keeps the old animation path.
 const MOVES = {
-  tiers: ['soft', 'medium', 'hard'],
-  // THE SPEED EACH TIER IS CENTRED ON, m/s. Between two centres the two blend, so there is never
-  // a switch you can see -- the stride hardens as she speeds up.
-  speeds: [3, 9, 16],
-  // and each tier plays faster or slower than authored by how far she is off its centre, inside
-  // these bounds -- a soft stride at 1 m/s is not played at a third speed
-  rateLo: 0.5, rateHi: 1.35,
+  // r23: *"blade medium looks kind of weird -- she's swinging her arms really big and not moving her
+  // feet much. When you're not pumping she's just rolling, a neutral pose; then push casual and
+  // push hard, and we just ease between those two."* So a PUSH is shown only while the thumb is
+  // pushing, as `blade_casual` easing into `blade_hard` with speed, and the rest of the time she
+  // rolls in the neutral pose -- which is what had been read as "once you push she keeps pushing":
+  // the old tiers ran off her SPEED, so the stride kept going after the thumb came off.
+  push: ['casual', 'hard'],
+  // the speed each push is centred on, m/s: casual below the first, hard past the second, eased
+  // between -- and each played faster or slower by how far she is off its centre, inside the rates
+  pushV: [4, 14],
+  roll: ['idle_normal', 'idle_backward'],   // the neutral pose, forward and in fakie
+  rateLo: 0.55, rateHi: 1.35,
   idleV: 0.6,          // below this she is standing, not skating
   // *"If she's idling for a long period of time you could rotate through them."* The first is
   // always `idle_normal`; after `idleHold` seconds on one she shifts to another, never the same.
@@ -1360,16 +1378,16 @@ const MOVES = {
   fallShare: 0.42,     // of a bail's length spent going down; the rest is getting up
 };
 function buildMoves(has) {
-  const tier = d => MOVES.tiers.map(t => (has[`blade_${t}_${d}`] ? `blade_${t}_${d}` : null));
-  const fill = a => a.map((nm, i) => {
-    if (nm) return nm;
-    for (let k = 1; k < a.length; k++) { if (a[i - k]) return a[i - k]; if (a[i + k]) return a[i + k]; }
-    return null;
-  });
-  const fwd = fill(tier('forward'));
-  if (!fwd.some(Boolean)) return null;
-  let back = fill(tier('backward'));
-  if (!back.some(Boolean)) back = fwd;
+  // a missing push borrows the other one in the same direction, then any blade clip that way
+  const pushes = d => {
+    const any = ['casual', 'soft', 'medium', 'hard'].map(t => `blade_${t}_${d}`).find(n => has[n]) || null;
+    const a = MOVES.push.map(t => (has[`blade_${t}_${d}`] ? `blade_${t}_${d}` : null));
+    return a.map(n => n || a.find(Boolean) || any);
+  };
+  const fwdPush = pushes('forward');
+  if (!fwdPush.some(Boolean)) return null;
+  let backPush = pushes('backward');
+  if (!backPush.some(Boolean)) backPush = fwdPush;
   const idleFwd = MOVES.idleFwd.filter(n => has[n]);
   const idleBack = MOVES.idleBack.filter(n => has[n]);
   const flip = {};
@@ -1377,9 +1395,11 @@ function buildMoves(has) {
   const grind = {};
   for (const k of ['left', 'right']) if (has['grind_' + k]) grind[k] = 'grind_' + k;
   if (!grind.left) grind.left = grind.right; if (!grind.right) grind.right = grind.left;
-  return { fwd, back, flip, grind,
-           idleFwd: idleFwd.length ? idleFwd : [fwd[0]],
-           idleBack: idleBack.length ? idleBack : (idleFwd.length ? [idleFwd[0]] : [back[0]]),
+  const iF = idleFwd.length ? idleFwd : [fwdPush[0]];
+  const iB = idleBack.length ? idleBack : (idleFwd.length ? [idleFwd[0]] : [backPush[0]]);
+  return { fwd: { push: fwdPush, roll: has[MOVES.roll[0]] ? MOVES.roll[0] : iF[0] },
+           back: { push: backPush, roll: has[MOVES.roll[1]] ? MOVES.roll[1] : iB[0] },
+           flip, grind, idleFwd: iF, idleBack: iB,
            air: has[MOVES.air] ? MOVES.air : null,
            falls: MOVES.falls.filter(([f, u]) => has[f] && has[u]) };
 }
@@ -1885,15 +1905,18 @@ function girlAnimMoves(dt) {
       }
       add(girl.idle.nm, still);
     } else girl.idle = null;                  // moving again: the next stand starts at `idle_normal`
-    // THE THREE TIERS, centred on `MOVES.speeds` and blended linearly between neighbours
-    const S = MOVES.speeds, w = [0, 0, 0];
-    if (v <= S[0]) w[0] = 1;
-    else if (v >= S[2]) w[2] = 1;
-    else { const i = v < S[1] ? 0 : 1, u = (v - S[i]) / (S[i + 1] - S[i]); w[i] = 1 - u; w[i + 1] = u; }
-    for (let i = 0; i < 3; i++) if (w[i] > 0) {
-      add(loco[i], w[i] * (1 - still));
-      clipScale(loco[i], clamp(Math.max(0.3, v) / S[i], MOVES.rateLo, MOVES.rateHi));
-    }
+    // MOVING: a PUSH while the thumb is pushing -- casual easing into hard with speed -- and the
+    // neutral rolling pose the rest of the time. The swap between them is the clip weights'
+    // own damping, so letting go eases her out of the stride rather than cutting it.
+    const move = 1 - still;
+    if (p.thumbGo) {
+      const V = MOVES.pushV, u = clamp((v - V[0]) / Math.max(0.1, V[1] - V[0]), 0, 1);
+      for (let i = 0; i < 2; i++) {
+        const w = i ? u : 1 - u; if (w <= 0) continue;
+        add(loco.push[i], w * move);
+        clipScale(loco.push[i], clamp(Math.max(0.3, v) / V[i], MOVES.rateLo, MOVES.rateHi));
+      }
+    } else { add(loco.roll, move); clipScale(loco.roll, 1); }
   }
   let top = null, tw = 0; for (const k in t) if (t[k] > tw) { tw = t[k]; top = k; }
   girl.top = top;
@@ -1953,6 +1976,7 @@ addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = 1;
   if (e.key === ' ') { player.jump = 1; e.preventDefault(); }
   if (e.key.toLowerCase() === 'r') respawn();
+  if (e.key.toLowerCase() === 'q') swivel();
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = 0; });
 
@@ -2055,7 +2079,12 @@ for (const t of ['blur', 'pagehide', 'visibilitychange']) addEventListener(t, ()
   if (t === 'visibilitychange' && document.visibilityState === 'visible') return;
   for (const s of STICKS) s.release();
 });
-bindStick(document.getElementById('stkL'), stick.L, null, null, null);
+// THE LEFT PAD'S TAP is the swivel -- the same tap rule as the right pad's jump, so a steer that
+// moved or was held is never one.
+bindStick(document.getElementById('stkL'), stick.L, null, null, (far, held) => {
+  if (far >= AIR.tapFar || held > AIR.tapT) return;
+  if (swivel()) { const s = STICKS[0]; if (s && s.pop) s.pop(); }
+});
 // THE RIGHT PAD: a TAP jumps, a DRAG orbits the camera. Those separate themselves -- a drag
 // travels past `far` .42 or is held past `tapT`, and a tap is neither -- so one thumb does
 // both with no mode to be in and nothing to learn. The flick is left unclaimed.
@@ -2098,9 +2127,9 @@ const player = {
   braked: 0, lean: 0, steer: 0, bailT: 0, drift: 0,
   // STANCE: +1 skating forwards, -1 FAKIE. A STATE, set by how she lands (and by riding up a wall
   // and back down it), not re-derived from her velocity every frame -- see `stanceLock`.
-  stance: 1, stanceLock: false, shoveDir: 1,
+  stance: 1, stanceLock: false, shoveDir: 1, thumbGo: false,
   flip: null, bailId: 0, landAng: 0,
-  grind: null, grindCool: 0, grindLast: null,
+  grind: null, grindCool: 0, grindLast: null, flatT: 0,
   bq: new THREE.Quaternion(),      // THE BODY'S FULL ORIENTATION. On the ground it is derived
                                    // from the surface; in the air it is integrated and is the
                                    // only thing that says which way up she is.
@@ -2133,6 +2162,7 @@ function groundQ(out) {
 const VERT = { at: 65 * Math.PI / 180, inward: 0.6, transfer: -0.4 };
 function leaveGround(coy) {
   const p = player, n = p.n;
+  p.flatT = 0;
   if (n.y < Math.cos(VERT.at)) {
     const h = Math.hypot(n.x, n.z);
     const fwd = stick.L.y + ((keys.w || keys.arrowup) ? -1 : 0);
@@ -2320,6 +2350,9 @@ function stepGround(dt) {
   // A HARD CARVE COSTS SPEED -- that is what plants the edge and stops a turn being free.
   along = decay(along, Math.abs(p.steer) * SK.turnBrake, dt);
   along = decay(along, SK.roll, dt);
+  p.flatT = n.y > 0.97 ? p.flatT + dt : 0;
+  if (!go && p.flatT > SK.coastAfter) along = decay(along, SK.coast, dt);
+  p.thumbGo = go && !braking;          // the move brain shows a PUSH only while the thumb is pushing
   // THE EDGES BITE ACROSS THE WHEELS. Not a hard lock: letting a little through is the
   // difference between carving and running on a rail.
   lat = decay(lat, SK.grip, dt);
@@ -2471,8 +2504,15 @@ function landStance(fwd) {
     p.landAng = a;
     if (a < LAND.ok) p.stance = 1;
     else if (a > Math.PI - LAND.ok) p.stance = -1;
-    else bail = true;
+    else {
+      bail = true; p.stance = a < Math.PI / 2 ? 1 : -1;            // no bail: the NEARER end
+      // AND WITH BAILS OFF SHE IS SQUARED ONTO HER LINE, or she would ride away with her wheels
+      // across her travel and skid to a stop -- which is a bail by another name.
+      if (!LAND.bail && Math.hypot(_v.x, _v.z) > LAND.minV)
+        p.heading = wrapAngle(Math.atan2(_v.x, _v.z) + (p.stance < 0 ? Math.PI : 0));
+    }
   }
+  if (!LAND.bail) bail = false;
   if (bail) { p.bailT = LAND.bailT; p.vel.multiplyScalar(AIR.bailKeep); p.bailId++; p.pushing = false; }
 }
 
@@ -2481,6 +2521,17 @@ function landStance(fwd) {
 // has LEFT -- the time to come back down to whatever is under her -- so a flip flicked late in a
 // small jump is short and quick, and one flicked at the top of a big air takes its time. Too
 // little air to get round is no flip at all, rather than a guaranteed bail.
+// THE SWIVEL (r23): *"if you tap the left stick you should be able to go from front to back skate."*
+// Her body turns half round and her travel does not, so she rolls on the same line the other way
+// up. The body eases round on `faceH`, which is a sixth of a second -- there is no swivel clip yet.
+// On the ground and off a rail only, and only for a skin with backward clips.
+function swivel() {
+  const p = player;
+  if (!p.stanceLock || !p.grounded || p.grind || p.bailT > 0) return false;
+  p.stance = -p.stance;
+  p.heading = wrapAngle(p.heading + Math.PI);
+  return true;
+}
 function startFlip(dir) {
   const p = player, m = girl.moves;
   if (!m || p.grounded || p.flip || p.bailT > 0) return false;
@@ -2778,9 +2829,11 @@ const TAILUI = [
   ['Skating', ''],
   ['LAND.ok',        'Landing window', 20,  85,  1,    '', 'deg'],
   ['LAND.bailT',     'Bail length',    0.8, 5,   0.1,  ''],
-  ['MOVES.speeds.0', 'Soft at m/s',    1,   12,  0.5,  ''],
-  ['MOVES.speeds.1', 'Medium at m/s',  3,   20,  0.5,  ''],
-  ['MOVES.speeds.2', 'Hard at m/s',    6,   28,  0.5,  ''],
+  ['MOVES.pushV.0',  'Casual push at', 1,   12,  0.5,  ''],
+  ['MOVES.pushV.1',  'Hard push at',   4,   28,  0.5,  ''],
+  ['SK.coast',       'Coast fade',     0,   0.6, 0.01, ''],
+  ['SK.coastAfter',  'Fade after flat', 0,  5,   0.1,  's'],
+  ['LAND.bail',      'Bails on landing', 0, 1,   1,    ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
   ['Grinding', ''],
@@ -2791,7 +2844,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -2901,7 +2954,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK,
+  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
