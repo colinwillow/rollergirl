@@ -307,6 +307,36 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **A HELD LEFT THUMB IS A FIXED DIRECTION (r47, `CAM.steerLatch`, `CAM.steerRe`, `cam.thA`).** *"I'm pushing
+  this direction and she's not going that direction -- I'll be holding left and she's still going right."* The
+  follow camera dragged the steering frame round with it (`cam.steerAz += d`, since r28), so a thumb held STILL
+  pointed somewhere new every frame: a held diagonal circled her for ever -- **416 deg in 5 s, measured** -- and a
+  thumb swung across after a long turn pointed nowhere near where it looked. Now the frame only catches up with the
+  camera when the THUMB MOVES (fully after `steerRe` rad of travel), so a held direction stays put while the camera
+  swings in behind her -- the held diagonal becomes her straight -- and the next real move of the thumb reads against
+  the new view. The right pad's orbit still never steers. **`npm run sim steer` steps `stepCam` beside `stepPlayer`**,
+  because the bug lived in the loop between the two and no case without the camera could see it: held diagonal 45 deg
+  of turn and on line (old frame: 416), right-then-swung-left ends 0.0 deg off the thumb. `steerLatch` 0 is r46.
+- **TONY HAWK'S VERT AIR (r47, `VERT.holdTilt`, `vertQ`/`vertN`/`vertSpin`).** *"Your rotation should stay congruent
+  with how you went off the jump unless you transfer -- perpendicular to the ramp, so when you come down the vert
+  you're lined up."* On a LOCKED air (anything leaving steeper than `VERT.at`) she keeps the orientation she left the
+  wall with, and every turn -- the auto 180 and the stick's spin -- is about HER OWN UP, the wall's normal: nose up
+  on the way up, nose down on the way down, square to the wall throughout (0.0 deg off its normal over the top,
+  against 79 deg with the old ease-to-plumb). She drifts in off the lip and lands lower down the curve (a 39 deg face
+  at 17 m/s), so inside `AIR.preAlign` seconds of contact she is turned onto the face below by time-to-contact --
+  lands 0.0 deg out. Non-locked airs still right to plumb (r8). **A heading written from outside is not a spin here**:
+  `npm run sim stance`'s extra-180 row had to drive the stick, because on a held air the body turns by `vertSpin`;
+  `npm run sim carry` now expects a LOCKED air to keep the wall's normal and only the kicker's lip to right to plumb.
+- **HOLD THE RIGHT STICK UP TO TRANSFER (r47, `VERT.holdXfer`, `vertRelease`, `p.xferHold`).** *"Jump, then hold
+  forward on the right stick and the trajectory changes from straight up to forward."* During a locked air the right
+  pad held up past `xferAt` releases the lock: the auto-turn already applied is taken back (a transfer lands
+  forward), the left stick's thrust may carry her out, the swipe's outward kick fires (judged by height above the lip
+  she left, `lipY`, since a held transfer can come on the way down), she rights to plumb, and the same hold does NOT
+  also become the 'up' grab. A plain jump with only the left stick held still comes straight back down (r25).
+  `npm run sim vertair`: held -> on the deck at z 40.8, forward, no grab; switch off -> back in the pipe.
+- **THE ZIP LINE IS A GRIND RAIL (r47).** *"We can grind, so we can just grind down."* The tower's line is a plain
+  `railPath` on poles now (`'tower rail'`, `postMax` 40, a wide catch for rolling off the parapet gap). The `hang`
+  path option stays in `railPath`/`railDraw` for the day a zip line comes back with a hang clip.
 - **ON A RAIL THE LEFT PAD IS THE GRIND (r46, `grindSwitch`, `grindTrick`, `MOVES.grindTricks`).** *"When you're
   grinding, tap the left stick and she switches from a left side grind to a right side. And if you flick, she goes into
   a different grind -- for now use the trick rides like ducky."* The left TAP on a rail flips `p.grind.side` (and drops
@@ -364,7 +394,7 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   the GAP (Steps' kicker at 16 m/s lands on B at x 62), the B -> C down rail, the TOWER (30 m, a 2.75-turn booster
   SPIRAL to the roof, 17 s, ending heading for the east parapet -- the first version curled straight out through the
   zip's gap and fell 30 m; the top had to clear the parapet, 31.4 m), the ZIP LINE from the roof's parapet gap to
-  z 300, the LOOP (booster, `boostK` 12, upside down at the top), a bench rail ending at a hydrant, five hydrants.
+  z 300 (a grind rail since r47), the LOOP (booster, `boostK` 12, upside down at the top), a bench rail ending at a hydrant, five hydrants.
   `CITY.spots` + the **➤ key** walk her round them (he has no console), and the chip names where she went.
   **HYDRANTS** (`hydrant`, `hydBreak`): skate into one past `HYD.breakV`, strike it, or grind within `grindReach`, and the
   cap flies; the GEYSER is a column of points that LIFTS her (`GEY.acc` to `GEY.vmax` while inside `r`/`h`) -- 11.5 m

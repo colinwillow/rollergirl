@@ -164,7 +164,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r46</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r47</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
@@ -184,7 +184,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r46';
+const BUILD = 'r47';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -667,6 +667,8 @@ const CAM = {
   idle: 0.55,          // how long after letting go before the lens comes back behind her
   follow: 2.6,
   spring: 1,           // r42: 1 eases the follow in (a critically damped spring), 0 is the old instant follow
+  steerLatch: 1,       // r47: a HELD left thumb keeps its world direction (0: the frame turns with the camera)
+  steerRe: 0.5,        // ...and how far (rad) the thumb has to move for its frame to catch up with the camera
   followAir: 0.5,      // ...and it nearly lets go in the air, or a spin is unreadable
   half: 0.09,          // position damping half life
   outHL: 0.30,         // boom: snap IN, ease OUT
@@ -2160,15 +2162,12 @@ function cityRails() {
   const loop = railPath(lp, { boost: 16, boostK: 12, ups, name: 'loop' });
   railDraw(loop, {});
   gemsAlong({ segs: loop.segs.filter(S => S.ua.y < 0.97 || S.ub.y < 0.97) }, 4, 0.9, 2);
-  // THE ZIP LINE: off the tower roof through the gap in the parapet, down to the far end of the district.
-  // The segments are where her FEET hang; the cable is drawn above. A wide catch: roll off the gap onto it.
-  const zA = V(-50, 29.6, 218.2), zB = V(-6, 3.4, 300);
-  const zip = railPath(railLine(zA, zB, 2), { hang: 2.0, maxV: 20, drag: 0.12, catchR: 1.6, catchBelow: 0.9, name: 'zip' });
-  railDraw(zip, { posts: false }); gemsAlong(zip, 12, 1.0, 8);
-  for (const [x, y0p, z, y1p] of [[-50, 30, 217.2, 31.75], [-6, 0, 301.2, 5.75]]) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, y1p - y0p, 8), sm.post);
-    pole.position.set(x, (y0p + y1p) / 2, z); pole.castShadow = true; scene.add(pole);
-  }
+  // THE BIG DOWN RAIL (r47; it was a zip line in r45 -- *"we can grind, so we can just grind down"*): off the tower
+  // roof through the gap in the parapet, 26 m down to the far end of the district, on poles. A tap on the roof near
+  // the gap hops her onto it; a wide catch so rolling off the gap onto it works too.
+  const zA = V(-50, 30.7, 216.4), zB = V(-6, 3.4, 300);
+  const zip = railPath(railLine(zA, zB, 2), { maxV: 20, catchR: 1.2, catchBelow: 0.6, name: 'tower rail' });
+  railDraw(zip, { postMax: 40, every: 9 }); gemsAlong(zip, 12, 0.9, 8);
   // the gap over the street, the Steps' roofs, his low roof, the tower roof
   for (const [x, y, z] of [[50.5, 13.9, 156], [53.5, 14.2, 156], [56.5, 13.6, 156], [16.5, 4.2, 156], [27, 7.2, 156], [36, 10.2, 156],
     [44, 13.2, 152], [69, 10.2, 156], [-85.5, 4.2, 156], [-50, 31.2, 210], [69, 7.2, 195]]) gem(x, y, z);
@@ -3579,7 +3578,15 @@ function groundQ(out) {
 // backwards, which is fakie by the physics and read as "it thinks I'm backwards when I land". On a
 // LOCKED air (a tap, or rolling over the lip) she now turns 180 over `turnFrac` of the air she has;
 // spin with the stick on top of it as before -- an extra 180 is how you land fakie on purpose.
-const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6 };
+// r47: TONY HAWK'S VERT AIR. *"When you go off a vertical jump your rotation should stay congruent with how you went
+// off it unless you transfer -- your body is perpendicular to the ramp because that's the angle you came off, and it
+// stays that way so when you come down the vert you're lined up."* On a LOCKED air (`holdTilt`) she keeps the
+// orientation she left the wall with -- body square to the wall -- and every turn (the auto 180 and the stick's spin)
+// is about HER OWN UP, the wall's normal, so she goes up nose first and comes down nose first, still square to it.
+// And *"jump, then hold forward on the right stick, and the trajectory changes from straight up to forward"*: the
+// right pad held UP past `xferAt` during a locked air releases the lock (`holdXfer`) -- the auto-turn is undone, the
+// left stick's thrust may carry her out, the transfer kick fires, and she rights to plumb like any other air.
+const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6, holdTilt: 1, holdXfer: 1, xferAt: 0.5 };
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
@@ -3609,7 +3616,21 @@ function leaveGround(coy, xfer) {
     }
   }
   groundQ(p.bq);
+  if (p.vertLock) { p.vertQ = (p.vertQ || new THREE.Quaternion()).copy(p.bq); p.vertN = (p.vertN || new THREE.Vector3()).copy(n).normalize(); p.vertSpin = 0; }
+  p.lipY = p.pos.y; p.xferHold = 0;
   p.grounded = false; p.airT = 0; p.coyote = coy; p.drift = 0;
+}
+// THE HELD TRANSFER (r47): out of a locked vert air, onto the deck. The auto-turn already applied is taken back (a
+// transfer lands forward), the outward kick waits until she is clear of the lip as the swipe's does, and the
+// right pad is marked so the same hold does not also become a grab.
+function vertRelease() {
+  const p = player;
+  if (!p.vertLock) return false;
+  p.vertLock = 0;
+  if (p.autoTurn) { p.heading -= p.autoTurn.side * (Math.PI - p.autoTurn.left); p.autoTurn = null; }
+  p.xferKick = { ix: p.vertIx, iz: p.vertIz, hold: 1 };
+  p.xferHold = 1; p.grab = null;
+  return true;
 }
 
 function respawn() {
@@ -3902,9 +3923,13 @@ function stepAir(dt) {
   // was eased onto the heading on top of that. Now full speed comes at `spinFull` of the pad, and
   // the yaw is set exactly below -- only the righting is eased.
   const sk = Math.sign(sx) * clamp((Math.abs(sx) - 0.08) / Math.max(0.05, AIR.spinFull - 0.08), 0, 1);
+  // r47: right pad held UP during a locked vert air: it becomes a transfer
+  if (p.vertLock && VERT.holdXfer > 0.5 && stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y) vertRelease();
+  const hold = p.vertLock && VERT.holdTilt > 0.5 && p.vertQ;
   p.heading -= sk * AIR.spin * dt;
+  if (hold) p.vertSpin -= sk * AIR.spin * dt;
   const AT = p.autoTurn;
-  if (AT && AT.left > 0) { const d = Math.min(AT.left, AT.rate * dt); p.heading += AT.side * d; AT.left -= d; }
+  if (AT && AT.left > 0) { const d = Math.min(AT.left, AT.rate * dt); p.heading += AT.side * d; AT.left -= d; if (hold) p.vertSpin += AT.side * d; }
   // *"In the air you'll hold forward"* -- which is how you get over the back of one ramp and
   // reach the next. Capped by how much it has already added, so a long flight is not a free one.
   if (sy < 0 && p.drift < AIR.driftMax && !p.kickRail) {      // a kick solved onto a rail flies its own line
@@ -3918,7 +3943,9 @@ function stepAir(dt) {
   }
   const K = p.xferKick;
   if (K) {
-    if (p.vel.y < 0) p.xferKick = null;              // never cleared the lip: she drops back in
+    // never cleared the lip: she drops back in. A HELD transfer may come late, on the way down, so it is
+    // judged by height above the lip she left rather than by which way she is moving
+    if (K.hold ? p.pos.y < (p.lipY || 0) + 0.2 : p.vel.y < 0) p.xferKick = null;
     else {
       const g = groundAt(p.pos.x - K.ix * 0.9, p.pos.z - K.iz * 0.9, p.pos.y + 0.5, 3);
       if (!g.hit || p.pos.y > g.floor + 0.15) {
@@ -3968,8 +3995,22 @@ function stepAir(dt) {
   if (settle) { p.vel.x = decay(p.vel.x, AIR.settleDrag, dt); p.vel.z = decay(p.vel.z, AIR.settleDrag, dt); }
   // THE YAW IS EXACT, THE TILT IS EASED (r27). `_qb` is the target swing (plumb, any pitch, and the
   // face below when settling or close to it); the yaw goes on as is.
-  swingOf(p.bq, _q2).slerp(_qb, Math.min(1, rate * dt));
-  p.bq.copy(_q2).multiply(_qa.setFromAxisAngle(UP, p.heading));
+  if (hold) {
+    p.bq.setFromAxisAngle(p.vertN, p.vertSpin).multiply(p.vertQ);      // r47: square to the wall she left
+    // ...and in the last moments before touchdown, onto the face she is actually coming down on (she drifts in
+    // off the lip and lands lower down the curve) -- by TIME to contact, the pre-align's rule, so nothing snaps
+    if (below.hit && p.vel.y < -0.5 && AIR.preAlign > 0) {
+      const tHit = (p.pos.y - below.floor) / -p.vel.y;
+      if (tHit < AIR.preAlign) {
+        const k = 1 - tHit / AIR.preAlign;
+        _q3.setFromUnitVectors(p.vertN, _v.set(below.nx, below.ny, below.nz));
+        p.bq.slerp(_q2.copy(_q3).multiply(p.bq), k * k * (3 - 2 * k));
+      }
+    }
+  } else {
+    swingOf(p.bq, _q2).slerp(_qb, Math.min(1, rate * dt));
+    p.bq.copy(_q2).multiply(_qa.setFromAxisAngle(UP, p.heading));
+  }
   p.vel.y -= SK.g * dt;
   if (p.vel.y < -34) p.vel.y = -34;
   const h = Math.hypot(p.vel.x, p.vel.z);
@@ -4025,7 +4066,7 @@ function stepAir(dt) {
     p.landOff = off; p.drift = 0;
     p.n.copy(_N);
     p.grounded = true; p.airT = 0; p.pushT = 0; p.pushOff = 9; p.braked = 0; p.lean = 0;
-    p.autoTurn = null;
+    p.autoTurn = null; p.vertLock = 0; p.xferHold = 0;
   }
   if (p.pos.y < -8) respawn();
 }
@@ -4201,6 +4242,7 @@ function stepMelee(dt) {
 function grabStep() {
   const p = player, m = girl.moves, R = stick.R;
   const air = !p.grounded && !p.grind && p.bailT <= 0;
+  if (p.xferHold) { if (!R.down) p.xferHold = 0; p.grab = null; return; }     // r47: that hold was a transfer
   if (!air || !R.down || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
   if (p.grab || p.rHold < MOVES.grabAt) return;
   const k = Math.hypot(R.x, R.y) < 0.35 ? 'centre' : Math.abs(R.x) > Math.abs(R.y) ? (R.x > 0 ? 'right' : 'left') : (R.y < 0 ? 'up' : 'down');
@@ -4506,7 +4548,21 @@ function stepCam(dt) {
   const rx = stick.R.x;
   const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
   if (yaw) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
-  if (!stick.L.down) cam.steerAz = cam.az;          // no left thumb: the frames agree (see stickWorld)
+  if (!stick.L.down) { cam.steerAz = cam.az; cam.thA = null; }   // no left thumb: the frames agree (see stickWorld)
+  // r47: A HELD THUMB IS A FIXED DIRECTION. *"I'm pushing this direction and she's not going that direction."*
+  // The follow camera used to drag the steering frame round with it, so a thumb held still pointed somewhere new
+  // every frame: a held diagonal circled her for ever (450 deg in 5 s, measured), and a thumb swung across after a
+  // long turn pointed nowhere near where it looked. Now the frame only catches up with the camera when the THUMB
+  // MOVES -- fully once it has moved `steerRe` -- so a held direction stays put while the camera swings in behind
+  // her (and the held diagonal becomes her straight), and the next real move of the thumb reads against the new view.
+  else if (CAM.steerLatch > 0.5) {
+    const lm = Math.hypot(stick.L.x, stick.L.y);
+    if (lm > SK.dead) {
+      const a = Math.atan2(stick.L.x, -stick.L.y);
+      if (cam.thA != null) cam.steerAz += wrapAngle(cam.az - cam.steerAz) * Math.min(1, Math.abs(wrapAngle(a - cam.thA)) / CAM.steerRe);
+      cam.thA = a;
+    }
+  }
   // AND THEN IT COMES BACK BEHIND HER. A skater goes where she points, so the lens wants to be
   // behind her and letting go of the pad should not leave you looking at her side. In the AIR
   // it nearly lets go: if the camera chases a spin, the lens comes round with her and nothing
@@ -4524,7 +4580,7 @@ function stepCam(dt) {
     let d;
     if (CAM.spring > 0.5) { cam.azV = (cam.azV || 0) + (rate * rate * err - 2 * rate * (cam.azV || 0)) * dt; d = cam.azV * dt; }
     else { d = err * Math.min(1, rate * dt); cam.azV = 0; }
-    cam.az += d; cam.steerAz += d;
+    cam.az += d; if (!(CAM.steerLatch > 0.5)) cam.steerAz += d;
   } else cam.azV = decay(cam.azV || 0, 8, dt);
   cam.tgt.set(p.pos.x, p.pos.y + CAM.look, p.pos.z);
   const ce = Math.cos(cam.el);
@@ -4740,6 +4796,7 @@ const TAILUI = [
   ['Lean, camera, style (r42)', ''],
   ['RIG.hipLean',    'Lean at the hips (0 = whole body)', 0, 1, 0.05, ''],
   ['CAM.spring',     'Camera eases into turns', 0, 1, 1, ''],
+  ['CAM.steerLatch', 'Held stick keeps its direction', 0, 1, 1, ''],
   ['MOVES.grab',     'Hold right stick in air = grab', 0, 1, 1, ''],
   ['MOVES.style',    'Style skates while cruising', 0, 1, 1, ''],
   ['MOVES.styleEvery', 'Style skate every (s)', 0.5, 15, 0.5, ''],
@@ -4803,6 +4860,8 @@ const TAILUI = [
   ['AIR.preAlign',   'Pre-align time', 0,   1.2, 0.05, 's'],
   ['RIG.tiltRate',   'Ground tilt ease', 2, 20,  0.5,  ''],
   ['VERT.autoTurn',  'Auto-turn on vert airs', 0, 1, 1, ''],
+  ['VERT.holdTilt',  'Vert air keeps its tilt (Tony Hawk)', 0, 1, 1, ''],
+  ['VERT.holdXfer',  'Hold right stick up = transfer', 0, 1, 1, ''],
   ['FLIPP.camRel',   'Flips relative to camera', 0, 1, 1, ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
@@ -4940,11 +4999,11 @@ async function init() {
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
-  groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
+  groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

@@ -225,10 +225,20 @@ CASES.carry = () => {
     // -- that is `leaveGround` -- and eases to plumb from there.
     run(0.6, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0; });
     const plumb = degBetween(bodyAxis([0, 1, 0]), new THREE.Vector3(0, 1, 0));
-    console.log(`  leaving a ${fix(wall, 0)} deg face: ${fix(plumb, 0)} deg off plumb 0.8 s later` +
+    // r47: A LOCKED VERT AIR KEEPS THE WALL'S TILT (Tony Hawk) -- every one of these pops carries her over the lip
+    // and locks; only an air off a gentler face rights to plumb (the kicker row below)
+    const tilt = P.vertLock && P.vertN ? degBetween(bodyAxis([0, 1, 0]), P.vertN) : null;
+    console.log(`  leaving a ${fix(wall, 0)} deg face: ` + (tilt != null ? `LOCKED vert air, ${fix(tilt, 1)} deg off the wall's normal 0.8 s later` : `${fix(plumb, 0)} deg off plumb 0.8 s later`) +
                 (P.grounded ? ' (back on the ground)' : ''));
-    if (!(plumb < 14)) ok = false;
+    if (!(tilt != null ? tilt < 3 : plumb < 14)) ok = false;
   }
+  // off the kicker's 38 deg lip: not a vert air, so she rights to plumb as before
+  { place(-11, 0, 8, 0, 11); let t0 = -1, plumb = 0, lock = 0;
+    run(2, (t) => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+      if (!P.grounded && t0 < 0) { t0 = t; lock = P.vertLock; }
+      if (t0 >= 0 && t - t0 > 0.55 && t - t0 < 0.57) plumb = degBetween(bodyAxis([0, 1, 0]), new THREE.Vector3(0, 1, 0)); });
+    console.log(`  off the kicker's lip: ${lock ? 'LOCKED (wrong)' : 'not locked'}, ${fix(plumb, 0)} deg off plumb 0.55 s later`);
+    if (lock || t0 < 0 || plumb > 14) ok = false; }
   return ok;
 };
 // ---------------------------------------------------------------- and comes back down the pipe
@@ -1274,9 +1284,12 @@ CASES.stance = () => {
     if (!good) ok = false;
   }
   // and spinning an extra 180 on top of the auto-turn is how you come down fakie on purpose
-  { place(0, 3, 29, 0, 13); let air = false, at = null;
-    run(5, (t) => { rg.stick.L.y = 0; rg.cam.az = 0; rg.stick.L.x = (!P.grounded && air && t < 9) ? 0 : 0;
-      if (!P.grounded && !air) { air = true; P.heading += Math.PI; }        // a 180 of stick spin, applied as it leaves
+  // r47: DRIVEN THROUGH THE STICK, not by writing the heading -- on a held vert air the body turns about the
+  // wall's normal (`vertSpin`) and a heading written from outside is a spin the game never sees
+  { place(0, 3, 29, 0, 13); let air = false, at = null, spun = 0;
+    run(5, (t) => { rg.stick.L.y = 0; rg.cam.az = 0;
+      if (!P.grounded && !air) air = true;
+      rg.stick.L.x = (air && !P.grounded && spun < Math.PI / rg.AIR.spin) ? 1 : 0; if (rg.stick.L.x) spun += DT;
       if (air && P.grounded && !at) at = { stance: P.stance }; });
     const good = at && at.stance === -1;
     console.log(`  ...plus a 180 of her own spin    -> ${!at ? 'never landed' : at.stance < 0 ? 'FAKIE' : 'forward'}${good ? '' : '   <- WRONG'}`);
@@ -1651,7 +1664,7 @@ CASES.city = async () => {
     const inRail = rg.RAILS.filter(R => R.path.name !== 'park' && rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench'));
     const inHyd = rg.HYD.list.filter(H => rg.solidAt(H.x, 0.4, H.z, 0.3, b => b.tag !== 'hydrant'));
     say('nothing placed inside anything', !inGem.length && !inRail.length && !inHyd.length,
-      `${inGem.length} gems, ${inRail.length} rail segments, ${inHyd.length} hydrants inside a box` + (inRail.length ? ' -- ' + [...new Set(inRail.map(R => R.path.name))].join(', ') : '')); }
+      `${inGem.length} gems, ${inRail.length} rail segments, ${inHyd.length} hydrants inside a box` + (inRail.length ? ' -- ' + inRail.map(R => { const b = rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench'); return `${R.path.name} at ${fix(R.mx, 1)},${fix((R.a.y + R.b.y) / 2, 2)},${fix(R.mz, 1)} in ${b.tag} top ${fix(b.y1, 2)}`; }).join('; ') : '')); }
   // 1. a wall: straight into B's west face at 10 m/s
   { place(54, 0, 150.5, Math.PI / 2, 10); let worst = 0, inAny = false;
     run(1.5, () => { worst = Math.max(worst, P.pos.x); inAny = inAny || inside(); });
@@ -1688,9 +1701,10 @@ CASES.city = async () => {
     let minUp = 1, done = false, slow = 99;
     run(8, () => { if (P.grind) { const u = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq); minUp = Math.min(minUp, u.y); slow = Math.min(slow, P.grind.s); } else done = true; });
     say('the loop, round and out', done && minUp < -0.9 && P.pos.z > 254, `her up reached y ${fix(minUp)}, slowest ${fix(slow, 1)} m/s, out at z ${fix(P.pos.z, 1)}`); }
-  // 8. THE ZIP LINE: a tap at the gap in the tower's parapet; and rolling off the gap with no tap
-  { const zp = path('zip');
-    for (const [label, tap] of [['tap at the roof\'s gap onto the zip', 1], ['roll off the gap onto the zip', 0]]) {
+  // 8. THE TOWER RAIL (r45's zip line, a grind rail since r47): a tap at the gap in the tower's parapet; and rolling
+  // off the gap with no tap
+  { const zp = path('tower rail');
+    for (const [label, tap] of [['tap at the roof\'s gap onto the tower rail', 1], ['roll off the gap onto it', 0]]) {
       place(-50, 30, tap ? 216 : 213, 0, tap ? 2 : 7); if (tap) P.jump = 1; let on = false, rode = 0, off = null, land = null;
       run(12, () => { if (P.grind && P.grind.rail.path === zp) { on = true; rode += DT; } else if (on && !off) off = P.pos.clone();
         if (off && !land && P.grounded) land = P.pos.clone(); });
@@ -1766,6 +1780,62 @@ CASES.city = async () => {
   return ok;
 };
 
+// r47: A HELD THUMB IS A FIXED DIRECTION. The follow camera used to drag the steering frame round with it, so a
+// held diagonal circled her for ever. Driven with the REAL camera stepping beside her, because the bug lived in
+// the loop between the two: a harness without `stepCam` cannot see it at all.
+CASES.steer = () => {
+  let ok = true; const D = 180 / Math.PI;
+  const go = (phases, latch) => {
+    const keep = rg.CAM.steerLatch; rg.CAM.steerLatch = latch;
+    place(150, 0, -200, 0, 10); rg.cam.az = rg.cam.steerAz = 0; rg.cam.idle = 9; rg.cam.thA = null; rg.stick.L.down = 1;
+    let turned = 0, last = P.heading, aim = 0;
+    for (const [dur, fx] of phases) { const n = Math.round(dur / DT);
+      for (let i = 0; i < n; i++) { const [x, y] = fx(i / n); rg.stick.L.x = x; rg.stick.L.y = y;
+        rg.stepPlayer(DT); rg.stepCam(DT); turned += Math.abs(rg.wrapAngle(P.heading - last)); last = P.heading;
+        const s = rg.stickWorld(); aim = Math.atan2(s.x, s.z); } }
+    rg.stick.L.down = 0; rg.stick.L.x = rg.stick.L.y = 0; rg.CAM.steerLatch = keep;
+    return { turned: turned * D, off: Math.abs(rg.wrapAngle(Math.atan2(P.vel.x, P.vel.z) - aim)) * D, travel: Math.atan2(P.vel.x, P.vel.z) * D };
+  };
+  const diag = [[5, () => [-0.7, -0.7]]];
+  const a = go(diag, 1), b = go(diag, 0);
+  console.log(`  held up-left diagonal, 5 s:      turned ${fix(a.turned, 0)} deg, travel ${fix(a.travel, 0)} (asked 45)   [old frame: turned ${fix(b.turned, 0)} deg]`);
+  if (!(a.turned < 70 && Math.abs(a.travel - 45) < 5 && b.turned > 200)) ok = false;
+  const swing = [[2, () => [1, 0]], [0.25, u => [Math.cos(u * Math.PI), -Math.sin(u * Math.PI)]], [3, () => [-1, 0]]];
+  const c = go(swing, 1);
+  console.log(`  right 2 s, swung over to left:   ends ${fix(c.off, 1)} deg off where the thumb points, travel ${fix(c.travel, 0)}`);
+  if (!(c.off < 5)) ok = false;
+  return ok;
+};
+// r47: TONY HAWK'S VERT AIR. Up the half pipe and off the lip: square to the wall the whole way up and down (her up
+// stays the wall's normal), back in, forward, nothing to snap at the landing. Holding the right stick UP partway
+// through turns it into a transfer onto the deck, without becoming a grab.
+CASES.vertair = () => {
+  let ok = true; const D = 180 / Math.PI;
+  const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep) + rg.PARK.cope;
+  const ride = (opt) => {
+    const keep = { t: rg.VERT.holdTilt, x: rg.VERT.holdXfer }; rg.VERT.holdTilt = opt.tilt; rg.VERT.holdXfer = opt.xfer;
+    place(0, 3, 29, 0, 17); let air = false, t0 = 0, worst = 0, mid = 0, land = null, grab = false;
+    run(5, (t) => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+      if (!P.grounded && !air) { air = true; t0 = t; }
+      const hold = opt.hold && air && !land && t - t0 > 0.25;
+      rg.stick.R.down = hold ? 1 : 0; rg.stick.R.y = hold ? -1 : 0; rg.stick.R.x = 0; P.rHold = hold ? P.rHold : 0;
+      if (hold) rg.grabStep(); if (P.grab) grab = true;
+      if (air && !P.grounded && !land && P.vertN) { const u = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq);
+        const a = Math.acos(Math.max(-1, Math.min(1, u.dot(P.vertN)))) * D; if (P.vel.y > -2) worst = Math.max(worst, a); if (t - t0 > 0.6 && !mid) mid = a; }
+      if (air && P.grounded && !land) land = { z: P.pos.z, off: P.landOff * D, stance: P.stance }; });
+    rg.stick.R.down = 0; rg.stick.R.y = 0; Object.assign(rg.VERT, { holdTilt: keep.t, holdXfer: keep.x });
+    return { worst, mid, land, grab };
+  };
+  const a = ride({ tilt: 1, xfer: 1 }), b = ride({ tilt: 0, xfer: 1 });
+  console.log(`  vert air, tilt held:   her up off the wall normal, up and over the top, worst ${fix(a.worst, 1)} deg; down at z ${fix(a.land.z, 2)} (deck ${fix(lip, 2)}), landing ${fix(a.land.off, 1)} deg out, ${a.land.stance > 0 ? 'forward' : 'FAKIE'}`);
+  console.log(`  ...the old plumb air:  her up ${fix(b.mid, 0)} deg off the wall normal 0.6 s in`);
+  if (!(a.worst < 3 && a.land.z < lip && a.land.off < 12 && a.land.stance > 0 && b.mid > 45)) ok = false;
+  const c = ride({ tilt: 1, xfer: 1, hold: 1 }), d = ride({ tilt: 1, xfer: 0, hold: 1 });
+  console.log(`  held right stick UP:   down at z ${fix(c.land.z, 2)} -- ${c.land.z > lip ? 'ON THE DECK' : 'back in'}, ${c.land.stance > 0 ? 'forward' : 'FAKIE'}, grab ${c.grab ? 'FIRED' : 'none'}`);
+  console.log(`  ...with the switch off: down at z ${fix(d.land.z, 2)} -- ${d.land.z > lip ? 'on the deck' : 'back in the pipe'}`);
+  if (!(c.land.z > lip + 1 && c.land.stance > 0 && !c.grab && d.land.z < lip)) ok = false;
+  return ok;
+};
 // r45: the PARK's four rails -- the city's paths (spirals, loops, a zip) have their own case
 const parkRails = () => rg.RAILS.filter(R => R.path.name === 'park');
 CASES.home = () => {
