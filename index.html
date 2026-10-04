@@ -164,7 +164,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r45</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r46</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
@@ -184,7 +184,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r45';
+const BUILD = 'r46';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -282,7 +282,7 @@ const MELEE = {
   rate: 1.75, beatMin: 0.55, beatMax: 1.30,     // weirdport's: the clip compressed to a readable beat
   lunge: 2.5,          // m/s shoved along the strike on the ground
   xferN: 0.8,          // a face steeper than this (normal's y under it) makes a swipe UP the transfer
-  slide: 'slide_kick', slideDur: 0.95, slideV: 4,
+  slide: 'slide_kick', slideDur: 0.95, slideV: 4, slideFlip: 1,   // r46: slideFlip -- a slide out of fakie comes up forward
   air: 'flying_kick', airDur: 0.85, airV: 10, airUp: 2.5,
   aimR: 13, aimCone: 0.75, lead: 1.5, vyMax: 15, grindV: 9,
   liftMax: 0.9,        // how far a ground strike may lift her to keep the lowest skate on the surface
@@ -2601,6 +2601,10 @@ const MOVES = {
   // seconds, she slips into one of these for `styleHold`, never the same twice running, then back.
   style: 1, styleV: 5, styleCruise: 17, styleEvery: 3, styleHold: 3.5,
   styles: ['daffy', 'swizzle', 'tiptoe', 'onefootfront_L', 'onefootfront_R', 'onefootback_R', 'pose_duck_L', 'pose_swan_R'],
+  // TRICK GRINDS, STANDING IN (r46). *"If you flick the stick she'll go into a different grind -- I'll make custom
+  // grinds, but for now use the trick rides like ducky."* The LEFT pad's flick on a rail, by direction; the same
+  // flick again goes back to the plain grind. Swap these names for his grind clips the day they exist.
+  grindTricks: { up: 'daffy', down: 'pose_swan_L', left: 'pose_duck_L', right: 'pose_duck_R' },
   // THE RIGHT STICK'S FLICK, in the air. Left is his twist flip MIRRORED (`mirrorClip`).
   flip: { up: 'front_flip', down: 'back_flip', right: 'front_twist_flip', left: 'front_twist_flip__mirror' },
   // a fall and the get-up that follows it
@@ -2635,6 +2639,7 @@ function buildMoves(has) {
            falls: MOVES.falls.filter(([f, u]) => has[f] && has[u]),
            // r42: the style skates, per stance -- a missing fakie version borrows the forward one
            grabs: Object.fromEntries(Object.entries(MOVES.grabs).map(([k, n]) => [k, [`blade_${n}_forward`, `blade_${n}_backward`].map(c => has[c] ? c : null)])),
+           grindTricks: Object.fromEntries(Object.entries(MOVES.grindTricks).map(([k, n]) => [k, [n, `blade_${n}_forward`, `blade_${n}_backward`].map(c => has[c] ? c : null)])),
            styleF: MOVES.styles.map(n => `blade_${n}_forward`).filter(c => has[c]),
            styleB: MOVES.styles.map(n => `blade_${n}_backward`).filter(c => has[c]) };
 }
@@ -3185,7 +3190,10 @@ function girlAnimMoves(dt) {
     // landing, and played a little quicker the faster she is sliding.
     girl.bail = null;
     // r45: hanging from a ZIP LINE she holds the air pose -- a placeholder until there is a hang clip
-    const nm = p.grind.rail && p.grind.rail.path.hang && m.air ? m.air : m.grind[p.grind.side];
+    // r46: a TRICK GRIND (the left flick) plays its stand-in style skate, the fakie one when she rides backwards
+    const T = p.grind.trick && m.grindTricks && m.grindTricks[p.grind.trick];
+    const tnm = T ? (p.stance < 0 ? T[2] || T[1] : T[1] || T[2]) || T[0] : null;
+    const nm = p.grind.rail && p.grind.rail.path.hang && m.air ? m.air : tnm || m.grind[p.grind.side];
     if (p.grind.time < 0.05) snap = true;
     clipScale(nm, clamp(p.grind.s / 8, 0.75, 1.4));
     add(nm, 1);
@@ -3303,7 +3311,7 @@ addEventListener('keydown', e => {
   if (e.key === ' ') { player.jump = 1; e.preventDefault(); }
   if (e.key.toLowerCase() === 'e') player.jump = 2;      // the transfer, from a keyboard
   if (e.key.toLowerCase() === 'r') respawn();
-  if (e.key.toLowerCase() === 'q') swivel();
+  if (e.key.toLowerCase() === 'q') { if (!grindSwitch()) swivel(); }
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = 0; });
 
@@ -3467,13 +3475,15 @@ for (const t of ['touchstart', 'touchend', 'touchcancel'])
 bindStick(document.getElementById('stkL'), stick.L, null, (dx, dy) => {
   // r39: ON THE GROUND THE LEFT FLICK IS THE SLIDE TACKLE (Zap's `slide_kick`), along her travel
   if (player.grounded && !player.grind) { if (meleeSlide()) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
-  if (player.grind) return;
+  // r46: ON A RAIL THE LEFT FLICK PICKS A TRICK GRIND by its direction
+  if (player.grind) { if (grindTrick(dx, dy)) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
   if (startFlip(flickFlip(dx, dy))) {
     const s = STICKS[0]; if (s && s.pop) s.pop();
   }
 }, (far, held) => {
   if (far >= AIR.tapFar || held > AIR.tapT) return;
-  if (swivel()) { const s = STICKS[0]; if (s && s.pop) s.pop(); }
+  // r46: on a rail the left TAP switches which side she grinds on; everywhere else it is the swivel
+  if (grindSwitch() || swivel()) { const s = STICKS[0]; if (s && s.pop) s.pop(); }
 });
 // THE RIGHT PAD: a TAP jumps, a DRAG orbits the camera. Those separate themselves -- a drag
 // travels past `far` .42 or is held past `tapT`, and a tap is neither -- so one thumb does
@@ -4058,6 +4068,23 @@ function landStance(fwd) {
 // Her body turns half round and her travel does not, so she rolls on the same line the other way
 // up. The body eases round on `faceH`, which is a sixth of a second -- there is no swivel clip yet.
 // On the ground and off a rail only, and only for a skin with backward clips.
+// ON A RAIL (r46). *"When you're grinding, if you tap the left stick she switches from a left side grind to a
+// right side -- we have those two animations. And if you flick, she goes into a different grind."* The tap
+// flips `side` (and drops any trick, so it lands on the other plain grind); the flick sets a trick by its
+// direction on the screen, and the same direction again takes it off. A zip line has neither: she is hanging.
+function grindSwitch() {
+  const G = player.grind;
+  if (!G || (G.rail && G.rail.path.hang)) return false;
+  G.side = G.side === 'left' ? 'right' : 'left'; G.trick = null;
+  return true;
+}
+function grindTrick(dx, dy) {
+  const G = player.grind;
+  if (!G || (G.rail && G.rail.path.hang)) return false;
+  const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
+  G.trick = G.trick === dir ? null : dir;
+  return true;
+}
 function swivel() {
   const p = player;
   if (!p.stanceLock || !p.grounded || p.grind || p.bailT > 0) return false;
@@ -4117,6 +4144,12 @@ function meleeSlide() {
   if (!MELEE.on || !p.grounded || p.grind || p.bailT > 0 || (p.mel && p.mel.kind !== 'strike') || !melOk(MELEE.slide)) return false;
   const h = p.hSpeed > 1 ? Math.atan2(p.vel.x, p.vel.z) : p.faceH;
   p.mel = { kind: 'slide', nm: MELEE.slide, t: 0, dur: MELEE.slideDur, h }; p.melQ = null;
+  // r46: A SLIDE OUT OF FAKIE COMES UP SKATING FORWARD. *"She does a slide tackle and then goes back to skating
+  // backwards -- I think a swipe is another way to reverse her."* The slide already turns her body onto her
+  // travel; now her stance and heading stay there when it ends, the way the swivel turns her.
+  if (MELEE.slideFlip && p.stanceLock && p.stance < 0 && p.hSpeed > 1) {
+    setStance(1, 'slide'); p.heading = h; p.shoveDir = -(p.shoveDir || 1);
+  }
   p.vel.x += Math.sin(h) * MELEE.slideV; p.vel.z += Math.cos(h) * MELEE.slideV;
   return true;
 }
@@ -4718,6 +4751,7 @@ const TAILUI = [
   ['MELEE.rate',     'Melee speed', 0.8, 3, 0.05, ''],
   ['MELEE.lunge',    'Strike lunge m/s', 0, 8, 0.25, ''],
   ['MELEE.slideV',   'Slide tackle shove m/s', 0, 10, 0.25, ''],
+  ['MELEE.slideFlip','Slide out of fakie = forward', 0, 1, 1, ''],
   ['MELEE.airV',     'Air strike to a rail: speed', 4, 20, 0.5, ''],
   ['MELEE.airLunge', 'Air strike shove m/s', 0, 10, 0.25, ''],
   ['MELEE.airAim',   'Air strike aims onto rails', 0, 1, 1, ''],
@@ -4910,7 +4944,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

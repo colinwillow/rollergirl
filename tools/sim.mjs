@@ -348,6 +348,19 @@ CASES.tap = async () => {
       console.log(`  ${name.padEnd(26)} -> ${got ? 'SWIVEL' : 'no swivel'}${got === want ? '' : '   <- WRONG'}`);
       if (got !== want) ok = false;
     }
+    // r46: ON A RAIL the same tap switches the grind's side instead, and a flick picks a trick grind
+    { const R0 = rg.RAILS[0];
+      P.stanceLock = true; place(60, 1, -60, 0, 5); P.stance = 1; P.grounded = true;
+      P.grind = { rail: R0, side: 'left', s: 8, time: 1, t: 0.5, dir: 1 };
+      real(L, evL('pointerdown', 150, 150)); await wait(40); real(L, evL('pointerup', 150, 150));
+      const sw = P.grind && P.grind.side === 'right' && P.stance === 1;
+      console.log(`  ${'left tap ON A RAIL'.padEnd(26)} -> ${sw ? 'switched to the right side, no swivel' : 'WRONG: side ' + (P.grind && P.grind.side) + ', stance ' + P.stance}`);
+      if (!sw) ok = false;
+      real(L, evL('pointerdown', 150, 150)); real(L, evL('pointermove', 150, 60)); await wait(30); real(L, evL('pointerup', 150, 60));
+      const tr = P.grind && P.grind.trick === 'up';
+      console.log(`  ${'left flick UP on a rail'.padEnd(26)} -> ${tr ? 'trick grind (up)' : 'WRONG: ' + (P.grind && P.grind.trick)}`);
+      if (!tr) ok = false;
+      P.grind = null; }
     P.stanceLock = keepLock; P.stance = 1; rg.stick.L.x = rg.stick.L.y = 0; rg.stick.L.down = 0; }
   // r30: A PLAIN HOLD, THE WAY A PHONE SENDS IT: the pad must still be held and steering after its
   // own touchstart. This is the row that was missing when r28 shipped "no controls work".
@@ -1306,6 +1319,25 @@ CASES.stance = () => {
 // THE SHIPPED `girlAnimMoves` on his real clip names and lengths, as the game prepares them. The
 // actions are fabricated (no harness can build the draco skin), which is enough: the question is
 // which clips the brain ASKS for, how hard, and at what rate.
+// r46: A SLIDE TACKLE OUT OF FAKIE COMES UP SKATING FORWARD, and stays that way; going forward it changes nothing
+CASES.slideflip = () => {
+  let ok = true; const keep = P.stanceLock, keepR = rg.girl.ready; rg.girl.ready = false;
+  for (const [label, st, flip, want] of [['fakie, slide', -1, 1, 1], ['forward, slide', 1, 1, 1], ['fakie, slide, switch off', -1, 0, -1]]) {
+    P.stanceLock = true; place(60, 1, -60, 0, 0);
+    // rolling +Z at 8 m/s; in fakie her NOSE points back (-Z)
+    P.stance = st; P.heading = P.faceH = st < 0 ? Math.PI : 0; P.vel.set(0, 0, 8);
+    const keepF = rg.MELEE.slideFlip; rg.MELEE.slideFlip = flip;
+    rg.stepPlayer(DT); const did = rg.meleeSlide();
+    let wobble = false; run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.stance !== want) wobble = true; });
+    rg.MELEE.slideFlip = keepF;
+    const fwd = Math.cos(P.heading - Math.atan2(P.vel.x, P.vel.z));
+    const good = did && P.stance === want && !wobble && (want > 0 ? fwd > 0.9 : fwd < -0.9);
+    console.log(`  ${label.padEnd(28)} ${good ? 'ok' : 'WRONG'} stance ${P.stance > 0 ? 'fwd' : 'FAKIE'} the whole way after, nose ${fwd > 0 ? 'along' : 'against'} her travel, ${fix(P.hSpeed, 1)} m/s`);
+    if (!good) ok = false;
+  }
+  P.stanceLock = keep; P.stance = 1; rg.girl.ready = keepR;
+  return ok;
+};
 CASES.moves = () => {
   const { clips, moves, R } = gameClips('models/alien_rollerskate_blue.glb');
   if (!moves) { console.log('  no move table built'); return false; }
@@ -1379,6 +1411,18 @@ CASES.moves = () => {
     check(`grinding, came at it ${side === 'right' ? 'moving RIGHT' : 'moving LEFT'}`, top() === 'grind_' + side, top());
     P.grind = null;
   }
+  // r46: THE LEFT TAP SWITCHES SIDES ON A RAIL, AND THE LEFT FLICK PICKS A TRICK GRIND (same flick: back to plain)
+  { state({ speed: 8, grounded: true, stance: 1 }); P.grind = { side: 'left', s: 8, time: 1, t: 0.5, dir: 1, rail: rg.RAILS[0] };
+    step(0.6); const a0 = top(); rg.grindSwitch(); step(0.6); const a1 = top();
+    check('rail: left tap switches the side', a0 === 'grind_left' && a1 === 'grind_right', `${a0} -> ${a1}`);
+    const seen = [];
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) { rg.grindTrick(dx, dy); step(0.6); seen.push(top()); }
+    rg.grindTrick(1, 0); step(0.6); const back = top();
+    P.stance = -1; rg.grindTrick(0, -1); step(0.6); const fk = top();
+    check('rail: flicks pick four trick grinds', new Set(seen).size === 4 && seen.every(n => /^blade_/.test(n)), seen.join(' '));
+    check('...the same flick again is the plain grind', back === 'grind_right', back);
+    check('...and riding fakie takes the fakie one', /_backward$/.test(fk), fk);
+    P.grind = null; P.stance = 1; }
   // a bail: down, then up, filling the bail
   state({ speed: 3, bailT: rg.LAND.bailT }); P.bailId++;
   step(0.2, () => (P.bailT -= DT));

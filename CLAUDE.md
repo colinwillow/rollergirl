@@ -307,6 +307,19 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **ON A RAIL THE LEFT PAD IS THE GRIND (r46, `grindSwitch`, `grindTrick`, `MOVES.grindTricks`).** *"When you're
+  grinding, tap the left stick and she switches from a left side grind to a right side. And if you flick, she goes into
+  a different grind -- for now use the trick rides like ducky."* The left TAP on a rail flips `p.grind.side` (and drops
+  any trick, so it lands on the other plain grind) -- off a rail the same tap is still the swivel, and key Q does
+  both. The left FLICK on a rail sets `p.grind.trick` by its screen direction (up daffy, down swan, left/right the two
+  ducks, `_backward` versions in fakie); the same direction again takes it off. A zip line has neither. Placeholders
+  until he draws grinds: swap the names in `MOVES.grindTricks`. The right pad on a rail is unchanged (tap pops off,
+  swipe up is the transfer). `npm run sim moves` checks the clips, `npm run sim tap` drives both through the real pad.
+- **A SLIDE OUT OF FAKIE COMES UP FORWARD (r46, `MELEE.slideFlip`).** *"She does a slide tackle and then she goes back
+  to skating backwards -- I think a swipe is another way to basically reverse her."* The slide always turned her BODY
+  onto her travel; now her stance and heading stay there when it ends (the swivel's own three lines: stance, heading,
+  `shoveDir`). Only with real travel (`hSpeed > 1`), so a slide from a standstill changes nothing. `slideFlip` 0 on the
+  panel puts the old behaviour back. `npm run sim slideflip`.
 - **THE CITY (r45, `SOLID`, `building`, `KIT`, `LEVEL`, `railPath`, `HYD`/`GEY`, `GEM`, `buildCity`, `cityRails`).**
   *"Start building out the level -- a system where I can bring in custom textures or meshes, like weirdport ... extremely
   multilevel, buildings with sections of different height, jump onto another building, grind a rail to another, a zip
