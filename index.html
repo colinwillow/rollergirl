@@ -146,11 +146,11 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r20</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r21</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
-<button class="key" id="tailB" aria-label="tail settings">&#8767;</button>
+<button class="key" id="tailB" aria-label="settings">&#9881;</button>
 <div id="tailP"></div>
 <button id="newer">build ready &middot; tap</button>
 
@@ -163,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r20';
+const BUILD = 'r21';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -182,7 +182,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"models/alien_rollerskate_blue_test.glb":"ed7cf656","models/roller_girl.glb":"7efbefe3"};
+const ASSETS = {"models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/roller_girl.glb":"7efbefe3"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -208,7 +208,7 @@ const RIG = {
 // nobody chooses twice. `spin` is per character for the same reason `RIG.spin` exists: which
 // way an export faces is the one thing no offline check here can settle.
 const CHARS = [
-  { key: 'alien', file: 'models/alien_rollerskate_blue_test.glb', name: 'alien', spin: 0 },
+  { key: 'alien', file: 'models/alien_rollerskate_blue.glb', name: 'alien', spin: 0 },
   { key: 'girl',  file: 'models/roller_girl.glb',                 name: 'rollergirl', spin: 0 },
 ];
 
@@ -505,6 +505,24 @@ const AIR = {
   startT: 0.16,        // how long `jump_start` holds before `jump_in_air` takes over
   tapT: 0.30,          // a tap is a tap; a hold is a camera drag and is NOT a jump
   tapFar: 0.45,        // ...and how far the thumb may wander and still be a tap
+};
+
+// ---- LANDING, STANCE, FLIPS AND BAILS (r21) ----
+// *"If you jump in the air and land so that you're in the second 180 degrees of the circle with
+// your back forward, now you're in fakie -- even if you're pushing forward she's still going
+// forward, she's just doing it backwards."* And: *"if you land kind of sideways she will fall --
+// you have to land not perfectly straight or perfectly back but within some range."*
+// So a landing compares her BODY's forward with where she is actually travelling, in the plane of
+// whatever she came down on: near the nose is forward, near the tail is fakie, anything in
+// between is a bail. Only for a skin with backward clips (`stanceLock`), because a fakie with no
+// clip to sell it is a state with nothing to show for it.
+const LAND = {
+  ok: 55 * Math.PI / 180,  // how far off straight -- either way round -- still counts as landed
+  minV: 2.0,               // slower than this along the surface there is no direction to be wrong against
+  flipDone: 0.8,           // a flip less than this far round when she touches down is a bail
+  // a flip is timed to the air she has LEFT when it is flicked: this much of it, inside these bounds
+  flipFill: 0.85, flipMin: 0.35, flipMax: 2.4,
+  bailT: 3.2,              // a bail's whole length: going down, and getting back up
 };
 
 const CAM = {
@@ -1069,7 +1087,7 @@ function clipRoles(clips) {
   const r = { cyc: {}, len: {}, pp: {}, why: {}, fallback: null, solo: null }, have = {};
   for (const c of clips) {
     have[c.name] = 1; r.len[c.name] = c.duration; r.cyc[c.name] = 1;
-    if (ONCE.includes(c.name)) continue;
+    if (isOnce(c.name)) continue;
     const cy = clipCyclic(c);
     r.pp[c.name] = cy.mean > ANIM.cyc;
     r.cyc[c.name] = r.pp[c.name] ? 2 : 1;
@@ -1081,9 +1099,129 @@ function clipRoles(clips) {
   // zero, and **a zero-weight bone is blended back to its BIND value by the mixer, which is
   // the T-pose exactly.** So the fallback is the skin's OWN clip, and a skin with neither an
   // idle nor a coast drives itself from that one clip entirely (`girlAnim`'s solo branch).
-  r.fallback = have.Idle ? 'Idle' : have.coasting ? 'coasting' : (clips[0] && clips[0].name) || null;
-  r.solo = (!have.Idle && !have.coasting && r.fallback) ? r.fallback : null;
+  // ...and for his r21 export, which has neither but has six `idle_*`, the first idle -- the first
+  // clip in that file is `back_flip`, which is not a pose to fall back on. And a skin is SOLO only
+  // when it genuinely has ONE loop: "no Idle and no coasting" called a 49-clip skin solo.
+  const loops = clips.filter(c => !isOnce(c.name));
+  const idle = clips.find(c => c.name === 'idle_normal') || clips.find(c => /^idle/.test(c.name));
+  r.fallback = have.Idle ? 'Idle' : have.coasting ? 'coasting' : idle ? idle.name
+             : (loops[0] || clips[0] || {}).name || null;
+  r.solo = (!have.Idle && !have.coasting && loops.length === 1) ? loops[0].name : null;
   return r;
+}
+// ---------- mirroring a clip ----------
+// *"We can mirror the front twist flip for the flick left."* A mirrored clip is the same motion
+// done by the other side of the body, so it needs two things a negative scale on the model would
+// fake badly (inside-out culling, a mirrored tail, a mirrored heading): every LEFT bone's motion
+// handed to the RIGHT bone and back, and every rotation reflected across her own centre plane.
+// **THE ROTATIONS ARE REFLECTED AS DELTAS FROM THE BIND POSE, IN THE MODEL'S FRAME.** A bone's
+// local rotation is in its own axes, and a left arm and a right arm are not authored with mirrored
+// axes in every rig -- so reflecting the raw local quaternion is right on some rigs and wrong on
+// others. Taking each key as a delta from the bone's rest, turning that delta into the model's
+// frame, reflecting it there (her centre plane is the model's YZ plane: she faces +Z), and
+// handing it to the partner bone in the PARTNER's own axes is right whatever the rig did.
+// `npm run sim mirror` poses a real copy of his skeleton both ways and checks every joint lands
+// where the other side's joint was, reflected.
+const mirrorName = n => n.replace(/Left|Right/g, m => (m === 'Left' ? 'Right' : 'Left'));
+function mirrorClip(clip, root, name) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), info = {};
+  const tv = new THREE.Vector3(), ts = new THREE.Vector3();
+  root.traverse(o => {
+    if (!o.name) return;
+    const W = new THREE.Quaternion();
+    new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld).decompose(tv, W, ts);
+    const P = new THREE.Matrix4(); if (o.parent) P.multiplyMatrices(inv, o.parent.matrixWorld);
+    info[o.name] = { r: o.quaternion.clone(), W, P };
+  });
+  const q = new THREE.Quaternion(), d = new THREE.Quaternion(), D = new THREE.Quaternion(), pv = new THREE.Vector3();
+  const tracks = [];
+  for (const t of clip.tracks) {
+    const dot = t.name.lastIndexOf('.'), bn = t.name.slice(0, dot), prop = t.name.slice(dot + 1);
+    const pn = mirrorName(bn), A = info[bn], B = info[pn];
+    if (!A || !B) continue;
+    const v = Float32Array.from(t.values);
+    if (prop === 'quaternion') {
+      const rAi = A.r.clone().invert(), WAi = A.W.clone().invert(), WBi = B.W.clone().invert();
+      for (let i = 0; i < v.length; i += 4) {
+        q.fromArray(v, i);
+        d.copy(rAi).multiply(q);                         // the key as a delta from A's rest
+        D.copy(A.W).multiply(d).multiply(WAi);           // ...in the model's frame
+        D.set(D.x, -D.y, -D.z, D.w);                     // reflected across her centre plane
+        d.copy(WBi).multiply(D).multiply(B.W);           // ...in the PARTNER's own axes
+        q.copy(B.r).multiply(d).toArray(v, i);
+      }
+      tracks.push(new THREE.QuaternionKeyframeTrack(pn + '.quaternion', Float32Array.from(t.times), v));
+    } else if (prop === 'position') {
+      const PBi = B.P.clone().invert();
+      for (let i = 0; i < v.length; i += 3) {
+        pv.fromArray(v, i).applyMatrix4(A.P); pv.x = -pv.x; pv.applyMatrix4(PBi).toArray(v, i);
+      }
+      tracks.push(new THREE.VectorKeyframeTrack(pn + '.position', Float32Array.from(t.times), v));
+    }
+  }
+  return new THREE.AnimationClip(name, clip.duration, tracks);
+}
+
+// ---------- what she can do, read off the names ----------
+// HIS NAMING IS THE SCHEMA: `blade_<tier>_<forward|backward>`, `idle_*`, `in_air`, the flips, and
+// `fall_to_*` with a matching `get_up_*`. A move whose clip is missing borrows its nearest
+// neighbour IN THE SAME DIRECTION (there is no `blade_hard_backward` in the r21 export, so a fast
+// fakie plays medium), and a skin with no `blade_*_forward` at all keeps the old animation path.
+const MOVES = {
+  tiers: ['soft', 'medium', 'hard'],
+  // THE SPEED EACH TIER IS CENTRED ON, m/s. Between two centres the two blend, so there is never
+  // a switch you can see -- the stride hardens as she speeds up.
+  speeds: [3, 9, 16],
+  // and each tier plays faster or slower than authored by how far she is off its centre, inside
+  // these bounds -- a soft stride at 1 m/s is not played at a third speed
+  rateLo: 0.5, rateHi: 1.35,
+  idleV: 0.6,          // below this she is standing, not skating
+  // *"If she's idling for a long period of time you could rotate through them."* The first is
+  // always `idle_normal`; after `idleHold` seconds on one she shifts to another, never the same.
+  idleHold: 7,
+  idleFwd: ['idle_normal', 'idle_arms_out', 'idle_arms_crossed', 'idle_arms_behind_back', 'idle_legs_spread'],
+  idleBack: ['idle_backward'],
+  air: 'in_air',
+  // THE RIGHT STICK'S FLICK, in the air. Left is his twist flip MIRRORED (`mirrorClip`).
+  flip: { up: 'front_flip', down: 'back_flip', right: 'front_twist_flip', left: 'front_twist_flip__mirror' },
+  // a fall and the get-up that follows it
+  falls: [['fall_to_face', 'get_up_from_face'], ['fall_to_face_02', 'get_up_from_face'], ['fall_to_knees', 'get_up_from_face']],
+  fallShare: 0.42,     // of a bail's length spent going down; the rest is getting up
+};
+function buildMoves(has) {
+  const tier = d => MOVES.tiers.map(t => (has[`blade_${t}_${d}`] ? `blade_${t}_${d}` : null));
+  const fill = a => a.map((nm, i) => {
+    if (nm) return nm;
+    for (let k = 1; k < a.length; k++) { if (a[i - k]) return a[i - k]; if (a[i + k]) return a[i + k]; }
+    return null;
+  });
+  const fwd = fill(tier('forward'));
+  if (!fwd.some(Boolean)) return null;
+  let back = fill(tier('backward'));
+  if (!back.some(Boolean)) back = fwd;
+  const idleFwd = MOVES.idleFwd.filter(n => has[n]);
+  const idleBack = MOVES.idleBack.filter(n => has[n]);
+  const flip = {};
+  for (const k in MOVES.flip) if (has[MOVES.flip[k]]) flip[k] = MOVES.flip[k];
+  return { fwd, back, flip,
+           idleFwd: idleFwd.length ? idleFwd : [fwd[0]],
+           idleBack: idleBack.length ? idleBack : (idleFwd.length ? [idleFwd[0]] : [back[0]]),
+           air: has[MOVES.air] ? MOVES.air : null,
+           falls: MOVES.falls.filter(([f, u]) => has[f] && has[u]) };
+}
+
+// WHAT HIS CLIPS NEED BEFORE ANYTHING PLAYS THEM, IN ONE PLACE -- so `npm run sim` prepares them
+// exactly as the game does rather than with its own copy of the rules.
+// HIS FLIPS ARE STANDING FLIPS: the hips rise 1.55 m in `front_flip`, 1.39 in the twist and 0.76
+// in the back flip, measured through the armature. Played in mid-air that would throw her a metre
+// and a half above where the physics has her, so the in-air flips keep their ROTATION and lose
+// the hips' TRAVEL -- the arc is the physics' job. And the twist flip is mirrored for flick-left.
+function prepClips(clips, root) {
+  for (const c of clips) if (/_flip$/.test(c.name)) c.tracks = c.tracks.filter(t => !/Hips\.position$/.test(t.name));
+  const twist = clips.find(c => c.name === 'front_twist_flip');
+  if (twist && !clips.some(c => c.name === 'front_twist_flip__mirror')) clips.push(mirrorClip(twist, root, 'front_twist_flip__mirror'));
+  return clips;
 }
 function buildGirl(gltf) {
   const model = gltf.scene;
@@ -1111,17 +1249,25 @@ function buildGirl(gltf) {
   girl.foot = model.position.y;
   girl.model = model;
   girl.mixer = new THREE.AnimationMixer(model);
-  const clips = normaliseClips(gltf.animations || []);
+  const clips = prepClips(normaliseClips(gltf.animations || []), model);
   const R = clipRoles(clips);
   girl.clipLen = R.len; girl.cyc = R.cyc; girl.fallback = R.fallback; girl.solo = R.solo;
   for (const c of clips) {
     const a = girl.mixer.clipAction(c);
-    if (ONCE.includes(c.name)) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
+    if (isOnce(c.name)) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
     else a.setLoop(R.pp[c.name] ? THREE.LoopPingPong : THREE.LoopRepeat, Infinity);
     a.enabled = true; a.setEffectiveWeight(0); a.play();
     girl.actions[c.name] = a;
   }
   for (const k in R.why) console.log(`[clip] ${k}: ${R.why[k]}`);
+  const has = {}; for (const c of clips) has[c.name] = 1;
+  girl.moves = buildMoves(has);
+  girl.idle = null; girl.bail = null;
+  // A SKIN WITH BACKWARD CLIPS CAN STAY IN FAKIE. Without them the old rule stands -- she always
+  // turns back round to face forwards below `fakieAt`, because riding backwards with a forward
+  // clip is a state with nothing to sell it.
+  player.stanceLock = !!girl.moves;
+  if (girl.moves) console.log('[moves] ' + JSON.stringify(girl.moves));
   girl.tail = tailFind(model, clips);
   girl.ready = true;
   const T = girl.tail;
@@ -1452,6 +1598,12 @@ function tailStep(dt) {
 // damping crosses between them. A `crossFadeFrom` state machine has to know what it is coming
 // FROM, which breaks the first time two transitions overlap.
 const ONCE = ['jump_start', 'jump_in_air'];
+// AND EVERY ONE-SHOT IN HIS NEW EXPORT, BY NAME. A flip, a fall and a get-up are events with an
+// end, not cycles -- measured as loops they read 15-48 degrees "open" and were ping-ponged, which
+// would have played every fall forwards and then backwards, standing her back up. `flip_pose` is
+// a held POSE and deliberately does not match (`_flip` needs the underscore in front).
+const ONCE_RE = /^(jump_start|jump_in_air)$|_flip|^fall_to|^get_up|^kip_up/;
+const isOnce = nm => ONCE.includes(nm) || ONCE_RE.test(nm);
 // WHICH CLIPS PING-PONG IS MEASURED AT LOAD, NOT LISTED HERE -- see `clipCyclic`. It was a
 // list of one (`skate_fwd`), which was right for roller_girl's six-frame out-and-back push and
 // is WRONG for the alien's 56-key mocap cycle under the same name: ping-ponged, a clip that
@@ -1459,10 +1611,12 @@ const ONCE = ['jump_start', 'jump_in_air'];
 // pose" looked like for three builds. `girl.cyc[name]` is how many clip lengths make one
 // stride -- 2 for an out-and-back, 1 for a cycle -- so the rate comes out of the measurement
 // rather than being a constant to keep in step with it.
-// `ANIM.cyc` is the threshold in degrees (the two exports read 45.5 and 0.6, so there is no
-// sensitivity to argue about) and `ANIM.still` is how far a bone has to turn before its
-// opening counts at all.
-const ANIM = { cyc: 12, still: 3, coastLo: 0.85, coastHi: 1.3, airFill: 1, blend: 0.055, snap: 0.035,
+// `ANIM.cyc` is the threshold in degrees, and **it was 12 until his r21 export proved that too
+// tight**: real loops in it close to within 9-18 degrees (`blade_swizzle_forward` 18,
+// `blade_tiptoe_*` 13) and were ping-ponged, while their own backward twins at 8.9 were not. The
+// one genuine out-and-back is still roller_girl's push at 45.5, so 30 separates them with room
+// either side. `ANIM.still` is how far a bone has to turn before its opening counts at all.
+const ANIM = { cyc: 30, still: 3, coastLo: 0.85, coastHi: 1.3, airFill: 1, blend: 0.055, snap: 0.035,
   // A ONE-CLIP CHARACTER DRIVES HERSELF FROM THAT CLIP AND **THE RATE IS THE ANIMATION**: a
   // stride clip at a time scale of zero HOLDS A POSE, which is a skater standing still -- and
   // that is a better answer than the T-pose he said he would settle for.
@@ -1505,9 +1659,71 @@ function setWeights(t, dt, snap) {
     else if (cur > 0.002 || a.getEffectiveWeight() > 0.002 || a.isRunning()) { a.setEffectiveWeight(0); a.stop(); }
   }
 }
+// ---------- the move brain (any skin with `blade_*` clips) ----------
+// One weight table a frame, from the top: a BAIL outranks everything (down, then up, filling the
+// bail's length), then the AIR (a flip if one was flicked, the air pose otherwise), then the
+// ground -- standing (the idles, rotating) and skating (the three speed tiers, blended by her
+// speed, forward or backward by her STANCE). Every row sums to 1, because a table that dips below
+// it bleeds the bind pose in.
+function rewind(nm) { const a = girl.actions[nm]; if (a) { a.reset(); a.play(); } }
+function girlAnimMoves(dt) {
+  const p = player, m = girl.moves, t = {};
+  const add = (nm, w) => { if (nm && w > 0) t[nm] = (t[nm] || 0) + w; };
+  let snap = p.landHard > 4;
+  if (p.bailT > 0 && m.falls.length) {
+    if (!girl.bail || girl.bail.id !== p.bailId) {
+      const [fall, up] = m.falls[Math.floor(Math.random() * m.falls.length)];
+      const T = p.bailT, fT = T * MOVES.fallShare;
+      girl.bail = { id: p.bailId, fall, up, T, fT, rose: false };
+      rewind(fall); snap = true;
+      clipScale(fall, clipLen(fall, 1) / fT);
+      clipScale(up, clipLen(up, 1) / Math.max(0.2, T - fT));
+    }
+    const B = girl.bail, down = B.T - p.bailT < B.fT;
+    if (!down && !B.rose) { rewind(B.up); B.rose = true; }
+    add(down ? B.fall : B.up, 1);
+  } else if (!p.grounded) {
+    girl.bail = null;
+    const f = p.flip;
+    if (f && f.t < f.dur) {
+      if (girl.flipSeen !== f) { girl.flipSeen = f; rewind(f.nm); snap = true; }
+      clipScale(f.nm, clipLen(f.nm, 1) / f.dur);
+      add(f.nm, 1);
+    } else add(m.air || m.fwd[0], 1);         // a finished flip hands back to the air pose
+  } else {
+    girl.bail = null;
+    const back = p.stance < 0, loco = back ? m.back : m.fwd, v = p.speed;
+    const still = 1 - smooth(MOVES.idleV, MOVES.idleV + 1.2, v);
+    if (still > 0.001) {
+      const list = back ? m.idleBack : m.idleFwd;
+      if (!girl.idle || girl.idle.back !== back) girl.idle = { nm: list[0], t: 0, back };
+      girl.idle.t += dt;
+      if (girl.idle.t > MOVES.idleHold && list.length > 1) {
+        let nx; do nx = list[Math.floor(Math.random() * list.length)]; while (nx === girl.idle.nm);
+        girl.idle.nm = nx; girl.idle.t = 0;
+      }
+      add(girl.idle.nm, still);
+    } else girl.idle = null;                  // moving again: the next stand starts at `idle_normal`
+    // THE THREE TIERS, centred on `MOVES.speeds` and blended linearly between neighbours
+    const S = MOVES.speeds, w = [0, 0, 0];
+    if (v <= S[0]) w[0] = 1;
+    else if (v >= S[2]) w[2] = 1;
+    else { const i = v < S[1] ? 0 : 1, u = (v - S[i]) / (S[i + 1] - S[i]); w[i] = 1 - u; w[i + 1] = u; }
+    for (let i = 0; i < 3; i++) if (w[i] > 0) {
+      add(loco[i], w[i] * (1 - still));
+      clipScale(loco[i], clamp(Math.max(0.3, v) / S[i], MOVES.rateLo, MOVES.rateHi));
+    }
+  }
+  let top = null, tw = 0; for (const k in t) if (t[k] > tw) { tw = t[k]; top = k; }
+  girl.top = top;
+  setWeights(t, dt, snap);
+  p.landHard = 0;
+}
+
 function girlAnim(dt) {
   if (!girl.ready) return;
   const p = player, t = {};
+  if (girl.moves) { girlAnimMoves(dt); return; }
   if (girl.solo) {
     // ONE CLIP, WEIGHT 1 FOR EVER, AND THE RATE DOES ALL THE WORK -- a function of her SPEED
     // and nothing else, so it reads the same whether the thumb is pushing, coasting or off the
@@ -1662,7 +1878,12 @@ bindStick(document.getElementById('stkL'), stick.L, null, null, null);
 // THE RIGHT PAD: a TAP jumps, a DRAG orbits the camera. Those separate themselves -- a drag
 // travels past `far` .42 or is held past `tapT`, and a tap is neither -- so one thumb does
 // both with no mode to be in and nothing to learn. The flick is left unclaimed.
-bindStick(document.getElementById('stkR'), stick.R, null, null, (far, held) => {
+bindStick(document.getElementById('stkR'), stick.R, null, (dx, dy) => {
+  // THE FLICK, CLAIMED AT LAST: a flip in the air. The pad's +Y is DOWN the screen, so a flick up
+  // is a negative dy. On the ground it does nothing yet -- it is still eaten, so a fast swipe of the
+  // camera never also jumps.
+  startFlip(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down'));
+}, (far, held) => {
   // A TAP IS A JUMP, AND `far` IS NOW MEASURED FROM WHERE THE THUMB LANDED, so it is genuinely
   // "did the thumb move" rather than "did the thumb land in the middle of the circle". With the
   // old fixed pad a tap near the rim read as 0.9 of full travel before moving a pixel, and the
@@ -1694,6 +1915,10 @@ const player = {
   pushing: false, pushT: 0, pushOff: 9, pushPeriod: SK.pushFast,
   shoveT: 0, shoveDur: 0, shoveV: 0,
   braked: 0, lean: 0, steer: 0, bailT: 0, drift: 0,
+  // STANCE: +1 skating forwards, -1 FAKIE. A STATE, set by how she lands (and by riding up a wall
+  // and back down it), not re-derived from her velocity every frame -- see `stanceLock`.
+  stance: 1, stanceLock: false, shoveDir: 1,
+  flip: null, bailId: 0, landAng: 0,
   bq: new THREE.Quaternion(),      // THE BODY'S FULL ORIENTATION. On the ground it is derived
                                    // from the surface; in the air it is integrated and is the
                                    // only thing that says which way up she is.
@@ -1714,8 +1939,29 @@ function groundQ(out) {
 // EVERY WAY SHE LEAVES THE GROUND GOES THROUGH HERE, so there is one place that decides what
 // angle she takes into the air with her. Seeded from the TRUE surface rather than from the
 // damped pose, because "the rotation of the end of the ramp" is the thing being asked for.
+// THE VERT LOCK (r21). *"In Tony Hawk, if you go off a half pipe you go straight up and you come back
+// down that same half pipe -- and if you're holding forward and you ollie off it, you shoot over
+// it."* The collider cannot hold a truly vertical face, so she leaves a vert wall at its last
+// band's angle -- about 85 degrees -- and every straight air drifted OUT: at 13 m/s she came down
+// on the flat lip at deck height, at 17 and 21 on the deck itself. Leaving anything steeper than
+// `VERT.at`, the part of her velocity heading out over the coping is taken away and a little is
+// sent back IN, so she drops into the transition she left -- and SIDEWAYS along the coping is
+// kept, which is how you travel down a pipe. A thumb pushed forward at the moment she leaves is
+// the transfer and skips the lock; holding forward in the air still carries her over as before.
+const VERT = { at: 65 * Math.PI / 180, inward: 0.6, transfer: -0.4 };
 function leaveGround(coy) {
-  const p = player;
+  const p = player, n = p.n;
+  if (n.y < Math.cos(VERT.at)) {
+    const h = Math.hypot(n.x, n.z);
+    const fwd = stick.L.y + ((keys.w || keys.arrowup) ? -1 : 0);
+    if (h > 1e-4 && fwd > VERT.transfer) {
+      const ix = n.x / h, iz = n.z / h;                 // INTO the pipe, horizontally
+      const out = -(p.vel.x * ix + p.vel.z * iz);       // her speed out over the coping
+      const fix = Math.max(0, out) + VERT.inward;
+      p.vel.x += ix * fix; p.vel.z += iz * fix;
+      p.vertLock = 1;
+    } else p.vertLock = 0;
+  } else p.vertLock = 0;
   groundQ(p.bq);
   p.grounded = false; p.airT = 0; p.coyote = coy; p.drift = 0;
 }
@@ -1724,7 +1970,7 @@ function respawn() {
   const p = player;
   p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0; p.drift = 0;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
-  p.lean = 0; groundQ(p.bq);
+  p.lean = 0; p.stance = 1; p.flip = null; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
   if (g.hit) { p.pos.y = g.floor; p.n.set(g.nx, g.ny, g.nz); }
 }
@@ -1792,9 +2038,14 @@ function stepGround(dt) {
   // AND `lead` ONLY GOES NEGATIVE PAST `fakieAt`. Below that she always turns to face the
   // thumb and skates away forwards -- so she can never be left trickling backwards with the
   // controls mirrored and no clip to sell it, which is a state you cannot get out of.
+  // A SKIN THAT CAN SKATE BACKWARDS KEEPS ITS STANCE. It changes on a landing, and on the ground
+  // only when her travel genuinely reverses against it -- up a wall forwards and back down it is
+  // fakie on the way down, which is skating -- and NOT when she slows, because standing still in
+  // fakie is a real place to be now that there is `idle_backward` to show it.
+  if (p.stanceLock) { if (along * p.stance < -SK.fakieAt) p.stance = -p.stance; lead = p.stance; }
   if (ctrl && s.mag > 0) {
     const ang = wrapAngle(Math.atan2(s.x, s.z) - p.heading);
-    lead = along < -SK.fakieAt ? -1 : 1;
+    if (!p.stanceLock) lead = along < -SK.fakieAt ? -1 : 1;
     const rel = lead > 0 ? ang : wrapAngle(ang - Math.PI);
     const fwdR = Math.cos(rel) * s.mag;
     // A HELD BRAKE IS A BRAKE UNTIL THE THUMB LEAVES IT. Without the latch she carves round to
@@ -1845,9 +2096,12 @@ function stepGround(dt) {
   // the speedometer read 9, 9, 9, 13, 13, 13 -- a staircase, which is not what a foot hitting
   // tarmac does. The same total is spread over `strokeDur` on a half sine: the integral of
   // (pi/2)sin(pi u) over one cycle is exactly 1, so the top speed is untouched.
-  if (ctrl && !braking && !p.braked && go && lead > 0 && along < SK.pushMax) {
+  // AND SHE PUSHES IN FAKIE: the stroke goes along the LEADING end, so a thumb pointing where she
+  // is rolling backwards speeds her up backwards. Without `stanceLock` the old rule stands.
+  if (ctrl && !braking && !p.braked && go && (p.stanceLock || lead > 0) && along * lead < SK.pushMax) {
     p.pushPeriod = lerp(SK.pushFast, SK.pushDur, clamp(spd / SK.pushEase, 0, 1));
     const shove = () => {
+      p.shoveDir = lead;
       p.shoveV = SK.pushV * (1 - SK.taper * spd / SK.pushMax);
       p.shoveDur = Math.min(SK.strokeDur, p.pushPeriod * 0.7);
       p.shoveT = p.shoveDur;
@@ -1872,7 +2126,7 @@ function stepGround(dt) {
 
   if (p.shoveT > 0) {
     const u = clamp(1 - p.shoveT / p.shoveDur, 0, 1);
-    along += p.shoveV * (Math.PI / 2) * Math.sin(Math.PI * u) * (dt / p.shoveDur);
+    along += p.shoveDir * p.shoveV * (Math.PI / 2) * Math.sin(Math.PI * u) * (dt / p.shoveDur);
     p.shoveT -= dt;
   }
   // PUMPING IS WHAT GETS YOU UP A TRANSITION, and it is a separate term from the stride: a
@@ -1933,6 +2187,7 @@ function stepGround(dt) {
 function stepAir(dt) {
   const p = player;
   p.airT += dt; p.coyote -= dt;
+  if (p.flip) p.flip.t += dt;
   // THE LEFT STICK: X SPINS HER, Y PUSHES HER. Read RAW off the pad rather than through
   // `cam.az`, because a spin is relative to her body and the thrust is along her nose -- neither
   // is a question about where the lens happens to be.
@@ -2003,11 +2258,50 @@ function stepAir(dt) {
     _v2.set(0, 0, 1).applyQuaternion(p.bq).addScaledVector(_N, -_v2.dot(_N));
     if (_v2.lengthSq() > 1e-4) p.heading = p.faceH = Math.atan2(_v2.x, _v2.z);
     if (off > AIR.land) { p.bailT = AIR.bailT; p.vel.multiplyScalar(AIR.bailKeep); }
+    if (p.stanceLock) landStance(_v2);
+    p.flip = null;
     p.landOff = off; p.drift = 0;
     p.n.copy(_N);
     p.grounded = true; p.airT = 0; p.pushT = 0; p.pushOff = 9; p.braked = 0; p.lean = 0;
   }
   if (p.pos.y < -8) respawn();
+}
+
+// WHICH WAY ROUND SHE CAME DOWN. `fwd` is her body's forward already flattened onto the surface;
+// her velocity is flattened onto it here too, so a landing on a wall is judged in the wall's
+// plane and not in the world's -- coming straight down a vert ramp is a perfectly good landing.
+// A flip not far enough round is a bail whatever her feet are doing.
+function landStance(fwd) {
+  const p = player;
+  let bail = !!(p.flip && p.flip.t < p.flip.dur * LAND.flipDone);
+  _v.copy(p.vel).addScaledVector(p.n, -p.vel.dot(p.n));
+  const sp = _v.length();
+  p.landAng = -1;
+  if (sp > LAND.minV && fwd.lengthSq() > 1e-6) {
+    const a = Math.acos(clamp(_v.dot(fwd) / (sp * fwd.length()), -1, 1));
+    p.landAng = a;
+    if (a < LAND.ok) p.stance = 1;
+    else if (a > Math.PI - LAND.ok) p.stance = -1;
+    else bail = true;
+  }
+  if (bail) { p.bailT = LAND.bailT; p.vel.multiplyScalar(AIR.bailKeep); p.bailId++; p.pushing = false; }
+}
+
+// A FLIP ON THE RIGHT STICK'S FLICK, IN THE AIR. *"Flick up is a front flip, flick down a back flip,
+// flick right the front twist flip, and mirror it for the other side."* It is timed to the air she
+// has LEFT -- the time to come back down to whatever is under her -- so a flip flicked late in a
+// small jump is short and quick, and one flicked at the top of a big air takes its time. Too
+// little air to get round is no flip at all, rather than a guaranteed bail.
+function startFlip(dir) {
+  const p = player, m = girl.moves;
+  if (!m || p.grounded || p.flip || p.bailT > 0) return false;
+  const nm = m.flip[dir]; if (!nm) return false;
+  const g = groundAt(p.pos.x, p.pos.z, p.pos.y, 0.05);
+  const h = g.hit ? Math.max(0, p.pos.y - g.floor) : 3;
+  const vy = p.vel.y, left = (vy + Math.sqrt(Math.max(0, vy * vy + 2 * SK.g * h))) / SK.g;
+  if (left * LAND.flipFill < LAND.flipMin) return false;
+  p.flip = { nm, dir, t: 0, dur: clamp(left * LAND.flipFill, LAND.flipMin, LAND.flipMax) };
+  return true;
 }
 
 function stepPlayer(dt) {
@@ -2160,6 +2454,9 @@ function hud(dt) {
       // animates it so the sim stood down, or the sim is on and something is wrong with it --
       // and those are one glance apart here.
       (girl.who ? ' · ' + girl.who.name : '') + (girl.loading ? ' · LOADING' : '') +
+      // WHICH CLIP IS UP, AND WHICH WAY ROUND SHE IS. "Why is she doing that" is a question about
+      // the move brain's choice, and the answer is one glance here rather than a guess.
+      (girl.moves ? (player.stance < 0 ? ' · FAKIE' : '') + (girl.top ? ' · ' + girl.top.replace(/^blade_/, '') : '') : '') +
       (girl.tail && girl.tail.n
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : ''); }
@@ -2228,6 +2525,7 @@ function dropGirl() {
   if (girl.mixer) { girl.mixer.stopAllAction(); girl.mixer.uncacheRoot(girl.model); }
   girl.model = null; girl.mixer = null; girl.actions = {}; girl.cw = {};
   girl.clipLen = {}; girl.cyc = {}; girl.tail = null; girl.fallback = null; girl.solo = null;
+  girl.moves = null; girl.idle = null; girl.bail = null; player.stanceLock = false;
   girl.ready = false;
 }
 async function wearChar(i, onProg) {
@@ -2264,35 +2562,58 @@ document.getElementById('charB').addEventListener('pointerdown', e => {
 // on Safari. Pointer events always fire, so the track is a div that reads the thumb itself.
 const TAILUI = [
   ['Wave', 'wave'],
-  ['waveRoot',  'Ease at base',   2,   60,  1,    'wave'],
-  ['waveTip',   'Ease at tip',    0.5, 30,  0.5,  'wave'],
-  ['waveMax',   'Max bend/joint', 2,   40,  1,    'wave'],
-  ['sway',      'Sway',           0,   45,  1,    'wave'],
-  ['swayHz',    'Sway speed',     0.1, 2.5, 0.05, 'wave'],
-  ['turnSwing', 'Turn swing',     0,   40,  1,    'wave'],
-  ['lift',      'Accel lift',     -6,  6,   0.25, 'wave'],
-  ['speedLift', 'Speed lift',     -2,  2,   0.05, 'wave'],
+  ['TAIL.waveRoot',  'Ease at base',   2,   60,  1,    'wave'],
+  ['TAIL.waveTip',   'Ease at tip',    0.5, 30,  0.5,  'wave'],
+  ['TAIL.waveMax',   'Max bend/joint', 2,   40,  1,    'wave'],
+  ['TAIL.sway',      'Sway',           0,   45,  1,    'wave'],
+  ['TAIL.swayHz',    'Sway speed',     0.1, 2.5, 0.05, 'wave'],
+  ['TAIL.turnSwing', 'Turn swing',     0,   40,  1,    'wave'],
+  ['TAIL.lift',      'Accel lift',     -6,  6,   0.25, 'wave'],
+  ['TAIL.speedLift', 'Speed lift',     -2,  2,   0.05, 'wave'],
   ['Physics', 'sim'],
-  ['strength',  'Strength',       0,   1,   0.05, 'sim'],
-  ['posHold',   'Position hold',  0,   1.5, 0.05, 'sim'],
-  ['posTip',    'Pos hold at tip',0,   1.5, 0.05, 'sim'],
-  ['rotHold',   'Rot hold base',  0,   0.95,0.05, 'sim'],
-  ['rotTip',    'Rot hold tip',   0,   0.95,0.05, 'sim'],
-  ['damping',   'Damping',        0,   20,  0.5,  'sim'],
-  ['air',       'Air drag',       0,   2,   0.05, 'sim'],
-  ['grav',      'Gravity',        0,   1,   0.05, 'sim'],
-  ['Both', ''],
-  ['pin',       'Rigid base bones', 0, 6,   1,    ''],
+  ['TAIL.strength',  'Strength',       0,   1,   0.05, 'sim'],
+  ['TAIL.posHold',   'Position hold',  0,   1.5, 0.05, 'sim'],
+  ['TAIL.posTip',    'Pos hold at tip',0,   1.5, 0.05, 'sim'],
+  ['TAIL.rotHold',   'Rot hold base',  0,   0.95,0.05, 'sim'],
+  ['TAIL.rotTip',    'Rot hold tip',   0,   0.95,0.05, 'sim'],
+  ['TAIL.damping',   'Damping',        0,   20,  0.5,  'sim'],
+  ['TAIL.air',       'Air drag',       0,   2,   0.05, 'sim'],
+  ['TAIL.grav',      'Gravity',        0,   1,   0.05, 'sim'],
+  ['Tail', ''],
+  ['TAIL.pin',       'Rigid base bones', 0, 6,   1,    ''],
+  // ---- SKATING (r21): the numbers the new moves turn on. Angles are shown in DEGREES and stored
+  // in radians, so a `deg` row converts at the slider and nowhere else.
+  ['Skating', ''],
+  ['LAND.ok',        'Landing window', 20,  85,  1,    '', 'deg'],
+  ['LAND.bailT',     'Bail length',    0.8, 5,   0.1,  ''],
+  ['MOVES.speeds.0', 'Soft at m/s',    1,   12,  0.5,  ''],
+  ['MOVES.speeds.1', 'Medium at m/s',  3,   20,  0.5,  ''],
+  ['MOVES.speeds.2', 'Hard at m/s',    6,   28,  0.5,  ''],
+  ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
+  ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
 ];
+// A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
+// vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR };
+const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
+  for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
+const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
+const uiSet = (path, v) => { const [o, k] = uiRef(path); o[k] = v; };
 const TAILKEYS = TAILUI.filter(r => r.length > 2).map(r => r[0]);
+// THE SHIPPED VALUES OF EVERY ROW, captured before `tailLoad` applies anything saved
+const UI_DEF = {}; for (const k of TAILKEYS) UI_DEF[k] = uiGet(k);
 function tailSave() {
-  try { const o = { mode: TAIL.mode }; for (const k of TAILKEYS) o[k] = TAIL[k]; localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}
+  try { const o = { mode: TAIL.mode }; for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}
 }
 function tailLoad() {
   try {
     const o = JSON.parse(localStorage.getItem('rg.tail') || 'null'); if (!o) return;
     if (o.mode === 'wave' || o.mode === 'sim') TAIL.mode = o.mode;
-    for (const k of TAILKEYS) if (typeof o[k] === 'number' && Number.isFinite(o[k])) TAIL[k] = o[k];
+    for (const k of TAILKEYS) {
+      // r20 saved bare tail keys (`sway`); r21 saves paths (`TAIL.sway`). Both are read.
+      const v = k in o ? o[k] : (k.startsWith('TAIL.') ? o[k.slice(5)] : undefined);
+      if (typeof v === 'number' && Number.isFinite(v)) uiSet(k, v);
+    }
   } catch (e) {}
 }
 const tailP = document.getElementById('tailP');
@@ -2309,14 +2630,15 @@ function tailPanel() {
   tailP.appendChild(modes);
   for (const r of TAILUI) {
     if (r.length === 2) { if (r[1] && r[1] !== TAIL.mode) continue; tailP.appendChild(el('h3', '', r[0].toUpperCase())); continue; }
-    const [k, label, lo, hi, step, mode] = r;
+    const [k, label, lo, hi, step, mode, unit] = r;
     if (mode && mode !== TAIL.mode) continue;
+    const D = unit === 'deg' ? 180 / Math.PI : 1;
     const row = el('div', 'row'), trk = el('div', 'trk'), fill = el('div', 'fill'), val = el('div', 'val');
     row.appendChild(el('div', 'lab', label)); trk.appendChild(fill); row.appendChild(trk); row.appendChild(val);
-    const show = () => { fill.style.width = (clamp((TAIL[k] - lo) / (hi - lo), 0, 1) * 100) + '%'; val.textContent = fmt(TAIL[k]); };
+    const show = () => { const v = uiGet(k) * D; fill.style.width = (clamp((v - lo) / (hi - lo), 0, 1) * 100) + '%'; val.textContent = fmt(v); };
     const set = e => {
       const b = trk.getBoundingClientRect(), u = clamp((e.clientX - b.left) / Math.max(1, b.width), 0, 1);
-      TAIL[k] = clamp(Math.round((lo + u * (hi - lo)) / step) * step, lo, hi);
+      uiSet(k, clamp(Math.round((lo + u * (hi - lo)) / step) * step, lo, hi) / D);
       show();
     };
     let held = null;
@@ -2330,7 +2652,7 @@ function tailPanel() {
   }
   const foot = el('div', 'btns');
   const rst = el('button', '', 'RESET');
-  rst.addEventListener('click', () => { TAIL.mode = TAIL_DEF.mode; for (const k of TAILKEYS) TAIL[k] = TAIL_DEF[k]; tailSave(); tailPanel(); });
+  rst.addEventListener('click', () => { TAIL.mode = TAIL_DEF.mode; for (const k of TAILKEYS) uiSet(k, UI_DEF[k]); tailSave(); tailPanel(); });
   const off = el('button', TAIL.on ? '' : 'sel', TAIL.on ? 'TAIL ON' : 'TAIL OFF');
   off.addEventListener('click', () => { TAIL.on = TAIL.on ? 0 : 1; tailPanel(); });
   const cls = el('button', '', 'CLOSE');
@@ -2381,6 +2703,7 @@ async function init() {
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
+  mirrorClip, mirrorName, buildMoves, MOVES, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

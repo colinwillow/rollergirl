@@ -53,6 +53,13 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   `jump_in_air` (0.75), and `CINEMA_4D_Main`, which is one-frame exporter residue and is
   dropped. **Every clip starts at 1/24 s rather than zero**, which is one held frame at the top
   of every loop; `normaliseClips` shifts the track times back.
+- `models/alien_rollerskate_blue.glb` — **the alien, r21 onward.** 81 joints (65 Mixamo + 15
+  tail), 49 clips named as a schema the move brain reads: `blade_<soft|medium|hard>_<forward|
+  backward>` (no `blade_hard_backward` -- a fast fakie borrows medium), `idle_*` (5 forward +
+  `idle_backward`), `in_air`, `tuck`, `flip_pose`, `front_flip`/`back_flip`/`front_twist_flip`,
+  `fall_to_*` + `get_up_*`/`kip_up_from_back`, `grind_left/right`, and the variety skates
+  (`casual`, `daffy`, `swizzle`, `tiptoe`, `onefoot*`, `pose_duck/swan`) not yet triggered.
+  `alien_rollerskate_blue_test.glb` is the one-clip test export and is no longer on the roster.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
 - `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`.
@@ -252,6 +259,65 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   description and not from his code. Worth comparing against his arm the next time a session can
   read that file.
 
+- **THE MOVE BRAIN (r21, `girlAnimMoves`, `buildMoves`, `MOVES`).** His naming IS the schema, read
+  once at load into a move table; a skin with no `blade_*_forward` keeps the old path. One weight
+  table a frame, top down: a BAIL (a fall, then its get-up, filling `LAND.bailT`), the AIR (a flip
+  if one was flicked, else `in_air`; a flip that finishes before she lands hands back to `in_air`),
+  then the ground -- standing (`idle_normal`, shifting to another idle every `idleHold` s, never
+  the same twice; `idle_backward` in fakie) and skating (soft / medium / hard centred on
+  `MOVES.speeds` 3 / 9 / 16 m/s, two neighbours blended between centres, each played x0.5-1.35
+  by how far she is off its centre). Every row sums to 1. The chip names the clip that is up.
+  `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
+  `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
+  49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **ONE-SHOTS ARE ONE-SHOTS BY NAME (`ONCE_RE`), AND THE PING-PONG THRESHOLD IS 30, NOT 12.** Flips,
+  falls and get-ups measured 15-48 deg "open" as loops and were classified ping-pong -- every fall
+  would have played forwards then backwards. Real loops in his export close to 9-18 deg, so 12
+  split matched forward/backward pairs (`swizzle_forward` 18 pingpong, `swizzle_backward` 8.9
+  loop); the only genuine out-and-back is still roller_girl's push at 45.5.
+- **TWO OF HIS LOOPS DO NOT CLOSE IN POSITION** (measured through the armature, in metres):
+  `blade_casual_*` ends its hips 0.144 m from where they start, `blade_swizzle_forward` 0.196 m.
+  Each will jump once per loop. Not fixable here; worth a look in the export. Medium / soft / hard
+  close exactly, with 0.38 / 0.17 / 0.26 m of the side-to-side hip travel he baked in.
+- **STANCE IS A STATE (`p.stance`, `p.stanceLock`, `landStance`).** *"Land with your back forward and
+  you're in fakie -- even pushing forward she's still going forward, just backwards."* A landing
+  compares her BODY's forward with her travel IN THE PLANE SHE LANDED ON (so coming straight down
+  a vert wall is judged in the wall's plane): within `LAND.ok` (55 deg) of the nose is forward,
+  of the tail is fakie, between is a BAIL; slower than `minV` along the surface there is no
+  direction to be wrong against. On the ground the stance flips only when her travel genuinely
+  reverses against it (up a wall forwards, back down fakie). She PUSHES in fakie: the stroke goes
+  along the leading end. **All of it only for a skin with backward clips** -- roller_girl keeps
+  the old "always turn back to forwards below `fakieAt`", and `npm run sim stance` asserts both.
+- **FLIPS ARE THE RIGHT STICK'S FLICK, IN THE AIR (`startFlip`).** Up front, down back, right the
+  twist flip, left the twist flip MIRRORED. Timed to the air she has LEFT when flicked (85% of
+  the time to come back down to what is under her), so a late flick is quick and an early one
+  takes its time; too little air is NO flip, never a guaranteed bail. Landing under 80% round is
+  a bail. **His flips are standing flips** -- the hips rise 1.55 m in `front_flip` -- so
+  `prepClips` strips their hips TRAVEL and keeps the rotation: the arc is the physics' job.
+- **A MIRRORED CLIP IS REFLECTED AS DELTAS FROM THE BIND POSE, IN THE MODEL'S FRAME (`mirrorClip`).**
+  Each key becomes a delta from its bone's rest, is turned into the model's frame, reflected
+  across her centre plane, and handed to the partner bone in the PARTNER's own axes -- right
+  whatever the rig did with its left and right axes. `npm run sim mirror` poses his real skeleton
+  (rebuilt from the GLB's nodes; a skeleton needs no mesh, so draco never comes into it) both ways:
+  every joint within **0.15 mm** of its partner reflected, which is the rest pose's own asymmetry
+  (0.14). Against the UNmirrored clip it reads 625 mm, so the test can fail. The naive
+  raw-quaternion flip also passes on HIS rig (his left and right axes are authored as mirror
+  images); the delta form is there for the rig that is not.
+- **THE VERT LOCK (r21, `VERT`, in `leaveGround`).** *"Off a half pipe you go straight up and come
+  back down that same half pipe -- if you're holding forward and you ollie, you shoot over it."*
+  The collider cannot hold a vertical face, so she left vert at its last band's ~85 deg and EVERY
+  straight air drifted out -- the `vert` case labelled 13 m/s "back in the pipe" while it landed
+  on the flat lip at deck height, because it measured against the deck's FAR edge, not the lip.
+  Leaving anything steeper than `VERT.at` (65 deg), her speed out over the coping is removed and
+  `inward` 0.6 m/s sent back in; sideways along the coping is kept. A thumb forward at the moment
+  she leaves skips it -- the transfer -- and the existing hold-forward air push carries her over.
+  13/17/21 m/s and both pops now land below the lip, FAKIE (no spin); holding forward lands on
+  the deck, 15-29 m past the lip, which is `AIR.driftMax` and is on the panel as Transfer push.
+- **THE PANEL IS PATHS NOW (`TAILUI`, `UIOBJ`, the ⚙ key).** A row names `OBJ.key[.index]`, so one
+  table drives TAIL, LAND, MOVES, VERT and AIR. A `deg` row is shown in degrees and STORED in
+  radians -- crossed units would hand the landing check 53 radians and nothing would ever bail,
+  and `npm run sim panel` checks exactly that. `UI_DEF` snapshots every row before anything saved
+  is applied; r20's bare saved keys (`sway`) still load.
 - **HE TUNES ON A PHONE WITH NO CONSOLE, SO EVERY DIAL IS ON SCREEN (r20, `#tailB`, `TAILUI`).**
   *"I can't type the things into the console, so you've got to put buttons on the screen."*
   `rg.TAIL.x = ...` was useless advice. The `∿` key opens a panel of sliders built from ONE table
@@ -606,8 +672,12 @@ Each of these cost a round in the build that found it.
 
 ## Not there yet
 
-- No grinds, no tricks, no spins scored — **the right pad's FLICK is deliberately unspent** and
-  `FLICK` is already wired for it.
+- **The rest of his r21 plan**, in roughly his order: grinds (`grind_left/right` by which side she
+  meets the rail; no rails in the park yet), grabs on the other stick, rail poses / a balance bar,
+  trick points (+10 +25 ...), sparks, hand/foot trails, a speed tunnel / blur, landing and bail
+  shake, the swivel (tap the left stick to switch stance), and the variety skates (`onefoot*`,
+  `daffy`, `swizzle`, `tiptoe`, `pose_duck/swan`) which have no trigger yet. `tuck` and
+  `flip_pose` are loaded and unused. The right pad's flick does nothing ON THE GROUND yet.
 - No audio at all.
 - `skate_fwd` is six frames of one push, ping-ponged. `SK.pushDur` / `SK.pushFast` are the
   stride period and the clip is fitted to it; a clip authored as a FULL cycle drops straight in

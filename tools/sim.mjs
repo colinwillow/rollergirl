@@ -62,7 +62,7 @@ function place(x, y, z, heading, speed) {
   P.pos.set(x, y, z); P.heading = P.faceH = heading; P.grounded = true;
   P.vel.set(Math.sin(heading) * (speed || 0), 0, Math.cos(heading) * (speed || 0));
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
-  P.bailT = 0; P.lean = 0;
+  P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
   rg.groundQ(P.bq);        // standing on whatever she was just placed on
@@ -82,6 +82,28 @@ function run(sec, fn) {
   for (let i = 0; i < n; i++) { if (fn) fn(i * DT, i); rg.stepPlayer(DT); }
 }
 const fix = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d);
+// HIS SKELETON, REBUILT FROM THE GLB'S OWN NODES -- a skeleton needs no mesh, so draco never comes
+// into it. Used wherever a case needs the real rig: mirroring, and the clip prep the game does.
+function skelFromGLB(J) {
+  const objs = J.nodes.map(n => { const o = new THREE.Bone(); o.name = n.name || '';
+    if (n.translation) o.position.fromArray(n.translation); if (n.rotation) o.quaternion.fromArray(n.rotation);
+    if (n.scale) o.scale.fromArray(n.scale); return o; });
+  const root = new THREE.Group(), kid = new Set();
+  J.nodes.forEach(n => (n.children || []).forEach(c => kid.add(c)));
+  J.nodes.forEach((n, i) => (n.children || []).forEach(c => objs[i].add(objs[c])));
+  J.nodes.forEach((n, i) => { if (!kid.has(i)) root.add(objs[i]); });
+  root.updateMatrixWorld(true);
+  const by = {}; root.traverse(o => { if (o.name) by[o.name] = o; });
+  return { root, by };
+}
+// HIS CLIPS PREPARED EXACTLY AS `buildGirl` PREPARES THEM -- the shipped `normaliseClips` and the
+// shipped `prepClips`, on his real skeleton -- and the move table the game would build from them.
+function gameClips(file) {
+  const g = readGLB(file);
+  const clips = rg.prepClips(rg.normaliseClips(buildClips(g, THREE)), skelFromGLB(g.json).root);
+  const has = {}; for (const c of clips) has[c.name] = 1;
+  return { g, clips, has, moves: rg.buildMoves(has), R: rg.clipRoles(clips) };
+}
 
 const CASES = {};
 // ---------------------------------------------------------------- the stride
@@ -202,11 +224,13 @@ CASES.vert = () => {
   // Ridden up from the FLAT BOTTOM, which is the only way she ever actually reaches the lip --
   // popped mid-wall she leaves at whatever angle that face happens to be and flying out over
   // the deck is then correct rather than a fault.
-  for (const [v, pop] of [[13, 0], [17, 0], [21, 0], [13, 1], [17, 1]]) {
+  // THE LAST TWO ROWS ARE THE TRANSFER: the thumb held forward as she leaves, which skips the
+  // vert lock and carries her over onto the deck. Every other row must come back INTO the pipe.
+  for (const [v, pop, xfer] of [[13, 0, 0], [17, 0, 0], [21, 0, 0], [13, 1, 0], [17, 1, 0], [17, 0, 1], [13, 1, 1]]) {
     place(0, 3, 29, 0, v);
     let phase = 0, landZ = 0, apex = -9;
     run(5, (t, i) => {
-      rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+      rg.stick.L.x = 0; rg.stick.L.y = xfer ? -1 : 0; rg.cam.az = 0;
       // AT THE LIP, not merely near it. The band from 58 degrees to 88 is only 40 cm of z, so
       // a trigger at 35.2 pops her off a 58-degree face -- and flying out over the deck off a
       // 58-degree face is correct, not a fault. This is the LIP.
@@ -216,17 +240,18 @@ CASES.vert = () => {
     });
     const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep), deck = lip + rg.PARK.cope;
     const where = landZ > deck ? 'ON THE DECK' : 'back in the pipe';
-    console.log(`  in at ${String(v).padStart(2)} m/s${pop ? ' + a pop' : '       '}: ` +
+    console.log(`  in at ${String(v).padStart(2)} m/s${pop ? ' + a pop' : '       '}${xfer ? ' HOLDING FORWARD' : '                '}: ` +
                 `apex ${fix(apex)} m (coping is ${fix(2.6 * (1 - Math.cos(rg.PARK.hpSweep)))}), ` +
                 `down at z ${fix(landZ)}, lip ${fix(lip)} -- ${where}`);
-    // AT A REALISTIC AIR SHE COMES BACK IN; a 21 m/s launch that goes ten metres above the
-    // coping genuinely overshoots onto the platform, and that is skating rather than a bug.
-    // What must ALWAYS hold is that she LEAVES -- the lip must never eat her climb again.
-    // WHAT MUST ALWAYS HOLD is that she LEAVES -- the lip must never eat her climb again -- and
-    // that the slowest realistic ride out comes back in. Past that, a launch twenty metres over
-    // the coping genuinely overshoots onto the platform, and that is speed rather than a fault.
+    // WHAT MUST ALWAYS HOLD is that she LEAVES -- the lip must never eat her climb again. And since
+    // r21's vert lock, *"you go straight up and come back down that same half pipe"* at ANY speed
+    // with any pop, landing below the lip -- while the thumb held forward is the transfer, onto the
+    // deck. (Before the lock every one of these drifted out: 13 m/s landed on the flat lip at deck
+    // height and was labelled "back in the pipe" because the test measured z against the deck's
+    // far edge rather than against the lip.)
     if (phase !== 2) ok = false;
-    if (v === 13 && !pop && landZ > deck) ok = false;
+    if (!xfer && landZ > lip) { console.log('    -> drifted out over the coping'); ok = false; }
+    if (xfer && landZ <= deck) { console.log('    -> holding forward did not carry her over'); ok = false; }
   }
   return ok;
 };
@@ -503,8 +528,11 @@ CASES.anim = () => {
   let ok = true;
   for (const C of rg.CHARS) {
     if (!fs.existsSync(C.file)) { console.log(`  ${C.key}: ${C.file} is not here`); ok = false; continue; }
-    const clips = rg.normaliseClips(buildClips(readGLB(C.file), THREE));
-    const R = rg.clipRoles(clips);
+    const { clips, R, moves } = gameClips(C.file);
+    // A SKIN WITH A MOVE TABLE DOES NOT GO THROUGH THIS PATH IN THE GAME -- `girlAnim` hands it to
+    // `girlAnimMoves` -- so it is tested by `npm run sim moves`, not here. Testing it here measured
+    // the one-clip path on a 49-clip skin, with `back_flip` as its "solo" clip.
+    if (moves) { console.log(`  ${C.key}: has a move table -- see the moves case`); continue; }
     const log = {};
     rg.girl.actions = {}; rg.girl.cw = {};
     for (const c of clips) {
@@ -907,22 +935,216 @@ CASES.panel = () => {
   const fire = (t, x) => (trk._h[t] || []).forEach(f => f({ type: t, pointerId: 7, clientX: x, preventDefault() {}, stopPropagation() {} }));
   fire('pointerdown', 150); fire('pointermove', 225); fire('pointerup', 225);
   const saved = JSON.parse(localStorage.getItem('rg.tail') || '{}');
-  console.log(`  wave mode: ${nWave} sliders; Sway dragged to 75% -> ${rg.TAIL.sway}, saved ${saved.sway}`);
-  if (rg.TAIL.sway !== 34 || saved.sway !== 34) ok = false;
+  console.log(`  wave mode: ${nWave} sliders; Sway dragged to 75% -> ${rg.TAIL.sway}, saved ${saved['TAIL.sway']}`);
+  if (rg.TAIL.sway !== 34 || saved['TAIL.sway'] !== 34) ok = false;
+  // A DEGREES ROW STORES RADIANS. Landing window runs 20..85 deg, so the middle of the track is
+  // 52.5 deg -> 53 at a step of 1 -> 0.925 rad. Shown as 53, stored as 0.925: if the units were
+  // crossed the landing check would be handed 53 RADIANS and nothing would ever bail.
+  const land = rows().find(r => r.children[0].textContent === 'Landing window');
+  const lt = land.children[1], lfire = (t, x) => (lt._h[t] || []).forEach(f => f({ type: t, pointerId: 8, clientX: x, preventDefault() {}, stopPropagation() {} }));
+  lfire('pointerdown', 150); lfire('pointerup', 150);
+  console.log(`  Landing window to mid-track -> shows ${land.children[2].textContent}, LAND.ok = ${fix(rg.LAND.ok, 3)} rad`);
+  if (Math.abs(rg.LAND.ok - 53 * Math.PI / 180) > 1e-6 || land.children[2].textContent !== '53') ok = false;
   click(P.children[0].children[1]);
   const simRows = rows().map(r => r.children[0].textContent);
   console.log(`  PHYSICS: mode ${rg.TAIL.mode}, ${simRows.length} sliders, Sway still shown: ${simRows.includes('Sway')}`);
   if (rg.TAIL.mode !== 'sim' || simRows.includes('Sway') || !simRows.includes('Strength')) ok = false;
   if (new Set(simRows).size !== simRows.length) { console.log('  -> a slider appears twice'); ok = false; }
   click(P.children[P.children.length - 1].children[0]);
-  console.log(`  RESET: mode ${rg.TAIL.mode}, sway ${rg.TAIL.sway} (shipped ${rg.TAIL_DEF.sway})`);
-  if (rg.TAIL.mode !== rg.TAIL_DEF.mode || rg.TAIL.sway !== rg.TAIL_DEF.sway) ok = false;
+  console.log(`  RESET: mode ${rg.TAIL.mode}, sway ${rg.TAIL.sway} (shipped ${rg.TAIL_DEF.sway}), landing window ${fix(rg.LAND.ok * 180 / Math.PI, 0)} deg (shipped ${fix(rg.UI_DEF['LAND.ok'] * 180 / Math.PI, 0)})`);
+  if (rg.TAIL.mode !== rg.TAIL_DEF.mode || rg.TAIL.sway !== rg.TAIL_DEF.sway || rg.LAND.ok !== rg.UI_DEF['LAND.ok']) ok = false;
   localStorage.setItem('rg.tail', JSON.stringify({ mode: 'sim', sway: 7, waveRoot: 'junk', pin: null }));
   rg.tailLoad();
   console.log(`  a saved store with junk in it: mode ${rg.TAIL.mode}, sway ${rg.TAIL.sway}, waveRoot ${rg.TAIL.waveRoot}, pin ${rg.TAIL.pin}`);
   if (rg.TAIL.mode !== 'sim' || rg.TAIL.sway !== 7 || rg.TAIL.waveRoot !== rg.TAIL_DEF.waveRoot || rg.TAIL.pin !== rg.TAIL_DEF.pin) ok = false;
-  Object.assign(rg.TAIL, keep);
+  Object.assign(rg.TAIL, keep); rg.LAND.ok = rg.UI_DEF['LAND.ok'];
   if (store == null) localStorage.removeItem('rg.tail'); else localStorage.setItem('rg.tail', store);
+  return ok;
+};
+
+// ---------------------------------------------------------------- a mirrored clip
+// THE SHIPPED `mirrorClip` ON HIS REAL SKELETON. The bones are rebuilt from the GLB's own nodes
+// (the skeleton needs no mesh, so draco never comes into it), posed twice -- once by a clip, once
+// by its mirror -- and every joint is checked against its partner on the other side, reflected
+// across her centre plane. A mirror that is right on one rig and wrong on another (which is what
+// reflecting raw local quaternions is) fails here rather than on the phone as a twisted spine.
+CASES.mirror = () => {
+  const f = 'models/alien_rollerskate_blue.glb';
+  if (!fs.existsSync(f)) { console.log(`  ${f} is not here`); return false; }
+  const g = readGLB(f), J = g.json;
+  const build = () => skelFromGLB(J);
+  const clips = rg.normaliseClips(buildClips(g, THREE));
+  const A = build(), B = build();
+  // the rest pose must itself be symmetric for a mirror to mean anything
+  const names = Object.keys(A.by).filter(n => /mixamorig_/.test(n));
+  let restAsym = 0;
+  for (const n of names) { const m = rg.mirrorName(n); if (!A.by[m]) continue;
+    const a = new THREE.Vector3().setFromMatrixPosition(A.by[n].matrixWorld), b = new THREE.Vector3().setFromMatrixPosition(A.by[m].matrixWorld);
+    restAsym = Math.max(restAsym, Math.hypot(a.x + b.x, a.y - b.y, a.z - b.z)); }
+  let ok = true, worstAll = 0;
+  const test = ['front_twist_flip', 'blade_medium_forward', 'blade_onefootfront_L_forward', 'fall_to_knees'];
+  for (const nm of test) {
+    const clip = clips.find(c => c.name === nm); if (!clip) { console.log(`  ${nm}: not in the file`); ok = false; continue; }
+    const mir = rg.mirrorClip(clip, build().root, nm + '__mirror');
+    const mA = new THREE.AnimationMixer(A.root), mB = new THREE.AnimationMixer(B.root);
+    const aA = mA.clipAction(clip), aB = mB.clipAction(mir); aA.play(); aB.play();
+    let worst = 0;
+    for (const t of [0, 0.21, 0.5, 0.77, 0.99]) {
+      aA.time = aB.time = t * clip.duration; mA.update(0); mB.update(0);
+      A.root.updateMatrixWorld(true); B.root.updateMatrixWorld(true);
+      for (const n of names) { const m = rg.mirrorName(n); if (!B.by[m]) continue;
+        const a = new THREE.Vector3().setFromMatrixPosition(A.by[n].matrixWorld), b = new THREE.Vector3().setFromMatrixPosition(B.by[m].matrixWorld);
+        worst = Math.max(worst, Math.hypot(a.x + b.x, a.y - b.y, a.z - b.z)); }
+    }
+    mA.stopAllAction(); mB.stopAllAction();
+    worstAll = Math.max(worstAll, worst);
+    console.log(`  ${nm.padEnd(30)} worst joint ${fix(worst * 1000, 2)} mm off its partner, reflected (body is 1000 mm)`);
+  }
+  console.log(`  rest pose itself: worst ${fix(restAsym * 1000, 2)} mm asymmetric`);
+  if (worstAll > restAsym + 0.002) { console.log('  -> the mirror does not mirror'); ok = false; }
+  return ok;
+};
+
+// ---------------------------------------------------------------- stance, landings, flips, bails
+// THE SHIPPED PHYSICS WITH `stanceLock` ON, as it is for a skin with backward clips. Each row puts
+// her in the air over open plaza (x = 60, no ramps) and lets the real `stepPlayer` land her.
+CASES.stance = () => {
+  const { moves } = gameClips('models/alien_rollerskate_blue.glb');
+  const keep = { moves: rg.girl.moves, lock: P.stanceLock };
+  rg.girl.moves = moves; P.stanceLock = true;
+  let ok = true;
+  const drop = (heading, travel, speed, setup) => {
+    place(60, 1, -40, heading, 0);
+    P.grounded = false; P.pos.y += 2.5; P.airT = 0.3;
+    P.vel.set(Math.sin(travel) * speed, 0, Math.cos(travel) * speed);
+    P.bq.setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading);
+    if (setup) setup();
+    let landed = false, b0 = P.bailId;
+    run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!landed && P.grounded) landed = true; });
+    return { landed, stance: P.stance, bail: P.bailId !== b0, v: Math.hypot(P.vel.x, P.vel.z) };
+  };
+  const D = Math.PI / 180;
+  const rows = [
+    ['facing where she travels', 0, 0, 8, r => r.stance === 1 && !r.bail],
+    ['30 deg off the nose', 30 * D, 0, 8, r => r.stance === 1 && !r.bail],
+    ['spun 180 -- back first', Math.PI, 0, 8, r => r.stance === -1 && !r.bail],
+    ['150 deg -- still fakie', 150 * D, 0, 8, r => r.stance === -1 && !r.bail],
+    ['SIDEWAYS, 90 deg', 90 * D, 0, 8, r => r.bail],
+    ['sideways but barely moving', 90 * D, 0, 1, r => !r.bail],
+  ];
+  for (const [label, h, tr, v, want] of rows) {
+    const r = drop(h, tr, v);
+    const good = r.landed && want(r);
+    console.log(`  ${label.padEnd(28)} -> ${r.bail ? 'BAIL' : r.stance > 0 ? 'forward' : 'FAKIE'}, ${fix(r.v, 1)} m/s after${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+  }
+  // a flip with enough air lands; one cut short by the ground is a bail
+  const flip = (h0, label, wantBail) => {
+    const r = drop(0, 0, 6, () => { P.pos.y += h0; P.vel.y = 4; if (!rg.startFlip('up')) console.log('  (startFlip refused)'); });
+    const good = r.landed && r.bail === wantBail;
+    console.log(`  ${label.padEnd(28)} -> ${r.bail ? 'BAIL' : 'landed it'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+  };
+  flip(3, 'front flip from high up', false);
+  // too little air is NO flip at all, not a guaranteed bail
+  { place(60, 1, -40, 0, 6); P.grounded = false; P.pos.y += 0.05; P.vel.y = -1;
+    const took = rg.startFlip('up');
+    console.log(`  flicked 5 cm off the ground   -> ${took ? 'FLIPPED (should refuse)' : 'refused, no flip'}`);
+    if (took) ok = false; P.flip = null; }
+  // a flip whose clock is short when she lands IS a bail: start one, then force an early landing
+  { const r = drop(0, 0, 6, () => { P.pos.y += 3; P.vel.y = 2; rg.startFlip('down'); P.flip.dur = 9; });
+    console.log(`  landed half way round a flip  -> ${r.bail ? 'BAIL' : 'landed it (should bail)'}`);
+    if (!r.bail) ok = false; }
+  // STRAIGHT UP A VERT WALL AND BACK DOWN, NO SPIN: she comes down FAKIE -- which is skating
+  // READ AT THE LANDING: five seconds later she has ridden fakie down, up the far wall and back
+  // down it, which correctly makes her forward again -- so the final stance says nothing.
+  { place(0, 3, 29, 0, 13); let air = false, at = null, b0 = P.bailId;   // 13: back INTO the pipe (17 clears the coping onto the deck, which `vert` covers)
+    run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0; if (!P.grounded) air = true;
+      if (air && P.grounded && !at) at = { stance: P.stance, bail: P.bailId !== b0 }; });
+    const good = at && at.stance === -1 && !at.bail;
+    console.log(`  straight up the vert, no spin -> ${!at ? 'never landed' : at.bail ? 'BAIL' : at.stance < 0 ? 'FAKIE' : 'forward'}, ` +
+                `and ${P.stance < 0 ? 'still fakie' : 'forward again after the far wall'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false; }
+  // FAKIE, AND THE THUMB WHERE SHE IS GOING: she speeds up BACKWARDS, and stays fakie
+  { place(60, 1, -60, Math.PI, 0); P.vel.set(0, 0, 2); P.stance = -1;
+    run(3, () => { rg.cam.az = 0; rg.stick.L.x = 0; rg.stick.L.y = -1; });
+    const vz = P.vel.z, fwd = Math.cos(P.heading);
+    console.log(`  fakie, thumb toward her travel -> ${fix(vz, 1)} m/s along it after 3 s, stance ${P.stance < 0 ? 'FAKIE' : 'forward'}, nose ${fwd < 0 ? 'still BEHIND her' : 'turned round'}`);
+    if (!(vz > 6 && P.stance === -1 && fwd < 0)) ok = false; }
+  // AND WITHOUT `stanceLock` -- roller_girl -- the old rule is untouched: she turns to face forwards
+  { P.stanceLock = false; place(60, 1, -60, Math.PI, 0); P.vel.set(0, 0, 0.5);
+    run(3, () => { rg.cam.az = 0; rg.stick.L.x = 0; rg.stick.L.y = -1; });
+    const fwd = Math.cos(P.heading);
+    console.log(`  no stanceLock, slow, thumb fwd -> nose ${fwd > 0.9 ? 'turned to face it (as before)' : 'NOT turned'}`);
+    if (!(fwd > 0.9)) ok = false; }
+  rg.girl.moves = keep.moves; P.stanceLock = keep.lock;
+  return ok;
+};
+
+// ---------------------------------------------------------------- the move brain
+// THE SHIPPED `girlAnimMoves` on his real clip names and lengths, as the game prepares them. The
+// actions are fabricated (no harness can build the draco skin), which is enough: the question is
+// which clips the brain ASKS for, how hard, and at what rate.
+CASES.moves = () => {
+  const { clips, moves, R } = gameClips('models/alien_rollerskate_blue.glb');
+  if (!moves) { console.log('  no move table built'); return false; }
+  let ok = true;
+  console.log(`  forward ${moves.fwd.join(' / ')}\n  backward ${moves.back.join(' / ')}`);
+  console.log(`  idles ${moves.idleFwd.length} forward, ${moves.idleBack.join(',')} back; flips ${Object.keys(moves.flip).join(',')}; falls ${moves.falls.length}; fallback ${R.fallback}, solo ${R.solo}`);
+  if (moves.back[2] !== 'blade_medium_backward') { console.log('  -> a fast fakie should borrow medium'); ok = false; }
+  if (Object.keys(moves.flip).length !== 4 || R.solo || !/^idle/.test(R.fallback)) ok = false;
+  const keep = { a: rg.girl.actions, cw: rg.girl.cw, len: rg.girl.clipLen, m: rg.girl.moves, r: rg.girl.ready };
+  const log = {};
+  rg.girl.actions = {}; rg.girl.cw = {}; rg.girl.clipLen = R.len; rg.girl.moves = moves; rg.girl.ready = true;
+  rg.girl.idle = null; rg.girl.bail = null;
+  for (const c of clips) rg.girl.actions[c.name] = log[c.name] = { w: 0, ts: 1, running: 0, resets: 0,
+    reset() { this.resets++; this.running = 1; return this; }, play() { this.running = 1; return this; },
+    stop() { this.running = 0; return this; }, isRunning() { return !!this.running; },
+    setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; },
+    setEffectiveTimeScale(v) { this.ts = v; return this; }, setLoop() { return this; } };
+  const step = (sec, f) => { for (let i = 0; i < Math.round(sec / DT); i++) { if (f) f(i * DT); rg.girlAnimMoves(DT); } };
+  const state = (o) => { P.grounded = true; P.flip = null; P.bailT = 0; P.landHard = 0; Object.assign(P, o); };
+  const top = () => rg.girl.top;
+  const check = (label, cond, extra = '') => { console.log(`  ${label.padEnd(36)} ${cond ? 'ok' : 'WRONG'} ${extra}`); if (!cond) ok = false; };
+  // standing, and the idles rotating
+  state({ speed: 0, stance: 1 }); rg.girl.idle = null; step(1);
+  check('standing forward', top() === 'idle_normal', top());
+  const seen = [top()]; let repeat = false;
+  for (let k = 0; k < 6; k++) { step(rg.MOVES.idleHold + 0.1); if (top() === seen[seen.length - 1]) repeat = true; seen.push(top()); }
+  check('after a long stand, she shifts', new Set(seen).size >= 3 && !repeat, seen.join(' > '));
+  state({ speed: 0, stance: -1 }); step(1);
+  check('standing in FAKIE', top() === 'idle_backward', top());
+  // the tiers by speed, forward and back
+  for (const [v, st, want] of [[2, 1, 'blade_soft_forward'], [9, 1, 'blade_medium_forward'], [20, 1, 'blade_hard_forward'],
+                               [2, -1, 'blade_soft_backward'], [20, -1, 'blade_medium_backward']]) {
+    state({ speed: v, stance: st }); step(1);
+    const a = log[want];
+    check(`${v} m/s ${st > 0 ? 'forward' : 'FAKIE'}`, top() === want, `${top()} x${fix(a.ts)} weight ${fix(a.w)}`);
+  }
+  // between two tiers BOTH play, and the weights still sum to one
+  state({ speed: 6, stance: 1 }); step(2);
+  const s6 = log.blade_soft_forward.w, m6 = log.blade_medium_forward.w;
+  let sum = 0; for (const k in log) sum += log[k].w;
+  check('6 m/s blends soft and medium', s6 > 0.3 && m6 > 0.3 && Math.abs(sum - 1) < 0.02, `soft ${fix(s6)} medium ${fix(m6)}, all ${fix(sum)}`);
+  // the air, a flip timed to the air left, and back to the air pose when it is done
+  state({ grounded: false, speed: 6 }); step(1);
+  check('in the air', top() === 'in_air', top());
+  P.flip = { nm: 'front_twist_flip__mirror', dir: 'left', t: 0, dur: 0.9 };
+  step(0.3, () => (P.flip.t += DT));
+  const fa = log.front_twist_flip__mirror;
+  check('flick left: the MIRRORED twist flip', top() === 'front_twist_flip__mirror' && fa.resets > 0,
+        `x${fix(fa.ts)} (clip ${fix(R.len.front_twist_flip__mirror)} s into 0.9 s)`);
+  step(0.8, () => (P.flip.t += DT));
+  check('...and the air pose once it is round', top() === 'in_air', top());
+  // a bail: down, then up, filling the bail
+  state({ speed: 3, bailT: rg.LAND.bailT }); P.bailId++;
+  step(0.2, () => (P.bailT -= DT));
+  const down = top();
+  step(rg.LAND.bailT * 0.6, () => (P.bailT -= DT));
+  const up = top();
+  check('a bail: down, then back up', /^fall_to/.test(down) && /^get_up/.test(up), `${down} > ${up}`);
+  Object.assign(rg.girl, { actions: keep.a, cw: keep.cw, clipLen: keep.len, moves: keep.m, ready: keep.r, idle: null, bail: null });
+  state({ speed: 0, stance: 1 });
   return ok;
 };
 
