@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r31</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r32</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r31';
+const BUILD = 'r32';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1093,9 +1093,27 @@ function railCatch(p0, p1, vel) {
   }
   return null;
 }
+// WHICH WAY SHE IS STANDING, AND WHY IT LAST CHANGED (r32). *"It's not recording which state you're
+// in between the air and the ground -- most of the time it works, every now and again it puts you
+// in one of the two."* Every write goes through here with a reason, and the chip shows the reason
+// for a few seconds after a change (`· FAKIE·land`, `· fwd·swivel`), so the next time it happens
+// the screen says WHICH rule did it instead of leaving it to be guessed from a description.
+function setStance(st, why) {
+  const p = player;
+  if (p.stance !== st) { p.stanceWhy = why; p.stanceAt = performance.now(); }
+  p.stance = st;
+}
 function enterGrind(c) {
   const p = player;
   p.grind = { rail: c.rail, t: c.t, dir: c.dir, s: c.s, side: c.side, time: 0 };
+  // r32: A RAIL SETS HER STANCE FROM HER BODY, THE WAY A LANDING DOES. It kept the stance from the
+  // last time she touched the ground -- so ollie forward, spin 180 onto a rail, and `stepGrind`
+  // snapped her heading back to the OLD stance: a body turned round for no reason, and a wrong
+  // stance carried off the end of the rail. That is one real mismatch between air and ground.
+  if (p.stanceLock) {
+    const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+    setStance(fx * c.rail.d.x * c.dir + fz * c.rail.d.z * c.dir >= 0 ? 1 : -1, 'rail');
+  }
   p.grounded = true; p.n.set(0, 1, 0); p.flip = null; p.drift = 0; p.landHard = 2;
   sparkBurst(14);
 }
@@ -1398,6 +1416,7 @@ const FLIPP = {
   airAt: 0.92,       // back to the air pose by here, spotting the landing
   spinK: 0.6,        // how much faster a full tuck turns: rate 1 / (1 - spinK * tuck)
   twist: 1,          // full twists in a twist flip
+  camRel: 1,         // r32: a flick is read relative to the CAMERA (see `flickFlip`)
   settle: 10,        // landed mid-flip: how fast the unfinished turn unwinds (per second)
 };
 function flipShape(u) {
@@ -1425,6 +1444,22 @@ function flipQ(f, out) {
   if (f.dir === 'right' || f.dir === 'left')
     out.multiply(_fq2.setFromAxisAngle(_fY, (f.dir === 'right' ? -a : a) * FLIPP.twist));
   return out;
+}
+// WHICH FLIP A FLICK MEANS (r32): RELATIVE TO THE CAMERA, NOT TO HER. *"If she's in fakie and I
+// flick up, away from the camera, I want a backflip -- it should be relative to me, so it never
+// feels inverted."* The flick is turned into a WORLD direction through the lens (up = where the
+// camera looks, right = the camera's right -- `stickWorld`'s own mapping), and then read against
+// her body: toward her nose is a front flip, toward her back a back flip, her right or left side
+// the twist flip that way. Facing away from the camera that is exactly the old mapping; facing the
+// camera, up is a back flip. `FLIPP.camRel` 0 reads the flick against her body as before.
+function flickFlip(dx, dy) {
+  const byPad = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
+  if (!(FLIPP.camRel > 0.5)) return byPad;
+  const sa = Math.sin(cam.az), ca = Math.cos(cam.az), h = player.heading;
+  const Wx = -dy * sa - dx * ca, Wz = -dy * ca + dx * sa;                   // `stickWorld`'s mapping; screen up is -dy
+  const a = Wx * Math.sin(h) + Wz * Math.cos(h);                            // along her nose
+  const b = Wx * -Math.cos(h) + Wz * Math.sin(h);                           // along her right
+  return Math.abs(a) >= Math.abs(b) ? (a > 0 ? 'up' : 'down') : (b > 0 ? 'right' : 'left');
 }
 const FACEFIX = { on: 1, turned: [] };   // see `faceForward`; 0 plays his backward clips as exported
 const MOVES = {
@@ -2277,7 +2312,7 @@ for (const t of ['touchstart', 'touchend', 'touchcancel'])
 // one; on the ground it does nothing (a tap there is the swivel, and a fired flick eats the tap).
 bindStick(document.getElementById('stkL'), stick.L, null, (dx, dy) => {
   if (player.grounded || player.grind) return;
-  if (startFlip(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down'))) {
+  if (startFlip(flickFlip(dx, dy))) {
     const s = STICKS[0]; if (s && s.pop) s.pop();
   }
 }, (far, held) => {
@@ -2373,11 +2408,16 @@ function groundQ(out) {
 // lip, always comes back into the pipe -- and a swipe UP on the right pad is the transfer: no lock,
 // and her speed out over the coping is raised to at least `kick`, which is what carries her onto the
 // deck (or out of the bowl) without needing the left thumb at all.
-const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5 };
+// THE AUTO-TURN (r32). Tony Hawk turns the skater round on a vert air, so going up the wall forwards
+// and tapping jump comes back down FORWARDS -- here she came down the wall she went up travelling
+// backwards, which is fakie by the physics and read as "it thinks I'm backwards when I land". On a
+// LOCKED air (a tap, or rolling over the lip) she now turns 180 over `turnFrac` of the air she has;
+// spin with the stick on top of it as before -- an extra 180 is how you land fakie on purpose.
+const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6 };
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
-  p.vertLock = 0; p.xferKick = null;
+  p.vertLock = 0; p.xferKick = null; p.autoTurn = null;
   const h = Math.hypot(n.x, n.z);
   if (n.y < Math.cos(VERT.at) && h > 1e-4) {
     const ix = n.x / h, iz = n.z / h;                   // INTO the pipe, horizontally
@@ -2386,6 +2426,12 @@ function leaveGround(coy, xfer) {
       const fix = Math.max(0, out) + VERT.inward;
       p.vel.x += ix * fix; p.vel.z += iz * fix;
       p.vertLock = 1; p.vertIx = ix; p.vertIz = iz;
+      if (VERT.autoTurn > 0.5) {
+        const air = 2 * Math.max(0.5, p.vel.y) / SK.g;              // up and back to the lip
+        const rx = -Math.cos(p.heading), rz = Math.sin(p.heading);  // her right
+        const side = (p.vel.x * rx + p.vel.z * rz) > 0.3 ? -1 : 1;   // turn the way she is drifting
+        p.autoTurn = { left: Math.PI, side, rate: Math.min(4 * Math.PI, Math.PI / Math.max(0.15, air * VERT.turnFrac)) };
+      }
     } else {
       // THE KICK WAITS UNTIL SHE HAS CLEARED THE LIP. Applied on the frame she leaves, she is
       // still a few centimetres BELOW the coping, so pushing her out over the deck puts her under
@@ -2476,7 +2522,7 @@ function stepGround(dt) {
   // only when her travel genuinely reverses against it -- up a wall forwards and back down it is
   // fakie on the way down, which is skating -- and NOT when she slows, because standing still in
   // fakie is a real place to be now that there is `idle_backward` to show it.
-  if (p.stanceLock) { if (along * p.stance < -SK.fakieAt) p.stance = -p.stance; lead = p.stance; }
+  if (p.stanceLock) { if (along * p.stance < -SK.fakieAt) setStance(-p.stance, 'reversed'); lead = p.stance; }
   if (ctrl && s.mag > 0) {
     const ang = wrapAngle(Math.atan2(s.x, s.z) - p.heading);
     if (!p.stanceLock) lead = along < -SK.fakieAt ? -1 : 1;
@@ -2641,6 +2687,8 @@ function stepAir(dt) {
   // the yaw is set exactly below -- only the righting is eased.
   const sk = Math.sign(sx) * clamp((Math.abs(sx) - 0.08) / Math.max(0.05, AIR.spinFull - 0.08), 0, 1);
   p.heading -= sk * AIR.spin * dt;
+  const AT = p.autoTurn;
+  if (AT && AT.left > 0) { const d = Math.min(AT.left, AT.rate * dt); p.heading += AT.side * d; AT.left -= d; }
   // *"In the air you'll hold forward"* -- which is how you get over the back of one ramp and
   // reach the next. Capped by how much it has already added, so a long flight is not a free one.
   if (sy < 0 && p.drift < AIR.driftMax) {
@@ -2731,6 +2779,7 @@ function stepAir(dt) {
     p.landOff = off; p.drift = 0;
     p.n.copy(_N);
     p.grounded = true; p.airT = 0; p.pushT = 0; p.pushOff = 9; p.braked = 0; p.lean = 0;
+    p.autoTurn = null;
   }
   if (p.pos.y < -8) respawn();
 }
@@ -2748,10 +2797,10 @@ function landStance(fwd) {
   if (sp > LAND.minV && fwd.lengthSq() > 1e-6) {
     const a = Math.acos(clamp(_v.dot(fwd) / (sp * fwd.length()), -1, 1));
     p.landAng = a;
-    if (a < LAND.ok) p.stance = 1;
-    else if (a > Math.PI - LAND.ok) p.stance = -1;
+    if (a < LAND.ok) setStance(1, 'land');
+    else if (a > Math.PI - LAND.ok) setStance(-1, 'land');
     else {
-      bail = true; p.stance = a < Math.PI / 2 ? 1 : -1;            // no bail: the NEARER end
+      bail = true; setStance(a < Math.PI / 2 ? 1 : -1, 'land');            // no bail: the NEARER end
       // AND WITH BAILS OFF SHE IS SQUARED ONTO HER LINE, or she would ride away with her wheels
       // across her travel and skid to a stop -- which is a bail by another name.
       if (!LAND.bail && Math.hypot(_v.x, _v.z) > LAND.minV)
@@ -2774,7 +2823,7 @@ function landStance(fwd) {
 function swivel() {
   const p = player;
   if (!p.stanceLock || !p.grounded || p.grind || p.bailT > 0) return false;
-  p.stance = -p.stance;
+  setStance(-p.stance, 'swivel');
   p.heading = wrapAngle(p.heading + Math.PI);
   return true;
 }
@@ -3008,7 +3057,9 @@ function hud(dt) {
       (girl.who ? ' · ' + girl.who.name : '') + (girl.loading ? ' · LOADING' : '') +
       // WHICH CLIP IS UP, AND WHICH WAY ROUND SHE IS. "Why is she doing that" is a question about
       // the move brain's choice, and the answer is one glance here rather than a guess.
-      (girl.moves ? (player.stance < 0 ? ' · FAKIE' : '') + (girl.top ? ' · ' + girl.top.replace(/^blade_/, '') : '') : '') +
+      (girl.moves ? (performance.now() - (player.stanceAt || -1e9) < 4000
+                      ? (player.stance < 0 ? ' · FAKIE·' : ' · fwd·') + player.stanceWhy
+                      : (player.stance < 0 ? ' · FAKIE' : '')) + (girl.top ? ' · ' + girl.top.replace(/^blade_/, '') : '') : '') +
       (player.grind ? ` · GRIND ${player.grind.side.toUpperCase()} ${player.grind.s.toFixed(1)}` : '') +
       (girl.tail && girl.tail.n
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
@@ -3164,6 +3215,8 @@ const TAILUI = [
   ['FLIPP.openAt',   'Opens out at',   0.3, 0.9, 0.01, ''],
   ['FLIPP.twist',    'Twists',         0,   3,   0.5,  ''],
   ['VERT.kick',      'Transfer kick',  0,   10,  0.5,  ''],
+  ['VERT.autoTurn',  'Auto-turn on vert airs', 0, 1, 1, ''],
+  ['FLIPP.camRel',   'Flips relative to camera', 0, 1, 1, ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
   ['AIR.spin',       'Air spin speed', 1,   16,  0.25, ''],
@@ -3285,7 +3338,7 @@ async function init() {
 window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
-  mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
+  mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

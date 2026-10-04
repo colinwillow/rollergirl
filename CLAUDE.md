@@ -275,6 +275,24 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **"IT THINKS I'M BACKWARDS" HAD THREE SOURCES, AND THE CHIP NOW NAMES WHICH ONE FIRED (r32,
+  `setStance`, `VERT.autoTurn`, `flickFlip`).** *"Every now and again it puts you in one of the two
+  states."* Every stance write goes through `setStance(st, why)`; for 4 s after a change the chip
+  reads `FAKIE·land` / `fwd·swivel` / `FAKIE·reversed` / `FAKIE·rail`.
+  1. **A RAIL KEPT THE STANCE FROM THE GROUND.** Spin 180 in the air onto a rail and `stepGrind`
+     snapped her heading back to the stale stance and carried it off the end. `enterGrind` now sets
+     the stance from her body against the direction she grinds, the way a landing does.
+  2. **COMING BACK DOWN THE WALL YOU WENT UP IS FAKIE, AND TONY HAWK HIDES THAT.** A vert air turns
+     the skater round automatically. Now a LOCKED air (a tap, or rolling over the lip) turns her 180
+     over `turnFrac` of the air she has, in the direction she is drifting; her own spin rides on top,
+     so an extra 180 is fakie on purpose. `VERT.autoTurn` 0 (panel: Auto-turn on vert airs) is the
+     old physics. Not on the swipe transfer, which goes OUT and lands forward anyway.
+  3. **A QUICK LEFT TAP IS THE SWIVEL** -- easy to hit by accident; the chip says `swivel` when it is.
+  **FLIPS ARE READ THROUGH THE CAMERA** (`flickFlip`, `FLIPP.camRel`): *"if she's in fakie and I flick
+  away from the camera, I want a backflip."* The flick becomes a world direction by `stickWorld`'s
+  own mapping and is then read against her body: toward her nose front, her back a back flip, her
+  sides the twists. `npm run sim flip` tables six facings; `npm run sim grind` has the
+  backwards-onto-a-rail row (revert-tested); `npm run sim stance` has the vert air both ways.
 - **r28's STUCK-STICK NET KILLED EVERY CONTROL, AND EVERY TEST PASSED (fixed r30, `FRESH_MS`).** *"No
   controls work now lol."* A phone sends the pointerdown and THEN the touchstart for the same finger.
   On that touchstart the pad is already held by a finger in `changedTouches` -- which the "a finger

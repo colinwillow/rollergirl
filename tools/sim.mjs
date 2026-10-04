@@ -63,6 +63,7 @@ function place(x, y, z, heading, speed) {
   P.vel.set(Math.sin(heading) * (speed || 0), 0, Math.cos(heading) * (speed || 0));
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
   P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1; P.grind = null; P.grindCool = 0; P.grindLast = null;
+  P.autoTurn = null; P.vertLock = 0; P.xferKick = null; P.stanceWhy = null; P.stanceAt = 0;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
   rg.groundQ(P.bq);        // standing on whatever she was just placed on
@@ -1230,15 +1231,26 @@ CASES.stance = () => {
     console.log(`  bails off: half way round     -> ${r.bail ? 'BAIL (should land)' : 'landed it'}`);
     if (r.bail) ok = false; }
   rg.LAND.bail = 1;
-  // STRAIGHT UP A VERT WALL AND BACK DOWN, NO SPIN: she comes down FAKIE -- which is skating
-  // READ AT THE LANDING: five seconds later she has ridden fakie down, up the far wall and back
-  // down it, which correctly makes her forward again -- so the final stance says nothing.
-  { place(0, 3, 29, 0, 13); let air = false, at = null, b0 = P.bailId;   // 13: back INTO the pipe (17 clears the coping onto the deck, which `vert` covers)
+  // STRAIGHT UP A VERT WALL AND BACK DOWN, NO SPIN. r32: with the AUTO-TURN (Tony Hawk's) she is
+  // turned round on the way and comes down FORWARD; with it off she comes down FAKIE, which is the
+  // physics. READ AT THE LANDING: seconds later she has ridden on to the far wall and back.
+  for (const [auto, want] of [[1, 1], [0, -1]]) {
+    const keepA = rg.VERT.autoTurn; rg.VERT.autoTurn = auto;
+    place(0, 3, 29, 0, 13); let air = false, at = null, b0 = P.bailId;   // 13: back INTO the pipe
     run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0; if (!P.grounded) air = true;
-      if (air && P.grounded && !at) at = { stance: P.stance, bail: P.bailId !== b0 }; });
-    const good = at && at.stance === -1 && !at.bail;
-    console.log(`  straight up the vert, no spin -> ${!at ? 'never landed' : at.bail ? 'BAIL' : at.stance < 0 ? 'FAKIE' : 'forward'}, ` +
-                `and ${P.stance < 0 ? 'still fakie' : 'forward again after the far wall'}${good ? '' : '   <- WRONG'}`);
+      if (air && P.grounded && !at) at = { stance: P.stance, bail: P.bailId !== b0, why: P.stanceWhy }; });
+    rg.VERT.autoTurn = keepA;
+    const good = at && at.stance === want && !at.bail;
+    console.log(`  straight up the vert, auto-turn ${auto ? 'ON ' : 'off'} -> ${!at ? 'never landed' : at.bail ? 'BAIL' : at.stance < 0 ? 'FAKIE' : 'forward'} (${at && at.why})${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+  }
+  // and spinning an extra 180 on top of the auto-turn is how you come down fakie on purpose
+  { place(0, 3, 29, 0, 13); let air = false, at = null;
+    run(5, (t) => { rg.stick.L.y = 0; rg.cam.az = 0; rg.stick.L.x = (!P.grounded && air && t < 9) ? 0 : 0;
+      if (!P.grounded && !air) { air = true; P.heading += Math.PI; }        // a 180 of stick spin, applied as it leaves
+      if (air && P.grounded && !at) at = { stance: P.stance }; });
+    const good = at && at.stance === -1;
+    console.log(`  ...plus a 180 of her own spin    -> ${!at ? 'never landed' : at.stance < 0 ? 'FAKIE' : 'forward'}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false; }
   // FAKIE, AND THE THUMB WHERE SHE IS GOING: she speeds up BACKWARDS, and stays fakie
   { place(60, 1, -60, Math.PI, 0); P.vel.set(0, 0, 2); P.stance = -1;
@@ -1439,6 +1451,17 @@ CASES.flip = () => {
     const hh = rg.hipHeight(hl, k, 0);
     chk('flip pivot is her hips, not her shins', Math.abs(rg.hipHeight(hl, 1, 0) - hl.y) < 1e-9 && hh > rg.RIG.pivot + 0.2,
         `hips ~${fix(hh, 2)} m up, the old pivot was ${fix(rg.RIG.pivot, 2)} m`); }
+  // r32: A FLICK IS READ THROUGH THE CAMERA. Camera looking +Z; the flick in screen terms; her facing.
+  { const keepAz = rg.cam.az; rg.cam.az = 0;
+    for (const [h, dx, dy, want, label] of [[0, 0, -1, 'up', 'facing away, flick up'], [Math.PI, 0, -1, 'down', 'facing the CAMERA, flick up (away)'],
+                                            [Math.PI, 0, 1, 'up', 'facing the camera, flick down'], [Math.PI, 1, 0, 'left', 'facing the camera, flick right'],
+                                            [0, 1, 0, 'right', 'facing away, flick right'], [Math.PI / 2, 0, -1, 'right', 'side on (facing screen-left), flick up']]) {
+      P.heading = h; const got = rg.flickFlip(dx, dy);
+      chk(`${label}`.padEnd(40), got === want, `-> ${got}`);
+    }
+    rg.FLIPP.camRel = 0; P.heading = Math.PI; const raw = rg.flickFlip(0, -1); rg.FLIPP.camRel = 1;
+    chk('camera-relative OFF: up is always front', raw === 'up', `-> ${raw}`);
+    rg.cam.az = keepAz; P.heading = 0; }
   // and `startFlip` marks it procedural when the switch is on, a clip flip when it is off
   const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
   for (const on of [1, 0]) { rg.FLIPP.on = on; place(60, 1, -60, 0, 6); P.grounded = false; P.pos.y += 6; P.vel.y = 3; P.flip = null;
@@ -1585,6 +1608,16 @@ CASES.grind = () => {
   const RISING = 2;
   row('rising fast up past it', r, !r.caught || r.caught.vy <= RISING,
       !r.caught ? 'no catch' : r.caught.vy > RISING ? `CAUGHT RISING at ${fix(r.caught.vy, 1)} m/s` : `went over, caught it coming DOWN at ${fix(r.caught.vy, 1)} m/s`);
+  // 11. r32: A RAIL SETS HER STANCE FROM HER BODY. In the air with her back to her travel (spun 180) and
+  // a stance left over from the ground: the catch must make her FAKIE and leave her body where it is,
+  // not snap her round to the stale stance.
+  { place(-40, 1, -3, Math.PI, 0); P.grindCool = 0; P.grindLast = null; P.stance = 1;
+    P.grounded = false; P.pos.y = top(0, -40, -3) + 1; P.airT = 0.3; P.vel.set(0, 0, 8);
+    let caught = null;
+    run(1.2, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && !caught) caught = { st: P.stance, h: P.heading }; });
+    const facing = caught && Math.abs(Math.cos(caught.h) + 1) < 0.01;
+    row('caught a rail with her BACK to it', null, caught && caught.st === -1 && facing,
+        caught ? `stance ${caught.st < 0 ? 'FAKIE' : 'forward (stale)'}, body ${facing ? 'kept facing back' : 'SNAPPED round'}` : 'NO CATCH'); }
   // 10. *"So you can really jump up into them"*: skating beside rail 0 on the ground, angled in a
   // little, ONE TAP -- she goes up past it, comes down onto it and grinds. The whole point of r25.
   { const h = Math.atan2(1.2, 8);
