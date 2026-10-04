@@ -269,6 +269,19 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **r28's STUCK-STICK NET KILLED EVERY CONTROL, AND EVERY TEST PASSED (fixed r30, `FRESH_MS`).** *"No
+  controls work now lol."* A phone sends the pointerdown and THEN the touchstart for the same finger.
+  On that touchstart the pad is already held by a finger in `changedTouches` -- which the "a finger
+  that just landed cannot vouch for a ghost" rule refused to count -- so EVERY pad was released by
+  the very touch that started it: no steer, no jump, no flip. A pad younger than `FRESH_MS` is now
+  skipped on a touchstart (a ghost is by definition older than the event in hand).
+  **THE HARNESS NEVER SENT THE TOUCHSTART THAT FOLLOWS A POINTERDOWN** -- only pointer events, plus
+  hand-built touch events for the ghost rows -- so it tested a phone that does not exist. Every
+  ordinary press in `npm run sim tap` now goes through `real()`, which sends both in the phone's
+  order with a live `touches` list, and there is a row for a plain held thumb. Revert-tested: with
+  the fix out, every tap, swivel, hold and flick row fails -- his report, reproduced exactly.
+  **When a fix adds a listener for a NEW event family, the harness has to send that family for the
+  ORDINARY case too, not only for the case the fix is about.**
 - **FLIPS ARE THE LEFT PAD'S FLICK NOW, AND SHE FLIPS ABOUT HER HIPS (r29, `airPivot`).** *"You jump
   with the right, then flip with the left."* Up front, down back, right/left the twist and its
   mirror; a flick is a fast move AND a release, so a held spin or thrust is never one, and on the

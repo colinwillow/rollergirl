@@ -146,7 +146,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r29</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r30</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -163,7 +163,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r29';
+const BUILD = 'r30';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -2212,7 +2212,7 @@ function bindStick(el, out, onTap, onFlick, onRel) {
     rest(); el.classList.remove('act');
   },
   // r28: what the reconciliation needs -- where this pad's thumb last was, and a refused one
-  held: () => id !== null, at: () => [lastX, lastY], refused: () => refused,
+  held: () => id !== null, at: () => [lastX, lastY], refused: () => refused, age: () => performance.now() - t0,
   adopt: () => { const r = refused; if (r) begin(r.id, r.x, r.y); }, pop: () => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); } });
 }
 // 1. THE UP WENT SOMEWHERE ELSE. Capture can be lost without `lostpointercapture` reaching us,
@@ -2236,7 +2236,7 @@ for (const t of ['blur', 'pagehide', 'visibilitychange']) addEventListener(t, ()
 //    start and end: a pad whose thumb is not within `STICK_NEAR` px of any finger on the glass is
 //    holding a ghost and lets go -- and if a real finger was refused because of that ghost, the pad
 //    is handed to it, so touching a stuck stick un-sticks it and starts steering in one move.
-const STICK_NEAR = 90;
+const STICK_NEAR = 90, FRESH_MS = 120;
 // A FINGER THAT HAS ONLY JUST LANDED CANNOT BE THE OLD THUMB, so on a touchstart the new ones
 // (`changedTouches`) do not count as keeping a pad alive -- otherwise putting a thumb back down on a
 // stuck stick, right where the ghost was, would vouch for the ghost.
@@ -2249,6 +2249,12 @@ function stickCheck(touches, fresh) {
   const near = (list, x, y) => list.some(q => Math.hypot(q[0] - x, q[1] - y) < STICK_NEAR);
   for (const s of STICKS) {
     if (!s.held()) continue;
+    // r30: A PAD THIS VERY TOUCH JUST STARTED IS NOT A GHOST. A browser dispatches the pointerdown
+    // and then the touchstart for the same finger back to back, so on the touchstart the pad is
+    // already held -- by a finger that is in `changedTouches`, which the rule above refuses to let
+    // vouch. r28 released EVERY pad on the touch that started it, and no control worked at all. A
+    // ghost is by definition older than the event in hand; `FRESH_MS` is that gap, generously.
+    if (fresh && s.age() < FRESH_MS) continue;
     const [x, y] = s.at();
     if (near(old, x, y)) continue;
     s.release();

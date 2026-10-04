@@ -294,6 +294,19 @@ CASES.vert = () => {
 // every time. This drives the SHIPPED `bindStick` through real dispatched pointer events on the
 // real element, which nothing here could do before: the stub swallowed every listener.
 CASES.tap = async () => {
+  // r30: EVERY ORDINARY PRESS GOES THROUGH THE REAL SEQUENCE A PHONE SENDS -- the pointer event and
+  // then the TouchEvent for the same finger, with the live `touches` list. r28's stuck-stick net
+  // passed every row here and released every pad on the touch that started it, because no row
+  // ever sent the touchstart that FOLLOWS a pointerdown. No control worked on the phone at all.
+  const LIVE = new Map();
+  const real = (el, e) => {
+    el.dispatchEvent(e);
+    const T = () => [...LIVE.entries()].map(([id, q]) => ({ identifier: id, clientX: q[0], clientY: q[1] }));
+    const me = { identifier: e.pointerId, clientX: e.clientX, clientY: e.clientY };
+    if (e.type === 'pointerdown') { LIVE.set(e.pointerId, [e.clientX, e.clientY]); globalThis.__win('touchstart', { touches: T(), changedTouches: [me] }); }
+    else if (e.type === 'pointermove') { if (LIVE.has(e.pointerId)) LIVE.set(e.pointerId, [e.clientX, e.clientY]); }
+    else if (e.type === 'pointerup') { LIVE.delete(e.pointerId); globalThis.__win('touchend', { touches: T(), changedTouches: [me] }); }
+  };
   const pad = document.getElementById('stkR');
   const ev = (type, x, y) => ({ type, pointerId: 7, clientX: x, clientY: y,
     stopPropagation() {}, preventDefault() {}, target: pad });
@@ -309,10 +322,10 @@ CASES.tap = async () => {
   let ok = true;
   for (const [name, x0, y0, x1, y1, ms] of rows) {
     P.jump = 0;
-    pad.dispatchEvent(ev('pointerdown', x0, y0));
-    if (x1 !== x0 || y1 !== y0) pad.dispatchEvent(ev('pointermove', x1, y1));
+    real(pad, ev('pointerdown', x0, y0));
+    if (x1 !== x0 || y1 !== y0) real(pad, ev('pointermove', x1, y1));
     await wait(ms);
-    pad.dispatchEvent(ev('pointerup', x1, y1));
+    real(pad, ev('pointerup', x1, y1));
     const got = !!P.jump;
     // a tap is a thumb that did not travel and did not linger; everything else is the camera
     const want = Math.hypot(x1 - x0, y1 - y0) / 52 < rg.AIR.tapFar && ms < rg.AIR.tapT * 1000;
@@ -325,15 +338,25 @@ CASES.tap = async () => {
     const evL = (type, x, y) => ({ type, pointerId: 8, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
     for (const [name, x1, ms, want] of [['left pad, quick tap', 150, 40, true], ['left pad, dragged', 200, 40, false], ['left pad, held', 150, 420, false]]) {
       P.stanceLock = true; place(60, 1, -60, 0, 5); P.stance = 1;
-      L.dispatchEvent(evL('pointerdown', 150, 150));
-      if (x1 !== 150) L.dispatchEvent(evL('pointermove', x1, 150));
+      real(L, evL('pointerdown', 150, 150));
+      if (x1 !== 150) real(L, evL('pointermove', x1, 150));
       await wait(ms);
-      L.dispatchEvent(evL('pointerup', x1, 150));
+      real(L, evL('pointerup', x1, 150));
       const got = P.stance === -1;
       console.log(`  ${name.padEnd(26)} -> ${got ? 'SWIVEL' : 'no swivel'}${got === want ? '' : '   <- WRONG'}`);
       if (got !== want) ok = false;
     }
     P.stanceLock = keepLock; P.stance = 1; rg.stick.L.x = rg.stick.L.y = 0; rg.stick.L.down = 0; }
+  // r30: A PLAIN HOLD, THE WAY A PHONE SENDS IT: the pad must still be held and steering after its
+  // own touchstart. This is the row that was missing when r28 shipped "no controls work".
+  { const L = document.getElementById('stkL');
+    const evH = (type, x, y) => ({ type, pointerId: 31, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
+    real(L, evH('pointerdown', 150, 150)); real(L, evH('pointermove', 150, 98));
+    const good = rg.stick.L.down && rg.stick.L.y < -0.9;
+    console.log(`  a normal held thumb (pointer + touch) -> ${good ? 'held, steering forward' : 'RELEASED -- no control works'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    real(L, evH('pointerup', 150, 98)); }
+  const FRESH = 160;   // past index.html's FRESH_MS: how old a lost thumb is before the next touch
   // THE STUCK STICK (r28): a pointerdown on the left pad whose up NEVER arrives -- the bug. The next
   // touch event's `touches` list does not have that finger, so the pad lets go; and a finger that
   // was refused while the ghost held the pad is handed it. Through the shipped `bindStick` and the
@@ -342,6 +365,7 @@ CASES.tap = async () => {
     const evL = (type, id, x, y) => ({ type, pointerId: id, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
     const T = (id, x, y) => ({ identifier: id, clientX: x, clientY: y });
     L.dispatchEvent(evL('pointerdown', 41, 150, 150)); L.dispatchEvent(evL('pointermove', 41, 150, 98));   // thumb pushed forward...
+    await wait(FRESH);   // a ghost is OLD by the time anything touches the glass again (r30)
     // ...and lifted with no pointerup. The stick reads full forward with nobody on it:
     const stuck = rg.stick.L.down && rg.stick.L.y < -0.9;
     // another finger lands on the RIGHT pad: the glass now has one touch, not near the left thumb
@@ -352,6 +376,7 @@ CASES.tap = async () => {
     globalThis.__win('touchend', { touches: [], changedTouches: [T(9, 900, 600)] });
     // stuck again, and this time the fix is touching the left pad itself, right where the ghost was
     L.dispatchEvent(evL('pointerdown', 42, 150, 150)); L.dispatchEvent(evL('pointermove', 42, 150, 98));
+    await wait(FRESH);
     L.dispatchEvent(evL('pointerdown', 43, 150, 110));             // refused: the ghost holds the pad
     const refused = rg.stick.L.y < -0.9;
     globalThis.__win('touchstart', { touches: [T(43, 150, 110)], changedTouches: [T(43, 150, 110)] });
@@ -360,6 +385,7 @@ CASES.tap = async () => {
     console.log(`  touch the stuck stick again       -> ${good ? 'the new thumb has it' : `x ${fix(rg.stick.L.x)} y ${fix(rg.stick.L.y)} down ${rg.stick.L.down}`}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     // and a REAL held thumb survives every check: still on the glass, so still steering
+    await wait(FRESH);   // old enough that only its being ON THE GLASS can keep it
     globalThis.__win('touchstart', { touches: [T(43, 202, 110), T(9, 900, 600)], changedTouches: [T(9, 900, 600)] });
     good = rg.stick.L.down && rg.stick.L.x > 0.9;
     console.log(`  a real held thumb, other finger down -> ${good ? 'kept' : 'DROPPED'}${good ? '' : '   <- WRONG'}`);
@@ -387,9 +413,9 @@ CASES.tap = async () => {
   // THE RIGHT PAD'S SWIPE UP (r25): on the ground it is the TRANSFER jump (`jump` 2), in the air
   // the front flip. Fast up, then off -- through the shipped binding, real FLICK timing.
   { const swipe = async (dx, dy) => { P.jump = 0;
-      pad.dispatchEvent(ev('pointerdown', 150, 150)); await wait(16);
-      pad.dispatchEvent(ev('pointermove', 150 + dx, 150 + dy)); await wait(30);
-      pad.dispatchEvent(ev('pointerup', 150 + dx, 150 + dy)); await wait(140); };   // past FLICK.gap
+      real(pad, ev('pointerdown', 150, 150)); await wait(16);
+      real(pad, ev('pointermove', 150 + dx, 150 + dy)); await wait(30);
+      real(pad, ev('pointerup', 150 + dx, 150 + dy)); await wait(140); };   // past FLICK.gap
     place(60, 1, -60, 0, 6); await swipe(0, -52);
     let good = P.jump === 2;
     console.log(`  swipe UP on the ground        -> ${P.jump === 2 ? 'TRANSFER jump' : P.jump === 1 ? 'a tap jump (WRONG)' : 'nothing'}${good ? '' : '   <- WRONG'}`);
@@ -407,9 +433,9 @@ CASES.tap = async () => {
     if (!good) ok = false;
     const L = document.getElementById('stkL');
     const evL = (type, x, y) => ({ type, pointerId: 77, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
-    const swipeL = async (dx, dy) => { L.dispatchEvent(evL('pointerdown', 150, 150)); await wait(16);
-      L.dispatchEvent(evL('pointermove', 150 + dx, 150 + dy)); await wait(30);
-      L.dispatchEvent(evL('pointerup', 150 + dx, 150 + dy)); await wait(140); };
+    const swipeL = async (dx, dy) => { real(L, evL('pointerdown', 150, 150)); await wait(16);
+      real(L, evL('pointermove', 150 + dx, 150 + dy)); await wait(30);
+      real(L, evL('pointerup', 150 + dx, 150 + dy)); await wait(140); };
     for (const [dx, dy, want] of [[0, -52, 'up'], [0, 52, 'down'], [52, 0, 'right'], [-52, 0, 'left']]) {
       air(); await swipeL(dx, dy);
       good = P.flip && P.flip.dir === want;
