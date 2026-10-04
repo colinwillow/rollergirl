@@ -155,7 +155,12 @@ Object.defineProperty(globalThis, 'navigator', { configurable: true, writable: t
 globalThis.location = { href: 'http://x/', search: '', hash: '', reload() {} };
 globalThis.localStorage = { _m: new Map(), getItem(k) { return this._m.has(k) ? this._m.get(k) : null; },
   setItem(k, v) { this._m.set(k, String(v)); }, removeItem(k) { this._m.delete(k); } };
-globalThis.addEventListener = () => {}; globalThis.removeEventListener = () => {};
+// WINDOW LISTENERS ARE RECORDED, not swallowed, so `npm run sim` can fire a window-level event
+// (the stuck-stick net listens on the window for touches) through the shipped handler.
+const WINL = {};
+globalThis.addEventListener = (t, fn) => { (WINL[t] || (WINL[t] = [])).push(fn); };
+globalThis.removeEventListener = () => {};
+globalThis.__win = (t, e) => { for (const fn of (WINL[t] || []).slice()) fn(e); };
 globalThis.requestAnimationFrame = () => 0; globalThis.cancelAnimationFrame = () => {};
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
 globalThis.fetch = () => Promise.reject(new Error('offline'));

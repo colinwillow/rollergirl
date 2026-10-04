@@ -334,6 +334,56 @@ CASES.tap = async () => {
       if (got !== want) ok = false;
     }
     P.stanceLock = keepLock; P.stance = 1; rg.stick.L.x = rg.stick.L.y = 0; rg.stick.L.down = 0; }
+  // THE STUCK STICK (r28): a pointerdown on the left pad whose up NEVER arrives -- the bug. The next
+  // touch event's `touches` list does not have that finger, so the pad lets go; and a finger that
+  // was refused while the ghost held the pad is handed it. Through the shipped `bindStick` and the
+  // shipped window handler.
+  { const L = document.getElementById('stkL');
+    const evL = (type, id, x, y) => ({ type, pointerId: id, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
+    const T = (id, x, y) => ({ identifier: id, clientX: x, clientY: y });
+    L.dispatchEvent(evL('pointerdown', 41, 150, 150)); L.dispatchEvent(evL('pointermove', 41, 150, 98));   // thumb pushed forward...
+    // ...and lifted with no pointerup. The stick reads full forward with nobody on it:
+    const stuck = rg.stick.L.down && rg.stick.L.y < -0.9;
+    // another finger lands on the RIGHT pad: the glass now has one touch, not near the left thumb
+    globalThis.__win('touchstart', { touches: [T(9, 900, 600)], changedTouches: [T(9, 900, 600)] });
+    let good = stuck && !rg.stick.L.down && rg.stick.L.y === 0;
+    console.log(`  left thumb lost with no pointerup -> ${stuck ? 'stuck forward' : 'NOT stuck (test broken)'}, next touch: ${rg.stick.L.down ? 'STILL STUCK' : 'released'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    globalThis.__win('touchend', { touches: [], changedTouches: [T(9, 900, 600)] });
+    // stuck again, and this time the fix is touching the left pad itself, right where the ghost was
+    L.dispatchEvent(evL('pointerdown', 42, 150, 150)); L.dispatchEvent(evL('pointermove', 42, 150, 98));
+    L.dispatchEvent(evL('pointerdown', 43, 150, 110));             // refused: the ghost holds the pad
+    const refused = rg.stick.L.y < -0.9;
+    globalThis.__win('touchstart', { touches: [T(43, 150, 110)], changedTouches: [T(43, 150, 110)] });
+    L.dispatchEvent(evL('pointermove', 43, 202, 110));             // the NEW thumb steers right
+    good = refused && rg.stick.L.down && rg.stick.L.x > 0.9 && Math.abs(rg.stick.L.y) < 0.1;
+    console.log(`  touch the stuck stick again       -> ${good ? 'the new thumb has it' : `x ${fix(rg.stick.L.x)} y ${fix(rg.stick.L.y)} down ${rg.stick.L.down}`}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    // and a REAL held thumb survives every check: still on the glass, so still steering
+    globalThis.__win('touchstart', { touches: [T(43, 202, 110), T(9, 900, 600)], changedTouches: [T(9, 900, 600)] });
+    good = rg.stick.L.down && rg.stick.L.x > 0.9;
+    console.log(`  a real held thumb, other finger down -> ${good ? 'kept' : 'DROPPED'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    L.dispatchEvent(evL('pointerup', 43, 202, 110)); globalThis.__win('touchend', { touches: [], changedTouches: [] });
+    }
+  // THE RIGHT PAD ORBITS THE LENS, NOT HER (r28): left thumb held forward, right pad swinging the
+  // camera round -- the direction the left thumb means must not move with it. Thumb up, they agree.
+  { place(60, 1, -60, 0, 0); P.grounded = true;
+    rg.cam.az = 0; rg.cam.steerAz = 0; rg.cam.idle = 0;
+    Object.assign(rg.stick.L, { down: 1, x: 0, y: -1 }); Object.assign(rg.stick.R, { down: 1, x: 1, y: 0 });
+    const w0 = rg.stickWorld();
+    for (let i = 0; i < 30; i++) rg.stepCam(DT);
+    const w1 = rg.stickWorld(), lens = rg.cam.az * 57.3, drift = Math.acos(Math.max(-1, Math.min(1, w0.x * w1.x + w0.z * w1.z))) * 57.3;
+    let good = Math.abs(lens) > 30 && drift < 0.5;
+    console.log(`  orbit the camera, left thumb held -> lens swung ${fix(lens, 0)} deg, her "forward" moved ${fix(drift, 1)} deg${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    Object.assign(rg.stick.L, { down: 0, x: 0, y: -1 }); Object.assign(rg.stick.R, { down: 0, x: 0 });
+    rg.stepCam(DT);
+    const w2 = rg.stickWorld(), sa = Math.sin(rg.cam.az), ca = Math.cos(rg.cam.az);
+    good = Math.abs(w2.x - sa) < 1e-6 && Math.abs(w2.z - ca) < 1e-6;
+    console.log(`  ...and once the left thumb lifts    -> ${good ? 'steering frame back on the lens' : 'STILL OFF'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    rg.stick.L.y = 0; rg.cam.az = 0; rg.cam.steerAz = 0; }
   // THE RIGHT PAD'S SWIPE UP (r25): on the ground it is the TRANSFER jump (`jump` 2), in the air
   // the front flip. Fast up, then off -- through the shipped binding, real FLICK timing.
   { const swipe = async (dx, dy) => { P.jump = 0;

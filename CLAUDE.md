@@ -269,6 +269,23 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **A STUCK STICK IS UN-STUCK BY ASKING THE GLASS, AND THE RIGHT PAD NO LONGER STEERS (r28,
+  `stickCheck`, `cam.steerAz`).** *"My left stick just got stuck in this position. Also the right
+  stick is making her turn."* His screenshot: left knob parked full forward, nobody on it, 28.9 m/s
+  up the berm. Four ways an up goes missing were already closed and a fifth got through; rather
+  than guess a sixth, every `touchstart`/`touchend`/`touchcancel` now checks `e.touches` -- the
+  browser's own list of the fingers on the screen RIGHT NOW, correct even when an earlier event was
+  lost -- and a pad whose thumb is not within `STICK_NEAR` px of any of them lets go. **It is not a
+  timer**: a held, motionless thumb is IN that list, so it can never be dropped, which is the whole
+  reason the watchdog was forbidden. A finger that has only just landed does not vouch for a ghost
+  (putting a thumb back where the stuck one was), and a finger REFUSED by the ghost (one thumb per
+  pad) is handed the pad -- so touching a stuck stick un-sticks it and steers in one move.
+  `npm run sim tap` drives it with a pointerdown whose up never comes; revert-tested.
+  **THE RIGHT PAD TURNED HER THROUGH THE CAMERA.** The left stick is screen-relative, so orbiting the
+  lens rotated "forward" under a held thumb and she followed it. While the left thumb is down,
+  steering reads `cam.steerAz`, which the follow camera moves and the right pad does not; with the
+  thumb up it IS `cam.az`. (`boot.mjs`'s stub records window listeners now -- `__win(type, e)` --
+  so the window-level net can be driven at all.)
 - **"SHE FEELS LIKE A BOAT" WAS FOUR THINGS (r27, `RIG.centre`, `leanWant`, `swingOf`, `npm run sim
   feel`).** *"Responsive and exaggerated, like Jet Set Radio -- right now there's this laggy boat
   feeling."*
