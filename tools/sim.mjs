@@ -64,6 +64,7 @@ function place(x, y, z, heading, speed) {
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
   P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1; P.grind = null; P.grindCool = 0; P.grindLast = null;
   P.autoTurn = null; P.vertLock = 0; P.xferKick = null; P.stanceWhy = null; P.stanceAt = 0;
+  P.mel = null; P.melQ = null; P.kickRail = null; P.kicked = 0;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
   rg.groundQ(P.bq);        // standing on whatever she was just placed on
@@ -411,26 +412,35 @@ CASES.tap = async () => {
     console.log(`  ...and once the left thumb lifts    -> ${good ? 'steering frame back on the lens' : 'STILL OFF'}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     rg.stick.L.y = 0; rg.cam.az = 0; rg.cam.steerAz = 0; }
-  // THE RIGHT PAD'S SWIPE UP (r25): on the ground it is the TRANSFER jump (`jump` 2), in the air
-  // the front flip. Fast up, then off -- through the shipped binding, real FLICK timing.
-  { const swipe = async (dx, dy) => { P.jump = 0;
+  // THE RIGHT PAD'S SWIPE (r39): on FLAT ground it is the MELEE chain, any direction; a swipe UP on a
+  // steep face is still the TRANSFER (`jump` 2); in the air it is the flying kick. Through the shipped
+  // binding, real FLICK timing.
+  { const swipe = async (dx, dy) => { P.jump = 0; P.mel = null; P.melQ = null; P.kicked = 0;
       real(pad, ev('pointerdown', 150, 150)); await wait(16);
       real(pad, ev('pointermove', 150 + dx, 150 + dy)); await wait(30);
       real(pad, ev('pointerup', 150 + dx, 150 + dy)); await wait(140); };   // past FLICK.gap
+    const what = () => P.jump === 2 ? 'TRANSFER jump' : P.jump === 1 ? 'a tap jump' : P.mel ? P.mel.kind + ' ' + P.mel.nm : 'nothing';
     place(60, 1, -60, 0, 6); await swipe(0, -52);
-    let good = P.jump === 2;
-    console.log(`  swipe UP on the ground        -> ${P.jump === 2 ? 'TRANSFER jump' : P.jump === 1 ? 'a tap jump (WRONG)' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+    let good = P.jump === 0 && P.mel && P.mel.kind === 'strike';
+    console.log(`  swipe UP on flat ground       -> ${what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     place(60, 1, -60, 0, 6); await swipe(52, 0);
-    good = P.jump === 0;
-    console.log(`  swipe SIDEWAYS on the ground  -> ${P.jump ? 'a jump (WRONG)' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+    good = P.jump === 0 && P.mel && P.mel.kind === 'strike';
+    console.log(`  swipe SIDEWAYS on the ground  -> ${what()}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+    // up the half pipe's wall, on a steep face: the swipe up is still the way OUT
+    place(0, 3, 29, 0, 13); rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+    { let st = false; for (let i = 0; i < 180 && !st; i++) { rg.stepPlayer(DT); st = P.grounded && P.n.y < 0.6; }
+      await swipe(0, -52);
+      good = st && P.jump === 2;
+      console.log(`  swipe UP on the pipe's wall   -> ${st ? what() : 'never reached a steep face'}${good ? '' : '   <- WRONG'}`); }
     if (!good) ok = false;
     // r29: THE FLIPS ARE THE LEFT PAD'S. In the air the right swipe does nothing; the left one flips.
     const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
     const air = () => { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 6; P.vel.y = 3; P.flip = null; };
     air(); await swipe(0, -52);
-    good = P.jump === 0 && !P.flip;
-    console.log(`  RIGHT swipe up in the air     -> ${P.flip ? P.flip.dir + ' flip (should be nothing)' : P.jump ? 'a jump (WRONG)' : 'nothing (kept for grabs)'}${good ? '' : '   <- WRONG'}`);
+    good = P.jump === 0 && !P.flip && P.mel && P.mel.kind === 'kick';
+    console.log(`  RIGHT swipe up in the air     -> ${P.flip ? P.flip.dir + ' flip (WRONG)' : what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     const L = document.getElementById('stkL');
     const evL = (type, x, y) => ({ type, pointerId: 77, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
@@ -445,8 +455,9 @@ CASES.tap = async () => {
     }
     { const keepLock = P.stanceLock; P.stanceLock = true; place(60, 1, -60, 0, 6); P.stance = 1; P.flip = null;
       await swipeL(0, -52);
-      good = !P.flip && P.stance === 1;
-      console.log(`  LEFT swipe on the ground      -> ${P.flip ? 'a FLIP' : P.stance < 0 ? 'a SWIVEL' : 'nothing'}${good ? '' : '   <- WRONG'}`);
+      good = !P.flip && P.stance === 1 && P.mel && P.mel.kind === 'slide';
+      console.log(`  LEFT swipe on the ground      -> ${P.flip ? 'a FLIP' : P.stance < 0 ? 'a SWIVEL' : P.mel ? 'the ' + P.mel.kind : 'nothing'}${good ? '' : '   <- WRONG'}`);
+      P.mel = null;
       if (!good) ok = false; P.stanceLock = keepLock; }
     rg.girl.moves = keepM; P.flip = null; P.jump = 0; }
   return ok;
@@ -1490,6 +1501,89 @@ CASES.swivel = () => {
   P.stanceLock = keepLock; P.stance = 1; rg.stick.L.y = 0; rg.stick.L.down = 0;
   return ok;
 };
+// ---------------------------------------------------------------- Zap's melee (r39)
+// The borrowed file (`npm run borrow`) prepared exactly as the game prepares hers; the chain, the slide,
+// the flying kick, and -- the point of the kick -- that flicked toward any rail in the park from five
+// metres off it, she lands ON it and grinds, where with the aim switched off she does not.
+CASES.melee = () => {
+  let ok = true;
+  // headless there is no skin; an earlier case may have left fabricated actions on `girl`, which would
+  // make every borrowed clip read as missing -- so this case runs as the game does with no skin at all
+  const keepReady = rg.girl.ready; rg.girl.ready = false;
+  try { return meleeCase(); } finally { rg.girl.ready = keepReady; }
+};
+function meleeCase() {
+  let ok = true;
+  const g = readGLB('models/melee_zap.glb'), alien = readGLB('models/alien_rollerskate_blue.glb').json;
+  const bones = new Set(alien.nodes.map(n => n.name));
+  const clips = rg.normaliseClips(buildClips(g, THREE));
+  const unbound = clips.reduce((n, c) => n + c.tracks.filter(t => !bones.has(t.name.split('.')[0])).length, 0);
+  const bad = clips.filter(c => !(c.duration > 0.3));
+  console.log(`  ${clips.length} borrowed clips (${clips.map(c => c.name.replace('weapon_melee', 'wm')).join(' ')})`);
+  console.log(`  tracks with no bone of hers to drive: ${unbound}; clips with a bad duration: ${bad.length}`);
+  if (clips.length !== 12 || unbound || bad.length) ok = false;
+  // HOW HIGH HER FEET END UP in the borrowed poses, on her real skeleton, as a fraction of her leg:
+  // the hips were re-based on her rest and scaled by leg length, so a standing strike keeps a foot down
+  { const { root, by } = skelFromGLB(alien);
+    const mixer = new THREE.AnimationMixer(root), feet = [by.mixamorig_LeftFoot, by.mixamorig_RightFoot], V = () => new THREE.Vector3();
+    root.updateMatrixWorld(true);
+    const rest = Math.min(...feet.map(f => f.getWorldPosition(V()).y));
+    const leg = by.mixamorig_LeftUpLeg.getWorldPosition(V()).distanceTo(by.mixamorig_LeftFoot.getWorldPosition(V()));
+    const rows = [];
+    for (const c of clips) {
+      const a = mixer.clipAction(c); a.play(); let lo = Infinity, lomax = -Infinity;
+      for (let i = 0; i <= 20; i++) { a.time = c.duration * i / 20; mixer.update(0); root.updateMatrixWorld(true);
+        const l = Math.min(...feet.map(f => f.getWorldPosition(V()).y)) - rest; lo = Math.min(lo, l); lomax = Math.max(lomax, l); }
+      a.stop(); rows.push([c.name, lo / leg, lomax / leg]);
+    }
+    console.log('  lower foot vs her floor, in legs (min..max over the clip): ' + rows.map(r => `${r[0].replace('weapon_melee', 'wm').replace('melee_', 'm')} ${fix(r[1])}..${fix(r[2])}`).join('  '));
+    // Zap's OWN slide and low spin put a foot -0.37 / -0.44 of a leg under his floor (measured on his rig
+    // at r39), so some depth is the source; the game lifts her during a strike. What must not happen is a
+    // hips rescale gone wrong, which sinks her by whole legs.
+    const sunk = rows.filter(r => r[1] < -0.8);
+    if (sunk.length) { console.log('  SUNK through the floor: ' + sunk.map(r => r[0]).join(' ')); ok = false; }
+  }
+  const flat = () => place(60, 1, -60, 0, 8);
+  // the chain: dealt in order, a flick during a strike QUEUED, never cutting it; body turns to the flick
+  flat(); rg.girl.melDeal = 0; rg.cam.az = 0;
+  const seen = []; let faced = 180;
+  rg.rightFlick(52, 0); rg.rightFlick(52, 0);          // screen right = world -X with the lens down +Z
+  run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+    if (P.mel && seen[seen.length - 1] !== P.mel.nm) seen.push(P.mel.nm);
+    if (P.mel) faced = Math.min(faced, Math.abs(Math.atan2(Math.sin(P.faceH + Math.PI / 2), Math.cos(P.faceH + Math.PI / 2))) * 57.3); });
+  const tb = Math.abs(Math.atan2(P.vel.x, P.vel.z)) * 57.3;
+  console.log(`  two right flicks: ${seen.join(' -> ')}; body came within ${fix(faced, 1)} deg of the flick; still rolling ${fix(tb, 1)} deg off her line`);
+  if (!(seen.join() === 'melee_01,melee_02' && faced < 8 && tb < 20)) ok = false;
+  // the slide tackle
+  const sp = k => { const keep = rg.MELEE.slideV; rg.MELEE.slideV = k; flat(); rg.meleeSlide(); run(0.3, () => { rg.stick.L.x = rg.stick.L.y = 0; }); rg.MELEE.slideV = keep; return P.hSpeed; };
+  const s0 = sp(0), s1 = sp(rg.MELEE.slideV);
+  console.log(`  slide tackle: ${fix(s1, 1)} m/s against ${fix(s0, 1)} without the shove`);
+  if (!(s1 > s0 + rg.MELEE.slideV * 0.7)) ok = false;
+  // the flying kick, open plaza: driven toward the flick
+  flat(); P.grounded = false; P.coyote = 0; P.pos.y += 3; P.vel.set(0, 2, 2);
+  rg.rightFlick(0, -52);                                   // up = away from the lens = +Z
+  const kv = P.vel.z, again = rg.rightFlick(0, -52);
+  console.log(`  flying kick in the open: ${fix(kv, 1)} m/s toward the flick; a second one in the same air: ${again ? 'TAKEN (wrong)' : 'refused'}`);
+  if (!(kv >= rg.MELEE.airV - 0.01 && !again)) ok = false;
+  // ONTO EVERY RAIL: jump beside it, 5 m off, the lens turned so a flick UP points at it
+  const keepR = rg.MELEE.aimR;
+  const tryRail = (R, side, aim) => {
+    rg.MELEE.aimR = aim;
+    const mx = (R.a.x + R.b.x) / 2, mz = (R.a.z + R.b.z) / 2;
+    const px = mx - R.hz * 5 * side, pz = mz + R.hx * 5 * side;
+    place(px, 1, pz, Math.atan2(R.hx, R.hz), 4); P.jump = 1;
+    run(0.25, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    rg.cam.az = Math.atan2(mx - P.pos.x, mz - P.pos.z);
+    rg.rightFlick(0, -52);
+    let got = null; run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && !got) got = P.grind; });
+    rg.MELEE.aimR = keepR;
+    return got && got.rail === R;
+  };
+  const rows = rg.RAILS.map((R, i) => `${i}: ${tryRail(R, 1, keepR) ? 'GRIND' : 'missed'}/${tryRail(R, -1, keepR) ? 'GRIND' : 'missed'} (aim off: ${tryRail(R, 1, 0) ? 'grind' : 'missed'})`);
+  console.log('  kicked at each rail from either side: ' + rows.join('  '));
+  if (rows.some(r => /missed\//.test(r) || /\/missed/.test(r))) ok = false;
+  return ok;
+}
 // ---------------------------------------------------------------- feet on the ground (r36)
 // The shipped `footFind` + `legIK` on a FABRICATED leg (a skin is draco and cannot be built here, but the
 // IK only reads bone positions and world matrices). It must move the ankle where it is asked to, keep

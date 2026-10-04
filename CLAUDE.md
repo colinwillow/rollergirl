@@ -60,6 +60,9 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   `fall_to_*` + `get_up_*`/`kip_up_from_back`, `grind_left/right`, and the variety skates
   (`casual`, `daffy`, `swizzle`, `tiptoe`, `onefoot*`, `pose_duck/swan`) not yet triggered.
   `alien_rollerskate_blue_test.glb` is the one-clip test export and is no longer on the roster.
+- `models/melee_zap.glb` — **Zap's melee set, borrowed from weirdport (r39)** by `npm run borrow` (`tools/borrow.mjs`,
+  reads `../colinwillow/weirdport/models/characters/zap.glb` or a path you pass): nodes + 12 animations, no mesh,
+  632 KB. Re-run it if he re-exports Zap. Delete it the day she has her own melee clips.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
 - `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`.
@@ -275,6 +278,30 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **MELEE, BORROWED FROM ZAP (r39, `MELEE`, `rightFlick`, `meleeStrike`, `meleeSlide`, `meleeKick`, `kickTarget`).**
+  *"I love his melee system -- right stick flick on the ground strings them the way he does; left stick
+  flick is the slide tackle; in the air a right flick is the flying kick, and near a grind pole flicked
+  toward it she targets the pole and kicks into a grind, because it's really hard to grind right now."*
+  He said Clancy; the set is ZAP's (Clancy is the dog, with one punch). **Same bind pose**: 58 shared
+  joints, rest rotations equal to 0.03 deg, so rotations copy as they are; the Hips translation is
+  re-based on HER rest and its movement scaled by the leg-length ratio (x1.79, both read from the files).
+  Measured on both rigs the hips drop the same fraction of a leg (-1.15 / -1.25 in `melee_02` / the
+  slide), and **Zap's own feet go under his floor in those two** (-0.37 / -0.44 legs) -- so during a
+  ground strike `footGround` only LIFTS her (`MELEE.liftMax`) until the lowest skate is on the surface,
+  and never runs the leg IK.
+  RIGHT FLICK on flat ground: the next clip of the pool (`fist`, plus `weap` if `useWeap`), dealt in order
+  so none repeats until all have played, at `rate` 1.75 clamped to a .55-1.3 s beat (weirdport's numbers),
+  her BODY turned to the flick (through the camera) while the wheels keep their line, a `lunge` of speed;
+  a flick during a strike is QUEUED and never cuts it. **A swipe UP on a steep face (`xferN`), a rail or
+  off a lip is still the transfer** -- on FLAT ground up is a strike now. LEFT FLICK on the ground: the
+  slide tackle along her travel, `slideV` of shove. RIGHT FLICK in the air: the flying kick, driven toward
+  the flick at `airV`, once per airtime -- and if a rail lies within `aimR` / `aimCone`, she is SOLVED onto
+  it (nearest point led `lead` along the rail so she arrives sliding along it; horizontal speed from the
+  distance, vertical speed that meets the bar's top at the same moment) and `railCatch` relaxes its gates
+  for THAT rail and grinds her the way she was aimed. Air thrust is off for a solved kick. Strikes,
+  slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
+  and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
+  the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
 - **HER FEET ON THE GROUND (r36, `FOOTIK`, `footFind`, `legIK`, `footGround`).** *"The feet don't quite touch
   the ground -- it feels like she's floating slightly."* The alien's Hips TRANSLATION is constant in every
   clip, so every bent knee folds her legs up under a pelvis held at standing height and lifts the skates
@@ -931,7 +958,7 @@ Each of these cost a round in the build that found it.
   trick points (+10 +25 ...), hand/foot trails, a speed tunnel / blur, landing and bail
   shake, a swivel CLIP (the swivel itself is r23, on `faceH`'s ease), and the variety skates (`onefoot*`,
   `daffy`, `swizzle`, `tiptoe`, `pose_duck/swan`) which have no trigger yet. `tuck` and
-  `flip_pose` are loaded and unused. The right pad's flick does nothing ON THE GROUND yet.
+  `flip_pose` are loaded and unused.
 - No audio at all.
 - `skate_fwd` is six frames of one push, ping-ponged. `SK.pushDur` / `SK.pushFast` are the
   stride period and the clip is fitted to it; a clip authored as a FULL cycle drops straight in

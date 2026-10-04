@@ -10,7 +10,8 @@
     "rig": "node tools/rig.mjs",
     "sim": "node tools/sim.mjs",
     "clips": "node tools/clips.mjs",
-    "icons": "node tools/icons.mjs"
+    "icons": "node tools/icons.mjs",
+    "borrow": "node tools/borrow.mjs"
   },
   "type": "module",
   "devDependencies": {
