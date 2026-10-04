@@ -490,7 +490,9 @@ CASES.bail = () => {
   // ...AND `AIR.ease` OFF WITH IT, because the shipped air brings her back to plumb: without
   // that she is upright again long before she lands and every row reads "landed it", which is a
   // test that cannot fail.
-  const was = rg.AIR.land, wasE = rg.AIR.ease; rg.AIR.land = 0.95; rg.AIR.ease = 0;
+  // r33: AND THE PRE-ALIGN OFF TOO -- it turns her onto the floor in the last couple of metres, so a
+  // body held out of square never reaches the ground out of square and no row could ever bail.
+  const was = rg.AIR.land, wasE = rg.AIR.ease, wasP = rg.AIR.preAlign; rg.AIR.land = 0.95; rg.AIR.ease = 0; rg.AIR.preAlign = 0;
   for (const deg of [0, 30, 50, 75, 120]) {
     place(60, 1, -60, 0, 8);
     P.pos.y = 6; rg.leaveGround(0); P.vel.set(0, 0, 8);
@@ -502,7 +504,7 @@ CASES.bail = () => {
                 ` (${fix((P.landOff || 0) * 180 / Math.PI, 0)} deg measured, ${fix(v1)} m/s left)`);
     if ((bailed === 1) !== (deg > AIRLAND)) ok = false;
   }
-  rg.AIR.land = was; rg.AIR.ease = wasE;
+  rg.AIR.land = was; rg.AIR.ease = wasE; rg.AIR.preAlign = wasP;
   return ok;
 };
 
@@ -1517,6 +1519,32 @@ CASES.feel = () => {
   const spun = Math.abs(P.heading - h0);
   chk('air spin at 60% of the pad: full speed at once', spun > rg.AIR.spin * 0.1 * 0.9, `${fix(spun * 57.3, 0)} deg in 0.1 s`);
   chk('air spin: the body yaw IS the heading', worstYaw < 1.5, `worst ${fix(worstYaw, 2)} deg behind`);
+  // 4. r33: THE PRE-ALIGN AND THE SETTLE, over the half pipe's steep transition (z ~34.6, x 0).
+  { const n0 = rg.groundAt(0, 34.6, 20, 30), N = new THREE.Vector3(n0.nx, n0.ny, n0.nz);
+    const face = Math.acos(N.y) * 57.3;
+    const upOff = () => Math.acos(Math.max(-1, Math.min(1, new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq).dot(
+      (() => { const g = rg.groundAt(P.pos.x, P.pos.z, P.pos.y, 0.05); return new THREE.Vector3(g.nx, g.ny, g.nz); })())))) * 57.3;
+    // dropped onto it from 6 m with no input: how square is she to the face on the frame she lands?
+    const drop = (pre) => { const keepP = rg.AIR.preAlign; rg.AIR.preAlign = pre;
+      place(0, 1, 34.6, Math.PI / 2, 0); P.grounded = false; P.pos.y = n0.floor + 6; P.vel.set(2, 0, 0); P.airT = 0.3;
+      let off = null, last = 0;
+      run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!P.grounded) last = upOff(); else if (off === null) off = last; });
+      rg.AIR.preAlign = keepP; return off; };
+    const on = drop(rg.AIR.preAlign), off = drop(0);
+    chk('pre-align: lands already matching a ramp', on !== null && on < 12 && off !== null && off > face * 0.6,
+        `${fix(on, 1)} deg out at touchdown, against ${fix(off, 1)} without it (the face is ${fix(face, 0)} deg)`);
+    // the settle: high over it, moving, right pad held DOWN -- speed bleeds off, body squares to the face
+    place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
+    Object.assign(rg.stick.R, { down: 1, x: 0, y: 1 });
+    run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    const hs = Math.hypot(P.vel.x, P.vel.z), so = upOff(), high = P.pos.y - n0.floor;
+    Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
+    chk('settle: right pad held down, high over a ramp', hs < 1.5 && so < 10 && high > 3,
+        `8 m/s -> ${fix(hs, 2)} m/s across, body ${fix(so, 1)} deg off the face, still ${fix(high, 1)} m up`);
+    // and the same without it is still upright up there
+    place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
+    run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    chk('...and without it she flies on, upright', Math.hypot(P.vel.x, P.vel.z) > 6, `${fix(Math.hypot(P.vel.x, P.vel.z), 1)} m/s across`); }
   P.stanceLock = keepLock; rg.stick.L.x = rg.stick.L.y = 0;
   return ok;
 };
@@ -1528,12 +1556,18 @@ CASES.grind = () => {
   let ok = true;
   const R = rg.RAILS;
   console.log(`  ${R.length} rails`);
+  // r33: HOW HIGH SHE ACTUALLY GOES, measured by jumping on open flat ground -- the rails are judged
+  // against THIS, not against the formula that places them.
+  let APEX = 0; { place(60, 1, -60, 0, 0); const y0 = P.pos.y; P.jump = 1;
+    run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; APEX = Math.max(APEX, P.pos.y - y0); }); }
+  console.log(`  her flat-ground apex: ${fix(APEX, 2)} m`);
   // 1. every rail floats over flat ground, at a height an ollie reaches
   for (const [i, r] of R.entries()) {
     const ga = rg.groundAt(r.a.x, r.a.z, r.a.y, 0.01), gb = rg.groundAt(r.b.x, r.b.z, r.b.y, 0.01);
     const ca = r.a.y - ga.floor, cb = r.b.y - gb.floor;
-    const good = ga.hit && gb.hit && ca > 1.5 && cb > 1.5 && ca < 3.2 && cb < 3.2;   // r25: a real jump up, still under the 3.9 m ollie
-    console.log(`  rail ${i}: ${fix(r.len, 1)} m, ${fix(ca, 2)}..${fix(cb, 2)} m off the ground${good ? '' : '   <- WRONG'}`);
+    // r33: *"just a little bit below the apex of her jump"* -- between 60% and 97% of what she reaches
+    const good = ga.hit && gb.hit && ca > 0.6 * APEX && cb > 0.6 * APEX && ca < 0.97 * APEX && cb < 0.97 * APEX;
+    console.log(`  rail ${i}: ${fix(r.len, 1)} m, ${fix(ca, 2)}..${fix(cb, 2)} m off the ground (${fix(ca / APEX * 100, 0)}..${fix(cb / APEX * 100, 0)}% of her apex)${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
   }
   const keepLock = P.stanceLock; P.stanceLock = true;

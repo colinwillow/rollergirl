@@ -275,6 +275,24 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **RAILS ARE A FRACTION OF HER APEX, AND SHE CAN SETTLE ONTO A RAMP (r33, `RAIL_DEF`, `AIR.settle*`,
+  `AIR.preAlign`).** *"She jumps so high it's hard to land on a rail -- put it just below her apex."*
+  A rail's middle number is now the fraction of her flat-ground apex (`AIR.jump^2 / 2g`) above the
+  ground under each end: 84-90% (3.3-3.5 m against a measured 3.81). Retune the jump and they follow.
+  `npm run sim grind` MEASURES the apex by jumping and judges the rails against that, 60-97%.
+  **THE SETTLE** (*"in Tony Hawk you hold a trigger in the air and the character stops its momentum and
+  falls straight down onto the ramp"*): the right pad held DOWN in the air (key F) bleeds her
+  horizontal speed at `settleDrag` and turns her square onto whatever face is straight below her
+  (`groundAt`), from any height -- 8 m/s to 0.5 in 0.7 s, 0.4 deg off the face, still 8 m up.
+  **THE PRE-ALIGN**: always, within `preAlign` SECONDS of touchdown she turns onto the face she is
+  about to land on, at a rate that closes the gap by contact -- 0.0 deg out landing on a 39 deg
+  transition, against 38 without it. **By TIME, not height**: a 2.4 m band left her 26 deg out,
+  because a fast fall crosses a fixed height too quickly to turn in it. The dormant bail test has
+  to switch it off too, or a body held out of square never reaches the ground out of square.
+  **AND THE GROUND TILT EASES** (`RIG.tiltRate` 12 -> 7, on the panel) and a landing that squares her
+  onto her line turns her BODY at `SK.landYaw` for half a second instead of snapping. Foot-level IK
+  (feet flat on the surface, body as an additive layer) is not done -- the rotation is still the
+  whole body about her hips.
 - **"IT THINKS I'M BACKWARDS" HAD THREE SOURCES, AND THE CHIP NOW NAMES WHICH ONE FIRED (r32,
   `setStance`, `VERT.autoTurn`, `flickFlip`).** *"Every now and again it puts you in one of the two
   states."* Every stance write goes through `setStance(st, why)`; for 4 s after a change the chip

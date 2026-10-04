@@ -148,7 +148,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r32</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r33</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -165,7 +165,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 
-const BUILD = 'r32';
+const BUILD = 'r33';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -202,7 +202,8 @@ const RIG = {
   pivot: 0.62,         // fallback only: the air pivot is her measured HIPS (r29, `airPivot`)
   pivotAdj: 0,         // metres above (+) or below (-) her hips that she flips about
   pivotHL: 0.10,
-  tiltRate: 12,        // how fast the standing pose tracks the surface under her -- the TILT only;
+  tiltRate: 7,         // how fast the standing pose tracks the surface under her -- the TILT only (r33:
+                       // 12 read as a snap rolling over the edge of a ramp; *"I want that eased"*);
                        // the yaw is taken straight off `faceH` (r27), so a turn is not eased twice
   // WHERE SHE TURNS ABOUT (r27). *"My root joint is slightly behind her centre of gravity, so when
   // you turn she feels like a boat -- she rotates from a point behind her."* Measured: the alien's
@@ -491,6 +492,7 @@ const SK = {
   leanMinV: 1.5,       // slower than this there is no turn worth leaning into
   leanHL: 0.08,
   faceRate: 32,        // per second: how fast her body comes round onto her heading
+  landYaw: 7,          // r33: ...and how fast after a landing squares her onto her line
   dead: 0.14,          // stick dead zone
   curve: 1.35,         // stick response curve
   max: 42,             // hard speed ceiling, so nothing can run away
@@ -528,6 +530,11 @@ const AIR = {
   // up, not lying on her side parallel to the wall. She leaves holding the ramp's angle and
   // comes upright over `ease`, which reads as straightening out rather than as a snap.
   ease: 4.5,
+  // r33: the SETTLE (right pad held down in the air) and the PRE-ALIGN -- see `stepAir`
+  settleAt: 0.55,      // how far DOWN the right pad has to be held
+  settleDrag: 4,       // per second: how fast her horizontal speed bleeds off while settling
+  settleEase: 9,       // per second: how fast her body turns onto the face below
+  preAlign: 0.4,       // seconds: falling, this close to touchdown, she turns to match the surface
   pitch: 0,            // 1 leans her into the arc instead; 0 is plumb
   // THE BAIL IS OFF. It compared her own up to the face she landed on, which only means anything
   // while the body is free -- upright in the air, every drop back into a transition is eighty
@@ -602,14 +609,16 @@ const PARK = { S: 70, cell: 5, wallR: 10.0, wallSweep: 70 * Math.PI / 180, wallB
 // side -- MEASURED with `groundAt` before any was placed, the way every ramp here was, because a
 // rail dropped by eye ends half inside a funbox. Away from the x = +/-60 strips the sim skates.
 // `a` and `b` are the TOP of the bar, where her wheels sit; a sloped one is a down rail.
+// r33: *"Make the rails higher -- she jumps so high it's really hard to land on one. Just a little
+// below the apex of her jump."* So a rail's height is no longer typed in metres at all: the middle
+// number is a FRACTION OF HER FLAT-GROUND APEX (`AIR.jump^2 / 2g`, 3.9 m), measured up from the
+// ground under each end. She tops out just over the bar and settles onto it, and retuning the jump
+// moves every rail with it. (r25 had 1.8-2.7 m, which she sailed a metre and more over.)
 const RAIL_DEF = [
-  // r25: *"make the grind rails taller so you can really jump up into them."* An ollie on the flat
-  // tops out near 3.9 m (12.5 m/s of pop against 20 of gravity), so 0.6-0.8 m was a kerb. Now
-  // 1.8-2.7: she has to commit to a real jump, and comes DOWN onto the bar from above.
-  { a: [-40, 1.8, -6], b: [-40, 1.8, 16] },    // flat, along Z, off to the left of the spawn
-  { a: [-12, 2.0, -46], b: [12, 2.0, -46] },   // flat, along X, the south side
-  { a: [38, 2.7, 2], b: [38, 1.7, 18] },       // a DOWN rail, a metre of drop over 16
-  { a: [30, 1.9, 30], b: [44, 1.9, 46] },      // diagonal, so nothing assumes a rail runs on an axis
+  { a: [-40, 0.84, -6], b: [-40, 0.84, 16] },    // flat, along Z, off to the left of the spawn
+  { a: [-12, 0.86, -46], b: [12, 0.86, -46] },   // flat, along X, the south side
+  { a: [38, 0.90, 2], b: [38, 0.66, 18] },       // a DOWN rail, a metre of drop over 16
+  { a: [30, 0.85, 30], b: [44, 0.85, 46] },      // diagonal, so nothing assumes a rail runs on an axis
 ];
 // HOW A GRIND IS CAUGHT AND HELD. Caught in the AIR only -- dropping onto a rail or ollieing onto
 // one -- so riding past a rail can never snag her.
@@ -1037,8 +1046,10 @@ function buildRails() {
   const mat = new THREE.MeshStandardMaterial({ color: 0xc9cdd6, metalness: 0.85, roughness: 0.32 });
   const postMat = new THREE.MeshStandardMaterial({ color: 0x7c8190, metalness: 0.6, roughness: 0.5 });
   const Y = new THREE.Vector3(0, 1, 0);
+  const apex = AIR.jump * AIR.jump / (2 * SK.g);
+  const atop = (q) => { const g = groundAt(q[0], q[2], 50, 100); return new THREE.Vector3(q[0], (g.hit ? g.floor : 0) + q[1] * apex, q[2]); };
   for (const r of RAIL_DEF) {
-    const a = new THREE.Vector3(...r.a), b = new THREE.Vector3(...r.b);
+    const a = atop(r.a), b = atop(r.b);
     const d = b.clone().sub(a), len = d.length(); d.normalize();
     const hx = r.b[0] - r.a[0], hz = r.b[2] - r.a[2], hl = Math.hypot(hx, hz);
     RAILS.push({ a, b, d, len, hx: hx / hl, hz: hz / hl, hl });
@@ -2720,9 +2731,39 @@ function stepAir(dt) {
     const vl = p.vel.length();
     if (vl > 1) _q.multiply(_qa.setFromAxisAngle(XAX, -Math.asin(clamp(p.vel.y / vl, -1, 1)) * AIR.pitch));
   }
-  // THE YAW IS EXACT, THE TILT IS EASED (r27). `_q` is the target (her heading, plus any pitch);
-  // the current pose's swing is eased toward the target's swing and the target's yaw goes on as is.
-  swingOf(p.bq, _q2).slerp(swingOf(_q, _qb), Math.min(1, AIR.ease * dt));
+  // THE SETTLE AND THE PRE-ALIGN (r33). *"In Tony Hawk you could hold a trigger in the air over a
+  // bowl or a ramp and the character would stop its momentum and adjust so it falls straight down
+  // onto it -- and any time you land on a surface that is not flush, the rotation should EASE, not
+  // snap."* One look straight down (`groundAt`, the collider's own answer) gives the face she will
+  // come down on, and two things use it:
+  //   SETTLE  -- the right pad held DOWN (key F): her horizontal speed bleeds off at `settleDrag`
+  //              and her body turns to stand square on that face from any height, so she drops
+  //              onto it the way it slopes, a vert wall included.
+  //   PRE-ALIGN -- always, falling, within `preAlign` SECONDS of touching it: the body turns onto
+  //              the face so she arrives already matching it and the landing has nothing left to
+  //              snap. Further out she rights to plumb as before.
+  // Not mid-flip: the flip owns her rotation until it is round.
+  const settle = !p.flip && ((stick.R.down && stick.R.y > AIR.settleAt && Math.abs(stick.R.x) < stick.R.y) || keys.f);
+  p.settling = !!settle;
+  swingOf(_q, _qb);
+  let rate = AIR.ease;
+  const below = groundAt(p.pos.x, p.pos.z, p.pos.y, 0.05);
+  if (below.hit) {
+    let w = 0;
+    if (settle) { w = 1; rate = AIR.settleEase; }
+    else if (p.vel.y < -0.5 && AIR.preAlign > 0 && !p.flip) {
+      // BY TIME TO TOUCHDOWN, NOT HEIGHT: a fast fall crosses a fixed height band too quickly to
+      // turn in it (2.4 m left her 26 deg out on a 39 deg face). Inside `preAlign` seconds the target
+      // is the face, at a rate that closes ~95% of the gap by the moment she arrives.
+      const tHit = (p.pos.y - below.floor) / -p.vel.y;
+      if (tHit < AIR.preAlign) { w = 1; rate = Math.max(rate, 3 / Math.max(0.03, tHit)); }
+    }
+    if (w > 0) _qb.slerp(_q3.setFromUnitVectors(UP, _v.set(below.nx, below.ny, below.nz)), w);
+  }
+  if (settle) { p.vel.x = decay(p.vel.x, AIR.settleDrag, dt); p.vel.z = decay(p.vel.z, AIR.settleDrag, dt); }
+  // THE YAW IS EXACT, THE TILT IS EASED (r27). `_qb` is the target swing (plumb, any pitch, and the
+  // face below when settling or close to it); the yaw goes on as is.
+  swingOf(p.bq, _q2).slerp(_qb, Math.min(1, rate * dt));
   p.bq.copy(_q2).multiply(_qa.setFromAxisAngle(UP, p.heading));
   p.vel.y -= SK.g * dt;
   if (p.vel.y < -34) p.vel.y = -34;
@@ -2803,8 +2844,10 @@ function landStance(fwd) {
       bail = true; setStance(a < Math.PI / 2 ? 1 : -1, 'land');            // no bail: the NEARER end
       // AND WITH BAILS OFF SHE IS SQUARED ONTO HER LINE, or she would ride away with her wheels
       // across her travel and skid to a stop -- which is a bail by another name.
-      if (!LAND.bail && Math.hypot(_v.x, _v.z) > LAND.minV)
+      if (!LAND.bail && Math.hypot(_v.x, _v.z) > LAND.minV) {
         p.heading = wrapAngle(Math.atan2(_v.x, _v.z) + (p.stance < 0 ? Math.PI : 0));
+        p.faceSlowT = 0.5;                       // the BODY eases round onto it (r33), not snaps
+      }
     }
   }
   if (!LAND.bail) bail = false;
@@ -2857,7 +2900,10 @@ function stepPlayer(dt) {
   p.speed = p.vel.length();
   p.hSpeed = Math.hypot(p.vel.x, p.vel.z);
   // the body comes round onto the heading -- quickly, it is a skater, not a boat (r27: 18 -> 32)
-  p.faceH += wrapAngle(p.heading - p.faceH) * Math.min(1, SK.faceRate * dt);
+  // ...except just after a landing squared her onto her line (r33): that turn is the landing's, not
+  // the thumb's, and taken at full rate it read as a snap -- so it eases at `landYaw` for a moment
+  if (p.faceSlowT > 0) p.faceSlowT -= dt;
+  p.faceH += wrapAngle(p.heading - p.faceH) * Math.min(1, (p.faceSlowT > 0 ? SK.landYaw : SK.faceRate) * dt);
   p.lean = damp(p.lean, leanWant(dt), SK.leanHL, dt);
 }
 // SHE LEANS INTO THE TURN (r27). Her travel's bearing, how fast it is bending, and so the sideways
@@ -3215,6 +3261,9 @@ const TAILUI = [
   ['FLIPP.openAt',   'Opens out at',   0.3, 0.9, 0.01, ''],
   ['FLIPP.twist',    'Twists',         0,   3,   0.5,  ''],
   ['VERT.kick',      'Transfer kick',  0,   10,  0.5,  ''],
+  ['AIR.settleDrag', 'Settle brake',   0,   12,  0.5,  ''],
+  ['AIR.preAlign',   'Pre-align time', 0,   1.2, 0.05, 's'],
+  ['RIG.tiltRate',   'Ground tilt ease', 2, 20,  0.5,  ''],
   ['VERT.autoTurn',  'Auto-turn on vert airs', 0, 1, 1, ''],
   ['FLIPP.camRel',   'Flips relative to camera', 0, 1, 1, ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
