@@ -1220,6 +1220,42 @@ CASES.moves = () => {
   return ok;
 };
 
+// ---------------------------------------------------------------- which way the body faces (r24)
+// *"My animations for riding backwards are themselves backward."* They were: the body inside every
+// `*_backward` clip faces ~180 off the model's forward, so with the game ALSO turning her round for
+// fakie she skated facing the way she was going. The SHIPPED `prepClips` takes the clip's half
+// turn out; this poses his real skeleton through a real mixer -- an independent measurement, not
+// the `bodyYaw` the fix uses -- and requires every skating and idle clip to face forward. It runs
+// the prep twice, with the fix OFF first, so it is shown to be able to fail.
+CASES.facing = () => {
+  const f = 'models/alien_rollerskate_blue.glb', g = readGLB(f);
+  const yawOf = (clips, nm) => {
+    const S = skelFromGLB(g.json), clip = clips.find(c => c.name === nm);
+    const m = new THREE.AnimationMixer(S.root), a = m.clipAction(clip); a.play(); a.time = 0.37 * clip.duration; m.update(0);
+    S.root.updateMatrixWorld(true);
+    const L = new THREE.Vector3().setFromMatrixPosition(S.by.mixamorig_LeftUpLeg.matrixWorld);
+    const R = new THREE.Vector3().setFromMatrixPosition(S.by.mixamorig_RightUpLeg.matrixWorld);
+    const fwd = new THREE.Vector3(0, 1, 0).cross(R.sub(L));
+    return Math.atan2(fwd.x, fwd.z) * 180 / Math.PI;
+  };
+  const prep = on => { const keep = rg.FACEFIX.on; rg.FACEFIX.on = on;
+    const c = rg.prepClips(rg.normaliseClips(buildClips(g, THREE)), skelFromGLB(g.json).root);
+    rg.FACEFIX.on = keep; return c; };
+  const names = prep(1).map(c => c.name).filter(n => /^(blade_|idle_)/.test(n));
+  const raw = prep(0), fixd = prep(1);
+  let ok = true, wasBack = 0;
+  for (const nm of names) {
+    const a = yawOf(raw, nm), b = yawOf(fixd, nm);
+    if (Math.abs(a) > 90) wasBack++;
+    const good = Math.abs(b) < 30;
+    if (/_backward$/.test(nm) || !good) console.log(`  ${nm.padEnd(32)} as exported ${a.toFixed(0).padStart(5)} deg  ->  ${b.toFixed(0).padStart(4)}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+  }
+  console.log(`  ${wasBack} clips authored facing backwards, turned: ${rg.FACEFIX.turned.length}`);
+  if (wasBack < 10) { console.log('  -> the unfixed export should read backwards; the measurement is not measuring'); ok = false; }
+  return ok;
+};
+
 // ---------------------------------------------------------------- the rails
 // THE SHIPPED `railCatch` / `stepGrind` / `grindLeave` through the real `stepPlayer`, over the real
 // rails `buildPark` built. Each row puts her in the air near a rail and lets the physics decide.

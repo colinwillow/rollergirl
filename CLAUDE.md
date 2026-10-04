@@ -269,6 +269,25 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   `npm run sim moves` drives it on his REAL clip names and lengths, prepared by the SHIPPED
   `prepClips` -- and the `anim` case now skips a moves skin, because it had been testing his
   49-clip export down the one-clip path with `back_flip` as its "solo" clip.
+- **HIS `*_backward` CLIPS ARE AUTHORED FACING BACKWARDS, AND THE GAME TURNED HER ROUND TOO (r24,
+  `faceForward`, `bodyYaw`, `FACEFIX`).** *"Whenever you put the character into fakie physically,
+  the animation is also fakie, which makes the rider forward again."* Exactly right. Measured off
+  his skeleton through a real mixer: every `*_forward` clip's body faces -17..18 deg off the
+  model's forward, and 14 of the 15 `*_backward` clips face 165-180. The game's heading IS her
+  nose and is already flipped in fakie, so the two half turns cancelled: a backward stroke, facing
+  the way she was going.
+  **NOT FIXED BY DROPPING THE CLIPS** (his first suggestion): the forward clips in fakie are a
+  forward stroke while she rolls backwards. The clip's own half turn comes out at LOAD -- a
+  constant `C = P^-1 Ry(pi) P` on the front of every Hips key, in the Hips' parent frame, which
+  turns her about her own hips without moving them -- so `heading = nose` holds for every clip and
+  the backward leg motion is kept. **Decided by measurement, per clip**: only a `_backward` clip
+  whose body actually faces away is turned, so a re-export that fixes it at source needs no edit.
+  `blade_onefootback_L_backward` is the odd one out -- it already faces forward (1 deg) and is left
+  alone, with a console line; worth a look in the export, since its R twin is turned.
+  `MOVES.useBack` (panel: Backward clips in fakie) 0 is his suggestion, kept for the A/B.
+  `npm run sim facing` poses every skating and idle clip with the fix OFF then ON, and requires
+  every one within 30 deg of forward after -- and at least ten backwards before, or the
+  measurement is not measuring.
 - **r23: PUSH IS THE THUMB, MEDIUM IS GONE, AND NOBODY FALLS OVER.** *"Blade medium looks weird --
   arms swinging big and the feet barely moving."* The ground row is now two states, not three
   tiers: thumb OFF is the neutral roll pose (`idle_normal`, `idle_backward` in fakie, held -- the
