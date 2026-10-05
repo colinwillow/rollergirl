@@ -307,6 +307,26 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE SLICE IN LAYERS (r53, `slDeck`, `slBastion`, `slStairs`, `sliceLayers`).** *"One raised level leads to a ramp
+  that goes up to another level, kind of cock-eyed, that goes to a bridge -- very organic, layers upon layers."* Every new
+  level is ONE generator, `slDeck`: a Catmull-Rom centreline with a width, parapet walls (solid, per-segment rotated
+  `solidAdd`s so a curved ramp keeps her on it) or edge railings, LED strips under the rails, piers or a solid skirt,
+  stickers on the parapets, ivy off the edges, lamps. Its rails are QUEUED (`SLC.railQ`) and registered in
+  `sliceRails`, after the collider. The street is now a loop of levels:
+      quay 3 -> curving ramp R1 -> the BASTION (a round tower top at 6, openings where decks cross its rim)
+      terrace 9 -> pier ramp R2 out over the quay -> the bastion
+      bastion -> the CROOKED BRIDGE skewed across the canal -> the GALLERY at 7.5 on piers along the south
+        facades, bulging round the NIMBUS drum -> ramping back down to the quay (and stairs off it mid-way)
+      terrace -> the VIADUCT climbing over the far quay, across the canal at 15 m, onto the west block's roof (14),
+        banners hanging off it -> a down rail from the roof to the quay
+      canal head -> a ramp down to the TOWPATH at 1.5 m along the foot of the south wall, boats moored on it
+      a curved concrete LEDGE in the head plaza, its edge a grind
+  plus pink and violet palms (`slPalm`, frond texture), glowing mushrooms (`slShroom`). `npm run sim slice` rides every
+  one of those links from where you would actually start, through the shipped step, and checks there was no splash on
+  the way. **A deck mouth on the edge of a platform has to start BACK from the edge, straight**: the first pier ramp
+  started at the terrace's lip and a rider coming at it diagonally cut the corner, went past the parapet's end and fell
+  6 m. **The bastion's openings are measured where each deck CROSSES THE RIM, plus its half width** -- typed from the
+  deck's end point, the R2 opening was 0.04 rad from a merlon and she stopped dead against it.
 - **THE SLICE: ONE STREET OF HIS PAINTING BUILT TO A LOOK, AS A TEST OF WHETHER CODE CAN GET THERE (r52, `SLC`,
   `buildSlice`, `sliceRails`, `sliceMeshes`).** *"Why don't you build the slice -- I just wanted to compare it, to see if
   it even makes sense to go the Blender route."* West of the park through a FOURTH gate (`perimeter` gates all four
@@ -322,7 +342,7 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   (`slBox`, the bevel is what catches light on an edge); an `aH` attribute (height above the surface the face stands on)
   that darkens every wall into its floor per FRAGMENT (`slAO`) -- contact AO with no extra pass; a water SHADER (two
   scrolling normal layers + a fine one, fresnel to the sky, sun glint, caustics, foam at the walls); additive glow
-  cards on lamps and neon so they read as lit in daylight with no bloom pass. 78k triangles in ~86 meshes; the textures
+  cards on lamps and neon so they read as lit in daylight with no bloom pass. ~80k triangles (r53, after cutting tube and trim detail) in ~87 meshes; the textures
   and meshes take ~0.55 s in node, so expect 1-2 s more load on a phone.
   **IT STILL PLAYS THROUGH THE EXISTING MACHINERY:** quays/terrace/buildings are `solidAdd` boxes, the ramps, stairs (a
   slope under the step noses) and bridge deck are collider triangles, the railings are `railPath`s, the canal is an

@@ -1,7 +1,135 @@
 [
- {"name":"s_play","spot":"slice","wait":3500},
- {"name":"s_hero","spot":"slice","pos":[-109,6.8,9],"look":[-150,3.5,-6],"fov":60,"wait":1500},
- {"name":"s_bridge","spot":"slice","pos":[-128,5.2,-21],"look":[-152,3.5,-4],"fov":60,"wait":1500},
- {"name":"s_terrace","spot":"slice terrace","pos":[-138,12.5,15],"look":[-178,4,-12],"fov":60,"wait":2500},
- {"name":"s_mural","spot":"slice","pos":[-108,5,4],"look":[-118,6,21.5],"fov":60,"wait":1500}
+ {
+  "name": "s_play",
+  "spot": "slice",
+  "wait": 3500
+ },
+ {
+  "name": "s_hero",
+  "spot": "slice",
+  "pos": [
+   -109,
+   6.8,
+   9
+  ],
+  "look": [
+   -150,
+   3.5,
+   -6
+  ],
+  "fov": 60,
+  "wait": 1500
+ },
+ {
+  "name": "s_bridge",
+  "spot": "slice",
+  "pos": [
+   -128,
+   5.2,
+   -21
+  ],
+  "look": [
+   -160,
+   5,
+   -4
+  ],
+  "fov": 60,
+  "wait": 1500
+ },
+ {
+  "name": "s_terrace",
+  "spot": "slice terrace",
+  "pos": [
+   -140,
+   12.5,
+   15
+  ],
+  "look": [
+   -180,
+   6,
+   -12
+  ],
+  "fov": 62,
+  "wait": 2500
+ },
+ {
+  "name": "s_aerial",
+  "spot": "slice",
+  "pos": [
+   -118,
+   34,
+   30
+  ],
+  "look": [
+   -165,
+   4,
+   -8
+  ],
+  "fov": 60,
+  "wait": 1500
+ },
+ {
+  "name": "s_bastion",
+  "spot": "slice",
+  "pos": [
+   -150,
+   5.5,
+   -7
+  ],
+  "look": [
+   -178,
+   7,
+   0
+  ],
+  "fov": 62,
+  "wait": 1500
+ },
+ {
+  "name": "s_gallery",
+  "spot": "slice",
+  "pos": [
+   -145,
+   9.5,
+   -14
+  ],
+  "look": [
+   -185,
+   8,
+   -25
+  ],
+  "fov": 62,
+  "wait": 1500
+ },
+ {
+  "name": "s_layers",
+  "spot": "slice",
+  "pos": [
+   -142,
+   6.2,
+   7.5
+  ],
+  "look": [
+   -180,
+   7,
+   -14
+  ],
+  "fov": 64,
+  "wait": 1500
+ },
+ {
+  "name": "s_viaduct",
+  "spot": "slice",
+  "pos": [
+   -150,
+   13,
+   16
+  ],
+  "look": [
+   -197,
+   12,
+   -6
+  ],
+  "fov": 62,
+  "wait": 1500
+ }
 ]

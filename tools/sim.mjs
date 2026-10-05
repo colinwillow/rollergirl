@@ -2280,10 +2280,11 @@ CASES.slice = () => {
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
   const L = rg.SLC, O = rg.ORB, Q = L.Q, TER = L.TER, city = () => rg.stepCity(DT);
   const fwd = h => { rg.cam.az = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  if (process.env.TRIS) for (const m of L.meshes) if (m.geometry && m.geometry.attributes.position) console.log('   ', m.name, Math.round(m.geometry.attributes.position.count / 3));
   console.log(`  built ${L.built}, ${L.meshes.length} meshes, ${Math.round(L.tris / 1000)}k tris, textures + meshes in ${L.ms} ms`);
   if (!L.built) return false;
-  { const sp0 = O.splashes; place(-40, 0, 0, -Math.PI / 2, 12); let at = null; run(8, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -112 && P.grounded) at = P.pos.clone(); });
-    say('west gate, up the entry ramp, onto the canal head', !!at && Math.abs(at.y - Q) < 0.15 && O.splashes === sp0, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+  { const sp0 = O.splashes; place(-40, 0, 0, -Math.PI / 2, 12); let at = null, sp = 0; run(8, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -112 && P.grounded) { at = P.pos.clone(); sp = O.splashes; } });
+    say('west gate, up the entry ramp, onto the canal head', !!at && Math.abs(at.y - Q) < 0.15 && sp === sp0, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
   { place(-115, Q, 18, -Math.PI / 2, 8); let at = null; run(6, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -139 && P.grounded) at = P.pos.clone(); });
     say('up the ramp onto the terrace', !!at && Math.abs(at.y - TER) < 0.2, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
   { place(-118, Q, 12.6, -Math.PI / 2, 8); let at = null; run(6, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -139 && P.grounded) at = P.pos.clone(); });
@@ -2297,6 +2298,28 @@ CASES.slice = () => {
     say('a tap beside the quay rail onto it', on === 'slice', on ? `grinding '${on}'` : 'missed'); }
   { place(-120, Q, 11.6, -Math.PI / 2, 9); run(0.2, () => city()); P.jump = 1; let on = null, top = 0; run(3, () => { city(); if (P.grind && !on) on = P.grind.rail.path.name; top = Math.max(top, P.pos.y); });
     say('a tap onto the stair rail, grind it up', on === 'slice', on ? `grinding, highest ${fix(top, 1)}` : 'missed'); }
+  // r53: THE LAYERS -- every new level reached by riding, never placed onto
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  const along = (pts, ahead) => { let bi = 0, bd = 1e9; pts.forEach((q, i) => { const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 0.5; if (d < bd) { bd = d; bi = i; } });
+    const t = pts[Math.min(pts.length - 1, bi + (ahead || 2))]; fwd(Math.atan2(t.x - P.pos.x, t.z - P.pos.z)); return bi; };
+  const ride = (label, start, h, v, route, sec, goal) => { const sp0 = O.splashes; place(start[0], start[1], start[2], h, v); let low = 99, hit = null;
+    let kk = 0; run(sec, () => { along(route); city(); low = Math.min(low, P.pos.y); if (process.env.DBG === label.slice(0, 7) && kk++ % 10 === 0) console.log('   ', fix(P.pos.x, 2), fix(P.pos.y, 2), fix(P.pos.z, 2), 'v', fix(P.speed), P.grounded ? 'G' : 'air', P.grind ? 'GRIND' : ''); if (!hit && goal(P.pos) && P.grounded) { hit = P.pos.clone(); hit.sp = O.splashes; } });
+    say(label, !!hit && hit.sp === sp0, hit ? `there at ${fix(hit.x, 1)}, ${fix(hit.y, 2)}, ${fix(hit.z, 1)}` : `ended ${fix(P.pos.x, 1)}, ${fix(P.pos.y, 2)}, ${fix(P.pos.z, 1)}, splashes ${O.splashes - sp0}`); };
+  const R1 = [V3(-192, Q, 6.6), V3(-185, Q + 0.75, 7.0), V3(-177.5, Q + 2.2, 6.2), V3(-169.6, 6, 4.3), V3(-166, 6, 3)];
+  ride('north quay up the curving ramp onto the bastion', [-196, Q, 6.6], Math.PI / 2, 6, R1, 8, p => Math.hypot(p.x + 166, p.z - 3) < 3.5 && Math.abs(p.y - 6) < 0.2);
+  const R2 = [V3(-155.4, TER, 17), V3(-155.6, TER, 14.6), V3(-156.1, TER, 12.0), V3(-157.2, TER - 0.2, 9.4), V3(-160.4, TER - 1.6, 7.0), V3(-164, 6, 5.7), V3(-166, 6, 3)];
+  ride('terrace down the pier ramp onto the bastion', [-155.4, TER, 18], Math.PI, 4, R2, 8, p => Math.hypot(p.x + 166, p.z - 3) < 3.5 && Math.abs(p.y - 6) < 0.2);
+  const CB = [V3(-166, 6, 3), V3(-166.5, 6, -0.6), V3(-168.4, 6.35, -5.4), V3(-172.4, 6.85, -11), V3(-177.4, 7.3, -16.4), V3(-180.3, 7.5, -20), V3(-181, 7.5, -22.4), V3(-181, 7.5, -24.2), V3(-172, 7.5, -22.4), V3(-164, 7.5, -23.2), V3(-152, 7.5, -24.25), V3(-143.5, 5.25, -24.15), V3(-135.6, Q, -23.9), V3(-130, Q, -23.9)];
+  ride('bastion -> the crooked bridge -> the gallery', [-166, 6, 3], Math.PI, 3, CB, 10, p => p.z < -22.5 && Math.abs(p.y - 7.5) < 0.2);
+  ride('bastion -> bridge -> gallery round the tower -> down to the quay', [-166, 6, 3], Math.PI, 3, CB, 22, p => p.x > -134 && Math.abs(p.y - Q) < 0.15);
+  const VI = [V3(-165, TER, 17.6), V3(-167.5, TER, 17.6), V3(-179, TER + 2, 17.6), V3(-188.5, TER + 3.6, 16.6), V3(-194.6, TER + 4.7, 12.4), V3(-196.6, 14.6, 5), V3(-197, 15, -4), V3(-197, 15, -16), V3(-197, 15, -24), V3(-197, 14.7, -27.6), V3(-197, 14.04, -31.5), V3(-197, 14, -35)];
+  ride('terrace -> the viaduct -> over the canal onto the west roof', [-163, TER, 17.6], -Math.PI / 2, 6, VI, 20, p => p.z < -29 && Math.abs(p.y - 14) < 0.2);
+  const TP = [V3(-113, Q, -12.75), V3(-115.4, Q, -12.75), V3(-120, Q - 0.6, -12.8), V3(-126, 1.6, -12.8), V3(-133, 1.5, -12.8), V3(-144, 1.5, -12.8)];
+  ride('canal head down the ramp onto the towpath', [-113, Q, -12.75], -Math.PI / 2, 4, TP, 6, p => p.x < -128 && Math.abs(p.y - 1.5) < 0.15);
+  const GS = [V3(-194.2, 7.5, -24.25), V3(-192, 7.5, -24.25), V3(-192, 7.5, -22.6), V3(-192, Q, -15.4), V3(-192, Q, -14.9)];
+  ride('down the gallery stairs to the quay', [-194.2, 7.5, -24.25], Math.PI / 2, 3, GS, 6, p => p.z > -16 && Math.abs(p.y - Q) < 0.15);
+  { place(-178, 9.6, 17.1, -Math.PI / 2, 7); run(0.2, () => city()); P.jump = 1; let on = null; run(2.5, () => { city(); if (P.grind && !on) on = P.grind.rail.path.name; });
+    say('a tap onto the viaduct parapet rail', on === 'slice', on ? `grinding '${on}'` : 'missed'); }
   return ok;
 };
 CASES.shores = () => {
