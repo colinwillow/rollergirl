@@ -111,6 +111,13 @@
      adding a key can never hide the build chip the way a typed gutter let it */
   #resetB{right:calc(14px + env(safe-area-inset-right))}
   #charB{right:calc(62px + env(safe-area-inset-right))}
+  /* r69: LEVEL -- labelled, wider and coloured, because a glyph inside the settings panel was not findable */
+  #worldB{right:calc(206px + env(safe-area-inset-right));width:62px;font:800 12px system-ui,sans-serif;letter-spacing:.08em;
+    background:#5fe1ff33;color:#bff3ff;border-bottom-color:#2a8fb0aa}
+  #tailP .wbtn{display:block;width:100%;text-align:left;margin:6px 0;padding:10px 12px;border-radius:10px;border:0;
+    background:#ffffff14;color:#e8e4f2;font:800 14px system-ui,sans-serif;letter-spacing:.06em}
+  #tailP .wbtn.sel{background:#5fe1ff40;color:#fff}
+  #tailP .wbtn small{display:block;font:500 11px system-ui,sans-serif;letter-spacing:0;opacity:.7;margin-top:3px}
   #tailB{right:calc(110px + env(safe-area-inset-right))}
   #goB{right:calc(158px + env(safe-area-inset-right))}
   /* THE TAIL PANEL. He tunes on a phone with no console, so every dial is a slider he can drag
@@ -176,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r68</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r69</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -186,6 +193,7 @@
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
 <button class="key" id="tailB" aria-label="settings">&#9881;</button>
 <button class="key" id="goB" aria-label="go somewhere">&#10148;</button>
+<button class="key" id="worldB" aria-label="switch level">LEVEL</button>
 <div id="tailP"></div>
 <button id="newer">build ready &middot; tap</button>
 
@@ -199,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r68';
+const BUILD = 'r69';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -9536,9 +9544,9 @@ function tailPanel() {
   // 0/1/2 halfway down a panel of tail dials was the only way in. A tap reloads straight into it (the URL carries it).
   tailP.appendChild(el('h3', '', 'WORLD'));
   const worlds = el('div', 'btns');
-  for (const [k, q, t] of [[0, 'park', 'SKATE PARK'], [2, 'kit', 'RAMP KIT PARK'], [1, 'zones', 'HIS ZONES']]) {
+  for (const [k, q, t] of WORLDS) {
     const b = el('button', WORLD.zones === k ? 'sel' : '', t);
-    b.addEventListener('click', () => { try { localStorage.setItem('rg.world', String(k)); } catch (e) {} location.href = location.pathname + '?world=' + q; });
+    b.addEventListener('click', () => worldGo(k, q));
     worlds.appendChild(b);
   }
   tailP.appendChild(worlds);
@@ -9581,12 +9589,38 @@ function tailPanel() {
   foot.appendChild(rst); foot.appendChild(off); foot.appendChild(cls);
   tailP.appendChild(foot);
 }
+// r69: THE LEVEL KEY. *"I'm not seeing a control button in the game to switch levels."* The switch was three buttons at
+// the top of the ⚙ panel -- a panel of tail dials nobody opens to change level. It is its own labelled key now, opening
+// just this list; a tap reloads straight into the world (the URL carries it, so a cached pick cannot override it).
+const WORLDS = [[0, 'park', 'SKATE PARK', 'the built-in park and its districts'],
+  [2, 'kit', 'RAMP KIT PARK', 'the example park built from the kit, plus every piece in rows'],
+  [1, 'zones', 'HIS ZONES', 'the Blender zones']];
+function worldGo(k, q) { try { localStorage.setItem('rg.world', String(k)); } catch (e) {} location.href = location.pathname + '?world=' + q; }
+function worldPanel() {
+  while (tailP.children.length) tailP.removeChild(tailP.children[0]);
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  tailP.appendChild(el('h3', '', 'LEVEL'));
+  for (const [k, q, t, d] of WORLDS) {
+    const b = el('button', 'wbtn' + (WORLD.zones === k ? ' sel' : ''), (WORLD.zones === k ? '\u25B6 ' : '') + t);
+    b.appendChild(el('small', '', WORLD.zones === k ? 'you are here -- tap to reload it' : d));
+    b.addEventListener('click', () => worldGo(k, q));
+    tailP.appendChild(b);
+  }
+  const foot = el('div', 'btns'), cls = el('button', '', 'CLOSE');
+  cls.addEventListener('click', () => tailP.classList.remove('on'));
+  foot.appendChild(cls); tailP.appendChild(foot);
+}
+document.getElementById('worldB').addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  if (tailP.classList.contains('on') && tailP.dataset.mode === 'world') { tailP.classList.remove('on'); return; }
+  worldPanel(); tailP.dataset.mode = 'world'; tailP.classList.add('on');
+});
 // a touch on the panel is never a stick, a camera drag or a jump
 tailP.addEventListener('pointerdown', e => e.stopPropagation());
 document.getElementById('tailB').addEventListener('pointerdown', e => {
   e.preventDefault();
-  if (tailP.classList.contains('on')) tailP.classList.remove('on');
-  else { tailPanel(); tailP.classList.add('on'); }
+  if (tailP.classList.contains('on') && tailP.dataset.mode !== 'world') tailP.classList.remove('on');
+  else { tailPanel(); tailP.dataset.mode = 'tail'; tailP.classList.add('on'); }
 });
 tailLoad();
 

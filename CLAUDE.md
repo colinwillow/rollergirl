@@ -91,6 +91,13 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE LEVEL KEY (r69, `#worldB`, `WORLDS`, `worldPanel`, `worldGo`).** *"I'm not seeing a control button in the game to
+  switch levels."* r68 put the switch at the top of the ⚙ panel -- a panel of tail dials nobody opens to change level, so
+  it was not there as far as he could see. It is its own labelled, coloured **LEVEL** key now (left of ➤), opening only a
+  list of the three worlds with a line each; a tap reloads into one by URL. The ⚙ panel keeps its row too.
+  **AND `check:boot`'s STUB `classList` ANSWERED "NO" TO EVERY `contains`**, so no harness could tell an open panel from a
+  shut one -- the same fault as a stub that answers every id. It is a real set now; `npm run sim panel` taps the key twice
+  and requires open, three worlds, then shut.
 - **THE KIT PARK (r68, `kitPark`, `pk`, `KPARK`, the ⚙ WORLD buttons).** *"I'm not really sure how to go test the kit. I
   thought you were gonna build a white world where I could ride the ramps -- an example skate park that's pretty complex,
   just placing the ramps to see how they go together."* The kit world now spawns her at the top of a roll-in in a

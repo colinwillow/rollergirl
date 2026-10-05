@@ -1155,6 +1155,13 @@ CASES.panel = () => {
   const click = b => (b._h.click || []).forEach(f => f({}));
   Object.assign(rg.TAIL, rg.TAIL_DEF); rg.tailPanel();
   const nWave = rows().length;
+  // r69: THE LEVEL KEY opens a picker of the three worlds on its own; tapped again it closes
+  { const wk = document.getElementById('worldB'), down = () => (wk._h.pointerdown || []).forEach(f => f({ preventDefault() {}, stopPropagation() {} }));
+    down(); const wb = P.children.filter(c => c.className && c.className.startsWith('wbtn')).map(b => b.textContent);
+    const open1 = P.classList.contains('on'); down(); const shut = !P.classList.contains('on');
+    const okW = open1 && shut && wb.length === 3 && ['SKATE PARK', 'RAMP KIT PARK', 'HIS ZONES'].every(t => wb.some(x => x.includes(t)));
+    console.log(`  LEVEL key: opens ${open1 ? 'yes' : 'NO'}, ${wb.length} worlds (${wb.map(x => x.split(/[a-z]/)[0].trim()).join(' / ')}), closes on a second tap ${shut ? 'yes' : 'NO'}`); if (!okW) ok = false;
+    rg.tailPanel(); }
   const wb = P.children.filter(c => c.className === 'btns').flatMap(c => c.children || []).map(b => b.textContent);
   const wOk = ['SKATE PARK', 'RAMP KIT PARK', 'HIS ZONES'].every(t => wb.includes(t));
   console.log(`  WORLD buttons at the top: ${wOk ? 'SKATE PARK / RAMP KIT PARK / HIS ZONES' : 'MISSING (' + wb.join(', ') + ')'}`); if (!wOk) ok = false;

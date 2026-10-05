@@ -83,7 +83,9 @@ function mkEl(tag = 'div', id = '') {
     tagName: (tag || 'div').toUpperCase(), id, nodeType: 1, children: [], childNodes: [], parentNode: null,
     style: new Proxy({}, { get: (t, k) => (k === 'setProperty' || k === 'removeProperty' ? () => {} : t[k] || ''), set: (t, k, v) => (t[k] = v, true) }),
     dataset: {}, hidden: false, textContent: '', innerHTML: '', value: '', width: 1280, height: 720, checked: false,
-    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    // a REAL set of classes: a stub that answers "no" to every `contains` cannot tell an open panel from a shut one
+    classList: (() => { const c = new Set(); return { add: (...a) => a.forEach(x => c.add(x)), remove: (...a) => a.forEach(x => c.delete(x)),
+      toggle: (x, f) => { const on = f === undefined ? !c.has(x) : !!f; on ? c.add(x) : c.delete(x); return on; }, contains: x => c.has(x) }; })(),
     appendChild(c) { this.children.push(c); this.childNodes.push(c); c.parentNode = this; return c; },
     removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) { this.children.splice(i, 1); this.childNodes.splice(i, 1); } return c; },
     insertBefore(c) { return this.appendChild(c); },
