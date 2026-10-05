@@ -91,6 +91,36 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **PATH PIECES, THE DASH, THE TAP TRANSFER, AND A DIVE THAT NEVER TURNS HER ROUND (r74, `wall`/`deck`/`walk`, `kProfile`,
+  `kPathSample`, `kOutline`, `DASH`, `dashOk`/`dashGo`, `VERT.tapXfer`, `GRIND.aheadCos`, `npm run trace`).**
+  *"I need a fully modular kit system ... you see those odd shapes, we gotta be able to build those."* Every curved piece
+  before this was a revolve about a centre.
+  - **`wall` sweeps a cross-section along a traced coping line.** It can be open or closed, `qp`, `bank` or `box`, one-sided
+    or `both`, with its height varying along it. So a bowl of ANY outline, a kidney pool, a snake pill, an S-spine, a U
+    funbox, a curved ledge and a C bank are one kind.
+  - **`deck`** is a platform of any outline; **`walk`** is a ribbon with a height at every point.
+  - **The schematic's bowl, pool, snake, funbox, spine, C bank, vert, walkways and roof are now his traced shapes.**
+    Details are in `docs/RAMP_KIT.md`.
+
+  Three faults the sim found in the new pieces, each the same lesson:
+  - **A solid with no walkable top is a wall at every edge she rides up onto.** The deck bands, the walkway joints and a
+    funbox's core all stopped her a body's width short.
+  - **`top` meant two things** (a bowl's rim height and a ridge's flat width) and floated every ledge 0.8 m off the ground.
+    The rim is `rim` now.
+  - **An open path that repeats its end point bunches its samples there.** The first rail segment was 0.22 m and a 13 m/s
+    grind stepped over it.
+
+  *"I jump off the edge, swipe down, and she reverses her velocity and grinds the other way."* **In the air the dive only
+  takes what is within 50 deg of her line** (`aheadCos`). With nothing ahead she drops and keeps her speed.
+  Revert-tested: without the rule, off the end of rail 0 she U-turns back onto it at vz -9.
+
+  *"If you swipe off a jump you go flying off it ... a tap on the right stick to transfer, we're reversing it."*
+  - **A SWIPE UP on a ramp, or within `DASH.win` of leaving one, is the DASH:** +4.5 m/s along her travel, the blade
+    trails, once per ramp.
+  - **A TAP on a steep face is the TRANSFER**, armed and fired at the lip. Just off the lip it fires at once; in the first
+    `tapWin` of a locked air it releases the lock.
+  - On the flat, a swipe up is still a strike.
+  - `npm run sim vert` and `vertair` assert the swap. `carry` sets `tapXfer` 0, because it measures a POP off each face.
 - **A PARK FROM A SCHEMATIC (r73, `parks/mega_skatepark.json`, `kitSheet(J)`, `schematicLoad`, `npm run plan`).** *"I'm not really
   seeing the park ... what I wanna be able to do is take a schematic of a park and be able to build the whole thing from
   our modular parts."* He was right not to see it: r72 had every feature but **laid out by hand, its own way, scattered

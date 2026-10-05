@@ -370,3 +370,50 @@ straight above, at the drawing's own scale and orientation (the camera comes fro
 - bowls sunk into the plaza: the bowl is a raised block with banks up to its deck;
 - the planted islands: they are only grass colour and box planters.
 Each of these would be a new kind, then a line in the schematic.
+
+
+## Path pieces (r74): shapes drawn as lines
+
+Every curved piece before r74 was a revolve about a centre, so a shape that is not a circle or a pill could not be built.
+These three take **a line** instead, which is what a plan draws:
+
+| kind | what | options (default) |
+|------|------|-------------------|
+| `wall` | a cross-section **swept along a path**; the path is the COPING | `pts` [[u, w], ...]; `closed`; `smooth` (on for a loop); `profile` `qp` / `bank` / `box`; `face`: a point on the ridden side, or `in` / `out` for a loop, or `both`; `H` (a number, or one per point); `sweep`; `angle` (bank); `deck` 1.5; `top` (the flat on a `both` ridge, 0.2); `rim` (with per-point `H`: the deck stays at `rim` and the floor drops, so a bowl has a shallow end); `floor` (a loop facing in is filled); `outer` (a polygon the deck is filled out to and walled) |
+| `deck` | a platform of **any outline** | `pts`, `h` (the size's height), `holes` |
+| `walk` | a ribbon along a path, **every point its own height** | `pts` [[u, w, y], ...], `w` 4, `rails`, `under` `solid` / `posts`, `smooth` |
+
+One `wall` covers many shapes:
+- a closed loop facing `in` with a floor is **a bowl of any outline**: his clover, the kidney pool, the snake run's pill;
+- `face: 'both'` is an S-spine (qp), a U or horseshoe funbox (`bank`, with a `top`), or a curved ledge (`box`);
+- an open line facing a point is a curved QP or a C bank.
+
+Copings and edges grind for free, because r71's lips find them.
+
+**Two things the geometry does for you:**
+- **A bend tighter than the cross-section is deep would fold** (a lobe tip, the inside of a berm). Each section is squeezed
+  to fit the bend it sits on, tapered along the path.
+- **A floor whose depth changes is blended:** inner points take the toes' heights by nearness. Without that, a deep end and
+  a shallow end were joined by a few long facets.
+
+**And three things the first runs caught:**
+- **Every solid under a deck, a ledge or a walkway needs a walkable top.** Without one it stops her a body's width short of
+  every edge she rides up onto, and at every joint of a climbing walkway.
+- **A bank or transition ridge has no core.** Its sides are ramps; a core under a funbox's top stopped her dead at the edge.
+- **An open path's ends are reflected, not repeated,** or the samples bunch up and a grind steps over the first segment.
+
+The gallery row `path pieces (r74)` at z -385 has one of each, and `npm run sim kit` rides all of them.
+
+## Tracing (r74): `npm run trace`
+
+`npm run trace -- <image> <x0> <y0> <x1> <y1> [zoom]` writes a gridded zoom of a region of the drawing, every 10 px
+lined and every 50 labelled, in the drawing's own pixels. That is how the outlines in `parks/mega_skatepark.json` were read.
+
+**His sheet as of r74:** the bowl complex, the pool (kidney), the snake run (pill), the funbox (U), the spine (S), the C
+bank, the vert, the raised walkway with its ramp, the walkway up to the pool deck, and the rooftop are all traced shapes now.
+**Still to close the gap with his picture:**
+- the inner hips inside his bowl;
+- the long walkway system from the rooftop to the quarter-pipe deck;
+- his planted islands and their curbs;
+- the multi-level hub with its stair runs;
+- the colours and materials, which the kit draws in pastel.

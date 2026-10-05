@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r73</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r74</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r73';
+const BUILD = 'r74';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"ddbded6e","parks/mega_skatepark.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
+const ASSETS = {"parks/mega_skatepark.json":"fd8a2550","parks/mega_skatepark.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -778,7 +778,7 @@ const GRIND = {
   // the nearest grindable thing (the r41 tap's maths); in the air she SHOOTS DOWN at it (`dive*`), and with nothing
   // to aim at she dives anyway and catches whatever she crosses before she lands. `intent` 0 is r41-r70: a tap
   // near a rail homes onto it and dropping onto one catches it.
-  intent: 1,
+  intent: 1, aheadV: 2, aheadCos: 0.64,      // r74: a dive in the air only goes for what is within 50 deg of her line
   // r71: LEDGES. *"Grind the top rim of boxes, the sides of boxes, and the top of the ramp -- half pipes, quarter pipes,
   // they're usually grind bowls in real life."* FOUND, not authored: any edge of a floor triangle (`lipNy`) whose
   // floor falls away more than `lipDrop` just outside it, with no wall going up there, is a lip -- a box top, a roof
@@ -1970,6 +1970,210 @@ Object.assign(KIT_KINDS, {
     kBox(T, -0.5, 0.5, -0.3, 0.3, h, h + 0.3, 0xfff1a8, 0xd8dbe6, { solid: false });
     return { len: 1, wid: 1, h }; },
 });
+// ===================================================================================================== r74: PATH PIECES
+// *"I need a fully modular kit system -- more slices of pie to make more intricate turns. Right now you can build a bowl or a
+// swimming-pool-looking bowl, but you see those odd shapes. We gotta be able to build those: complex half pipe systems, bowl
+// systems, ramp systems, box systems."* Every curved piece before this was a REVOLVE about a centre, so a shape that is not
+// a circle or a pill could not be made at all. These three take a LINE instead -- the line he draws on a plan:
+//   wall   a cross-section SWEPT ALONG A PATH. The path is the COPING (the edge you see on a plan), open or closed, sharp
+//          or smooth, its height free to change along it. `profile` qp (a transition), bank, or box (a vertical side);
+//          `face` says which side is ridden: a point on that side, or 'in'/'out' for a closed loop, or 'both' (a spine,
+//          a funbox, a curved ledge -- the profile mirrored about the line, `top` metres of flat on the ridge).
+//          A closed loop facing in with `floor` is a BOWL OF ANY OUTLINE -- a clover, a kidney, a peanut, a snake run's
+//          pill -- and `rim` with per-point `H` gives it a shallow end and a deep end. `outer` fills the deck out to a
+//          polygon of his and walls it.
+//   deck   a platform of ANY OUTLINE (with holes): a raised plaza, a rooftop, an elevated platform.
+//   walk   a ribbon along a path with a height at every point: a sloped walkway, a ramp that turns, a bridge that climbs.
+// All three are floors where they are ridden and solids where they are hit, exactly as the straight pieces are, and their
+// copings and edges are grindable for free (r71's lips find them). Options are in the piece's own frame like every kind,
+// so an `fn_` node carries them out to Blender and back.
+const KPATH = { step: 0.7, miter: 0.35, band: 0.8, fold: 0.85 };
+const kPerp = d => [-d[1], d[0]], kCr = (a, b) => a[0] * b[1] - a[1] * b[0];
+function kNorm(v) { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; }
+// centripetal Catmull-Rom through the points (world x,z), a value `h` carried along linearly per span
+function kPathSample(P, H, closed, smooth, step) {
+  // an open path's missing neighbours are REFLECTED, not repeated: a repeated end point bunches the samples at both ends
+  // (a 0.22 m first segment, which a grind at 13 m/s steps over in one frame)
+  const n = P.length, out = [], hs = [], refl = (a, b) => [2 * a[0] - b[0], 2 * a[1] - b[1]];
+  const at = i => closed ? P[(i + n) % n] : i < 0 ? refl(P[0], P[Math.min(1, n - 1)]) : i > n - 1 ? refl(P[n - 1], P[Math.max(0, n - 2)]) : P[i], hAt = i => H[closed ? (i + n) % n : Math.max(0, Math.min(n - 1, i))];
+  const spans = closed ? n : n - 1;
+  for (let i = 0; i < spans; i++) {
+    const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2), L = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]), m = Math.max(1, Math.ceil(L / step));
+    for (let k = 0; k < m; k++) { const t = k / m; let x, z;
+      if (smooth) { const a = 0.5, d01 = Math.pow(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1e-3, a), d12 = Math.pow(L || 1e-3, a), d23 = Math.pow(Math.hypot(p3[0] - p2[0], p3[1] - p2[1]) || 1e-3, a);
+        const t0 = 0, t1 = d01, t2 = t1 + d12, t3 = t2 + d23, tt = t1 + (t2 - t1) * t;
+        const lerp = (A, B, ta, tb) => [0, 1].map(c => (tb - tt) / (tb - ta) * A[c] + (tt - ta) / (tb - ta) * B[c]);
+        const A1 = lerp(p0, p1, t0, t1), A2 = lerp(p1, p2, t1, t2), A3 = lerp(p2, p3, t2, t3), B1 = lerp(A1, A2, t0, t2), B2 = lerp(A2, A3, t1, t3), C = lerp(B1, B2, t1, t2);
+        x = C[0]; z = C[1]; }
+      else { x = p1[0] + (p2[0] - p1[0]) * t; z = p1[1] + (p2[1] - p1[1]) * t; }
+      out.push([x, z]); hs.push(hAt(i) + (hAt(i + 1) - hAt(i)) * t); }
+  }
+  if (!closed) { out.push(at(n - 1)); hs.push(hAt(n - 1)); }
+  return { pts: out, h: hs };
+}
+// per sample: the riding-side unit normal and the miter scale, for a side sign `s`
+function kPathFrames(Q, closed, s) {
+  const n = Q.length, F = [];
+  for (let i = 0; i < n; i++) {
+    const ip = closed ? (i - 1 + n) % n : Math.max(0, i - 1), inx = closed ? (i + 1) % n : Math.min(n - 1, i + 1);
+    const dA = kNorm([Q[i][0] - Q[ip][0], Q[i][1] - Q[ip][1]]), dB = kNorm([Q[inx][0] - Q[i][0], Q[inx][1] - Q[i][1]]);
+    const a = i === ip ? dB : dA, b = i === inx ? dA : dB, nA = kPerp(a), nB = kPerp(b), m = kNorm([nA[0] + nB[0], nA[1] + nB[1]]);
+    const k = 1 / Math.max(KPATH.miter, m[0] * nB[0] + m[1] * nB[1]);
+    F.push({ n: [s * m[0] * k, s * m[1] * k], t: kNorm([a[0] + b[0], a[1] + b[1]]) });
+  }
+  return F;
+}
+// the cross-section at one height: points {d, y, c} from the ridden side's toe (d > 0) to the back (d < 0); `v` marks a
+// vertical step. A fixed count for any height, so neighbouring sections loft into one surface.
+function kProfile(kind, H, S, o) {
+  const n = KITW.seg, dk = o.deck != null ? o.deck : KITW.deck, top = o.top != null ? o.top : 0.2, tint = S.tint, p = [];
+  const half = (sign, ridge) => {      // toe to coping (d from toe to `ridge`), sign +1 the ridden side
+    const q = [];
+    if (kind === 'bank') { const run = H / Math.tan((o.angle || 25) * D2R); for (let i = 0; i <= n; i++) q.push({ d: sign * (ridge + run * (1 - i / n)), y: H * i / n, c: tint }); }
+    else if (kind === 'box') { for (let i = 0; i <= n; i++) q.push({ d: sign * ridge, y: H * i / n, c: KCOL.side }); }
+    else { const sw = o.sweep ? o.sweep * D2R : S.sweep, r = H / (1 - Math.cos(sw)), lip = r * Math.sin(sw);
+      for (let i = 0; i <= n; i++) { const a = sw * i / n; q.push({ d: sign * (ridge + lip - r * Math.sin(a)), y: r * (1 - Math.cos(a)), c: i === n ? KCOL.cope : tint }); } }
+    return q;
+  };
+  if (o.face === 'both') { half(1, top / 2).forEach(q => p.push(q)); half(-1, top / 2).reverse().forEach(q => p.push(q)); }
+  else { half(1, 0).forEach(q => p.push(q)); p.push({ d: -Math.min(KITW.cope, dk), y: H, c: KCOL.deck }); p.push({ d: -dk, y: H, c: KCOL.deck }); }
+  // a step that rises with no run is a WALL (drawn, never a floor) -- decided by the geometry, not by bookkeeping
+  for (let j = 1; j < p.length; j++) p[j].v = Math.abs(p[j].d - p[j - 1].d) < 1e-6 && Math.abs(p[j].y - p[j - 1].y) > 1e-6;
+  return p;
+}
+Object.assign(KIT_KINDS, {
+  wall(T, S, o) {
+    const W = q => { const P = kP(T, q[0], 0, q[1]); return [P[0], P[2]]; };
+    const P0 = o.pts.map(W), closed = !!o.closed, smooth = o.smooth != null ? !!o.smooth : closed, prof = o.profile || 'qp';
+    const Hs = Array.isArray(o.H) ? o.H : P0.map(() => o.H != null ? o.H : S.H);
+    const { pts: Q, h: H } = kPathSample(P0, Hs, closed, smooth, o.step || KPATH.step), n = Q.length;
+    // which side is ridden
+    let s = 1;
+    if (o.face === 'in' || o.face === 'out') { let a = 0; for (let i = 0; i < P0.length; i++) a += kCr(P0[i], P0[(i + 1) % P0.length]); s = (a > 0 ? 1 : -1) * (o.face === 'in' ? 1 : -1); }
+    else if (Array.isArray(o.face)) { const F = W(o.face); let bi = 0, bd = 1e18; Q.forEach((q, i) => { const d = (q[0] - F[0]) ** 2 + (q[1] - F[1]) ** 2; if (d < bd) { bd = d; bi = i; } });
+      const j = Math.min(n - 1, bi + 1), i0 = j === bi ? bi - 1 : bi, d = kNorm([Q[j][0] - Q[i0][0], Q[j][1] - Q[i0][1]]); s = kCr(d, [F[0] - Q[bi][0], F[1] - Q[bi][1]]) >= 0 ? 1 : -1; }
+    // `rim`: the deck height of a bowl whose depth changes -- the rim stays put and the toe drops by H (`top` is the flat on a
+    // ridge, below; two meanings on one name floated every ledge and funbox off the ground)
+    const Fr = kPathFrames(Q, closed, s), top = o.rim != null ? o.rim : null;
+    const base = i => T.y + (top != null ? top - H[i] : 0);
+    // A BEND TIGHTER THAN THE CROSS-SECTION IS DEEP FOLDS IT: offset a curve toward the inside of its bend by more than its
+    // radius and the offset crosses itself -- a lobe tip on a clover, the inside of a tight berm. So each section's depth is
+    // squeezed to fit the bend it sits on (`fold`), on the side that would fold, smoothed along the path so the squeeze
+    // is a taper and not a step.
+    const kap = Q.map((q, i) => { if (!closed && (i === 0 || i === n - 1)) return 0; const a = Q[(i - 1 + n) % n], b = Q[(i + 1) % n];
+      const dA = kNorm([q[0] - a[0], q[1] - a[1]]), dB = kNorm([b[0] - q[0], b[1] - q[1]]), l = (Math.hypot(q[0] - a[0], q[1] - a[1]) + Math.hypot(b[0] - q[0], b[1] - q[1])) / 2;
+      return s * kCr(dA, dB) / Math.max(l, 1e-3); });
+    const room = sg => { const r = kap.map(k => sg * k > 1e-4 ? KPATH.fold / (sg * k) : 1e9);
+      return r.map((_, i) => { let m = 1e9; for (let k = -4; k <= 4; k++) { const j = closed ? (i + k + n) % n : Math.max(0, Math.min(n - 1, i + k)); m = Math.min(m, r[j]); } return m; }); };
+    const roomP = room(1), roomN = room(-1);
+    const sec = Q.map((q, i) => { const pr = kProfile(prof, H[i], S, o), dP = Math.max(1e-3, ...pr.map(p => p.d)), dN = Math.max(1e-3, ...pr.map(p => -p.d));
+      const fP = Math.min(1, roomP[i] / dP), fN = Math.min(1, roomN[i] / dN);
+      return pr.map(p => { const d = p.d > 0 ? p.d * fP : p.d * fN; return { P: [q[0] + Fr[i].n[0] * d, base(i) + p.y, q[1] + Fr[i].n[1] * d], v: p.v, c: p.c, d }; }); });
+    const m = sec[0].length, spans = closed ? n : n - 1;
+    for (let i = 0; i < spans; i++) { const A = sec[i], B = sec[(i + 1) % n];
+      for (let j = 0; j < m - 1; j++) {
+        if (A[j + 1].v) {
+          kWall(A[j].P, A[j + 1].P, B[j + 1].P, B[j].P, A[j].d >= 0 ? [Fr[i].n[0], Fr[i].n[1]] : [-Fr[i].n[0], -Fr[i].n[1]], KCOL.side); continue; }
+        kQuad(A[j].P, A[j + 1].P, B[j + 1].P, B[j].P, A[j].c);
+      } }
+    const ground = (P, i) => [P[0], base(i), P[2]];
+    // the back skirt (one-sided): from the deck's back edge down to the toe's floor
+    if (o.face !== 'both' && !o.outer) for (let i = 0; i < spans; i++) { const a = sec[i][m - 1].P, b = sec[(i + 1) % n][m - 1].P;
+      kWall(a, b, ground(b, (i + 1) % n), ground(a, i), [-Fr[i].n[0], -Fr[i].n[1]], KCOL.side); }
+    // the end caps of an open path
+    if (!closed) for (const [i, sg] of [[0, -1], [n - 1, 1]]) { const t = Fr[i].t;
+      for (let j = 0; j < m - 1; j++) { const a = sec[i][j].P, b = sec[i][j + 1].P; if (a[1] - base(i) < 0.01 && b[1] - base(i) < 0.01) continue;
+        kWall(a, b, ground(b, i), ground(a, i), [sg * t[0], sg * t[1]], KCOL.side); } }
+    // the floor of a closed loop facing in: the toes, filled -- each at its own height, so a deep end slopes to a shallow one
+    const toes = sec.map(S2 => S2[0].P);
+    if (closed && o.face === 'in' && o.floor !== false) {
+      const tri = THREE.ShapeUtils.triangulateShape(toes.map(p => new THREE.Vector2(p[0], p[2])), []);
+      const ys = toes.map(p => p[1]), flat = Math.max(...ys) - Math.min(...ys) < 0.01;
+      // a floor whose depth changes is BLENDED, not faceted: each triangle is cut into a grid and every inner point takes
+      // the toes' heights weighted by nearness, so a deep end runs into a shallow one as a slope rather than as a few long
+      // flat facets (one of them crossed the whole bowl and read as a crack)
+      const hAt = (x, z) => { let sw = 0, sy = 0; for (const t of toes) { const w = 1 / (((t[0] - x) ** 2 + (t[2] - z) ** 2) + 0.05); sw += w; sy += w * t[1]; } return sy / sw; };
+      for (const [a, b, c] of tri) { const A = toes[a], B = toes[b], C = toes[c];
+        if (flat) { kTri(A, B, C, KCOL.floorA); continue; }
+        const k = Math.max(1, Math.min(6, Math.ceil(Math.max(Math.hypot(A[0] - B[0], A[2] - B[2]), Math.hypot(B[0] - C[0], B[2] - C[2]), Math.hypot(C[0] - A[0], C[2] - A[2])) / 3)));
+        const V = (i, j) => { const l = k - i - j, x = (A[0] * l + B[0] * i + C[0] * j) / k, z = (A[2] * l + B[2] * i + C[2] * j) / k;
+          return [x, (i === 0 && j === 0) ? A[1] : (i === k) ? B[1] : (j === k) ? C[1] : hAt(x, z), z]; };
+        for (let i = 0; i < k; i++) for (let j = 0; j < k - i; j++) { kTri(V(i, j), V(i + 1, j), V(i, j + 1), KCOL.floorA); if (i + j < k - 1) kTri(V(i + 1, j), V(i + 1, j + 1), V(i, j + 1), KCOL.floorA); } }
+    }
+    // the deck out to his outline, and its walls
+    const rimY = T.y + (top != null ? top : Math.max(...H));
+    if (o.outer) {
+      const O = o.outer.map(W), back = sec.map(S2 => S2[m - 1].P);
+      const tri = THREE.ShapeUtils.triangulateShape(O.map(p => new THREE.Vector2(p[0], p[1])), [back.map(p => new THREE.Vector2(p[0], p[2]))]);
+      const V = O.map(p => [p[0], rimY, p[1]]).concat(back.map(p => [p[0], rimY, p[2]]));
+      for (const [a, b, c] of tri) kTri(V[a], V[b], V[c], KCOL.deck);
+      kOutline(O, T.y, rimY, 'kit bowl wall');
+    }
+    // SOLIDS -- what she is stopped by: the deck strip behind a one-sided wall, the body under a box or a flat-topped ridge
+    const seg = (a, b, d0, d1, y0, y1, tag) => { const ax = a[0], az = a[1], bx = b[0], bz = b[1], L = Math.hypot(bx - ax, bz - az); if (L < 0.05 || y1 - y0 < 0.1 || d1 - d0 < 0.05) return;
+      const yaw = Math.atan2(bx - ax, bz - az), nx = Math.cos(yaw), nz = -Math.sin(yaw), dm = (d0 + d1) / 2;
+      // which way is the ridden side relative to this segment's own +w
+      solidAdd((ax + bx) / 2 + nx * dm, (az + bz) / 2 + nz * dm, (d1 - d0) / 2, L / 2, y0, y1, yaw, { tag }); };      // walkable tops, as above
+    for (let i = 0; i < spans; i++) { const a = Q[i], b = Q[(i + 1) % n], yaw = Math.atan2(b[0] - a[0], b[1] - a[1]);
+      const sgn = (Math.cos(yaw) * Fr[i].n[0] - Math.sin(yaw) * Fr[i].n[1]) >= 0 ? 1 : -1;      // +w of the segment toward the ridden side?
+      const y0 = Math.min(base(i), base((i + 1) % n)), y1 = Math.min(rimY, Math.min(base(i) + H[i], base((i + 1) % n) + H[(i + 1) % n]));
+      const dk = o.deck != null ? o.deck : KITW.deck, tp = o.top != null ? o.top : 0.2;
+      // a box (a ledge) has a solid body; a banked or transitioned ridge does not need one -- its sides ARE ramps, and a core
+      // under a funbox's top stopped her dead at its edge (its top sat above her feet as she arrived up the bank)
+      if (o.face === 'both') { if (prof === 'box') seg(a, b, -tp / 2, tp / 2, y0, y1, 'kit ridge'); }
+      else if (!o.outer && (prof === 'box' ? dk > 0.1 : dk > KITW.cope + 0.3)) { const d0 = prof === 'box' ? 0 : KITW.cope; sgn > 0 ? seg(a, b, -dk, -d0, y0, y1, 'kit deck') : seg(a, b, d0, dk, y0, y1, 'kit deck'); }
+    }
+    const xs = toes.map(p => p[0]), zs = toes.map(p => p[2]);
+    // `line` (the coping, world x,z) and `side` (unit normals toward the ridden side) -- what a harness steers by
+    return { len: Math.max(...zs) - Math.min(...zs), wid: Math.max(...xs) - Math.min(...xs), h: Math.max(...H), n, rimY, closed,
+      line: Q.map(q => [q[0], q[1]]), side: Fr.map(f => kNorm(f.n)) };
+  },
+  // DECK: a platform of any outline, `h` tall, `holes` cut out of it -- a floor on top, walls round it, a band of solid
+  // inside every edge so riding at it from outside stops her
+  deck(T, S, o) {
+    const W = q => { const P = kP(T, q[0], 0, q[1]); return [P[0], P[2]]; }, h = o.h != null ? o.h : S.H, y1 = T.y + h;
+    const O = o.pts.map(W), Hs = (o.holes || []).map(H => H.map(W));
+    const tri = THREE.ShapeUtils.triangulateShape(O.map(p => new THREE.Vector2(p[0], p[1])), Hs.map(H => H.map(p => new THREE.Vector2(p[0], p[1]))));
+    const V = O.concat(...Hs).map(p => [p[0], y1, p[1]]);
+    for (const [a, b, c] of tri) kTri(V[a], V[b], V[c], o.tint != null ? S.tint : KCOL.deck);
+    kOutline(O, T.y, y1, 'kit deck'); for (const H of Hs) kOutline(H, T.y, y1, 'kit deck', true);
+    const xs = O.map(p => p[0]), zs = O.map(p => p[1]);
+    return { len: Math.max(...zs) - Math.min(...zs), wid: Math.max(...xs) - Math.min(...xs), h };
+  },
+  // WALK: a ribbon `w` wide along `pts` [u, w, y] -- every point its own height -- with a side wall down to the ground, a
+  // railing that grinds along each edge (`rails`), and either solid underneath (`under` 'solid', the default for a ramp
+  // off the ground) or posts you ride beneath ('posts')
+  walk(T, S, o) {
+    const P0 = o.pts.map(q => { const P = kP(T, q[0], 0, q[1]); return [P[0], P[2]]; }), Y0 = o.pts.map(q => q[2] != null ? q[2] : S.H);
+    const { pts: Q, h: Y } = kPathSample(P0, Y0, false, !!o.smooth, o.step || 1.0), n = Q.length, w = (o.w || 4) / 2, Fr = kPathFrames(Q, false, 1);
+    const L = i => [Q[i][0] - Fr[i].n[0] * w, T.y + Y[i], Q[i][1] - Fr[i].n[1] * w], R = i => [Q[i][0] + Fr[i].n[0] * w, T.y + Y[i], Q[i][1] + Fr[i].n[1] * w];
+    for (let i = 0; i < n - 1; i++) {
+      kQuad(L(i), R(i), R(i + 1), L(i + 1), o.tint != null ? S.tint : KCOL.deck);
+      for (const [E, sg] of [[L, -1], [R, 1]]) { const a = E(i), b = E(i + 1); if (a[1] - T.y < 0.02 && b[1] - T.y < 0.02) continue;
+        kWall(a, b, [b[0], T.y, b[2]], [a[0], T.y, a[2]], [sg * Fr[i].n[0], sg * Fr[i].n[1]], KCOL.side); }
+      const a = Q[i], b = Q[i + 1], y1 = T.y + Math.min(Y[i], Y[i + 1]) - 0.05;
+      if ((o.under || 'solid') === 'solid' && y1 - T.y > 0.15) { const Lg = Math.hypot(b[0] - a[0], b[1] - a[1]); if (Lg > 0.05) solidAdd((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, w, Lg / 2, T.y, y1, Math.atan2(b[0] - a[0], b[1] - a[1]), { tag: 'kit walk' }); }      // walkable top: a lidless box caught her at every joint
+    }
+    if (o.under === 'posts') for (let i = 0; i < n; i += Math.max(1, Math.round(6 / (o.step || 1)))) for (const E of [L, R]) { const p = E(i); if (p[1] - T.y > 1.2) {
+      const t = { x: p[0], y: T.y, z: p[2], yaw: 0 }; kBox(t, -0.2, 0.2, -0.2, 0.2, 0, p[1] - T.y - 0.3, KCOL.side, KCOL.side, { floor: false, tag: 'kit post' }); } }
+    let rails;
+    if (o.rails) { const hr = o.hr || 1.0, toLocal = p => { const dx = p[0] - T.x, dz = p[2] - T.z, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw); return [dx * fx + dz * fz, p[1] - T.y + hr, dx * fz - dz * fx]; };
+      rails = [L, R].map(E => kRail(T, Q.map((q, i) => toLocal(E(i))), { name: 'walk rail', posts: false })); }
+    const xs = Q.map(p => p[0]), zs = Q.map(p => p[1]);
+    return { len: Math.max(...zs) - Math.min(...zs), wid: Math.max(...xs) - Math.min(...xs), h: Math.max(...Y), rails };
+  },
+});
+// walls round a polygon (world x,z), facing out (or into a hole), and a band of solid just inside every edge
+function kOutline(O, y0, y1, tag, hole) {
+  let a = 0; for (let i = 0; i < O.length; i++) a += kCr(O[i], O[(i + 1) % O.length]);
+  const inS = (a > 0 ? 1 : -1) * (hole ? -1 : 1);      // the side the platform is on, as a sign of the edge's left normal
+  for (let i = 0; i < O.length; i++) { const p = O[i], q = O[(i + 1) % O.length], d = kNorm([q[0] - p[0], q[1] - p[1]]), nI = kPerp(d).map(v => v * inS);
+    kWall([p[0], y1, p[1]], [q[0], y1, q[1]], [q[0], y0, q[1]], [p[0], y0, p[1]], [-nI[0], -nI[1]], KCOL.side);
+    const L = Math.hypot(q[0] - p[0], q[1] - p[1]), b = KPATH.band / 2; if (L < 0.1) continue;
+    // a WALKABLE top (the platform boxes' rule): without it the band stops her a body's width short of the edge as she
+    // comes up a bank onto the deck, because her feet are still a hair under its top there
+    solidAdd((p[0] + q[0]) / 2 + nI[0] * b, (p[1] + q[1]) / 2 + nI[1] * b, b, L / 2, y0, y1, Math.atan2(q[0] - p[0], q[1] - p[1]), { tag }); }
+}
 // ONE ENTRY POINT. A size name or an object; options as the kinds take them. The record is what the export writes out
 // and what an `fn_` marker in a GLB carries back in.
 function kitPiece(kind, size, T, o) {
@@ -2028,10 +2232,22 @@ const KIT_RAIL_ROWS = [
   ['ledges + stairs', -235, [['ledge', 'S', { h: 0.6 }, 'ledge 0.6 m'], ['ledge', 'S', {}, 'ledge S'], ['stairs', 'S', {}, 'stairs S + rails'], ['stairs', 'M', {}, 'stairs M + rails'], ['stairs', 'L', {}, 'stairs L + rails']]],
 ];
 // r72: THE PIECES HIS SHEET NEEDED (south), and THE GIANTS (north)
+// a closed outline about the origin: radius R, `k` lobes of `amp`, `n` points -- [u, w], rounded to the centimetre
+const kBlob = (R, k, amp, n, ph) => Array.from({ length: n }, (_, i) => { const a = 2 * Math.PI * i / n, r = R * (1 + amp * Math.cos(k * (a - (ph || 0))));
+  return [+(r * Math.cos(a)).toFixed(2), +(r * Math.sin(a)).toFixed(2)]; });
 const KIT_NEW_ROWS = [
   ['new pieces (r72)', -340, [['elbow', 'M', { deg: 45 }, 'elbow M 45'], ['elbow', 'M', { deg: 22.5, right: 1 }, 'elbow M 22.5 (right)'], ['pipeAdapt', 'M', { to: 'L', len: 10 }, 'pipe adapter M > L'],
     ['qpAdapt', 'M', { to: 'XL', w: 8 }, 'QP adapter M > XL'], ['freeBowl', 'XL', { R: 11, lobes: 2, amp: 0.2, deepAt: 0 }, 'peanut bowl XL (deep end)'], ['squareBowl', 'M', { side: 10, rc: 3 }, 'square bowl M'],
     ['bridge', 'M', { len: 16 }, 'bridge M'], ['stairs', 'M', { hubba: 1 }, 'stairs M + hubbas'], ['frustum', 'M', { len: 6, w: 5, banks: [1, 1, 0, 0], rails: 1 }, 'funbox M + rails'], ['berm', 'M', { deg: 90, r: 8 }, 'berm M 90']]],
+  // r74: THE PATH PIECES -- every shape here is a LINE (the coping, as he would draw it), not a radius about a centre
+  ['path pieces (r74)', -385, [['wall', 'L', { closed: 1, face: 'in', pts: kBlob(10, 4, 0.07, 20, 0.4), rim: 3.6, H: kBlob(10, 4, 0.07, 20, 0.4).map((_, i) => +(2.4 + 1.2 * (1 + Math.cos(2 * Math.PI * i / 20)) / 2).toFixed(2)), deck: 2.5 }, 'bowl from a path L (4 lobes, 2.4 to 3.6 deep)'],
+    ['wall', 'M', { closed: 1, face: 'in', pts: [[-12, -4], [-6, -7], [4, -7], [12, -3], [12, 4], [5, 7], [-2, 3], [-9, 7], [-13, 3]], deck: 2, outer: [[-17, -12], [17, -12], [17, 12], [-17, 12]] }, 'kidney pool M, decked to a square'],
+    ['wall', 'L', { face: 'both', pts: [[-11, -8], [-4, -5], [4, 5], [11, 8]], smooth: 1 }, 'S-spine L'],
+    ['wall', 'S', { face: 'both', profile: 'bank', top: 3, pts: [[-10, 8], [-10, -1], [-6, -7], [0, -9], [6, -7], [10, -1], [10, 8]], smooth: 1 }, 'horseshoe funbox S'],
+    ['wall', 'L', { face: [0, 0], pts: [-80, -55, -30, 0, 30, 55, 80].map(a => [+(13 * Math.cos(a * D2R)).toFixed(2), +(13 * Math.sin(a * D2R)).toFixed(2)]), smooth: 1, deck: 3 }, 'curved QP L'],
+    ['wall', 'S', { face: 'both', profile: 'box', H: 0.6, top: 1.4, pts: [[-11, -5], [-4, -6], [4, 6], [11, 5]], smooth: 1 }, 'curved ledge 0.6'],
+    ['deck', 'M', { pts: [[-12, -8], [4, -8], [4, 0], [12, 0], [12, 8], [-12, 8]] }, 'deck M, any outline'],
+    ['walk', 'L', { pts: [[-14, -6, 0], [-5, -6, 1.2], [3, 0, 2.4], [10, 7, 3.6], [14, 7, 3.6]], w: 4, rails: 1, smooth: 1 }, 'walkway climbing to L']]],
   ['giants (r72)', 412, [['qp', 'XXL', { w: 8 }, 'QP XXL'], ['qp', 'MEGA', { w: 8 }, 'QP MEGA'], ['halfpipe', 'XXL', { flat: 8, len: 12 }, 'half pipe XXL'],
     ['halfpipe', 'MEGA', { flat: 10, len: 12, deck: 3 }, 'half pipe MEGA'], ['freeBowl', 'XXL', { R: 15, lobes: 3, amp: 0.2, shallow: 4 }, 'clover bowl XXL'], ['rollin', 'MEGA', { r: 8 }, 'roll-in MEGA']]],
 ];
@@ -2279,7 +2495,7 @@ function kitSheet(J) {
   J = J || SHEET.data; if (!J) return;
   const m = J.mpp, [px0, py0] = J.pin.px, [wx0, wz0] = J.pin.world;
   const W = p => [wx0 + (p[0] - px0) * m, wz0 + (p[1] - py0) * m], yawOf = d => Math.PI - (d || 0) * D2R;
-  const stop = [], all = [];
+  const stop = [], all = []; SHEET.W = W; SHEET.yawOf = yawOf;
   for (const Ar of J.areas) {
     const zone = 'sheet ' + Ar.name, grp = 'a' + Ar.id, recs = [];
     const put = (kind, size, x, z, yaw, o, label, y, group) => { const r = pk(zone, kind, size, x, z, yaw, o, group || grp, label, y); if (r) { r.area = Ar.id; recs.push(r); } return r; };
@@ -2317,6 +2533,16 @@ function kitSheet(J) {
           const dx = P[i + 1][0] - P[i][0], dz = P[i + 1][1] - P[i][1];
           put('fence', 'S', P[i][0], P[i][1], Math.atan2(dx, dz), { ...o, len: Math.hypot(dx, dz) }, 'fence', y, 'fence'); }
         else for (const [x, z] of P) put(q.kind === 'trees' ? 'planter' : 'lamp', 'S', x, z, 0, o, q.kind === 'trees' ? 'planter + tree' : 'lamp', y, 'furniture');
+        continue;
+      }
+      // r74: THE PATH PIECES TAKE THE DRAWING'S PIXELS -- `pts`, `outer`, `holes` and a point `face` are traced off the plan;
+      // the piece is anchored at its first point (yaw 0, so a local [u, w] is just [z, x] from there)
+      if (q.kind === 'wall' || q.kind === 'deck' || q.kind === 'walk') {
+        const A0 = W(q.pts[0]), loc = pp => { const [x, z] = W(pp); return [+(z - A0[1]).toFixed(3), +(x - A0[0]).toFixed(3)]; };
+        o.pts = q.pts.map(pp => q.kind === 'walk' ? [...loc(pp), pp[2]] : loc(pp));
+        if (q.outer) o.outer = q.outer.map(loc); if (q.holes) o.holes = q.holes.map(H => H.map(loc));
+        if (Array.isArray(q.face)) o.face = loc(q.face); else if (q.face) o.face = q.face;
+        const r = put(q.kind, size, A0[0], A0[1], 0, o, q.label, y, q.group); if (r && q.id) SHEET.at[q.id] = r;
         continue;
       }
       const yaw = yawOf(q.dir);
@@ -2934,6 +3160,10 @@ function grindTarget(air) {
     if (!W.R.flat) return;
     const q = W.q, d = Math.hypot(q.x - px, q.z - pz), dy = q.y - p.pos.y;
     if (d > reach || dy > up || dy < -down) return;
+    // r74: IN THE AIR SHE ONLY GOES FOR WHAT IS AHEAD OF HER. *"She reverses her velocity backwards and grinds the other way
+    // -- that's not physically accurate."* Flying, the swipe may bend her line by `aheadCos` at most; nothing ahead -> she
+    // just drops, keeping her speed.
+    if (air && hv > GRIND.aheadV && ((q.x - p.pos.x) * fx + (q.z - p.pos.z) * fz) < GRIND.aheadCos * Math.hypot(q.x - p.pos.x, q.z - p.pos.z)) return;
     if (p.grindCool > 0 && samePath(W.R, p.grindLast)) return;
     // straight ahead is cheaper than behind, and a rail a hair nearer than a ledge wins the tie
     const ahead = ((q.x - p.pos.x) * fx + (q.z - p.pos.z) * fz) / Math.max(0.5, Math.hypot(q.x - p.pos.x, q.z - p.pos.z));
@@ -7270,7 +7500,7 @@ function trailBuild(hist, now, eye, k, pos, col) {
 function trailAmount() {
   const p = player;
   if (!TRAIL.on || p.bailT > 0) return 0;
-  if (p.mel) return 1;                          // every strike, slide and kick slashes
+  if (p.mel || p.dashT > 0) return 1;           // every strike, slide and kick slashes -- and r74's dash
   if (p.grounded || p.grind) return smooth(TRAIL.v0, TRAIL.v1, p.hSpeed);
   const spin = Math.abs(girl.yawRate || 0);
   return Math.max(p.flip ? 1 : 0, smooth(TRAIL.spin0, TRAIL.spin1, spin), 0.6 * smooth(TRAIL.v0, TRAIL.v1, p.hSpeed));
@@ -8599,7 +8829,15 @@ const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turn
   // r56: the air flick transfer (r51) was a misreading and is off -- `airFlickXfer` is a NEW key, so a phone that saved
   // the old `flickXfer` 1 does not keep it. r57: the transfer is a swipe up ON THE STEEP FACE, instead of the ollie,
   // exactly as she goes off (`rightFlick`, `MELEE.xferN`) -- never armed from the flat.
-  faceArm: 0.6 };
+  faceArm: 0.6,
+  // r74: *"we'll just reverse it -- a tap on the right stick to transfer"*. A TAP on a steep face (or just off one, or in
+  // the first `tapWin` of a locked vert air) is the transfer; a SWIPE UP there is the DASH (below). `tapXfer` 0 is r73.
+  tapXfer: 1, tapWin: 0.45 };
+// r74: THE DASH. *"I have a tendency to swipe up on the right pad off a jump -- that should just launch you off it ... your
+// momentum gets a little boost, a little swipe particle effect, and you go flying off it."* A swipe UP while she is on a
+// ramp (a face steeper than `n`) or within `win` of leaving one adds `add` m/s along the way she is going -- up the face,
+// or along her flight -- once per ramp, never past `cap`. On the flat a swipe up is still a strike.
+const DASH = { on: 1, n: 0.95, win: 0.5, add: 4.5, cap: 30, fx: 0.45 };
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
@@ -8634,7 +8872,7 @@ function leaveGround(coy, xfer) {
   }
   groundQ(p.bq);
   if (p.vertLock) { p.vertQ = (p.vertQ || new THREE.Quaternion()).copy(p.bq); p.vertN = (p.vertN || new THREE.Vector3()).copy(n).normalize(); p.vertSpin = 0; }
-  p.lipY = p.pos.y; p.xferHold = 0;
+  p.lipY = p.pos.y; p.xferHold = 0; p.leftN = n.y;      // r74: the face she left (the dash and the tap transfer ask)
   p.grounded = false; p.airT = 0; p.coyote = coy; p.drift = 0;
 }
 // THE HELD TRANSFER (r47): out of a locked vert air, onto the deck. The auto-turn already applied is taken back (a
@@ -8653,7 +8891,7 @@ function vertRelease(flick) {
 function respawn() {
   const p = player;
   SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0; p.spinAcc = 0; p.spinPrev = null; p.wasAir = false;
-  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
@@ -9403,9 +9641,24 @@ function scoreStep(dt) {
   if (p.grounded && !p.grind) { S.ground += dt; if (S.ground > S.bankAfter) scoreBank(); } else S.ground = 0;
 }
 // THE RIGHT PAD'S FLICK, AS A RULE (the binding below calls this; `npm run sim melee` calls it too).
+// r74: THE DASH -- on a ramp, or within `DASH.win` of leaving one, once per ramp
+function dashOk() {
+  const p = player; if (!DASH.on || p.dashed || p.bailT > 0) return false;
+  return p.grounded ? p.n.y < DASH.n : (p.leftN != null && p.leftN < DASH.n && p.airT < DASH.win);
+}
+function dashGo() {
+  const p = player, v = p.vel.length(); if (v < 0.5) return false;
+  const k = Math.min(v + DASH.add, Math.max(v, DASH.cap)) / v;
+  p.vel.multiplyScalar(k); p.dashed = 1; p.dashT = DASH.fx;
+  if (p.vertLock && p.vel.y < 0) p.vel.y = 0;      // a dash never drives her back down a wall she is flying up
+  trick('DASH', SCORE.xfer * 0.5);
+  return true;
+}
 function rightFlick(dx, dy) {
   const p = player, dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
   const w = flickWorld(dx, dy);
+  // r74: A SWIPE UP ON A RAMP, OR JUST OFF ONE, IS THE DASH -- never the melee and never (any more) the transfer
+  if (dir === 'up' && !p.grind && !(p.vertLock && VERT.airFlickXfer > 0.5) && dashOk()) return dashGo() ? 'dash' : null;
   if (p.grind || (!p.grounded && p.coyote > 0)) { if (dir === 'up') { p.jump = 2; return 'transfer'; }
     // r62: *"when you're on the pole and you swipe different directions she does different grinds"* -- the right pad too now
     if (p.grind && grindTrick(dx, dy)) return 'grind trick';
@@ -9419,7 +9672,7 @@ function rightFlick(dx, dy) {
     // vert. Anywhere else it is a strike like every other direction (and every ground strike carries a boost now).
     // On the face it is ARMED for `VERT.faceArm` and fires as she goes off the lip, so a swipe a beat early still counts --
     // and it is never armed from the flat, so a strike on the run-in can never send her out by accident.
-    if (dir === 'up' && p.n.y < MELEE.xferN) { p.xferArm = VERT.faceArm; return 'transfer'; }
+    if (dir === 'up' && p.n.y < MELEE.xferN && !VERT.tapXfer) { p.xferArm = VERT.faceArm; return 'transfer'; }      // r57, with `tapXfer` off
     return meleeStrike(w.x, w.z) ? 'strike' : null;
   }
   // r51 (off by default since r56): a flick UP during a locked vert air is the transfer out over the coping
@@ -9436,7 +9689,14 @@ function stepPlayer(dt) {
     // r41: a TAP near a rail -- on the ground or in the air -- is a hop onto it; the swipe (transfer) never is
     if (p.grind) grindLeave(true);
     else if (!xfer && !GRIND.intent && railHome()) {}      // r71: with `intent` a tap is always a jump
+    // r74: A TAP ON A STEEP FACE IS THE TRANSFER -- armed, and fired as she goes off the lip (a pop mid-face would only
+    // hop her back onto the wall); just off the lip it fires at once; in the first moment of a locked air it releases it
+    else if (!xfer && VERT.tapXfer && p.grounded && p.n.y < MELEE.xferN) p.xferArm = VERT.faceArm;
+    else if (!xfer && VERT.tapXfer && !p.grounded && p.coyote > 0 && p.leftN != null && p.leftN < MELEE.xferN) doJump(true);
+    else if (!xfer && VERT.tapXfer && !p.grounded && p.vertLock && p.airT < VERT.tapWin) { if (vertRelease(true)) trick('TRANSFER', SCORE.xfer); }
     else if (p.grounded || p.coyote > 0) doJump(xfer); }
+  if (p.grounded && p.n.y > 0.97) p.dashed = 0;      // r74: one dash per ramp
+  p.dashT = Math.max(0, (p.dashT || 0) - dt);
   p.grindCool = Math.max(0, p.grindCool - dt);
   p.xferArm = p.grounded && p.n.y > 0.97 ? 0 : Math.max(0, (p.xferArm || 0) - dt);     // r57: back on the flat, it is gone
   stepMelee(dt);
@@ -10073,6 +10333,10 @@ const TAILUI = [
   ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
   ['MELEE.boost',    'Ground strike speed boost', 0, 8, 0.25, ''],
   ['VERT.faceArm',   'Swipe on the wall counts for', 0.1, 1.5, 0.05, 's'],
+  ['VERT.tapXfer',   'Tap on a ramp = transfer (r74)', 0, 1, 1, ''],
+  ['DASH.on',        'Swipe up on a ramp = dash', 0, 1, 1, ''],
+  ['DASH.add',       'Dash boost', 0, 12, 0.5, 'm/s'],
+  ['DASH.win',       'Dash counts after leaving', 0.1, 1.2, 0.05, 's'],
   ['VERT.holdXferOn', 'Hold right stick up = transfer', 0, 1, 1, ''],
   ['FLIPP.camRel',   'Flips relative to camera', 0, 1, 1, ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
@@ -10131,7 +10395,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
+const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -10293,7 +10557,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, DASH, dashOk, dashGo, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
