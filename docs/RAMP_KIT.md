@@ -4,9 +4,9 @@ A set of modular skate pieces built and tested in the game. They are white place
 you place them where the level wants them, then export. The game rebuilds every one from its name, so the ramps ride
 exactly as tested whatever the art on top of them looks like.
 
-- **In game:** tap ⚙ and choose **RAMP KIT PARK** under WORLD at the top (or open the page with `?world=kit`). You spawn
-  at the top of a roll-in in the **example park** (below). The ➤ key walks the park's areas first, then the gallery rows.
-  Tap **SKATE PARK** to go back.
+- **In game:** tap the **LEVEL** key (top right) and choose **RAMP KIT PARK**, or open the page with `?world=kit`. You
+  spawn at the top of a roll-in in the **mega park** (below). The ➤ key walks the park's areas first, then the gallery
+  rows of single pieces.
 - **Out of the game:** `npm run export:kit` writes:
   - `exports/rollergirl_kit.glb`: one object per piece, placed as in the gallery.
   - `exports/rollergirl_kit.json`: the same, as data.
@@ -101,6 +101,24 @@ rolls upright at the top and lands on its own deck. Options: `R` (radius, 1.25 H
 - **Bank and platform:** a `bank` of size S reaches exactly the top of a `platform` of size S.
 - **Spot or launch target:** a `deck_`/`ground_` surface at a size's H is level with every piece of that size.
 
+## Pipe modules (r70): snap-together pipes
+
+`halfpipe`, `pipeL`, `pipeT` and `pool` are each one object laid out ACROSS their own frame. They are fine to drop in
+but can't be chained. These four are the same straights and corners as **snap-together** pieces. The origin is the
+middle of the flat where the channel ENTERS, local +Z is the way it runs, and `info.out` is where the next piece's origin
+goes (the tee also has `out2`, its branch). A pipe of any shape is then a list of pieces, each placed at the last one's
+`out`.
+
+| kind | what | options (default) |
+|------|------|-------------------|
+| `pipe` | straight: two QPs facing across the flat | `flat` 6, `len` 8 |
+| `elbow` | 90° bend: an inside corner on the outside of the bend and an outside corner on the inside, same centre | `flat` 6, `right` 1 turns toward −X (default +X) |
+| `tee` | a pipe with a second leaving its middle at 90°. `out` carries straight on, `out2` is the end of the branch | `flat` 6, `len` 20 (at least 2·(flat/2 + lip + 1.5) + 2), `leg` 8, `right` 1 |
+| `pipeEnd` | the half bowl that closes a pipe | `flat` 6 |
+
+**Keep `flat` the same along a run.** Every piece is built on its size's quarter pipe, so the decks meet at that size's
+H and the flat keeps its width round every bend.
+
 ## Coming back in
 
 Export the level's placeholders, in their own GLB or inside the collision GLB, and list the file in `LEVEL.imports`.
@@ -160,29 +178,49 @@ ground but not drawn, because your art is the rail.
   and a wall from the side.
 - The export round trip puts all 68 rail ends back within 0.000 m.
 
-## The example park (r68)
+## The mega park (r70)
 
-There are 48 pieces in 13 areas, built from the same `kitPiece` calls an `fn_` node makes and placed so they connect. It
-shows the kit in use, and the export puts it in its own `example_park` group (one child per area), separate from the
-`ramp_kit` gallery.
+One connected park of 97 pieces, east and north of the gallery, built entirely from `kitPiece` calls, the same call an
+`fn_` node makes. The export puts it in its own `example_park` group, one child per area.
 
-| area | what fits together |
-|------|--------------------|
-| drop-in (spawn) | roll-in XL → table-top M → kicker M → a 12 m wide QP L. One line from the deck to the QP. |
-| plaza | bank M up → platform M → the stairs M landing → down the stairs → a 0.36 m manual pad. The bank top, platform and landing are all at M height. The stair handrails' tops (3.6) run on as a **rail L** across the platform and a **down rail L** over the bank: one grind from the bank to the stair foot. Ledges S and 0.6 beside. |
-| boxes | pyramid M, hip M, a funbox S with a rail along its top |
-| pool / T-pipe / bowl / L-pipe | the assemblies: pool M, T-pipe M, round bowl L, L-pipe M |
-| mini | half pipe S and a spine S |
-| XL corner | a QP XL straight, an inside corner XL and another straight, placed by the corner's own rule (each straight's toe is `rc` out from the corner's centre) |
-| big pipe | half pipe XL and a pool L |
-| rails | the snapped chain, a ring, a helix, a Y, a rainbow, a booster and a ledge |
-| jumps | launch S, kicker M, gap M, table-top M |
-| loops | the 360 and the 180 |
+| area | how it is put together |
+|------|------------------------|
+| ring | a closed loop of pipe M: 40 m straights, four elbows, and on the north and south sides 20 m straight + tee + 20 m straight. The whole ring is ONE list, each piece placed at the last one's `out`. |
+| plateau | the ring's inside (the rectangle of its four elbow centres) filled with platform M at deck height, flush with every inner deck. A **bowl M** and a **pool M** are SUNK into it (their decks are at M height, so they are holes in the plateau). On top: a raised S level (bank S up, deck, stair landing, stairs S down, handrails running on as a rail and a down rail), a 0.6 m ledge, a manual pad, a funbox with a rail, a kink rail. |
+| north spur / south snake | off the two tees: north a short pipe to a half-bowl end; south an elbow, a straight, an elbow the other way, a straight and a half-bowl end |
+| drop-in (spawn) | roll-in XL → 18 m → a bank M up to the ring's west outer deck → over the coping into the pipe |
+| east | a platform M off the ring's east outer deck, stairs M down to a street (ledges, kink, rainbow, pyramid, hip, funbox + rail), the handrails running back along the deck as rails |
+| tiers | bank M → deck M → bank S → deck L → bank S → deck XL → a long bank XL down |
+| mini snake | pipe S with three elbows, capped at both ends |
+| spine box / big pipe / XL corner / pool L | a spine between two QPs, the half pipe XL, an XL vert corner, a pool L |
+| jumps / loops / rails | launch, kicker, gap, table-top; the 360 and 180; the rail chain, ring, helix, Y, booster |
 
 **Tested in `npm run sim kit`:**
-- No two park pieces sit inside each other, except sets built to touch.
-- The drop-in line rides from the spawn (push off, let go past the kicker) to 8.2 m of air off the QP L.
-- The plaza line rides bank → deck → stairs → pad, never under the step noses.
-- The rail L grinds on down the handrail to its foot.
-- 36 hands-off rides through every pool, pipe, bowl and corner: none fall out, go under the floor or bail.
-- Every ➤ stop stands her on a floor.
+- No piece sits inside another.
+- From the spawn, she drops in, climbs the bank and goes over the coping into the ring.
+- A full lap of the ring, steering down the middle of the flat.
+- The south snake from its tee to its end.
+- A drop off the plateau into the sunken bowl.
+- The raised level: up, across and down the stairs; the deck rail grinds on down the handrail.
+- Off the east deck and down the stairs M to the street.
+- The tiers up to the XL deck and down.
+- 132 hands-off rides through every pipe, elbow, tee, end, bowl and pool.
+- The export round trip (sampled, then the copy ingested alone): 146,515 floor points and 138 rail ends exact.
+
+## Limitations the mega park found (to curate before the handoff)
+
+1. **Every crease from a slope onto a flat is a kicker.** Banks onto decks, stairs onto landings, a bank up to a coping
+   and over it: at speed she leaves the ground at every top edge. The tiers were flown rather than climbed until she
+   rode them slower. Only the roll-in has a rounded lip (`lipR`). A rounded top for banks and stairs may be wanted.
+2. **Pipes only turn 90°.** There are no 45° elbows, no branch at any other angle, no pipe that rises or falls (a
+   downhill snake), and no adapter between sizes (an S pipe cannot run into an M pipe).
+3. **Sunk pieces only sink to their own height.** A bowl M is flush with an M plateau because everything is built up from
+   the ground. Sinking a bowl into an L plateau means a bowl L, or a plateau at a different height.
+4. **The world has edges.** The collider grid is ±480 m and the white floor is narrower. Off the end of the tiers at
+   24 m/s she rolled off the floor until they were moved; big levels need run-out (or a bigger grid).
+5. **Ramp sides are not walls.** As everywhere in this game, a ramp's side is drawn but not collided, so you pass
+   through one side-on. Decks, platforms and box tops ARE solid.
+6. **Loops are rails.** The collider is "the floor under this point", so nothing can be ridden upside down as a
+   surface.
+7. **Pieces must meet exactly.** Nothing snaps them together after the fact: in Blender, place each one at the last
+   one's `out` (or at the fitting rules above).

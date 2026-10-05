@@ -2700,7 +2700,7 @@ CASES.kit = async () => {
   // 1. GEOMETRY: no NaN, and no cracks -- a point with no floor near it whose four neighbours a quarter of a metre away
   //    all have a raised floor is a hole between two pieces
   say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
-  for (const pc of K.pieces.filter(p => /pipe|pool|bowl|qp/.test(p.kind))) {
+  for (const pc of K.pieces.filter(p => /pipe|pool|bowl|qp|elbow|tee/i.test(p.kind))) {
     let holes = 0, n = 0; const R = Math.max(pc.len || 8, pc.wid || 8) + 2, s = 0.25;
     const fl = (x, z) => { const q = rg.groundAt(x, z, 20, 0); return q.hit ? q.floor : -1; };
     for (let x = pc.T.x - R; x <= pc.T.x + R; x += s) for (let z = pc.T.z - R; z <= pc.T.z + R; z += s) {
@@ -2852,43 +2852,67 @@ CASES.kit = async () => {
   { const pc = K.pieces.find(p => p.kind === 'ledge' && !p.o.h); go(pc, 3, 0, 0, 0); P.pos.y = 2; P.grounded = false; ride(1);
     const stood = Math.abs(P.pos.y - pc.h) < 0.03 && P.grounded; go(pc, 4, -5, Math.PI / 2, 7); ride(1.5, () => { fwd(H(pc, Math.PI / 2)); city(); });
     const l = loc(pc); say('a ledge: stood on top, a wall from the side', stood && !(Math.abs(l.w) < 0.6 && P.pos.y < pc.h - 0.2), `on top ${stood ? 'yes' : 'no'}; side run ends w ${fix(l.w, 2)} y ${fix(P.pos.y)}`); }
-  // ---- r68: THE KIT PARK ----------------------------------------------------------------------------------------------
+  // ---- r70: THE MEGA PARK ---------------------------------------------------------------------------------------------
+  const KP = rg.KPARK, M = KSZ.M;
+  // P1. NOTHING SITS INSIDE ANYTHING ELSE unless it was built to touch (same `group`)
   { const pkz = K.pieces.filter(p => p.park), bad = [];
-    // P1. NOTHING SITS INSIDE ANYTHING ELSE unless it was built to touch (same `group`): drawn boxes overlapping by more
-    //     than 0.3 m on every axis is a piece placed into another one
     for (let i = 0; i < pkz.length; i++) for (let j = i + 1; j < pkz.length; j++) { const a = pkz[i], b = pkz[j];
       if (!a.bb || !b.bb || (a.group && a.group === b.group)) continue;
       const o = [0, 1, 2].map(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k]));
       if (o.every(v => v > 0.3)) bad.push(`${a.label} x ${b.label}`); }
-    say(`kit park: ${pkz.length} pieces, none placed inside another`, pkz.length > 40 && !bad.length, bad.slice(0, 4).join('; ') || 'clear'); }
-  // P2. THE DROP-IN LINE: off the spawn deck, one push and then nothing -- down the roll-in, over the table-top, off the
-  //     kicker, up the QP L at the end
-  { const S0 = rg.SPAWN, qpL = K.pieces.find(p => p.park === 'drop-in' && p.kind === 'qp');
-    reset(); place(S0.x, S0.y + 0.5, S0.z, 0, 0); let top = 0, minV = 99, lowest = 99, z = -1e9, tr = [];
-    const r = ride(9, t => { if (P.pos.z < -62) fwd(0); else rg.stick.L.x = rg.stick.L.y = 0; city();
-      if (P.pos.z > qpL.T.z - 0.5) top = Math.max(top, P.pos.y); z = Math.max(z, P.pos.z); if (P.pos.z > -110 && P.pos.z < -50) minV = Math.min(minV, P.hSpeed); if (process.env.TRACE && Math.round(t * 60) % 15 === 0) tr.push(`${fix(t, 2)} x${fix(P.pos.x, 1)} z${fix(P.pos.z, 1)} y${fix(P.pos.y)} v${fix(P.hSpeed, 1)} ${P.grounded ? 'g' : 'a'}${P.bailT > 0 ? ' BAIL' : ''}`); });
-    if (process.env.TRACE) console.log(tr.join('\n'));
-    say('kit park drop-in: roll-in, table, kicker, up the QP L', top > 2.5 && !r.falls && !r.bail, `up the QP to ${fix(top)} m (H 3.6), slowest on the line ${fix(minV, 1)} m/s, furthest z ${fix(z, 1)}`); }
-  // P3. THE PLAZA LINE: up the bank M, across the deck, down the stairs, over the manual pad
-  { const st = K.pieces.find(p => p.park === 'plaza' && p.kind === 'stairs'), bk = K.pieces.find(p => p.park === 'plaza' && p.kind === 'bank');
-    reset(); place(215, 0.2, bk.T.z - 8, 0, Math.sqrt(2 * g * 2.4) + 2.5); let deck = 0, pad = 0, low = 0;
-    const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && Math.abs(P.pos.y - 2.4) < 0.05) deck = 1;
-      if (P.grounded && P.pos.z > -94 && P.pos.z < -88 && Math.abs(P.pos.y - 0.36) < 0.05) pad = 1;
-      const u = -100 - P.pos.z; if (u > 0.2 && u < st.len - 3 - 0.2) low = Math.min(low, P.pos.y - 2.4 * u / (st.len - 3)); });
-    say('kit park plaza: bank up, deck, down the stairs, the manual pad', deck && pad && !r.bail && !r.falls && low > -0.05, `deck ${deck ? 'yes' : 'no'}, pad ${pad ? 'yes' : 'no'}, worst ${fix(low)} under the step noses, ends z ${fix(P.pos.z, 1)}`); }
-  // P4. THE HANDRAIL RUNS ON: in at the top of the rail L, the grind carries across onto the handrail and down to its foot
-  { const rl = K.pieces.find(p => p.park === 'plaza' && p.kind === 'rail'), st = K.pieces.find(p => p.park === 'plaza' && p.kind === 'stairs');
-    const R0 = rl.rails[0].segs[0], hrs = new Set(st.rails), feet = new Set(st.rails.map(R => R.segs[0]));
+    say(`mega park: ${pkz.length} pieces, none placed inside another`, pkz.length > 80 && !bad.length, bad.slice(0, 4).join('; ') || 'clear'); }
+  // steer down a centreline [x, z] polyline: aim a few metres ahead of the nearest point, push; returns how far along it got
+  const follow = (pts, sec, o = {}) => { let far = 0, offMax = 0, lowest = 99; const r = ride(sec, () => {
+      let bi = 0, bd = 1e9; for (let i = 0; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - P.pos.x, pts[i][1] - P.pos.z); if (d < bd && i >= far - 20) { bd = d; bi = i; } }
+      far = Math.max(far, bi); if (bd > offMax && bi < pts.length - 10) { offMax = bd; o.at = `x${fix(P.pos.x, 1)} z${fix(P.pos.z, 1)} y${fix(P.pos.y)} v${fix(P.hSpeed, 1)} ${P.grounded ? 'g' : 'a'} near pt ${bi}`; } lowest = Math.min(lowest, P.pos.y);
+      const t = pts[Math.min(pts.length - 1, bi + (o.ahead || 6))]; fwd(Math.atan2(t[0] - P.pos.x, t[1] - P.pos.z)); if (o.coast && P.hSpeed > o.coast) rg.stick.L.y = 0; city(); });
+    return { ...r, far, offMax, lowest }; };
+  const line = recs => { const out = []; for (const r of recs) for (const q of r.cl || []) { const l = out[out.length - 1];
+      if (!l) { out.push(q); continue; } const d = Math.hypot(l[0] - q[0], l[1] - q[1]); if (d < 0.5) continue;
+      const n = Math.ceil(d); for (let i = 1; i <= n; i++) out.push([l[0] + (q[0] - l[0]) * i / n, l[1] + (q[1] - l[1]) * i / n]); } return out; };
+  // P2. THE DROP-IN: off the spawn deck, down the roll-in, up the bank M onto the ring's deck and into the pipe
+  { const S0 = rg.SPAWN, wx = 220; reset(); place(S0.x, S0.y + 0.5, S0.z, Math.PI / 2, 0); let inPipe = 0, top = 0;
+    const r = ride(8, () => { if (P.pos.x < wx - 9) fwd(Math.PI / 2); else rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.x > 205 ? P.pos.y : 0);
+      if (P.grounded && Math.abs(P.pos.x - wx) < 6 && P.pos.y < 2.2) inPipe = 1; });
+    say('mega drop-in: roll-in XL, bank M, over the coping into the ring', inPipe && !r.falls && !r.bail, inPipe ? `in the pipe (got to ${fix(top)} m on the way over)` : `never reached the pipe -- ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+  // P3. ROUND THE RING: a full lap of straights, four elbows and two tees, steering down the middle of the flat
+  { const L0 = line(KP.ring), pts = L0.concat(L0.slice(1, 40)), s0 = pts[2];
+    reset(); place(s0[0], 0.2, s0[1], 0, 11); const ro = {}; const r = follow(pts, 40, ro);
+    say('mega ring: a full lap, every elbow and both tees', r.far >= L0.length && !r.falls && !r.bail && r.offMax < M.lip + 3 && r.low > -0.05,
+      `${r.far}/${L0.length} of the line, worst ${fix(r.offMax, 1)} m off its middle (${ro.at}), ${r.falls ? 'FELL' : 'no falls'}`); }
+  // P4. THE SOUTH SNAKE: out of the tee and along the snake to its half-bowl end
+  { const tee = KP.ring.find(r => r.kind === 'tee' && /south/.test(r.label)), c = rg.kT(tee.T, tee.out.u / 2, 0, 0);
+    const pts = line([{ cl: [[c.x, c.z]] }].concat(KP.runs.south)); reset(); place(c.x, 0.2, c.z, Math.atan2(pts[3][0] - c.x, pts[3][1] - c.z), 8);
+    const so = { coast: 10 }; const r = follow(pts, 14, so);
+    say('mega south snake: tee > elbow > pipe > elbow > end', r.far >= pts.length - 4 && !r.falls && !r.bail && r.low > -0.05, `${r.far}/${pts.length} of the line, worst ${fix(r.offMax, 1)} m off its middle (${so.at})`); }
+  // P5. THE PLATEAU: a drop into the sunken bowl; the raised level up and down; the rail running on down the handrail
+  { const [X0, Z0, X1, Z1] = KP.plateau, b = KP.bowl; reset(); place(b.T.x, 3, b.bb[5] + 3, Math.PI, 7); let inB = 0;
+    const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && P.pos.y < 1 && P.pos.x > b.bb[0] && P.pos.x < b.bb[3] && P.pos.z > b.bb[2] && P.pos.z < b.bb[5]) inB = 1; });
+    say('mega plateau: off the plateau into the sunken bowl', inB && !r.falls && !r.bail && r.low > -0.05, inB ? 'dropped in' : `never got down into it (y ${fix(P.pos.y)})`); }
+  { const st = K.pieces.find(p => p.park === 'plateau' && p.kind === 'stairs'), bk = K.pieces.find(p => p.park === 'plateau' && p.kind === 'bank');
+    reset(); place(bk.T.x - 6, 3, bk.T.z, Math.PI / 2, Math.sqrt(2 * g * 1.2) + 2.5); let deck = 0, down = 0;
+    const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && Math.abs(P.pos.y - 3.6) < 0.05) deck = 1; if (deck && P.grounded && Math.abs(P.pos.y - 2.4) < 0.05 && P.pos.x > st.T.x) down = 1; });
+    say('mega plateau: bank S up to the raised deck, down the stairs', deck && down && !r.bail && !r.falls, `deck ${deck ? 'yes' : 'no'}, back on the plateau past the stairs ${down ? 'yes' : 'no'}`);
+    const rl = K.pieces.find(p => p.park === 'plateau' && p.kind === 'rail' && p.group === 'raised'), R0 = rl.rails[0].segs[0], hrs = new Set(st.rails), feet = new Set(st.rails.map(R => R.segs[0]));
     reset(); place(R0.a.x, R0.a.y, R0.a.z, Math.atan2(-R0.hx, -R0.hz), 8); P.grounded = false; rg.enterGrind({ rail: R0, t: 0.05, dir: -1, s: 8, side: 'left' });
     let on = 0, foot = 0; run(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && hrs.has(P.grind.rail.path)) { on = 1; if (feet.has(P.grind.rail)) foot = 1; } });
-    say('kit park plaza: the rail L runs on down the handrail', on && foot, on ? (foot ? 'rail L > handrail > its foot' : 'came off the handrail') : 'never crossed onto it'); }
-  // P4b. EVERY TRANSITIONED AREA: in from its middle at speed, toward the walls one way and then the other, hands off --
-  //      she swings, does not fall out of the world, never goes under the floor, does not bail
-  { const bad = [], spots = [['pool', 215, -40], ['T-pipe', 405, -55], ['T-pipe branch', 405, -42], ['bowl', 310, 45], ['mini', 215, 40], ['L-pipe', 391, 37.4],
-      ['XL corner', 378, 178], ['big pipe', 310, 210], ['pool L', 232, 210]];
+    say('mega plateau: the deck rail runs on down the handrail', on && foot, on ? (foot ? 'to the foot' : 'came off') : 'never crossed onto it'); }
+  // P6. EAST: off the ring's deck platform, down the stairs M to the street; P7. THE TIERS up to XL and the bank down
+  { const es = K.pieces.find(p => p.park === 'east' && p.kind === 'stairs'), pl = K.pieces.find(p => p.park === 'east' && p.kind === 'platform');
+    reset(); place(pl.T.x + 2, 3, 0, Math.PI / 2, 6); let st = 0; const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && P.pos.y < 0.05 && P.pos.x > es.T.x) st = 1; });
+    say('mega east: off the deck, down the stairs M to the street', st && !r.bail && !r.falls, st ? 'on the street' : `ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+  { const tb = K.pieces.find(p => p.park === 'tiers'); reset(); place(tb.T.x - 12, 0.2, tb.T.z, Math.PI / 2, 6); let xl = 0, back = 0;
+    let tr = []; const r = ride(9, (t) => { if (!xl && P.hSpeed < 8.5) fwd(Math.PI / 2); else { rg.stick.L.x = 0; rg.stick.L.y = 0; rg.cam.az = Math.PI / 2; } city(); if (P.grounded && Math.abs(P.pos.y - 4.8) < 0.08) xl = 1; if (xl && P.grounded && P.pos.y < 0.05) back = 1;
+      if (process.env.TRACE && Math.round(t * 60) % 15 === 0) tr.push(`x${fix(P.pos.x, 1)} y${fix(P.pos.y)} v${fix(P.hSpeed, 1)} ${P.grounded ? 'g' : 'a'}`); });
+    if (process.env.TRACE) console.log(tr.join(' | '));
+    say('mega tiers: M > L > XL decks, then the bank XL down', xl && back && !r.bail && !r.falls, `XL deck ${xl ? 'yes' : 'no'}, down the far side ${back ? 'yes' : 'no'}`); }
+  // P8. EVERY TRANSITIONED PLACE, hands off: in at speed, four ways round -- no falling out, under, or bailing
+  { const bad = [], spots = [];
+    for (const r of K.pieces.filter(p => p.park && p.cl && /^(pipe|elbow|tee|pipeEnd)$/.test(p.kind))) { const m = r.cl[Math.floor(r.cl.length / 2)]; spots.push([r.label, m[0], m[1]]); }
+    spots.push(['bowl', KP.bowl.T.x, KP.bowl.T.z], ['pool', KP.pool.T.x, KP.pool.T.z], ['spine box', 250, 146], ['big pipe', 320, 130], ['XL corner', 388, 112], ['pool L', 430, 190]);
     let n = 0; for (const [nm, x, z] of spots) for (const h of [0, Math.PI / 2, Math.PI, -Math.PI / 4]) { n++;
       reset(); place(x, 0.2, z, h, 11); const r = ride(5); if (r.falls || r.bail || r.low < -0.05) bad.push(`${nm} h${fix(h, 1)}: ${r.falls ? 'fell out' : r.bail ? 'bailed' : 'under the floor ' + fix(r.low)}`); }
-    say(`kit park: ${n} rides through the pipes, bowls and corners`, !bad.length, bad.slice(0, 5).join('; ') || 'all swung clean'); }
+    say(`mega park: ${n} hands-off rides through every pipe, elbow, tee, end, bowl and pool`, !bad.length, bad.slice(0, 5).join('; ') || 'all swung clean'); }
   // P5. EVERY ➤ STOP IN THE PARK puts her on a floor, standing, and she stays there
   { const bad = []; for (const n of K.go.filter(n => /^park /.test(n))) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
       run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; });
@@ -2918,6 +2942,14 @@ CASES.kit = async () => {
     if (ex.status !== 0 || !fs.existsSync(file)) say('export kit runs', false, (ex.stderr || '').split('\n').slice(-4).join(' | '));
     else {
       const gal = K.pieces.slice(0, K.nGallery), n0 = K.pieces.length, gl = await realGLB(file);
+      // r70: SAMPLE THE ORIGINALS FIRST, then clear the collider and ingest the copy alone -- the world spans 600 m now
+      // and a turned copy cannot land anywhere it does not overlap something else
+      const gf = (x, z) => { const q = rg.groundAt(x, z, 30, 0); return q.hit ? q.floor : -1; }, samp = [];
+      for (const pc of gal) { const R = Math.max(pc.len || 8, pc.wid || 8) + 3;
+        // offset off the round numbers every edge in the kit sits on: a sample EXACTLY on a triangle's edge is a rounding
+        // tie, inside on one side of a 180-degree turn and outside on the other
+        for (let u = -R + 0.0137; u <= R; u += 0.6) for (let w = -R + 0.0291; w <= R; w += 0.6) { const t = rg.kT(pc.T, u, w, 0), a = gf(t.x, t.z); if (a >= 0.05) samp.push([-t.x, -t.z - 70, a, pc.label, t.x, t.z]); } }
+      rg.colliderReset();
       gl.scene.updateMatrixWorld(true);
       const place = new THREE.Matrix4().makeTranslation(0, 0, -70).multiply(new THREE.Matrix4().makeRotationY(Math.PI));
       const st = rg.levelIngest(gl.scene, gl.scene, place, 'kitglb'), got = K.pieces.slice(n0);
@@ -2925,10 +2957,11 @@ CASES.kit = async () => {
       const A = gal.map(sig).sort().join('|'), B = got.map(sig).sort().join('|');
       if (A !== B) { const a = gal.map(sig).sort(), b = got.map(sig).sort(); a.forEach((x, i) => { if (x !== b[i]) console.log('    gallery ' + x + '\n    copy    ' + b[i]); }); }
       say('the exported kit rebuilds: same pieces, same options', st.fn === gal.length && got.length === gal.length && A === B, `${st.fn} fn_ nodes, ${got.length} pieces` + (A === B ? '' : ' -- DIFFER'));
-      let n = 0, bad = 0, worst = 0; const gf = (x, z) => { const q = rg.groundAt(x, z, 30, 0); return q.hit ? q.floor : -1; };
-      for (const pc of gal) { const R = Math.max(pc.len || 8, pc.wid || 8) + 3;
-        for (let u = -R; u <= R; u += 0.6) for (let w = -R; w <= R; w += 0.6) { const t = rg.kT(pc.T, u, w, 0), a = gf(t.x, t.z); if (a < 0.05) continue;
-          const b = gf(-t.x, -t.z - 70); n++; const d = Math.abs(a - b); worst = Math.max(worst, d); if (d > 0.02) bad++; } }
+      let n = 0, bad = 0, worst = 0;
+      const offs = {}; for (const [x, z, a, lb, ox, oz] of samp) { const b = gf(x, z); n++; const d = Math.abs(a - b); worst = Math.max(worst, d); if (d > 0.02) { bad++; offs[lb] = offs[lb] || `${lb} at ${fix(ox, 1)},${fix(oz, 1)}: ${fix(a)} vs ${fix(b)}`; } }
+      if (bad) console.log('      ' + Object.values(offs).join('\n      '));
+      if (bad && process.env.DBG) { const at = (x, z, L) => L.filter(p => p.bb && x >= p.bb[0] && x <= p.bb[3] && z >= p.bb[2] && z <= p.bb[5]).map(p => p.label + ' ' + JSON.stringify(p.o) + ' bb ' + p.bb.map(v => fix(v, 1)).join(','));
+        const f = samp.find(q => Math.abs(q[2] - gf(q[0], q[1])) > 0.02); console.log('      originals:', at(f[4], f[5], gal)); console.log('      copies:', at(f[0], f[1], got)); }
       say('  every raised floor at the same height on the copy', n > 1000 && bad === 0, `${n} points, ${bad} off, worst ${fix(worst, 3)} m`);
       // r67: AND EVERY RAIL: same number of paths per piece, both ends where the gallery's are once turned and moved
       let rn = 0, rbad = 0, rworst = 0;

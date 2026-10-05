@@ -91,6 +91,24 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE MEGA PARK AND THE PIPE MODULES (r70, `kitPark`, `kitRun`, `kitSlab`, `pipe`/`elbow`/`tee`/`pipeEnd`, `colliderReset`).**
+  *"A lot of singular ramps sitting out everywhere ... build me a mega park out of the kit so we can see where its
+  limitations are and curate it before I hand over the kit."* r68's thirteen islands are gone; the kit world spawns her
+  in ONE connected park: a closed RING of pipe M (straights, four elbows, two tees) round a PLATEAU at M deck height with
+  a bowl M and a pool M SUNK into it (holes cut by `kitSlab`, which tiles platform M round rectangles) and a street on
+  top, spurs off the tees (a stub to a half-bowl end; a snake), a roll-in XL lining up a bank onto the ring's deck (the
+  spawn), a platform + stairs M off the east deck to a street, tiers M -> L -> XL, a mini snake S, a spine box, XL pieces,
+  jumps, loops and a rail garden. **The pipes are SNAPPED**: four new kinds whose origin is the flat's entry and which
+  return `out` (the tee also `out2`), so a pipe of any shape is a list run by `kitRun` -- which also writes each piece's
+  centreline (`rec.cl`) so the sim can steer down the middle.
+  **WHAT IT FOUND** (the list is in `docs/RAMP_KIT.md`): every slope-to-flat crease is a kicker at speed (the tiers were
+  flown, not climbed); pipes only turn 90 and never rise or change size; a sunk piece only sinks to its own height; the
+  world has edges -- the tiers first ran her off the white floor at 24 m/s and were moved north for run-out.
+  **THE EXPORT ROUND TRIP SAMPLES FIRST AND INGESTS THE COPY ALONE NOW** (`colliderReset`): the world spans 600 m, so a turned
+  copy overlaps something wherever it goes. **And its sample grid is offset off round numbers**: a sample exactly on a
+  triangle's edge is a rounding tie, inside on one side of a 180-degree turn and outside on the other -- 18 "lost floor"
+  points on an elbow's corner that were nothing of the kind. **A harness's own grid lining up with the geometry's grid is a
+  false failure waiting to happen.**
 - **THE LEVEL KEY (r69, `#worldB`, `WORLDS`, `worldPanel`, `worldGo`).** *"I'm not seeing a control button in the game to
   switch levels."* r68 put the switch at the top of the ⚙ panel -- a panel of tail dials nobody opens to change level, so
   it was not there as far as he could see. It is its own labelled, coloured **LEVEL** key now (left of ➤), opening only a

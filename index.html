@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r69</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r70</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r69';
+const BUILD = 'r70';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -952,6 +952,9 @@ function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz) {
   if (nl < 1e-9 || ny / nl < TRI.up) return;
   _triRaw.push(ax, ay, az, bx, by, bz, cx, cy, cz, nx / nl, ny / nl, nz / nl);
 }
+// r70: for `npm run sim kit`'s export round trip -- the world is too big now for a turned copy to land anywhere clear, so the
+// harness samples the originals, clears the collider and ingests the copy ALONE
+function colliderReset() { _triRaw = []; SOLID.all.length = 0; triBuild(); solidBuild(); }
 function triBuild() {
   // r45: THE RAW LIST IS KEPT, because an imported level arrives AFTER the park is built -- its floors
   // are added with `triAdd` and the grid is simply built again.
@@ -1724,6 +1727,36 @@ Object.assign(KIT_KINDS, {
     return { len: run + land, wid: 2 * w, h: H, rails, out: { u: run + land, w: 0, y: H, dyaw: 0 } };
   },
 });
+// ===================================================================================================== r70: PIPE MODULES
+// The half pipe, L and T assemblies are one object each, laid out ACROSS their own frame -- fine to drop in, no use for
+// chaining. These four are the same straights and corners as SNAP-TOGETHER pieces: origin at the middle of the flat where
+// the channel ENTERS, +u the way it runs, and `out` the frame where it leaves (the tee also has `out2`, its branch). So a
+// pipe of any shape is a list -- straight, elbow, straight, tee, ... -- each piece's origin at the last one's `out`.
+// An elbow turns toward +w (her left, heading growing) or `right: 1`; its two walls are a concave corner (`qpIn`) and a
+// convex one (`qpOut`) on the same centre, `Rc` = deck + lip + flat/2 out to the side, so the flat keeps its width round
+// the bend and both decks meet the straights' decks.
+const kPipeC = (S, F) => F / 2 + S.lip + KITW.deck;           // flat centre to the back of a wall's deck
+Object.assign(KIT_KINDS, {
+  // STRAIGHT PIPE: two QPs facing each other across `flat`, running `len` along +u
+  pipe(T, S, o) { const F = o.flat || 6, L = o.len || 8;
+    KIT_KINDS.qp(kT(T, L / 2, F / 2, Math.PI / 2), S, { w: L });
+    KIT_KINDS.qp(kT(T, L / 2, -F / 2, -Math.PI / 2), S, { w: L });
+    return { len: L, wid: 2 * kPipeC(S, F), h: S.H, out: { u: L, w: 0, y: 0, dyaw: 0 } }; },
+  // ELBOW: a 90-degree bend of the same pipe
+  elbow(T, S, o) { const F = o.flat || 6, sd = o.right ? -1 : 1, rIn = KITW.deck + S.lip, Rc = rIn + F / 2;
+    const O = kT(T, 0, sd * Rc, 0), a = sd > 0 ? { a0: -Math.PI / 2, a1: 0 } : { a0: 0, a1: Math.PI / 2 };
+    KIT_KINDS.qpOut(O, S, a); KIT_KINDS.qpIn(O, S, { rc: rIn + F, ...a });
+    return { len: Rc + kPipeC(S, F), wid: Rc + kPipeC(S, F), h: S.H, out: { u: Rc, w: sd * Rc, y: 0, dyaw: sd * Math.PI / 2 } }; },
+  // TEE: a pipe `len` long with a second leaving its middle toward +w (`right: 1` for -w), `leg` long -- the T assembly,
+  // turned into this frame. `out` carries straight on, `out2` is the end of the branch.
+  tee(T, S, o) { const F = o.flat || 6, sd = o.right ? -1 : 1, c = kPipeC(S, F), L = Math.max(o.len || 20, 2 * c + 2), leg = o.leg || 8;
+    KIT_KINDS.pipeT(kT(T, L / 2, 0, sd * Math.PI / 2), S, { flat: F, len: L, leg });
+    return { len: L, wid: c + leg + c, h: S.H, out: { u: L, w: 0, y: 0, dyaw: 0 }, out2: { u: L / 2, w: sd * (c + leg), y: 0, dyaw: sd * Math.PI / 2 } }; },
+  // PIPE END: the half bowl that closes a pipe -- inside corners round the end of the flat
+  pipeEnd(T, S, o) { const F = o.flat || 6;
+    KIT_KINDS.qpIn(T, S, { rc: F / 2, a0: -Math.PI / 2, a1: Math.PI / 2 });
+    return { len: kPipeC(S, F), wid: 2 * kPipeC(S, F), h: S.H }; },
+});
 // ONE ENTRY POINT. A size name or an object; options as the kinds take them. The record is what the export writes out
 // and what an `fn_` marker in a GLB carries back in.
 function kitPiece(kind, size, T, o) {
@@ -1777,6 +1810,7 @@ const KIT_RAIL_ROWS = [
   ['rails: straights + downs', -100, [['rail', 'S', {}, 'rail S'], ['rail', 'M', {}, 'rail M'], ['rail', 'L', {}, 'rail L'], ['rail', 'XL', {}, 'rail XL'], ['railDown', 'M', {}, 'down rail M'], ['railDown', 'L', {}, 'down rail L']]],
   ['rails: kinks + curves', -145, [['railKink', 'M', {}, 'kink rail M'], ['railCurve', 'M', {}, 'curve M 90 left'], ['railCurve', 'M', { deg: 45, right: 1 }, 'curve M 45 right'], ['railCurve', 'L', { r: 6 }, 'curve L 90 (r 6)'], ['railS', 'M', {}, 'S-bend M']]],
   ['rails: shapes', -190, [['rainbow', 'M', {}, 'rainbow M'], ['railRing', 'M', {}, 'ring M'], ['helix', 'M', {}, 'helix M (down a step)'], ['railY', 'M', {}, 'Y junction M'], ['rail', 'M', { boost: 14, len: 12 }, 'booster rail M']]],
+  ['pipe modules', 352, [['pipe', 'M', { len: 12 }, 'pipe M (straight)'], ['elbow', 'M', {}, 'elbow M (left)'], ['elbow', 'M', { right: 1 }, 'elbow M (right)'], ['tee', 'M', {}, 'tee M'], ['pipeEnd', 'M', {}, 'pipe end M (half bowl)']]],
   ['ledges + stairs', -235, [['ledge', 'S', { h: 0.6 }, 'ledge 0.6 m'], ['ledge', 'S', {}, 'ledge S'], ['stairs', 'S', {}, 'stairs S + rails'], ['stairs', 'M', {}, 'stairs M + rails'], ['stairs', 'L', {}, 'stairs L + rails']]],
 ];
 // THE CHAIN: pieces snapped end to end off each other's `out` -- the spec in action, and the thing `npm run sim kit`
@@ -1825,92 +1859,167 @@ function kitGallery() {
   SPAWN.set(0, 0.2, -40); SPAWN.h = 0;
 }
 
-// ===================================================================================================== r68: THE KIT PARK
-// *"I thought you were gonna build a white world where I could ride the ramps ... an example skate park that's pretty
-// complex, just placing the ramps to see how they go together."* Every piece below is a `kitPiece` -- the same call an
-// `fn_` node in his file makes -- placed so the pieces MEET: a bank's top is the platform's deck is the stair landing,
-// a stair handrail's top runs on as a rail L and down a rail over the bank, straights carry on out of an inside corner.
-// That is the spec in use, and the export writes it out as a worked example beside the gallery. She spawns at the top
-// of the drop-in; the ➤ key walks the areas. `rec.group` names a set built to touch, so the overlap check spares it.
-const KPARK = { x1: 470, spawn: null };
-function pk(zone, kind, size, x, z, yaw, o, group, label) {
-  const rec = kitPiece(kind, size, { x, y: 0, z, yaw: yaw || 0 }, o || {});
+// ===================================================================================================== r70: THE MEGA PARK
+// *"There's a lot of singular ramps sitting out everywhere ... I want to see the modularity of the elbows paired with the
+// connector pieces paired with the streets, unique shapes, different heights, platforms and jumps -- build me a mega park
+// so we can see where its limitations are, and curate it before I hand over the kit."* r68 was thirteen islands; this is
+// ONE place. Every piece is a `kitPiece` (what an `fn_` node in his file makes), and the pipes are SNAPPED: each piece's
+// origin is the last one's `out`, so the ring, its spurs and the snake are lists, not coordinates.
+//   THE RING     a closed loop of pipe M -- straights, four elbows and two tees -- round a PLATEAU at deck height
+//   THE PLATEAU  platform M filling the ring, flush with every inner deck, with a bowl M and a pool M SUNK into it (their
+//                decks are at M height too, so they are holes in the plateau), and a street on top: a raised S level
+//                with a bank up, stairs down and handrails running on, ledges, a manual pad, a funbox with a rail, a kink
+//   THE SPURS    off the two tees: north, a stub to a half-bowl end; south, a snake (elbow, straight, elbow) to an end
+//   AROUND IT    a roll-in XL tower lining up a bank onto the ring's deck (the spawn); a platform off the east deck and
+//                stairs M down to a street; tiers climbing M -> L -> XL to a bank-down; a mini snake S capped both ends;
+//                a spine box; the XL half pipe and an XL vert corner; a pool L; a jump line; loops; a rail garden
+const KPARK = { x1: 470, spawn: null, ring: [], runs: {} };
+function pk(zone, kind, size, x, z, yaw, o, group, label, y) {
+  const rec = kitPiece(kind, size, { x, y: y || 0, z, yaw: yaw || 0 }, o || {});
   if (!rec) return null;
   rec.park = zone; rec.group = group || null; rec.label = 'park ' + zone + ': ' + (label || kind + ' ' + size);
   return rec;
 }
-function kitPark() {
-  const P = Math.PI, H = (s) => KSZ[s].H, L25 = s => KSZ[s].H / Math.tan(25 * D2R), stop = [];
-  const area = (name, sub, x, z, sx, sz, sh, ly) => { kitLabel(name.toUpperCase(), sub, x, ly || 7, z);
-    CITY.spots['park ' + name] = [sx, sh || 0, sz, 0]; stop.push('park ' + name); };
-  // 1. THE DROP-IN LINE: roll-in XL, a table-top, a kicker, and a wide QP L to turn round on
-  const ri = pk('drop-in', 'rollin', 'XL', 310, -128, P, {}, null, 'roll-in XL');
-  const dk = kT(ri.T, ri.top + 1.5, 0, 0);
-  pk('drop-in', 'table', 'M', 310, -100, 0); pk('drop-in', 'kicker', 'M', 310, -72, 0);
-  pk('drop-in', 'qp', 'L', 310, -40, 0, { w: 12 }, null, 'QP L (12 m wide)');
-  KPARK.spawn = [dk.x, H('XL'), dk.z, 0];
-  area('drop-in', 'roll-in XL > table > kicker > QP L', 318, -118, dk.x, dk.z, H('XL'), 9);
-  // 2. THE PLAZA: up a bank M, across a platform M, onto the stair landing and DOWN the stairs, out over a manual pad.
-  //    The handrails' tops (H + 1.2 = 3.6) run on as a rail L over the platform and a down rail L over the bank.
-  const st = pk('plaza', 'stairs', 'M', 215, -100, P, {}, 'plaza', 'stairs M + handrails'), run = st.len - 3;
-  pk('plaza', 'platform', 'M', 215, -100 - st.len, P, { w: 4, d: 6 }, 'plaza', 'platform M');
-  pk('plaza', 'bank', 'M', 215, -100 - st.len - 6 - L25('M'), 0, { w: 4 }, 'plaza', 'bank M');
-  for (const s of [-1, 1]) {
-    const a = kT(st.T, run + 2.5, s * 1.75, 0), r1 = pk('plaza', 'rail', 'L', a.x, a.z, P, { len: 3.5 + 6 - 3 }, 'plaza', 'rail L (handrail on)');
-    const b = kT(r1.T, r1.out.u, 0, 0); pk('plaza', 'railDown', 'L', b.x, b.z, P, { len: L25('M') + 0.5 }, 'plaza', 'down rail L over the bank');
+// a SNAPPED RUN: [kind, size, opts, label, branch] from T, each piece at the last one's `out`; a branch runs from `out2`.
+// Each record gets `cl`, points down the middle of its flat, so a harness can steer along the line it is meant to ride.
+function kitRun(zone, T, steps) {
+  const out = [];
+  for (const [kind, size, o, label, branch] of steps) {
+    const r = pk(zone, kind, size, T.x, T.z, T.yaw, o, null, label, T.y); out.push(r);
+    const S = KSZ[size], F = (o && o.flat) || 6, Rc = KITW.deck + S.lip + F / 2, sd = o && o.right ? -1 : 1, c = [];
+    if (kind === 'elbow') { const O = kT(T, 0, sd * Rc, 0);
+      for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI / 2, f = kT(O, Rc * Math.sin(a), -sd * Rc * Math.cos(a), 0); c.push([f.x, f.z]); } }
+    else if (r.out) { for (let i = 0; i <= 4; i++) { const f = kT(T, r.out.u * i / 4, 0, 0); c.push([f.x, f.z]); } }
+    else { for (let i = 0; i <= 2; i++) { const f = kT(T, (r.len || 4) * i / 2 * 0.6, 0, 0); c.push([f.x, f.z]); } }
+    r.cl = c;
+    if (branch && r.out2) out.push(...kitRun(zone, kT(T, r.out2.u, r.out2.w, r.out2.dyaw), branch).map(b => (b.branchOf = r, b)));
+    if (!r.out) break;
+    T = { ...kT(T, r.out.u, r.out.w, r.out.dyaw), y: T.y };
   }
-  pk('plaza', 'ledge', 'S', 215, -94, 0, { h: 0.36, w: 3, len: 6 }, null, 'manual pad 0.36');
-  pk('plaza', 'ledge', 'S', 202, -124, 0, { len: 10 }, null, 'ledge S');
-  pk('plaza', 'ledge', 'S', 228, -124, 0, { h: 0.6, len: 10 }, null, 'ledge 0.6');
-  area('plaza', 'bank M > deck > stairs M > manual pad', 215, -112, 215, -134, 0);
-  // 3. BANKS + BOXES: a pyramid, a hip, a funbox with a rail along its top
-  pk('boxes', 'frustum', 'M', 405, -124, 0, { len: 4, w: 4, banks: [1, 1, 1, 1] }, null, 'pyramid M');
-  pk('boxes', 'frustum', 'M', 437, -124, 0, { len: 4, w: 4, banks: [1, 0, 1, 0] }, null, 'hip M');
-  pk('boxes', 'frustum', 'S', 378, -125, 0, { len: 6, w: 4, banks: [1, 1, 0, 0] }, 'funbox', 'funbox S');
-  pk('boxes', 'rail', 'S', 378, -125, 0, { h: 1.8, len: 6 }, 'funbox', 'rail on the funbox');
-  area('boxes', 'pyramid · hip · funbox + rail', 405, -138, 405, -142, 0);
-  // 4. THE POOL: a half pipe capped at both ends by inside corners
-  pk('pool', 'pool', 'M', 215, -40, 0, { flat: 6, len: 10 }, null, 'pool M');
-  area('pool', 'half pipe + inside-corner ends', 215, -55, 215, -40, 0);
-  // 5. THE T-PIPE: a pipe with a second one leaving it at 90 (outside corners on the opening)
-  pk('T-pipe', 'pipeT', 'M', 405, -55, 0, { flat: 6, len: 30, leg: 10 }, null, 'T-pipe M');
-  area('T-pipe', 'straights + outside corners', 405, -68, 400, -55, 0);
-  // 6. THE BOWL
-  pk('bowl', 'bowl', 'L', 310, 45, 0, { rc: 5 }, null, 'round bowl L');
-  area('bowl', 'four inside corners L', 310, 30, 310, 45, 0);
-  // 7. THE MINI RAMP + a spine
-  pk('mini', 'halfpipe', 'S', 215, 40, 0, { flat: 4, len: 10 }, null, 'mini ramp S');
-  pk('mini', 'spine', 'S', 236, 34, 0, {}, null, 'spine S');
-  area('mini', 'half pipe S · spine S', 222, 28, 215, 40, 0);
-  // 8. THE L-PIPE: a pipe turning 90 (concave outer wall, convex inner)
-  pk('L-pipe', 'pipeL', 'M', 395, 30, 0, { flat: 6, leg: 8 }, null, 'L-pipe M');
-  area('L-pipe', 'inside + outside corner, legs', 398, 16, 391, 26, 0);
-  // 9. THE XL CORNER: a vert wall turning a corner -- a straight, an inside corner, a straight, fitted by the corner's
-  //    own rule (each straight's toe sits `rc` out from the corner's centre)
-  { const rc = 1.5, wl = 8, C = { x: 384, y: 0, z: 186.5, yaw: 0 };
+  return out;
+}
+// a rectangle of platform at height H standing on `y`, with rectangular HOLES left in it (for what is sunk into it)
+function kitSlab(zone, x0, z0, x1, z1, size, holes, y) {
+  const xs = [x0, x1], zs = [z0, z1];
+  for (const h of holes) { xs.push(h[0], h[2]); zs.push(h[1], h[3]); }
+  const ux = [...new Set(xs.filter(v => v >= x0 && v <= x1))].sort((a, b) => a - b), uz = [...new Set(zs.filter(v => v >= z0 && v <= z1))].sort((a, b) => a - b);
+  const inHole = (x, z) => holes.some(h => x > h[0] && x < h[2] && z > h[1] && z < h[3]);
+  for (let j = 0; j < uz.length - 1; j++) {
+    let i = 0;
+    while (i < ux.length - 1) {
+      const zm = (uz[j] + uz[j + 1]) / 2; if (inHole((ux[i] + ux[i + 1]) / 2, zm)) { i++; continue; }
+      let k = i; while (k + 1 < ux.length - 1 && !inHole((ux[k + 1] + ux[k + 2]) / 2, zm)) k++;
+      const ax = ux[i], bx = ux[k + 1];
+      if (bx - ax > 0.05 && uz[j + 1] - uz[j] > 0.05)
+        pk(zone, 'platform', size, (ax + bx) / 2, uz[j], 0, { w: bx - ax, d: uz[j + 1] - uz[j] }, 'slab', 'plateau', y);
+      i = k + 1;
+    }
+  }
+}
+function kitPark() {
+  const P = Math.PI, stop = [], L25 = s => KSZ[s].H / Math.tan(25 * D2R);
+  const area = (name, sub, x, z, sx, sz, sh, sh2, ly) => { kitLabel(name.toUpperCase(), sub, x, ly || 8, z);
+    CITY.spots['park ' + name] = [sx, sh || 0, sz, sh2 || 0]; stop.push('park ' + name); };
+  // ---- THE RING, its spurs and the snake: one list each, every piece snapped to the last
+  const north = [['pipe', 'M', { len: 6 }, 'north spur pipe'], ['pipeEnd', 'M', {}, 'north spur end (half bowl)']];
+  const south = [['elbow', 'M', {}, 'snake elbow'], ['pipe', 'M', { len: 14 }, 'snake pipe'], ['elbow', 'M', { right: 1 }, 'snake elbow (right)'],
+    ['pipe', 'M', { len: 8 }, 'snake pipe'], ['pipeEnd', 'M', {}, 'snake end (half bowl)']];
+  const ring = kitRun('ring', { x: 220, y: 0, z: -20, yaw: 0 }, [
+    ['pipe', 'M', { len: 40 }, 'ring pipe (west)'], ['elbow', 'M', {}, 'ring elbow'],
+    ['pipe', 'M', { len: 20 }], ['tee', 'M', { len: 20, leg: 8, right: 1 }, 'ring tee (north)', north], ['pipe', 'M', { len: 20 }],
+    ['elbow', 'M', {}, 'ring elbow'], ['pipe', 'M', { len: 40 }, 'ring pipe (east)'], ['elbow', 'M', {}, 'ring elbow'],
+    ['pipe', 'M', { len: 20 }], ['tee', 'M', { len: 20, leg: 8, right: 1 }, 'ring tee (south)', south], ['pipe', 'M', { len: 20 }],
+    ['elbow', 'M', {}, 'ring elbow']]);
+  KPARK.ring = ring.filter(r => !r.branchOf); KPARK.runs.north = ring.filter(r => r.branchOf && r.branchOf.label.includes('north'));
+  KPARK.runs.south = ring.filter(r => r.branchOf && r.branchOf.label.includes('south'));
+  area('ring', 'pipe M: straights, elbows, tees', 220, -6, 220, -6, 0, 0, 7);
+  area('north spur', 'tee > pipe > half-bowl end', 257, 46, 257.36, 30, 0, 0, 7);
+  area('south snake', 'tee > elbow > pipe > elbow > end', 250, -40, 257.36, -30, 0, P, 7);
+  // ---- THE PLATEAU: the ring's inside is the rectangle of its four elbow centres, filled at M with a bowl and a pool sunk in
+  const Os = ring.filter(r => r.kind === 'elbow' && !r.branchOf).map(r => kT(r.T, 0, KITW.deck + KSZ.M.lip + 3, 0));
+  const X0 = Math.min(...Os.map(o => o.x)), X1 = Math.max(...Os.map(o => o.x)), Z0 = Math.min(...Os.map(o => o.z)), Z1 = Math.max(...Os.map(o => o.z));
+  KPARK.plateau = [X0, Z0, X1, Z1];
+  const bowl = pk('plateau', 'bowl', 'M', X0 + 13.6, Z0 + 14, 0, { rc: 4 }, null, 'sunken bowl M');
+  const pool = pk('plateau', 'pool', 'M', X1 - 15.4, Z0 + 14, 0, { flat: 6, len: 8 }, null, 'sunken pool M');
+  const hole = r => [r.bb[0], r.bb[2], r.bb[3], r.bb[5]];
+  kitSlab('plateau', X0, Z0, X1, Z1, 'M', [hole(bowl), hole(pool)]);
+  KPARK.bowl = bowl; KPARK.pool = pool;
+  const H = KSZ.M.H, y = H;
+  // the raised S level on the plateau: bank S up (west), a platform, the stair landing, stairs S down (east), handrails on
+  const st = pk('plateau', 'stairs', 'S', X0 + 38.6, Z0 + 32, -P / 2, {}, 'raised', 'stairs S + handrails', y), run = st.len - 3;
+  const pl = kT(st.T, st.len, 0, 0); pk('plateau', 'platform', 'S', pl.x, pl.z, -P / 2, { w: 4, d: 6 }, 'raised', 'raised deck S', y);
+  const bk = kT(st.T, st.len + 6 + L25('S'), 0, P); pk('plateau', 'bank', 'S', bk.x, bk.z, P / 2, { w: 4 }, 'raised', 'bank S up', y);
+  for (const s of [-1, 1]) {
+    const a = kT(st.T, run + 2.5, s * 1.75, 0), r1 = pk('plateau', 'rail', 'S', a.x, a.z, -P / 2, { h: 2.4, len: 6.5 }, 'raised', 'rail on from the handrail', y);
+    const b = kT(r1.T, r1.out.u, 0, 0); pk('plateau', 'railDown', 'S', b.x, b.z, -P / 2, { h: 2.4, drop: 1.2, len: L25('S') + 0.5 }, 'raised', 'down rail over the bank', y);
+  }
+  pk('plateau', 'ledge', 'S', X0 + 4, Z0 + 27, P / 2, { h: 0.6, len: 10 }, null, 'ledge 0.6', y);
+  pk('plateau', 'ledge', 'S', X0 + 8, Z0 + 35, P / 2, { h: 0.36, w: 3, len: 6 }, null, 'manual pad', y);
+  pk('plateau', 'frustum', 'S', X1 - 11, Z0 + 26, 0, { len: 6, w: 4, banks: [1, 1, 0, 0] }, 'fbox', 'funbox S', y);
+  pk('plateau', 'rail', 'S', X1 - 11, Z0 + 26, 0, { h: 1.8, len: 6 }, 'fbox', 'rail on the funbox', y);
+  pk('plateau', 'railKink', 'S', X0 + 18, Z0 + 37, P / 2, {}, null, 'kink rail S', y);
+  area('plateau', 'M deck: bowl + pool sunk in, a raised S level', X0 + 30, Z1 - 3, X0 + 22, Z0 + 37, y, P / 2);
+  area('bowl', 'sunk in the plateau', X0 + 13.6, Z0 + 26, X0 + 13.6, Z0 + 24, y, P);
+  area('pool', 'sunk in the plateau', X1 - 15.4, Z0 + 26, X1 - 15.4, Z0 + 23, y, P);
+  // ---- THE DROP-IN (spawn): roll-in XL -> 18 m -> a bank M up to the ring's west outer deck -> over the coping into the pipe
+  const wBack = 220 - kPipeC(KSZ.M, 6);
+  pk('drop-in', 'bank', 'M', wBack - L25('M'), 0, P / 2, { w: 6 }, 'dropin', 'bank M onto the ring deck');
+  const ri = pk('drop-in', 'rollin', 'XL', wBack - L25('M') - 18, 0, -P / 2, {}, null, 'roll-in XL');
+  const dk = kT(ri.T, ri.top + 1.5, 0, 0); KPARK.spawn = [dk.x, KSZ.XL.H, dk.z, P / 2];
+  area('drop-in', 'roll-in XL > bank M > into the ring', dk.x + 4, dk.z - 5, dk.x, dk.z, KSZ.XL.H, P / 2, 11);
+  // ---- EAST: a platform off the ring's east outer deck, stairs M down to a street, handrails running back along the deck
+  const eBack = Os.reduce((m, o) => Math.max(m, o.x), -1e9) + 7.36 + kPipeC(KSZ.M, 6);
+  pk('east', 'platform', 'M', eBack, 0, P / 2, { w: 10, d: 8 }, 'east', 'platform M off the ring deck');
+  const es = pk('east', 'stairs', 'M', eBack + 8 + 3 + 6 / Math.tan(32 * D2R) * 0 + KSZ.M.H / Math.tan(32 * D2R), 0, -P / 2, {}, 'east', 'stairs M + handrails');
+  for (const s of [-1, 1]) { const a = kT(es.T, es.len - 0.5, s * 1.75, 0); pk('east', 'rail', 'L', a.x, a.z, -P / 2, { len: 7.5 }, 'east', 'rail on along the deck'); }
+  pk('east', 'ledge', 'S', eBack + 22, -22, 0, { len: 10 }, null, 'ledge S'); pk('east', 'ledge', 'S', eBack + 30, -22, 0, { h: 0.6, len: 10 }, null, 'ledge 0.6');
+  pk('east', 'railKink', 'M', eBack + 20, 22, P / 2, {}, null, 'kink rail M'); pk('east', 'rainbow', 'M', eBack + 50, -30, 0, {}, null, 'rainbow M');
+  pk('east', 'frustum', 'M', eBack + 52, 6, 0, { len: 4, w: 4, banks: [1, 1, 1, 1] }, null, 'pyramid M');
+  pk('east', 'frustum', 'M', eBack + 82, 32, 0, { len: 4, w: 4, banks: [1, 0, 1, 0] }, null, 'hip M');
+  pk('east', 'frustum', 'S', eBack + 80, -12, P / 2, { len: 6, w: 4, banks: [1, 1, 0, 0] }, 'efb', 'funbox S');
+  pk('east', 'rail', 'S', eBack + 80, -12, P / 2, { h: 1.8, len: 6 }, 'efb', 'rail on the funbox');
+  area('east', 'deck > stairs M > street', eBack + 14, 9, eBack + 4, 0, KSZ.M.H, P / 2);
+  // ---- THE TIERS: bank M, deck, bank S, deck at L, bank S, deck at XL -- then a long bank XL down
+  { let x = 200, z = 290; const tw = 6;          // r70: north, with 60 m of run-out -- off the XL bank she leaves at 24 m/s
+    pk('tiers', 'bank', 'M', x, z, P / 2, { w: tw }, 'tiers', 'bank M'); x += L25('M');
+    pk('tiers', 'platform', 'M', x, z, P / 2, { w: tw, d: 6 }, 'tiers', 'deck M'); x += 6;
+    for (const [yb, nm] of [[2.4, 'L'], [3.6, 'XL']]) {
+      pk('tiers', 'bank', 'S', x, z, P / 2, { w: tw }, 'tiers', 'bank S up to ' + nm, yb); x += L25('S');
+      pk('tiers', 'platform', 'S', x, z, P / 2, { w: tw, d: 6 }, 'tiers', 'deck ' + nm, yb); x += 6; }
+    pk('tiers', 'bank', 'XL', x + L25('XL'), z, -P / 2, { w: tw }, 'tiers', 'bank XL down');
+    area('tiers', 'M > L > XL decks, banked', 220, z - 8, 192, z, 0, P / 2); }
+  // ---- NORTH: a mini snake S, capped both ends; a spine box; the XL pipe and an XL vert corner; a pool L
+  { const T0 = { x: 180, y: 0, z: 90, yaw: P / 2 };
+    pk('mini snake', 'pipeEnd', 'S', T0.x, T0.z, -P / 2, { flat: 4 }, null, 'snake S start (half bowl)');
+    KPARK.runs.mini = kitRun('mini snake', T0, [['pipe', 'S', { flat: 4, len: 12 }], ['elbow', 'S', { flat: 4, right: 1 }], ['pipe', 'S', { flat: 4, len: 10 }],
+      ['elbow', 'S', { flat: 4 }], ['pipe', 'S', { flat: 4, len: 10 }], ['elbow', 'S', { flat: 4 }], ['pipe', 'S', { flat: 4, len: 6 }], ['pipeEnd', 'S', { flat: 4 }, 'snake S end (half bowl)']]);
+    area('mini snake', 'pipe S, three elbows, two ends', 198, 88, 186, 90, 0, P / 2); }
+  pk('spine box', 'spine', 'M', 250, 150, 0, { w: 8 }, null, 'spine M');
+  pk('spine box', 'qp', 'M', 250, 138, P, { w: 8 }, null, 'QP M'); pk('spine box', 'qp', 'M', 250, 167.9, 0, { w: 8 }, null, 'QP M');
+  area('spine box', 'QP > spine > QP', 250, 128, 250, 144, 0, 0);
+  pk('big pipe', 'halfpipe', 'XL', 320, 130, 0, { flat: 8, len: 20 }, null, 'half pipe XL');
+  area('big pipe', 'half pipe XL', 320, 116, 320, 130, 0, P / 2);
+  { const rc = 1.5, wl = 8, C = { x: 394, y: 0, z: 116.5, yaw: 0 };
     pk('XL corner', 'qpIn', 'XL', C.x, C.z, 0, { rc }, 'xlc', 'inside corner XL');
     const a = kT(C, rc, -wl / 2, 0), b = kT(C, -wl / 2, rc, P / 2);
     pk('XL corner', 'qp', 'XL', a.x, a.z, 0, { w: wl }, 'xlc', 'QP XL'); pk('XL corner', 'qp', 'XL', b.x, b.z, P / 2, { w: wl }, 'xlc', 'QP XL');
-    area('XL corner', 'straight + inside corner + straight', 374, 176, 372, 174, 0); }
-  // 10. THE BIG PIPE + a pool L
-  pk('big pipe', 'halfpipe', 'XL', 310, 210, 0, { flat: 8, len: 16 }, null, 'half pipe XL');
-  pk('big pipe', 'pool', 'L', 232, 210, 0, { flat: 7, len: 10 }, null, 'pool L');
-  area('big pipe', 'half pipe XL · pool L', 285, 196, 310, 210, 0);
-  // 11. THE RAIL GARDEN: the snapped chain, a ring, a helix, a Y, a rainbow, a booster, a ledge
-  { let T = { x: 285, y: 0, z: 110, yaw: P / 2 };
+    area('XL corner', 'straight + inside corner + straight', 384, 106, 384, 104, 0, P / 4); }
+  pk('pool L', 'pool', 'L', 430, 190, 0, { flat: 7, len: 10 }, null, 'pool L');
+  area('pool L', 'half pipe L + ends', 430, 176, 430, 190, 0, P / 2);
+  // ---- JUMPS (north) and LOOPS
+  pk('jumps', 'launch', 'S', 190, 240, P / 2); pk('jumps', 'kicker', 'M', 225, 240, P / 2); pk('jumps', 'gap', 'M', 260, 240, P / 2, { gap: 5 }, null, 'gap M (5 m)');
+  pk('jumps', 'table', 'M', 305, 240, P / 2);
+  area('jumps', 'launch > kicker > gap > table', 240, 232, 165, 240, 0, P / 2);
+  pk('loops', 'loop360', 'M', 340, 52, P / 2); pk('loops', 'loop180', 'M', 400, 250, -P / 2);
+  area('loops', 'booster loops: 360 + 180', 345, 46, 335, 52, 0, P / 2);
+  // ---- THE RAIL GARDEN (south)
+  { let T = { x: 300, y: 0, z: -110, yaw: P / 2 };
     for (const [kind, size, o] of KIT_CHAIN) { const r = pk('rails', kind, size, T.x, T.z, T.yaw, o, 'chain', 'chain ' + kind + ' ' + size); T = kT(T, r.out.u, r.out.w, r.out.dyaw); } }
-  pk('rails', 'railRing', 'M', 330, 105, 0); pk('rails', 'helix', 'M', 300, 136, 0); pk('rails', 'railY', 'M', 325, 135, 0);
-  pk('rails', 'rainbow', 'M', 347, 125, 0); pk('rails', 'rail', 'M', 360, 108, 0, { boost: 14, len: 12 }, null, 'booster rail M');
-  pk('rails', 'ledge', 'S', 272, 128, 0, {}, null, 'ledge S');
-  area('rails', 'chain · ring · helix · Y · rainbow · booster', 315, 100, 280, 104, 0);
-  // 12. JUMPS + LOOPS
-  pk('jumps', 'launch', 'S', 195, 100, 0); pk('jumps', 'kicker', 'M', 215, 100, 0); pk('jumps', 'gap', 'M', 235, 100, 0, { gap: 5 }, null, 'gap M (5 m)');
-  pk('jumps', 'table', 'M', 215, 132, 0);
-  area('jumps', 'launch · kicker · gap · table', 215, 92, 215, 80, 0);
-  pk('loops', 'loop360', 'M', 395, 100, 0); pk('loops', 'loop180', 'M', 425, 130, P);
-  area('loops', 'booster loops: 360 · 180', 410, 92, 395, 95, 0);
+  pk('rails', 'railRing', 'M', 345, -115, 0); pk('rails', 'helix', 'M', 365, -95, 0); pk('rails', 'railY', 'M', 390, -135, 0);
+  pk('rails', 'rail', 'M', 410, -110, 0, { boost: 14, len: 12 }, null, 'booster rail M');
+  area('rails', 'chain, ring, helix, Y, booster', 330, -100, 290, -112, 0, P / 2);
   KITW.go.unshift(...stop);
-  SPAWN.set(KPARK.spawn[0], KPARK.spawn[1] + 0.2, KPARK.spawn[2]); SPAWN.h = 0;
+  SPAWN.set(KPARK.spawn[0], KPARK.spawn[1] + 0.2, KPARK.spawn[2]); SPAWN.h = KPARK.spawn[3];
   CITY.spots['park drop-in'] = KPARK.spawn.slice();
 }
 // THE PICTURE: everything pushed since `from` into one mesh -- plain, near-white, NOT the detail pass; this is a kit to
@@ -9665,7 +9774,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  WORLD, KITW, KSZ, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
+  WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
   vertRelease, bodyAlign, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
