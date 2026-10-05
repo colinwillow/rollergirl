@@ -91,6 +91,35 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **A GRIND IS ASKED FOR: SWIPE DOWN (r71, `GRIND.intent`, `grindDown`, `grindTarget`, `lipEdges`, `lipTrace`, `ledgePath`,
+  `LEDGE`).** *"Make it so that you have to swipe down to grind something -- that way you can launch off a ramp ... a swipe
+  up or a tap off a ramp will always launch you off ... in the air swipe down and she shoots downward as if she's gonna
+  hit the rail ... grind the tops of boxes, the sides of boxes, the tops of half pipes and quarter pipes."*
+  With `intent` on nothing catches her on its own: the air catch is gated on `p.grindWant` / a solved `p.kickRail`, a tap
+  is always a jump (r41's `railHome` only runs with `intent` 0), and the air strike no longer aims at rails. The right
+  pad's SWIPE DOWN: on the ground a solved hop onto the nearest rail or ledge (r41's maths; with nothing in reach it is
+  the strike it always was); in the air she SHOOTS DOWN at it (the time is never more than `diveK` of a free fall, so
+  she leaves heading down), and with nothing in reach she dives anyway (`diveVy`) and takes whatever she crosses.
+  Just off a lip (coyote) it is the air version; on a rail it is still the grind trick.
+  **LEDGES ARE FOUND, NOT AUTHORED.** Every box top, roof rim, deck coping, bowl rim and ramp side is already an edge of
+  a floor triangle. An edge is a LIP when, measured from its own triangle's plane carried on (`gr`), the floor 6 cm out
+  has already started to fall and 0.35 / 0.7 m out has fallen `lipDrop`, with no ceiling or solid there. **The plane
+  matters twice**: without it the line between two bands of one slope is an "edge", and so is the crease at the foot of a
+  transition. **And the 6 cm sample matters**: the park half pipe's coping band is 1.8 m of flat with a diagonal across
+  each quad, and a single 0.3 m sample from the diagonal landed past the back edge and called it a lip. The two
+  distances are because a ROUNDED coping falls away slowly and a box edge all at once -- one sample at 0.3 m missed the
+  park half pipe's coping completely. A lip is only looked for under a swipe, traced along its neighbours (same corner,
+  within 40 deg, facing the same way) into one path -- round a bowl that is a closed loop, at a box corner it stops --
+  set `lipIn` back onto the top, and kept among the last `LEDGE.max` (8): a city of boxes as rails up front would be a
+  hundred thousand segments for the catch to walk.
+  `npm run sim intent` (13 rows: no swipe flies past a rail and the same drop with intent off grinds, tap = jump,
+  ground and air swipes onto rail 0, the open-air dive, the half pipe coping, the bowl rim loop, the hub deck edge) and
+  `npm run sim kit` P9 (32 walls: every mega-park pipe both ways, the sunk bowl and pool -- each grinds its coping at
+  deck height). **Every OTHER case runs with `intent` 0**, set before each case -- `panel` presses RESET, which puts it
+  back on, and that turned 19 rows of four cases red before the runner did it per case. Stated gap: those cases measure
+  the grind with the old catch, not with the swipe.
+  **What a swipe picks is the NEAREST thing**: beside the hub deck's front, the bank's and the stair set's sloped SIDES
+  are nearer lips than the deck edge and rightly win -- a sloped side is a hubba.
 - **THE MEGA PARK AND THE PIPE MODULES (r70, `kitPark`, `kitRun`, `kitSlab`, `pipe`/`elbow`/`tee`/`pipeEnd`, `colliderReset`).**
   *"A lot of singular ramps sitting out everywhere ... build me a mega park out of the kit so we can see where its
   limitations are and curate it before I hand over the kit."* r68's thirteen islands are gone; the kit world spawns her

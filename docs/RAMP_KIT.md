@@ -224,3 +224,12 @@ One connected park of 97 pieces, east and north of the gallery, built entirely f
    surface.
 7. **Pieces must meet exactly.** Nothing snaps them together after the fact: in Blender, place each one at the last
    one's `out` (or at the fitting rules above).
+
+
+## Grinding the kit (r71)
+
+Grinding is a **swipe down** on the right pad now. Nothing has to be authored for a coping or a deck edge to be
+grindable: every pipe and quarter pipe coping, bowl and pool rim, platform and box edge, and the sloped sides of banks
+and stairs is found off the collider when she swipes (`lipEdges`). So the kit needs **no rail along a coping**. Rails
+(`rail_` lines, the rail kit) are still rails; put one where there is no edge to grind, or where you want a bar standing
+proud of the deck.

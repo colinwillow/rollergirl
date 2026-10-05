@@ -56,6 +56,10 @@ console.warn = quiet;
 const rg = globalThis.rg;
 const THREE = await import(pathToFileURL(path.join(TMP, 'three-shim.mjs')).href);
 if (!rg.ready()) { console.error('the module never became ready'); process.exit(1); }
+// r71: THE GAME GRINDS ONLY ON A SWIPE DOWN NOW (`GRIND.intent`). Every case below except `intent` was written against
+// the semi-automatic catch and measures the grind itself -- rails, joints, boosters, loops -- so they run with it off.
+// `CASES.intent` is the one that drives the swipe.
+rg.GRIND.intent = 0;
 
 // ---- driving ----
 let DT = 1 / 60;   // a case may drop it: a phone is not 60 Hz and the gap between
@@ -2913,6 +2917,20 @@ CASES.kit = async () => {
     let n = 0; for (const [nm, x, z] of spots) for (const h of [0, Math.PI / 2, Math.PI, -Math.PI / 4]) { n++;
       reset(); place(x, 0.2, z, h, 11); const r = ride(5); if (r.falls || r.bail || r.low < -0.05) bad.push(`${nm} h${fix(h, 1)}: ${r.falls ? 'fell out' : r.bail ? 'bailed' : 'under the floor ' + fix(r.low)}`); }
     say(`mega park: ${n} hands-off rides through every pipe, elbow, tee, end, bowl and pool`, !bad.length, bad.slice(0, 5).join('; ') || 'all swung clean'); }
+  // P9 (r71). THE SWIPE DOWN GRINDS THE KIT'S COPINGS AND DECK EDGES -- nothing in the kit is a rail along a coping, the
+  // ledge finder reads them off the collider. Up every pipe's wall both ways, and into the sunk bowl, the pool and the
+  // XL pipe: swipe down on the way up and she must be grinding a ledge at that piece's deck height.
+  { rg.GRIND.intent = 1; const bad = [], good = []; let n = 0;
+    const upAndSwipe = (nm, x, z, h, deck, v) => { n++; reset(); place(x, 0.2, z, h, v || 9); P.grindCool = 0; P.grindLast = null; P.grindWant = 0;
+      let sw = null, got = null;
+      run(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (!sw && P.grounded && P.pos.y > deck * 0.35 && P.vel.y > 0) sw = rg.rightFlick(0, 60) || 'none';
+        if (P.grind && !got) { const R = P.grind.rail, t = P.grind.t; got = { y: R.a.y + (R.b.y - R.a.y) * t, ledge: !!R.path.ledge }; } });
+      if (got && got.ledge && Math.abs(got.y - deck) < 0.2) good.push(nm); else bad.push(`${nm}: ${sw || 'never swiped'}, ${got ? `grinding at ${fix(got.y)}` : 'no grind'}`); };
+    for (const pc of K.pieces.filter(p => p.park && p.kind === 'pipe' && p.cl)) { const m = pc.cl[Math.floor(pc.cl.length / 2)], S = KSZ[pc.size];
+      for (const sd of [1, -1]) upAndSwipe(`${pc.label || 'pipe'} ${sd > 0 ? '+w' : '-w'}`, m[0], m[1], pc.T.yaw + (sd > 0 ? Math.PI / 2 : -Math.PI / 2), S.H); }
+    for (const [nm, pc] of [['bowl M', KP.bowl], ['pool M', KP.pool]]) for (const h of [0, Math.PI / 2, Math.PI]) upAndSwipe(`${nm} h${fix(h, 1)}`, pc.T.x, pc.T.z, h, KSZ.M.H, 8);
+    say(`mega park: swipe down up ${n} walls grinds the coping`, !bad.length, bad.slice(0, 4).join('; ') || `${good.length} copings`);
+    rg.ledgeClear(); rg.GRIND.intent = 0; }
   // P5. EVERY ➤ STOP IN THE PARK puts her on a floor, standing, and she stays there
   { const bad = []; for (const n of K.go.filter(n => /^park /.test(n))) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
       run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; });
@@ -3171,6 +3189,92 @@ CASES.grind = () => {
   return ok;
 };
 
+// r71: A GRIND IS ASKED FOR. *"Make it so you have to swipe down to grind something -- that way you can launch off a
+// ramp. A swipe up or a tap off a ramp will always launch you off ... in the air, swipe down and she shoots downward as
+// if she's going to hit the rail ... grind the tops of boxes, the sides of boxes, the tops of half pipes and quarter
+// pipes."* Every other case runs with `GRIND.intent` 0 (set at the top), because they measure the grind ITSELF and
+// were written against the semi-automatic catch; this one turns it on and drives the swipe through the shipped
+// `rightFlick`. A flick's (dx, dy) is screen space: +dy is DOWN.
+CASES.intent = () => {
+  const G = rg.GRIND; G.intent = 1; rg.ledgeClear();
+  let ok = true;
+  const row = (name, pass, msg) => { console.log(`  ${pass ? 'ok  ' : 'FAIL'} ${name.padEnd(46)} ${msg}`); if (!pass) ok = false; };
+  const R0 = rg.PATHS.find(P => P.name === 'park'), bar = R0.segs[0].a.y;      // rail 0: along Z at x -40
+  const fresh = () => { P.grindCool = 0; P.grindLast = null; P.grindWant = 0; };
+  const watch = (sec, fn) => { let got = null, minVy = 99, t = 0;
+    run(sec, () => { rg.stick.L.x = rg.stick.L.y = 0; if (fn) fn(t); t += DT; if (!P.grounded) minVy = Math.min(minVy, P.vel.y);
+      if (P.grind && !got) { const g = P.grind, R = g.rail; got = { path: R.path, y: R.a.y + (R.b.y - R.a.y) * g.t, x: R.a.x + (R.b.x - R.a.x) * g.t, z: R.a.z + (R.b.z - R.a.z) * g.t, t }; } });
+    return { got, minVy }; };
+  const air = (x, y, z, vx, vy, vz) => { place(x, 1, z, Math.atan2(vx, vz), 0); fresh(); P.grounded = false; P.pos.set(x, y, z); P.vel.set(vx, vy, vz); P.airT = 0.3; };
+  // 1. DROPPING ONTO A RAIL WITH NO SWIPE: she lands through it -- and with `intent` off the same drop grinds, which is
+  // what says it is the gate doing it and not a miss
+  air(-40, bar + 1.2, -2, 0, 0, 7);
+  let r = watch(1.5);
+  row('dropped onto rail 0, no swipe', !r.got, r.got ? 'GRINDED' : 'flew past it');
+  G.intent = 0; air(-40, bar + 1.2, -2, 0, 0, 7); r = watch(1.5); G.intent = 1;
+  row('...the same drop with intent off', !!r.got, r.got ? 'grinds (so the gate is what stopped it)' : 'NO CATCH');
+  // 2. A TAP BESIDE IT IS A JUMP, never the r41 hop
+  place(-41.3, 1, -4, Math.atan2(1.2, 8), Math.hypot(1.2, 8)); fresh();
+  r = watch(2.5, t => { if (t < DT * 1.5) P.jump = 1; });
+  row('tap beside rail 0', !r.got, r.got ? 'HOMED ONTO IT' : 'a jump');
+  // 3. SWIPE DOWN ON THE GROUND beside it: the hop onto it
+  place(-41.5, 1, -4, 0, 7); fresh();
+  let what = rg.rightFlick(0, 60); r = watch(2);
+  row('swipe down on the ground beside rail 0', what === 'grind' && r.got && r.got.path === R0, `${what}, ${r.got ? 'grinding rail 0' : 'NO GRIND'}`);
+  // 4. SWIPE DOWN IN THE AIR, above and off to the side: she SHOOTS DOWN at it
+  air(-37, bar + 5, -3, 0, 2, 6);
+  what = rg.rightFlick(0, 60); const vy0 = P.vel.y; r = watch(1.5);
+  row('swipe down 5 m over it, 3 m to the side', what === 'grind' && vy0 < -1 && r.got && r.got.path === R0,
+      `${what}, left at vy ${fix(vy0, 1)}, ${r.got ? `on it in ${fix(r.got.t, 2)} s` : 'NO GRIND'}`);
+  // 5. SWIPE DOWN IN THE AIR WITH NOTHING NEAR: a dive, and she lands
+  air(60, 6, -62, 0, 3, 8);         // (60, -40) is not open: a 0.6 m planter at x 66 is a ledge within reach
+  what = rg.rightFlick(0, 60); const vy1 = P.vel.y; r = watch(1.5);
+  row('swipe down in open air', what === 'dive' && vy1 <= -G.diveVy + 1e-6 && !r.got && P.grounded, `${what}, vy ${fix(vy1, 1)}, ${P.grounded ? 'landed' : 'STILL UP'}`);
+  // 6. ...and a dive that crosses a rail takes it
+  air(-40, bar + 3.5, -5, 0, 1, 7);
+  what = rg.rightFlick(0, 60); r = watch(1.5);
+  row('swipe down right over the rail', !!r.got, `${what}, ${r.got ? 'grinding' : 'NO GRIND'}`);
+  // 7. THE HALF PIPE'S COPING: ride up the wall and swipe down on the way up -- the coping is found off the collider
+  const H = 2.6 * (1 - Math.cos(rg.PARK.hpSweep));
+  place(1, 1, 28.5, Math.PI + 0.25, 9); fresh();
+  let swiped = null, peakY = 0;
+  r = watch(3, () => { peakY = Math.max(peakY, P.pos.y); if (!swiped && P.grounded && P.pos.y > 0.8 && P.vel.y > 0) swiped = rg.rightFlick(0, 60); });
+  row('up the half pipe wall, swipe down', swiped === 'ledge' && r.got && r.got.path.ledge && Math.abs(r.got.y - H) < 0.2,
+      `${swiped}, ${r.got ? `grinding the coping at ${fix(r.got.y, 2)} m (deck ${fix(H, 2)}) at ${fix(r.got.x, 1)},${fix(r.got.z, 1)}` : `NO GRIND (peak ${fix(peakY, 2)})`}`);
+  // ...and it GRINDS ALONG it rather than stopping dead
+  if (P.grind) { const x0 = P.pos.x; run(0.4, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    row('...and travels along it', Math.abs(P.pos.x - x0) > 0.8 || !P.grind, `${fix(Math.abs(P.pos.x - x0), 2)} m in 0.4 s`); }
+  // 8. THE SAME RIDE WITH NO SWIPE: an air, back into the pipe -- the coping never catches her
+  place(1, 1, 28.5, Math.PI + 0.25, 9); fresh();
+  r = watch(3);
+  row('up the wall with no swipe', !r.got, r.got ? 'CAUGHT THE COPING' : 'an air, no grind');
+  // 9. THE BOWL'S RIM, from inside, and it is ONE LOOP
+  const B = rg.BOWL;
+  place(B.x, 1, B.z + B.r - 1.6, 0, 7); fresh();
+  swiped = null;
+  r = watch(3, () => { if (!swiped && P.grounded && P.pos.y > -1.4 && P.vel.y > 0 && P.n.y < 0.9) swiped = rg.rightFlick(0, 60); });
+  row('up the bowl wall, swipe down', !!(r.got && r.got.path.ledge), `${swiped}, ${r.got ? `on the rim at ${fix(r.got.y, 2)}, ${r.got.path.closed ? 'a closed loop' : 'OPEN'} of ${r.got.path.segs.length} segs` : 'NO GRIND'}`);
+  // 10. A BOX TOP: the hub deck's edge, ridden up to from the ground alongside it
+  { const s = rg.CITY.spots['hub deck'], L = rg.lipEdges(s[0], s[2], 12, 2.0, 2.6).filter(E => Math.hypot(E.b[0] - E.a[0], E.b[2] - E.a[2]) > 4 && Math.abs(E.a[1] - E.b[1]) < 0.02).sort((a, b) => a.d - b.d);
+    const E = L[0];
+    if (!E) row('the hub deck edge', false, 'NO LIP FOUND');
+    // a point near one END of the front edge: its middle has the bank and the stair set in front of it, whose sloped
+    // SIDES are nearer lips and rightly win
+    else { const mx = E.a[0] + (E.b[0] - E.a[0]) * 0.12, mz = E.a[2] + (E.b[2] - E.a[2]) * 0.12, ex = E.b[0] - E.a[0], ez = E.b[2] - E.a[2];
+      place(mx + E.ox * 1.6, 1, mz + E.oz * 1.6, Math.atan2(ex, ez), 6); fresh();
+      what = rg.rightFlick(0, 60); r = watch(2);
+      row('beside the hub deck, swipe down', what === 'ledge' && r.got && Math.abs(r.got.y - E.a[1]) < 0.15,
+          `${what}, ${r.got ? `grinding at ${fix(r.got.y, 2)} (${fix(r.got.x, 1)},${fix(r.got.z, 1)}) for the ${fix(E.a[1], 2)} m edge from ${fix(mx + E.ox * 1.6, 1)},${fix(mz + E.oz * 1.6, 1)}` : 'NO GRIND'}`); } }
+  // 11. NOTHING NEAR ON THE GROUND: the swipe is the strike it always was
+  place(60, 1, -60, 0, 5); fresh(); rg.girl.ready = false;
+  what = rg.rightFlick(0, 60);
+  row('swipe down on open ground', what === 'strike', String(what));
+  P.mel = null; P.melQ = null;
+  row('ledges kept to LEDGE.max', rg.LEDGE.paths.length <= rg.LEDGE.max, `${rg.LEDGE.paths.length} kept, ${rg.LEDGE.made} made`);
+  rg.ledgeClear(); G.intent = 0;
+  return ok;
+};
+
 // A one-off trace, so a question that is not worth a permanent case still gets measured
 // rather than reasoned about: SIM_PROBE=tools/probe-lip.mjs npm run sim
 if (process.env.SIM_PROBE) {
@@ -3191,7 +3295,7 @@ for (const k of Object.keys(CASES)) {
     process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
-  try { ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }
+  try { rg.GRIND.intent = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
   if (!ok) { fail++; console.log('  -> FAIL'); }
 }
 console.log(fail ? `\n${fail} case(s) failed` : '\nall cases pass');
