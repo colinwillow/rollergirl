@@ -2783,6 +2783,61 @@ CASES.kit = async () => {
   // 12. A PLATFORM IS A WALL from the side
   { const pc = find('bankDeck', 'L'); go(pc, pc.len - 2, -8, Math.PI / 2, 8); const r = ride(2);
     const l = loc(pc); say('a platform side is a wall', !(Math.abs(l.w) < 2 && l.u > pc.len - 4 && P.pos.y < 1), `ends at u ${fix(l.u, 1)} w ${fix(l.w, 1)} y ${fix(P.pos.y, 1)}`); }
+  // ---- r67: THE RAIL KIT ----------------------------------------------------------------------------------------------
+  // R1. EVERY RAIL, END TO END: on at its higher end (a stair rail climbed at grind speed stalls, which is skating), no
+  //     stick, and she has to reach the far end of THAT path without coming off it -- a ring has to go round
+  { const rp = K.pieces.slice(0, K.nGallery).filter(p => p.rails && p.rails.length); let bad = [], n = 0;
+    for (const pc of rp) for (const R of pc.rails) {
+      const a = R.segs[0], z = R.segs[R.segs.length - 1], up = z.b.y > a.a.y + 0.05;
+      const S0 = up ? z : a, t0 = up ? 1 : 0, dir = up ? -1 : 1, goal = up ? a : z, q = up ? S0.b : S0.a;
+      reset(); place(q.x, q.y, q.z, Math.atan2(S0.hx * dir, S0.hz * dir), 9); P.grounded = false;
+      rg.enterGrind({ rail: S0, t: t0, dir, s: 9, side: 'left' });
+      let reached = 0, off = 0, dist = 0, last = P.pos.clone();
+      run(R.closed ? 4 : 6, () => { rg.stick.L.x = rg.stick.L.y = 0; city();
+        dist += P.pos.distanceTo(last); last.copy(P.pos);
+        if (P.grind && P.grind.rail.path === R) { if (!R.closed && P.grind.rail === goal && (up ? P.grind.t < 0.25 : P.grind.t > 0.75)) reached = 1; }
+        else if (!reached) off = 1; });
+      const ok1 = R.closed ? (!off && dist > 2 * Math.PI * 4 * 1.05) : reached; n++;
+      if (!ok1) bad.push(`${pc.label}/${R.name}: ${R.closed ? 'went ' + fix(dist, 1) + ' m' : off ? 'came off' : 'never reached the end'}`);
+    }
+    say(`every kit rail grinds end to end (${n} paths)`, n > 20 && !bad.length, bad.join('; ') || 'all of them'); }
+  // R2. A TAP FROM THE GROUND BESIDE ONE, the way a player gets on
+  for (const [kind, size, lbl, o] of [['rail', 'S'], ['rail', 'M'], ['railDown', 'M'], ['ledge', 'S', 'ledge 0.6 m', { h: 0.6 }], ['ledge', 'S']]) {
+    const pc = K.pieces.slice(0, K.nGallery).find(p => p.kind === kind && p.size === size && (o ? p.o.h === o.h : p.o.h == null)), paths = new Set(pc.rails);
+    go(pc, 1, 2.6, 0, 6); P.jump = 1; let on = 0; run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && paths.has(P.grind.rail.path)) on = 1; });
+    say(`  a tap beside ${lbl || pc.label} grinds it`, on, on ? 'grinding' : `ended at y ${fix(P.pos.y)}`); }
+  // R3. STAIRS: down from the landing, and up from the street
+  for (const sz of ['S', 'M', 'L']) {
+    const pc = K.pieces.find(p => p.kind === 'stairs' && p.size === sz), Hs = KSZ[sz].H, run0 = pc.len - 3;
+    go(pc, run0 + 2, 0, Math.PI, 5); let low = 0; const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); const l = loc(pc);
+      if (l.u > 0 && l.u < run0) { const want = Hs * l.u / run0; low = Math.min(low, P.pos.y - want); } });
+    const l = loc(pc); say(`  stairs ${sz}: rolled down the flight`, l.u < 0 && P.pos.y < 0.1 && !r.bail && low > -0.05, `at u ${fix(l.u, 1)} y ${fix(P.pos.y)}, worst ${fix(low)} under the noses`);
+    go(pc, -6, 0, 0, Math.sqrt(2 * g * Hs) + 1.5); let land = 0; ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); const l = loc(pc);
+      if (P.grounded && Math.abs(P.pos.y - Hs) < 0.05 && l.u > run0 && l.u < run0 + 3) land = 1; });
+    say(`  stairs ${sz}: rolled up onto the landing`, land, land ? 'rolled onto it' : `never; ends y ${fix(P.pos.y)}`);
+    const R = pc.rails[1], top = R.segs[R.segs.length - 1]; go(pc, run0 + 2, pc.rails[1].segs[0].a.distanceTo(pc.rails[0].segs[0].a) / 2 - 1.6, Math.PI, 6);
+    P.jump = 1; let on = 0, bottom = 0; run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === R) { on = 1; if (P.grind.rail === R.segs[0] || P.grind.rail === R.segs[1]) bottom = 1; } });
+    say(`  stairs ${sz}: a tap on the landing, down the handrail`, on && bottom, on ? (bottom ? 'top to bottom' : 'came off on the way down') : 'never caught it'); }
+  // R4. THE CHAIN: every piece snapped off the one before; one grind from the first to the last
+  { const C = K.chain, gap = Math.max(...C.slice(1).map((pc, i) => { const e = C[i].rails[0], E = e.segs[e.segs.length - 1].b; return E.distanceTo(pc.rails[0].segs[0].a); }));
+    const S0 = C[0].rails[0].segs[0], seen = [];
+    reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 10); P.grounded = false; rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 10, side: 'left' });
+    run(8, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind) { const i = C.findIndex(pc => pc.rails[0] === P.grind.rail.path); if (i >= 0 && seen[seen.length - 1] !== i) seen.push(i); } });
+    const all = seen.length === C.length && seen.every((v, i) => v === i);
+    say('the rail chain: snapped end to end, one grind through all of it', gap < 0.01 && all, `ends ${fix(gap, 3)} m apart, rode pieces ${seen.join(' > ')} of 0..${C.length - 1}`); }
+  // R5. THE Y: straight on with no stick, down the branch with it
+  { const pc = find('railY'), [M, B] = pc.rails, S0 = M.segs[0], h0 = Math.atan2(S0.hx, S0.hz), hb = H(pc, 80 * Math.PI / 180);
+    const go2 = st => { reset(); place(S0.a.x, S0.a.y, S0.a.z, h0, 9); P.grounded = false; rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 9, side: 'left' });
+      let br = 0; run(1.5, () => { if (st) fwd(hb); else rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === B) br = 1; }); return br; };
+    const a = go2(0), b = go2(1);
+    say('the Y: straight on alone, the branch with the stick', !a && b, `no stick ${a ? 'BRANCHED' : 'straight'}, stick ${b ? 'branched' : 'stayed on the main'}`); }
+  // R6. THE BOOSTER pulls her up to its speed; R7. A LEDGE is a block you stand on and a wall from the side
+  { const pc = K.pieces.find(p => p.kind === 'rail' && p.o.boost), S0 = pc.rails[0].segs[0]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 5); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 5, side: 'left' }); let top = 0; run(1, () => { city(); if (P.grind) top = Math.max(top, P.grind.s); });
+    say('a booster rail speeds her up', top > 10, `5 -> ${fix(top, 1)} m/s`); }
+  { const pc = K.pieces.find(p => p.kind === 'ledge' && !p.o.h); go(pc, 3, 0, 0, 0); P.pos.y = 2; P.grounded = false; ride(1);
+    const stood = Math.abs(P.pos.y - pc.h) < 0.03 && P.grounded; go(pc, 4, -5, Math.PI / 2, 7); ride(1.5, () => { fwd(H(pc, Math.PI / 2)); city(); });
+    const l = loc(pc); say('a ledge: stood on top, a wall from the side', stood && !(Math.abs(l.w) < 0.6 && P.pos.y < pc.h - 0.2), `on top ${stood ? 'yes' : 'no'}; side run ends w ${fix(l.w, 2)} y ${fix(P.pos.y)}`); }
   // 13. AN `fn_` MARKER IN A GLB IS REBUILT AS ITS PIECE: a scene the way GLTFLoader hands one over, through the shipped
   //     levelIngest -- one by its name alone, turned 90 degrees, and one by its extras with an option
   { const root = new THREE.Group(), n0 = K.pieces.length;
@@ -2806,7 +2861,7 @@ CASES.kit = async () => {
     const file = 'exports/rollergirl_kit.glb';
     if (ex.status !== 0 || !fs.existsSync(file)) say('export kit runs', false, (ex.stderr || '').split('\n').slice(-4).join(' | '));
     else {
-      const gal = K.pieces.slice(0, 40), n0 = K.pieces.length, gl = await realGLB(file);
+      const gal = K.pieces.slice(0, K.nGallery), n0 = K.pieces.length, gl = await realGLB(file);
       gl.scene.updateMatrixWorld(true);
       const place = new THREE.Matrix4().makeTranslation(0, 0, -70).multiply(new THREE.Matrix4().makeRotationY(Math.PI));
       const st = rg.levelIngest(gl.scene, gl.scene, place, 'kitglb'), got = K.pieces.slice(n0);
@@ -2819,6 +2874,12 @@ CASES.kit = async () => {
         for (let u = -R; u <= R; u += 0.6) for (let w = -R; w <= R; w += 0.6) { const t = rg.kT(pc.T, u, w, 0), a = gf(t.x, t.z); if (a < 0.05) continue;
           const b = gf(-t.x, -t.z - 70); n++; const d = Math.abs(a - b); worst = Math.max(worst, d); if (d > 0.02) bad++; } }
       say('  every raised floor at the same height on the copy', n > 1000 && bad === 0, `${n} points, ${bad} off, worst ${fix(worst, 3)} m`);
+      // r67: AND EVERY RAIL: same number of paths per piece, both ends where the gallery's are once turned and moved
+      let rn = 0, rbad = 0, rworst = 0;
+      gal.forEach((pc, i) => { const A = pc.rails || [], B = (got[i] && got[i].rails) || []; if (A.length !== B.length) { rbad++; return; }
+        A.forEach((R, j) => { const Q = B[j], e = [[R.segs[0].a, Q.segs[0].a], [R.segs[R.segs.length - 1].b, Q.segs[Q.segs.length - 1].b]];
+          for (const [a, b] of e) { const d = Math.hypot(-a.x - b.x, a.y - b.y, -a.z - 70 - b.z); rn++; rworst = Math.max(rworst, d); if (d > 0.01) rbad++; } }); });
+      say('  every rail comes back with both ends in place', rn > 60 && !rbad, `${rn} rail ends, ${rbad} off, worst ${fix(rworst, 3)} m`);
       const lp = got.filter(p => /^loop/.test(p.kind));
       say('  its loops come back as booster rails that turn over', lp.length === 2 && lp.every(p => p.rail && p.rail.boost && p.rail.ups && p.rail.segs.length > 20), `${lp.length} loops`);
     }

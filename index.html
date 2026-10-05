@@ -176,7 +176,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r66</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r67</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -199,7 +199,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r66';
+const BUILD = 'r67';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1332,7 +1332,7 @@ function perimeter(S, r, sweep, back, apron) {
 // named assemblies too, because one object is easier to place than six.
 // =====================================================================================================
 const KITW = { W: 4, deck: 1.5, cope: 0.3, seg: 28, rseg: 16, rc: 1.5, floorS: 10, built: 0, pieces: [], go: [], labels: [], keep: !!globalThis.__kitKeep,
-  x0: -130, x1: 130, z0: -60, z1: 420 };
+  x0: -130, x1: 130, z0: -330, z1: 420 };
 const D2R = Math.PI / 180;
 const KSZ = {
   S:  { H: 1.2, sweep: 70 * D2R, tint: 0xdff5ec },
@@ -1607,6 +1607,109 @@ function kitLoop(T, S, o) {
   P.kit = 1; KITW.loops = (KITW.loops || []).concat(P);
   return P;
 }
+// ===================================================================================================== r67: THE RAIL KIT
+// *"We'll do the same thing with a rail system."* A rail's height is ABSOLUTE over the piece's origin and comes off the
+// SAME LADDER as the ramps (S 1.2 / M 2.4 / L 3.6 / XL 4.8), so a rail M runs level with every M deck and coping, and two
+// pieces snap when their heights agree. Every rail piece's origin is on the ground under the START of its bar, +u along
+// it, and it returns `out`: the frame its far end leaves in, which is exactly where the next piece's origin goes (`kT`).
+// `railLink` joins ends within 0.75 m, so pieces placed end to end ARE one grind -- no connector pieces.
+// A RAIL IS NOT IN THE COLLIDER (the park's rule): she catches it, she does not stand on it or stop against it. A ledge
+// and a stair set are solids and floors with rails along them.
+const RAILKIT = { step: 1.2, hr: 1.2, edge: 0.11 };
+// a COLLIDER-ONLY floor triangle, wound up whatever order it arrives in (`kTri`'s rule -- a slope first went in wound
+// down, `triAdd` threw it out as "not a floor", and she flew straight over a flight of stairs that looked fine)
+function kCol(A, B, C) {
+  const ny = (B[2] - A[2]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[2] - A[2]);
+  if (ny < 0) triAdd(A[0], A[1], A[2], C[0], C[1], C[2], B[0], B[1], B[2]); else triAdd(A[0], A[1], A[2], B[0], B[1], B[2], C[0], C[1], C[2]);
+}
+const kDrop = (S, o) => o.drop != null ? o.drop : Math.min(1.2, S.H - 0.6);
+// a path through piece-local [u, y, w] points, cut so no segment is longer than `step` (a tap near ANY part finds a near point)
+function kRail(T, pts, o) {
+  o = o || {};
+  const L = pts.map(([u, y, w]) => new THREE.Vector3(...kP(T, u, y, w))), out = [L[0]];
+  for (let i = 1; i < L.length; i++) { const n = Math.max(1, Math.ceil(L[i - 1].distanceTo(L[i]) / RAILKIT.step));
+    for (let k = 1; k <= n; k++) out.push(L[i - 1].clone().lerp(L[i], k / n)); }
+  const opt = { name: 'kit ' + (o.name || 'rail'), boost: o.boost || 0, boostK: o.boost ? 8 : 0, maxV: o.boost ? 22 : 0 };
+  const P = o.closed ? railLoop(out.slice(0, -1), opt) : railPath(out, opt);
+  P.kit = 1; (KITW.rails || (KITW.rails = [])).push({ P, mat: o.boost ? 'boost' : o.mat || 'bar', posts: o.posts });
+  return P;
+}
+// an arc in the piece's frame: from (u0, w0) heading `a0` (0 = +u, + turning toward +w), radius r, swept by `sweep`
+// (signed), sampled every ~1 m; y from yA to yB along it
+function kArcPts(u0, w0, a0, r, sweep, yA, yB) {
+  const n = Math.max(4, Math.ceil(Math.abs(sweep) * r)), sd = Math.sign(sweep) || 1, out = [];
+  // the centre is r to the side she turns toward
+  const cu = u0 - sd * r * Math.sin(a0), cw = w0 + sd * r * Math.cos(a0);
+  for (let i = 0; i <= n; i++) { const a = a0 + sweep * i / n;
+    out.push([cu + sd * r * Math.sin(a), yA + (yB - yA) * i / n, cw - sd * r * Math.cos(a)]); }
+  return out;
+}
+Object.assign(KIT_KINDS, {
+  // STRAIGHT at the size's height
+  rail(T, S, o) { const h = o.h != null ? o.h : S.H, L = o.len || 8;
+    return { len: L, wid: 0.5, h, rails: [kRail(T, [[0, h, 0], [L, h, 0]], o)], out: { u: L, w: 0, y: h, dyaw: 0 } }; },
+  // DOWN RAIL: one step of the ladder (1.2 m) over `len` -- a rail M ends at S height. S drops 0.6
+  railDown(T, S, o) { const h = o.h != null ? o.h : S.H, d = kDrop(S, o), L = o.len || 6;
+    return { len: L, wid: 0.5, h, rails: [kRail(T, [[0, h, 0], [L, h - d, 0]], { name: 'down', ...o })], out: { u: L, w: 0, y: h - d, dyaw: 0 } }; },
+  // KINK: flat, down a step, flat
+  railKink(T, S, o) { const h = o.h != null ? o.h : S.H, d = kDrop(S, o), a = o.flat || 2.5, run = o.run || 4, L = 2 * a + run;
+    return { len: L, wid: 0.5, h, rails: [kRail(T, [[0, h, 0], [a, h, 0], [a + run, h - d, 0], [L, h - d, 0]], { name: 'kink', ...o })], out: { u: L, w: 0, y: h - d, dyaw: 0 } }; },
+  // CURVE: `deg` (90) at radius `r` (4), turning toward +w -- her LEFT -- or her right with `right: 1`
+  railCurve(T, S, o) { const h = o.h != null ? o.h : S.H, r = o.r || 4, A = (o.deg || 90) * D2R * (o.right ? -1 : 1);
+    const pts = kArcPts(0, 0, 0, r, A, h, h), e = pts[pts.length - 1];
+    return { len: r * Math.abs(Math.sin(A)) + 0.5, wid: r, h, rails: [kRail(T, pts, { name: 'curve', ...o })], out: { u: e[0], w: e[2], y: h, dyaw: A } }; },
+  // S-BEND: sideways by `off` (3) over `len` (10), leaving parallel to how it came in
+  railS(T, S, o) { const h = o.h != null ? o.h : S.H, off = (o.off || 3) * (o.right ? -1 : 1), L = o.len || 10, pts = [];
+    for (let i = 0; i <= 12; i++) { const u = L * i / 12; pts.push([u, h, off * (1 - Math.cos(Math.PI * u / L)) / 2]); }
+    return { len: L, wid: Math.abs(off) + 0.5, h, rails: [kRail(T, pts, { name: 'sbend', ...o })], out: { u: L, w: off, y: h, dyaw: 0 } }; },
+  // RAINBOW: up `rise` (1.2) and back down over `len` (8); both ends at the size's height
+  rainbow(T, S, o) { const h = o.h != null ? o.h : S.H, rise = o.rise || 1.2, L = o.len || 8, pts = [];
+    for (let i = 0; i <= 12; i++) { const u = L * i / 12; pts.push([u, h + rise * Math.sin(Math.PI * u / L), 0]); }
+    return { len: L, wid: 0.5, h: h + rise, rails: [kRail(T, pts, { name: 'rainbow', ...o })], out: { u: L, w: 0, y: h, dyaw: 0 } }; },
+  // RING: a closed circle of radius `r` (4) through the origin, tangent to +u, centred toward +w -- round and round
+  railRing(T, S, o) { const h = o.h != null ? o.h : S.H, r = o.r || 4, pts = kArcPts(0, 0, 0, r, Math.PI * 2, h, h);
+    return { len: r * 2, wid: r * 2, h, rails: [kRail(T, pts, { name: 'ring', closed: 1, ...o })], out: { u: 0, w: 0, y: h, dyaw: 0 } }; },
+  // HELIX: `turns` (1) round a radius `r` (4), dropping one step per turn -- it ends under where it began
+  helix(T, S, o) { const h = o.h != null ? o.h : S.H, r = o.r || 4, n = o.turns || 1, d = kDrop(S, o) * n;
+    const pts = kArcPts(0, 0, 0, r, Math.PI * 2 * n, h, h - d);
+    return { len: r * 2, wid: r * 2, h, rails: [kRail(T, pts, { name: 'helix', ...o })], out: { u: 0, w: 0, y: h - d, dyaw: 0 } }; },
+  // Y: a straight with a branch peeling off toward +w at `at` (3 m) -- the stick picks (`railPick`); no stick, straight on
+  railY(T, S, o) { const h = o.h != null ? o.h : S.H, L = o.len || 10, b = o.at || 3, r = o.r || 6, A = (o.deg || 40) * D2R;
+    const main = kRail(T, [[0, h, 0], [L, h, 0]], { name: 'Y main', ...o });
+    // IT LEAVES AT AN ANGLE (`kick`, 20 deg), NOT TANGENT: a branch peeling off along the main line scores almost the
+    // same as carrying straight on, so a thumb pushed down it barely beat `RAILNET.brMargin` -- a fork has to fork
+    const k0 = (o.kick || 20) * D2R, u1 = b + 1.5 * Math.cos(k0), w1 = 1.5 * Math.sin(k0);
+    const arc = [[b, h, 0]].concat(kArcPts(u1, w1, k0, r, A - k0, h, h)), e = arc[arc.length - 1];
+    arc.push([e[0] + 3 * Math.cos(A), h, e[2] + 3 * Math.sin(A)]);
+    const br = kRail(T, arc, { name: 'Y branch', ...o }), f = arc[arc.length - 1];
+    return { len: L, wid: f[2] + 0.5, h, rails: [main, br], out: { u: L, w: 0, y: h, dyaw: 0 }, out2: { u: f[0], w: f[2], y: h, dyaw: A } }; },
+  // LEDGE: a solid block `h` (the size) tall, `len` (8) long and `w` (1.2) wide, steel along both top edges -- the edges
+  // grind, the top is a floor
+  ledge(T, S, o) { const h = o.h != null ? o.h : S.H, L = o.len || 8, w = o.w || 1.2, e = w / 2 + RAILKIT.edge;
+    KIT_KINDS.platform(T, { ...S, H: h }, { w, d: L });
+    const rails = [-1, 1].map(s => kRail(T, [[0, h + 0.02, s * e], [L, h + 0.02, s * e]], { name: 'ledge', posts: false, ...o }));
+    return { len: L, wid: w, h, rails, out: { u: L, w: 0, y: h, dyaw: 0 } }; },
+  // STAIRS: a set rising `S.H` up +u at `angle` (32) to a `land` (3) landing, `w` (4) wide, with a handrail down each side
+  // `hr` (1.2) over the step noses. Ridden as a SLOPE through the noses (a skate on steps is a stammer), steps drawn on it.
+  // The handrail's top end sits at H + 1.2 -- the next size up -- and its foot at 1.2, so it snaps into the ladder too.
+  stairs(T, S, o) {
+    const H = S.H, run = H / Math.tan((o.angle || 32) * D2R), land = o.land || 3, w = (o.w || KITW.W) / 2, hr = o.hr != null ? o.hr : RAILKIT.hr;
+    const n = Math.max(3, Math.round(H / 0.2)), sr = run / n, sh = H / n;
+    const P = (u, y, ww) => kP(T, u, y, ww);
+    for (let k = 1; k <= n; k++) {
+      const u = k * sr, y0 = (k - 1) * sh, y1 = k * sh, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
+      kWall(P(u, y0, -w), P(u, y0, w), P(u, y1, w), P(u, y1, -w), [-fx, -fz], KCOL.side);       // riser, facing down the flight
+      if (k < n) kQuad(P(u, y1, -w), P(u + sr, y1, -w), P(u + sr, y1, w), P(u, y1, w), S.tint, false);   // tread, drawn only
+      if (k < n) for (const s of [-1, 1]) kWall(P(u, 0, s * w), P(u + sr, 0, s * w), P(u + sr, y1, s * w), P(u, y1, s * w), [s * fz, -s * fx], KCOL.side);
+    }
+    // the riding surface: through every nose, collided and not drawn
+    const A = P(0, 0, -w), B = P(run, H, -w), C = P(run, H, w), D = P(0, 0, w);
+    kCol(A, D, C); kCol(A, C, B);
+    KIT_KINDS.platform(kT(T, run, 0, 0), S, { w: 2 * w, d: land });
+    const rails = o.rails === false ? [] : [-1, 1].map(s => kRail(T, [[-1, hr, s * (w - 0.25)], [0, hr, s * (w - 0.25)], [run, H + hr, s * (w - 0.25)], [run + land - 0.5, H + hr, s * (w - 0.25)]], { name: 'handrail', ...o }));
+    return { len: run + land, wid: 2 * w, h: H, rails, out: { u: run + land, w: 0, y: H, dyaw: 0 } };
+  },
+});
 // ONE ENTRY POINT. A size name or an object; options as the kinds take them. The record is what the export writes out
 // and what an `fn_` marker in a GLB carries back in.
 function kitPiece(kind, size, T, o) {
@@ -1651,6 +1754,24 @@ const KIT_ROWS = [
   ['jumps', 276, [['kicker', 'S', {}, 'kicker S'], ['kicker', 'M', {}, 'kicker M'], ['kicker', 'L', {}, 'kicker L'], ['launch', 'S', {}, 'launch S'], ['table', 'M', {}, 'table-top M'], ['gap', 'M', { gap: 5 }, 'gap M (5 m)']]],
   ['boxes + loops', 312, [['frustum', 'S', { len: 6, w: 4, banks: [1, 1, 0, 0] }, 'funbox S'], ['frustum', 'M', { len: 4, w: 4, banks: [1, 1, 1, 1] }, 'pyramid M'], ['frustum', 'M', { len: 4, w: 4, banks: [1, 0, 1, 0] }, 'hip M'], ['loop360', 'M', {}, 'loop 360'], ['loop180', 'M', { yaw: Math.PI }, 'loop 180 (Immelmann)']]],
 ];
+// r67: THE RAIL ROWS, behind the spawn (riders still come in from -z)
+const KIT_RAIL_ROWS = [
+  ['rails: straights + downs', -100, [['rail', 'S', {}, 'rail S'], ['rail', 'M', {}, 'rail M'], ['rail', 'L', {}, 'rail L'], ['rail', 'XL', {}, 'rail XL'], ['railDown', 'M', {}, 'down rail M'], ['railDown', 'L', {}, 'down rail L']]],
+  ['rails: kinks + curves', -145, [['railKink', 'M', {}, 'kink rail M'], ['railCurve', 'M', {}, 'curve M 90 left'], ['railCurve', 'M', { deg: 45, right: 1 }, 'curve M 45 right'], ['railCurve', 'L', { r: 6 }, 'curve L 90 (r 6)'], ['railS', 'M', {}, 'S-bend M']]],
+  ['rails: shapes', -190, [['rainbow', 'M', {}, 'rainbow M'], ['railRing', 'M', {}, 'ring M'], ['helix', 'M', {}, 'helix M (down a step)'], ['railY', 'M', {}, 'Y junction M'], ['rail', 'M', { boost: 14, len: 12 }, 'booster rail M']]],
+  ['ledges + stairs', -235, [['ledge', 'S', { h: 0.6 }, 'ledge 0.6 m'], ['ledge', 'S', {}, 'ledge S'], ['stairs', 'S', {}, 'stairs S + rails'], ['stairs', 'M', {}, 'stairs M + rails'], ['stairs', 'L', {}, 'stairs L + rails']]],
+];
+// THE CHAIN: pieces snapped end to end off each other's `out` -- the spec in action, and the thing `npm run sim kit`
+// grinds from one end to the other
+const KIT_CHAIN = [['rail', 'M', { len: 6 }], ['railCurve', 'M', {}], ['railDown', 'M', {}], ['rail', 'S', { len: 4 }], ['railCurve', 'S', { right: 1 }], ['railKink', 'S', {}], ['rail', 'S', { h: 0.6, len: 4 }]];
+function kitChain(T) {
+  const out = [];
+  for (const [kind, size, o] of KIT_CHAIN) {
+    const rec = kitPiece(kind, size, T, o); rec.label = 'chain: ' + kind + ' ' + size; rec.chain = 1; out.push(rec);
+    T = kT(T, rec.out.u, rec.out.w, rec.out.dyaw);
+  }
+  return out;
+}
 // a bank with its platform behind it -- the pair a size is defined by
 KIT_KINDS.bankDeck = (T, S, o) => {
   const b = KIT_KINDS.bank(T, S, { w: 4, angle: o.angle || 25 });
@@ -1667,15 +1788,21 @@ function kitFloor() {
 }
 function kitGallery() {
   const xs = n => { const out = []; for (let i = 0; i < n; i++) out.push((i - (n - 1) / 2) * 44); return out; };
-  for (const [title, z, row] of KIT_ROWS) {
+  for (const [title, z, row] of KIT_ROWS.concat(KIT_RAIL_ROWS)) {
     const X = xs(row.length);
     row.forEach(([kind, size, o, label], i) => {
       const T = { x: X[i], y: 0, z, yaw: o.yaw || 0 }, rec = kitPiece(kind, size, T, o);
       if (!rec) return; rec.label = label;
-      kitLabel(label, size + ' · ' + KIT_FITS[size] + (KSZ[size] && /qp|pipe|pool|bowl|spine/.test(kind) ? ' · r ' + KSZ[size].r.toFixed(1) : ''), X[i], (rec.h || 2) + 3.2, z - 3);
+      const sub = rec.rails && kind !== 'stairs' ? size + ' · top ' + (+rec.h).toFixed(1) + ' m' + (rec.out && Math.abs(rec.out.y - rec.h) > 0.01 && kind !== 'rainbow' ? ' → ' + rec.out.y.toFixed(1) : '')
+        : size + ' · ' + KIT_FITS[size] + (KSZ[size] && /qp|pipe|pool|bowl|spine/.test(kind) ? ' · r ' + KSZ[size].r.toFixed(1) : '');
+      kitLabel(label, sub, X[i], (rec.h || 2) + 3.2, z - 3);
     });
     const name = 'kit ' + title; CITY.spots[name] = [X[0] - 8, 0, z - 14, 0]; KITW.go.push(name);
   }
+  // the chain, and how many pieces are the gallery (an `fn_` import adds more after)
+  const C = kitChain({ x: -60, y: 0, z: -275, yaw: Math.PI / 2 });
+  kitLabel('rail chain', 'pieces snapped end to end', -56, 5.6, -278); CITY.spots['kit rail chain'] = [-72, 0, -275, Math.PI / 2]; KITW.go.push('kit rail chain');
+  KITW.chain = C; KITW.nGallery = KITW.pieces.length;
   CITY.spots['kit start'] = [0, 0, -40, 0]; KITW.go.unshift('kit start');
   SPAWN.set(0, 0.2, -40); SPAWN.h = 0;
 }
@@ -1695,7 +1822,10 @@ function kitFlush(from, name, offset) {
   MESH.pos.length = MESH.nrm.length = MESH.col.length = from;
   return m;
 }
-function kitRailsDraw() { for (const P of KITW.loops || []) if (!P.drawn) { P.drawn = 1; railDraw(P, { mat: 'boost' }); } }
+function kitRailsDraw() {
+  for (const P of KITW.loops || []) if (!P.drawn) { P.drawn = 1; railDraw(P, { mat: 'boost' }); }
+  for (const { P, mat, posts } of KITW.rails || []) if (!P.drawn) { P.drawn = 1; railDraw(P, { mat, postMax: 7, posts }); }
+}
 // THE KIT WORLD (`WORLD.zones` 2): the floor, every piece, and nothing else
 function kitWorld() {
   CITY.on = 0;
@@ -2550,7 +2680,9 @@ function levelFn(o, place, name, st) {
   const opts = {}; for (const k in u) if (!/^(fn|size|kind|draw|label|footprint|name|info)$/.test(k) && (typeof u[k] !== 'object' || Array.isArray(u[k]))) opts[k] = u[k];
   const m0 = MESH.pos.length, rec = kitPiece(kind, size, T, opts);
   if (!rec) return false;
-  if (u.draw === false) MESH.pos.length = MESH.nrm.length = MESH.col.length = m0; else kitFlush(m0, 'fn:' + o.name);
+  if (u.draw === false) { MESH.pos.length = MESH.nrm.length = MESH.col.length = m0;
+    for (const P of rec.rails || (rec.rail ? [rec.rail] : [])) P.drawn = 1; }      // his art is the rail too: the grind only
+  else kitFlush(m0, 'fn:' + o.name);
   st.fn = (st.fn || 0) + 1; return true;
 }
 function levelIngest(vis, col, place, name) {

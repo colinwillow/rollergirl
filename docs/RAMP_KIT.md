@@ -11,7 +11,7 @@ exactly as tested whatever the art on top of them looks like.
 - **Tested:** `npm run sim kit` rides every piece. It also exports the kit, reads the GLB back turned 180° and moved,
   and checks that every raised floor of the copy matches the gallery: 8417 points, 0 off.
 
-Rails and roads are the next kits. This one is ramps only.
+The **rail kit** (r67) is the second half of this file. Roads are next.
 
 ## Sizes: a size is a HEIGHT
 
@@ -104,3 +104,56 @@ rolls upright at the top and lands on its own deck. Options: `R` (radius, 1.25 H
 Export the level's placeholders, in their own GLB or inside the collision GLB, and list the file in `LEVEL.imports`.
 `levelIngest` rebuilds every `fn_` node it finds, in the visual file or the collision file, and builds each node only
 once. Each placement turn is read from the node's world matrix.
+
+## The rail kit (r67)
+
+The rails live in the same world, behind the spawn (➤ walks their rows, plus a **rail chain**), and are exported in the
+same GLB under the same `fn_` naming.
+
+**A rail's height comes off the same ladder.** Its top is S 1.2 / M 2.4 / L 3.6 / XL 4.8 m above the piece's origin, so a
+rail M is level with every M deck and coping. Override it with `h` for anything else (the 0.6 m ledge is `h: 0.6`).
+
+**The frame:**
+- Each rail piece's origin is on the ground **under the start of its bar**, and local +Z runs along the bar.
+- Each piece's custom properties carry `info.out`: where the NEXT piece's origin goes, given in this piece's own frame
+  (`at` = [x across, y, z along]) along with the turn about up (`yaw_deg`).
+- **To snap two pieces together**, put the second one's origin at the first one's `out` and turn it by `yaw_deg`. The
+  game joins rail ends that sit within 0.75 m of each other, so pieces placed end to end grind as one rail. No
+  connector pieces are needed.
+- A Y junction has a second exit, `out2`, at the end of its branch.
+
+**Pieces and options:**
+
+| kind | what | options (default) |
+|------|------|-------------------|
+| `rail` | straight | `len` 8, `h`, `boost` (a booster rail's target speed, e.g. 14) |
+| `railDown` | down one step of the ladder (an M ends at S height; S drops 0.6) | `len` 6, `drop` |
+| `railKink` | flat, down a step, flat | `flat` 2.5, `run` 4, `drop` |
+| `railCurve` | flat curve turning LEFT (toward +X) | `deg` 90, `r` 4, `right` 1 turns the other way |
+| `railS` | S-bend: sideways by `off`, leaving parallel | `off` 3, `len` 10, `right` |
+| `rainbow` | up and over; both ends at the size's height | `rise` 1.2, `len` 8 |
+| `railRing` | closed circle through the origin, centred toward +X | `r` 4 |
+| `helix` | spiral, one step down per turn, ending under where it began | `r` 4, `turns` 1 |
+| `railY` | a straight with a branch forking off toward +X at 20°, curving to 40°. The left stick picks; with no stick she goes straight on | `len` 10, `at` 3, `r` 6, `deg` 40, `kick` 20 |
+| `ledge` | solid block of the size's height, steel along both top edges (they grind, the top is a floor) | `len` 8, `w` 1.2, `h` |
+| `stairs` | a flight rising the size's H at 32° to a 3 m landing, a handrail down each side 1.2 m over the step noses. The handrail's top is at H + 1.2 (the next size up) and its foot at 1.2, so it snaps into the ladder too. Origin at the BOTTOM step; +Z goes up the flight | `angle` 32, `land` 3, `w` 4, `hr` 1.2, `rails: false` |
+
+**Things that fit:**
+- A flat rail of a size meets any other rail, curve or ring of that size.
+- A down rail or kink of a size ends at the next size down.
+- A stair set's handrail top meets a flat rail one size up, standing on its landing.
+- The `rail chain` row is a worked example: rail M, curve M, down M, rail S, curve S right, kink S, then rail at 0.6 m.
+  It is ground as ONE grind in the test.
+
+**In Blender each rail is a tube on its piece** (its top is the line she rides), with a `guide_` line per rail for
+reference. On import the game rebuilds the rails from the piece. With `draw: false` on the piece, the rails are
+ground but not drawn, because your art is the rail.
+
+**Tested in `npm run sim kit`:**
+- Every rail path in the gallery is ground end to end from its higher end, and the ring goes round.
+- A tap from the ground beside a rail, a down rail and both ledges gets her onto it.
+- Every stair set: rolled down without dropping below the step noses, rolled up onto its landing, and its handrail
+  ground from the landing to the bottom.
+- The chain is ridden end to end, the Y follows the stick, the booster speeds her up, and a ledge is a floor on top
+  and a wall from the side.
+- The export round trip puts all 68 rail ends back within 0.000 m.

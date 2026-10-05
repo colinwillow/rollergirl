@@ -91,6 +91,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE RAIL KIT (r67, `KIT_RAIL_ROWS`, `kRail`, `kArcPts`, `kCol`, `KIT_CHAIN`, `RAILKIT`).** *"We'll do the same
+  thing with a rail system."* Same world, same `fn_` export, rows behind the spawn: straights S-XL, down rails, kinks,
+  curves (90 left / 45 right / r 6), S-bend, rainbow, ring, helix, a Y, a booster, two ledges, three stair sets with
+  handrails, and a CHAIN of pieces snapped end to end. **A rail's height is ABSOLUTE and on the ramps' ladder** (S 1.2 ..
+  XL 4.8), origin on the ground under the bar's start, +u along it; every piece returns `out` (and the Y `out2`) -- the
+  frame the next piece's origin goes in -- and `railLink` joins ends within 0.75 m, so snapped pieces ARE one grind with
+  no connector piece. The export writes `info.out` in glTF local terms and a six-sided tube per rail as the placeholder
+  (a rail-only piece was otherwise an empty in Blender). `draw: false` on an import also leaves the rails undrawn.
+  **TWO THINGS ONLY THE SIM SAW:** the stair slope (collider-only, through the step noses) was wound DOWN and thrown out
+  by `triAdd`, so she flew over every flight -- `kCol` winds it up whatever order it arrives in; and a Y whose branch
+  leaves TANGENT to the main line can never be chosen, because a thumb pushed down it scores within `RAILNET.brMargin`
+  of carrying straight on -- the branch kicks off at 20 deg now. `npm run sim kit` grinds all 34 gallery rail paths end to
+  end from their high end (a stair rail climbed at grind speed stalls -- that is skating), taps onto rails and ledges
+  from the ground, rolls every stair set down and up, grinds the 7-piece chain as one, takes the Y by the stick, and the
+  export round trip puts all 68 rail ends back to 0.000 m. **Rolling UP a stair set fast launches her off the top** --
+  32 deg ending in a flat is a kicker; the test coasts in at just over the climb.
 - **THE RAMP KIT IS A THIRD WORLD, AND IT IS THE SPEC FOR HIS BLENDER LEVELS (r66, `KITW`, `KSZ`, `KIT_KINDS`, `kitPiece`,
   `kitWorld`, `levelFn`, `docs/RAMP_KIT.md`).** *"Build a set of modular ramp designs ... the corner piece of a half pipe,
   the straight, a junction where another tube meets it at 90, a bowl, a half bowl for an end, ramps in and out, taller

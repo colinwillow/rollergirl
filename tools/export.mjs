@@ -115,15 +115,33 @@ if (KITMODE) {
     const toLocal = (X, Y, Z) => { const dx = X - T.x, dz = Z - T.z; return [dx * fz - dz * fx, Y - T.y, dx * fx + dz * fz]; };
     const n = cnt[pc.kind + pc.size] = (cnt[pc.kind + pc.size] || 0) + 1, name = `fn_${pc.kind}_${pc.size}_${n}`;
     const S = rg.KSZ[pc.size] || {}, o = { ...pc.o }; delete o.yaw;
+    const paths = pc.rails || (pc.rail ? [pc.rail] : []);
     // TOP LEVEL = what rebuilds it (kind, size, the options it was built with); `info` = reference numbers only, and it
     // is an object so `levelFn` never reads it back as an option (a roll-in reads `o.r` and `o.deck` -- the size's
     // radius handed back as one would build a different piece)
     const extras = { fn: pc.kind, size: pc.size, ...o, label: pc.label || '', info: { H: S.H, r: S.r && +S.r.toFixed(3), lip: S.lip && +S.lip.toFixed(3),
-      sweep_deg: S.sweep && Math.round(S.sweep * 180 / Math.PI), deck: K.deck, footprint_w_by_u: [+(pc.wid || 0).toFixed(2), +(pc.len || 0).toFixed(2)], top: pc.h != null ? +(+pc.h).toFixed(2) : undefined } };
+      sweep_deg: S.sweep && Math.round(S.sweep * 180 / Math.PI), deck: K.deck, footprint_w_by_u: [+(pc.wid || 0).toFixed(2), +(pc.len || 0).toFixed(2)], top: pc.h != null ? +(+pc.h).toFixed(2) : undefined,
+      // r67: WHERE THE NEXT PIECE'S ORIGIN GOES, in this node's own frame (glTF: +Z along, +X across) and the turn about Y
+      out: pc.out ? { at: [+pc.out.w.toFixed(3), +pc.out.y.toFixed(3), +pc.out.u.toFixed(3)], yaw_deg: +(pc.out.dyaw * 180 / Math.PI).toFixed(2) } : undefined,
+      out2: pc.out2 ? { at: [+pc.out2.w.toFixed(3), +pc.out2.y.toFixed(3), +pc.out2.u.toFixed(3)], yaw_deg: +(pc.out2.dyaw * 180 / Math.PI).toFixed(2) } : undefined,
+      rails: paths.length || undefined } };
     const node = { translation: [T.x, T.y, T.z], rotation: [0, Math.sin(T.yaw / 2), 0, Math.cos(T.yaw / 2)], extras };
-    if (pc.pos && pc.pos.length) {
-      const pos = new Float32Array(pc.pos.length), col = new Float32Array(pc.col);
-      for (let i = 0; i < pc.pos.length; i += 3) pos.set(toLocal(pc.pos[i], pc.pos[i + 1], pc.pos[i + 2]), i);
+    // r67: A RAIL IS DRAWN BY `railDraw`, NOT INTO THE PIECE'S TRIANGLES -- so a rail-only piece would arrive in Blender
+    // as an empty. Each path gets a six-sided tube along its points (its TOP is the line she rides), steel or booster pink.
+    const wpos = (pc.pos || []).slice(), wcol = (pc.col || []).slice();
+    if (!pc.rail) for (const R of paths) {
+      const pts = [R.segs[0].a, ...R.segs.map(q => q.b)], r = 0.045, c = R.boost ? [1, 0.17, 0.38] : [0.6, 0.62, 0.68], ring = [];
+      pts.forEach((q, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+        const t = new THREE.Vector3(b.x - a.x, b.y - a.y, b.z - a.z).normalize(), up0 = Math.abs(t.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+        const sd = new THREE.Vector3().crossVectors(t, up0).normalize(), up = new THREE.Vector3().crossVectors(sd, t).normalize();
+        ring.push([...Array(6)].map((_, k) => { const a6 = k / 6 * Math.PI * 2; return [q.x + (sd.x * Math.cos(a6) + up.x * Math.sin(a6)) * r - up.x * r,
+          q.y + (sd.y * Math.cos(a6) + up.y * Math.sin(a6)) * r - up.y * r, q.z + (sd.z * Math.cos(a6) + up.z * Math.sin(a6)) * r - up.z * r]; })); });
+      for (let i = 0; i < ring.length - 1; i++) for (let k = 0; k < 6; k++) { const A = ring[i][k], B = ring[i][(k + 1) % 6], C = ring[i + 1][(k + 1) % 6], D = ring[i + 1][k];
+        for (const v of [A, C, B, A, D, C]) { wpos.push(...v); wcol.push(...c); } }
+    }
+    if (wpos.length) {
+      const pos = new Float32Array(wpos.length), col = new Float32Array(wcol);
+      for (let i = 0; i < wpos.length; i += 3) pos.set(toLocal(wpos[i], wpos[i + 1], wpos[i + 2]), i);
       const nrm = new Float32Array(pos.length);
       for (let t = 0; t < pos.length; t += 9) { const ax = pos[t], ay = pos[t + 1], az = pos[t + 2], ux = pos[t + 3] - ax, uy = pos[t + 4] - ay, uz = pos[t + 5] - az, vx = pos[t + 6] - ax, vy = pos[t + 7] - ay, vz = pos[t + 8] - az;
         let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
@@ -131,15 +149,15 @@ if (KITMODE) {
       W.J.meshes.push({ name, primitives: [prim({ pos, nrm, col, uv: null }, 0, W)] }); node.mesh = W.J.meshes.length - 1;
     }
     const ni = W.node(name, root, node);
-    if (pc.rail) { const pts = [pc.rail.segs[0].a, ...pc.rail.segs.map(q => q.b)], pos = new Float32Array(pts.length * 3);
+    paths.forEach((R, j) => { const pts = [R.segs[0].a, ...R.segs.map(q => q.b)], pos = new Float32Array(pts.length * 3), gn = 'guide_' + name + (paths.length > 1 ? '_' + j : '');
       pts.forEach((q, i) => pos.set(toLocal(q.x, q.y, q.z), i * 3));
-      W.J.meshes.push({ name: 'guide_' + name, primitives: [{ attributes: { POSITION: W.acc(pos, 'VEC3', 5126, true) }, mode: 3 }] });
-      W.node('guide_' + name, ni, { mesh: W.J.meshes.length - 1, extras: { part_of: name, info: { boost: pc.rail.boost } } }); }
+      W.J.meshes.push({ name: gn, primitives: [{ attributes: { POSITION: W.acc(pos, 'VEC3', 5126, true) }, mode: 3 }] });
+      W.node(gn, ni, { mesh: W.J.meshes.length - 1, extras: { part_of: name, info: { boost: R.boost, closed: !!R.closed } } }); });
     spec.push({ name, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI) });
   }
   const sz = W.write(`${OUT}/rollergirl_kit.glb`);
   fs.writeFileSync(`${OUT}/rollergirl_kit.json`, JSON.stringify({ sizes: Object.fromEntries(Object.entries(rg.KSZ).map(([k, v]) => [k, { H: v.H, r: +v.r.toFixed(3), lip: +v.lip.toFixed(3), sweep_deg: Math.round(v.sweep * 180 / Math.PI) }])),
-    width: K.W, deck: K.deck, coping: K.cope, pieces: spec }, null, 1));
+    width: K.W, deck: K.deck, coping: K.cope, rail_step: 1.2, pieces: spec }, null, 1));
   console.log(`kit: ${K.pieces.length} pieces -> ${OUT}/rollergirl_kit.glb (${(sz / 1e6).toFixed(2)} MB) + ${OUT}/rollergirl_kit.json`);
   process.exit(0);
 }
