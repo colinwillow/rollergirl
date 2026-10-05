@@ -50,6 +50,7 @@ export { FakePMREM as PMREMGenerator };
 const boot = fs.readFileSync('tools/boot.mjs', 'utf8');
 const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:END'));
 (0, eval)(stubs);
+globalThis.localStorage.setItem('rg.world', '0');   // r64: the export is of the world this file builds, not of his zones
 
 const html = fs.readFileSync('index.html', 'utf8');
 let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];

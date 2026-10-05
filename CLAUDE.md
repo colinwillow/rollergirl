@@ -63,6 +63,9 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
 - `models/melee_zap.glb` — **Zap's melee set, borrowed from weirdport (r39)** by `npm run borrow` (`tools/borrow.mjs`,
   reads `../colinwillow/weirdport/models/characters/zap.glb` or a path you pass): nodes + 12 animations, no mesh,
   632 KB. Re-run it if he re-exports Zap. Delete it the day she has her own melee clips.
+- `zones/` — **his Blender skate world (r64)**, one folder per zone (`zone_<name>_visual.glb` draco + webp,
+  `zone_<name>_collision.glb` plain), all in WORLD coordinates, plus `ZONES_README.md` (his Blender session's notes).
+  `bump.mjs` hashes every subfolder of `zones/` on its own, so a new zone needs no `DIRS` edit.
 - `models/kit/` — **his weirdport building kit (r45)**, copied from `../colinwillow/weirdport/models/building_kit/`:
   `building_kit_pieces.glb` (the piece library: `wall_window`, `wall_solid`, `wall_door_C`, `wall_wide`, `wall_parapet`,
   `corner`, `roof` ... on a 3 m bay / 3 m floor) skins every procedural building, and
@@ -87,6 +90,61 @@ way round. Measuring components made a six-frame stride and a static clip look i
 honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
+
+- **HIS ZONES ARE THE WORLD NOW, AND THE BUILT-IN PARK IS THE OTHER ONE (r64, `WORLD`, `LEVEL.zones`, `levelIngest`).**
+  *"Import zone_skyline via LEVEL.imports at [0,0,0] ... rail_ edge polylines, launchers, spots, water and lava, fall
+  below -40 -> respawn at the last spot, spawn me at the spawn marker."* His zones are in world coordinates and
+  zone_skyline alone covers x/z +/-133 -- the hub, the bowl and three districts' gates -- so the two worlds cannot both
+  stand. `WORLD.zones` (1, his) is read at LOAD from `rg.world` (or `?world=park|zones`), and in zones mode
+  `buildPark` builds NOTHING but the empty grids, Orbital's water/launcher/put-back machinery and the splash points.
+  ⚙ "World 1 his zones 0 built-in park (reload)" switches. `init` starts the zones' collision files right after
+  `buildPark` and WAITS for them before she drops in (no floor otherwise); the visuals land whenever they land.
+  **What `levelIngest` reads from a collision file now:**
+      rail_*            `grind_path_gltf` (an ordered line, a JSON string) -> a `railPath`, `railLoop` if `closed`.
+                        A bare LINES primitive with no extras is chained from its own segments (`lineChain`).
+                        A line that turns over gets `ups` by PARALLEL TRANSPORT (`railUps`: a flat curve keeps
+                        world up, a loop turns with the track) and `LEVEL.loopBoost`, the city loop's booster.
+                        `LEVEL.railMaxV` 32 caps them -- his sky chute is 67 m of drop and reached 43.5 m/s.
+                        Then `railLink()` again, so his lines join each other and anything already there.
+      marker_launcher_* `ORB.launch`. HIS `apex` IS A WORLD HEIGHT (34 over a target at 30.5), the launcher's is
+                        metres over the higher end, so it is converted. The pad is re-seated on the COLLIDER's floor
+                        under it (a tower box a metre taller than the picture buried one), and a ➤ stop is put a few
+                        metres short of every pad on open floor at its height, facing it.
+      marker_spot_* / marker_spawn_*  `CITY.spots['<zone> <spot>']`, `heading` in DEGREES (game sense). The first
+                        spawn sets `SPAWN` and `SPAWN.h` (respawn faces it). The ➤ key walks `LEVEL.go` in zones mode.
+      zone_water_*      `ORB.water` with its TRIANGLES (`tris`, tested by `inTris`), `hazard: lava` -> LAVA!
+      prop_* metal      still a rail along the top -- only up to `LEVEL.railW` half width (a wide metal box is a
+                        block), and NOT when one of his rail lines runs within `LEVEL.dedupe` of both ends (the fence
+                        boxes under his railings: 147 of them in skyline).
+  **FALLING**: in zones mode, under `WORLD.fallY` (-40) she is `putBack` where she last stood (`ORB.safe`, the
+  splash's own rule, now one function), toast FELL!; the park keeps its old -8 respawn.
+  **THE VISUAL IS MERGED INDEXED NOW.** `toNonIndexed` tripled every vertex; a zone is 549k triangles.
+- **HIS EXPORTER WRITES SLOPED PIECES AS THEIR BOUNDING BOXES, AND THEY ARE REBUILT (r64, `LEVEL.slopeFix`).**
+  Every bridge, sky bridge, the loop track and four stairs in skyline come out as yaw-only boxes -- SK_B_HQ_Dock_Deck
+  is a 21 m SOLID BLOCK between two islands. A `*_Deck`/`*_RailMid`/`*_Caps` box thicker than `LEVEL.slopeH` (2.5 m)
+  is not added; a Deck with two `*_RailTop` lines is rebuilt as the RIBBON between them (`levelRibbon`, dropped by the
+  rails' measured height over the island they start from, wound so the first quad faces up and KEPT, so a loop's
+  upside-down half is thrown out rather than becoming a floor on top of it, and lifted onto a deck it arrives on
+  when it runs into that deck's side); one with none is a stair (`levelStair`, one slope to the floor beyond its
+  high end). **Checked against his VISUAL, decoded with the vendored draco wasm in node**: every ribbon sits within
+  0.25-0.5 m of his concrete decks. Delete the whole rule the day his collision export writes them as `ramp_`.
+- **A RAMP RUNNING UP UNDER A SLAB IS A WALL, NOT A CEILING (r64, `solidPush`).** The "from underneath" push put her
+  `hgt` under the slab's bottom -- and a ramp rising under one meets it, so that push went THROUGH the floor she was on
+  and she fell out of the world (skyline's HQ->Dock bridge runs under the dock deck in his own scene; the visual says
+  so: concrete 24->28 under metal at 28.4/30). If the push would go under her floor she is turned back instead.
+- **LAUNCH ARCS ARE CLEARED (r64, `launchSolve`, `ORB.launchClear` 20).** The arc is sampled against the solids, feet
+  to head, and raised a metre at a time until clear; nothing clears -> his authored arc. Skyline pad 37 needed +10 m
+  over a container stack. `L.clear` says what happened.
+- **`npm run sim zones` RUNS IN THE OTHER WORLD**, so the harness sets `rg.world` from the case before the import and a
+  full run hands `zones` to a child process. His real collision file through the real loader; the visual is draco and
+  is not loaded. `warn()` rows (EXPORT, not FAIL) are things to fix in HIS file, not here. **Skyline, r64:**
+      pad 229          sits beside the hangar; the arc meets it -- lands 27 m off
+      pad 249 / 262    aim at a point beside the alien spire / under a canopy: no clear arc, land 9 / 4 m off
+      HQ->Dock bridge  runs UNDER the dock deck in his scene -- she rides up to it and is turned back
+      ramp_SK_Bowl     the node has NO MESH: the bowl island has no bowl in its collider, only the deck at 4
+      SK_Bridge_T*     a tower's box top is 42 against a roof at 41.02 in the picture (a bounding box with a parapet
+                       or antenna in it); SK_Dock_Deck's yaw-only box covers corners the deck does not have
+  `tools/export.mjs` sets `rg.world` 0: the export is of the world this file builds.
 
 - **THE ROSTER, AND WHICH CLIPS PING-PONG IS NOW MEASURED RATHER THAN LISTED (r11, `CHARS`,
   `clipRoles`, `clipCyclic`).** `models/alien_rollerskate_blue_test.glb` is the second
