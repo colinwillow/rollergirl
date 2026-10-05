@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r58</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r59</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r58';
+const BUILD = 'r59';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1318,6 +1318,8 @@ function buildPark() {
   orbitalRails();    // before cityRails, whose gemBuild has to see this district's gems too
   sliceRails();
   cityRails();
+  railWeave();       // r59: connectors between railings that stop just short of each other
+  railLink();        // r59: every rail end joined to whatever it touches
   hydDraw(); geyMake();
   orbMeshes();
   sliceMeshes();
@@ -1523,10 +1525,22 @@ function stepGrind(dt) {
   // r45: A BOOSTER pulls her speed to its own whatever the slope -- what gets her up a 30 m spiral
   if (P.boost) G.s += (P.boost * RAILX.boostV - G.s) * (1 - Math.exp(-(P.boostK || RAILX.boostK) * dt));
   if (P.maxV) G.s = Math.min(G.s, P.maxV);
+  const tOld = G.t;
   G.t += G.dir * G.s * dt / R.len;
-  // r45: OFF THE END OF ONE SEGMENT AND ONTO THE NEXT, carrying the overshoot in metres
-  while (G.t > 1 && G.dir > 0 && R.next) { G.t = (G.t - 1) * R.len / R.next.len; R = G.rail = R.next; }
-  while (G.t < 0 && G.dir < 0 && R.prev) { G.t = 1 + G.t * R.len / R.prev.len; R = G.rail = R.prev; }
+  // r59: PAST A BRANCH -- another rail leaves this one here; the left stick pointing down it takes it
+  if (RAILNET.on && R.br) for (const B of R.br) {
+    if (!((G.dir > 0 && tOld < B.t && G.t >= B.t) || (G.dir < 0 && tOld > B.t && G.t <= B.t))) continue;
+    const pk = railPick([{ R, t: B.t, dir: G.dir, nat: 1, bonus: RAILNET.brMargin }, { R: B.R, t: B.at === 'a' ? 0 : 1, dir: B.at === 'a' ? 1 : -1 }], _ve.copy(R.d).multiplyScalar(G.dir));
+    if (pk && pk.R !== R) { const over = Math.abs(G.t - B.t) * R.len; R = G.rail = pk.R; G.dir = pk.dir; G.t = pk.t + pk.dir * over / R.len; G.turns = (G.turns || 0) + 1; sparkBurst(6); break; }
+  }
+  // r45: OFF THE END OF ONE SEGMENT AND ONTO THE NEXT, carrying the overshoot in metres -- r59: or onto whatever
+  // rail is JOINED at that end, which can run the other way (`railExit` picks, the stick can choose)
+  for (let k = 0; k < 8; k++) {
+    const atB = G.t > 1 && G.dir > 0, atA = G.t < 0 && G.dir < 0; if (!atB && !atA) break;
+    const over = (atB ? G.t - 1 : -G.t) * R.len, nx = railExit(R, atB ? 'b' : 'a', G.dir); if (!nx) break;
+    if (!nx.nat) { G.turns = (G.turns || 0) + 1; }
+    R = G.rail = nx.R; G.dir = nx.dir; G.t = nx.t + nx.dir * over / R.len;
+  }
   ux = R.d.x * G.dir; uy = R.d.y * G.dir; uz = R.d.z * G.dir;
   G.time += dt;
   const end = G.t <= 0 || G.t >= 1;
@@ -1543,6 +1557,146 @@ function stepGrind(dt) {
     p.bq.setFromRotationMatrix(_m4.makeBasis(x, u, f));
   } else p.bq.setFromAxisAngle(UP, p.heading);
   if (end || G.s < GRIND.stall) grindLeave(false);
+}
+// ---- r59: THE RAIL NETWORK. *"It would be really cool if the railings that you grind attached to each other, so
+// they looped around -- you just continue grinding down the stairs and then it went along the railing along the
+// water ... make the grind rail system way more complex."* Three layers on top of the paths, all built once after
+// every rail is in:
+//   JOINS      a path END within `linkR` of another path is joined to it. End to end, the grind runs straight on
+//              (either way round -- a join can flip the direction she runs a segment in). End to the MIDDLE of
+//              another path is a T: she arrives and carries on whichever way along it is straighter.
+//   BRANCHES   the other half of a T: riding along the long rail past the point where another one leaves, she
+//              takes the branch IF THE LEFT STICK POINTS DOWN IT, and carries straight on if not. At an end with
+//              several ways on, the stick chooses too; with no stick, the straightest wins.
+//   WEAVE      where a railing ends a short way short of another (the stair rail stopping two metres from the
+//              water rail), a CONNECTOR is built: a curved rail from the end, leaving along its own direction,
+//              arriving along the other rail -- or a Y onto both ways when it meets it square. Only between
+//              railings of the hand-built districts (`weaveNames`), and only where nothing solid is in the way.
+// The grind itself is unchanged: speed, drag, slope and boosters all carry across a junction as across any joint.
+const RAILNET = { on: 1, linkR: 0.75, weave: 1, weaveR: 3.6, weaveDy: 1.3, bend: 2.6, minR: 0.6, stickK: 1.6, stickMin: 0.35, brMargin: 0.3,   // how much a BRANCH must beat carrying straight on by
+  minDot: -0.15, weaveNames: /^(slice|hub|sky)/, dbg: [], joins: 0, branches: 0, woven: [] };
+const railEndless = P => !P.segs.length || !!P.ups || !!P.hang;
+const _ve = new THREE.Vector3();
+function railNear(P, q) {
+  let best = null;
+  for (const R of P.segs) {
+    const ex = R.b.x - R.a.x, ey = R.b.y - R.a.y, ez = R.b.z - R.a.z;
+    const t = clamp(((q.x - R.a.x) * ex + (q.y - R.a.y) * ey + (q.z - R.a.z) * ez) / (R.len * R.len), 0, 1);
+    const x = R.a.x + ex * t, y = R.a.y + ey * t, z = R.a.z + ez * t, d = Math.hypot(q.x - x, q.y - y, q.z - z);
+    if (!best || d < best.d) best = { R, t, d, x, y, z };
+  }
+  return best;
+}
+function pathEnds(P) {
+  if (P.closed || railEndless(P)) return [];
+  const A = P.segs[0], B = P.segs[P.segs.length - 1];
+  return [{ P, R: A, at: 'a', q: A.a, out: A.d.clone().negate() }, { P, R: B, at: 'b', q: B.b, out: B.d.clone() }];
+}
+// `s` metres along a path from (R, t)
+function railWalk(R, t, s) {
+  let pos = t * R.len + s;
+  for (let k = 0; k < 400 && pos > R.len && R.next; k++) { pos -= R.len; R = R.next; }
+  for (let k = 0; k < 400 && pos < 0 && R.prev; k++) { R = R.prev; pos += R.len; }
+  const tt = clamp(pos / R.len, 0, 1);
+  return { R, t: tt, q: R.a.clone().lerp(R.b, tt) };
+}
+// a path whose last segment hands on to its first
+function railLoop(pts, o) {
+  const P = railPath(pts.concat([pts[0]]), o);
+  if (P.segs.length > 2) { const a = P.segs[0], z = P.segs[P.segs.length - 1]; z.next = a; a.prev = z; P.closed = true; }
+  let cum = 0; for (const S of P.segs) { S.s0 = cum; cum += S.len; } P.len = cum;
+  return P;
+}
+// THE WEAVE: connectors between railings that stop just short of each other
+function railWeave() {
+  const N = RAILNET; N.woven.length = 0;
+  if (!N.weave) return;
+  const cand = PATHS.filter(P => N.weaveNames.test(P.name) && !railEndless(P) && !P.boost && !P.link);
+  const used = new Set(), key = (P, at) => PATHS.indexOf(P) + at;
+  const bez = (a, b, c, d, n) => { const out = []; for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t;
+    out.push(new THREE.Vector3().addScaledVector(a, u * u * u).addScaledVector(b, 3 * u * u * t).addScaledVector(c, 3 * u * t * t).addScaledVector(d, t * t * t)); } return out; };
+  const clear = pts => {
+    for (let i = 1; i < pts.length - 1; i++) { const q = pts[i]; if (solidAt(q.x, q.y - 0.45, q.z, 0.02)) return false; }
+    for (let i = 1; i < pts.length - 1; i++) { const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+      const u = b.clone().sub(a), v = c.clone().sub(b), ang = u.angleTo(v); if (ang > 1e-3 && Math.min(u.length(), v.length()) / ang < N.minR) return false; }
+    return true; };
+  for (const P of cand) for (const E of pathEnds(P)) {
+    if (used.has(key(P, E.at))) continue;
+    let best = null, near = false;
+    for (const Q of cand) { if (Q === P) continue;
+      const n = railNear(Q, E.q); if (!n) continue;
+      if (n.d <= N.linkR) { near = true; break; }
+      const dx = n.x - E.q.x, dz = n.z - E.q.z, dp = Math.hypot(dx, dz);
+      if (dp > N.weaveR || Math.abs(n.y - E.q.y) > N.weaveDy) continue;
+      const oh = Math.hypot(E.out.x, E.out.z) || 1;
+      if ((dx * E.out.x + dz * E.out.z) / (dp * oh) < 0.2) continue;       // behind the end: not where it was going
+      if (!best || n.d < best.n.d) best = { Q, n };
+    }
+    if (near || !best) continue;
+    const { Q, n } = best, P0 = E.q.clone(), ends = pathEnds(Q);
+    const qa = ends.find(e => e.R === n.R && ((e.at === 'a' && n.t < 1e-3) || (e.at === 'b' && n.t > 1 - 1e-3)));
+    const tries = [];
+    if (qa) { if (qa.out.dot(E.out) < 0.3) tries.push({ P3: qa.q.clone(), tin: qa.out.clone().negate(), end: qa }); }
+    else {
+      const Td = n.R.d, c = (E.out.x * Td.x + E.out.z * Td.z) / ((Math.hypot(E.out.x, E.out.z) || 1) * (Math.hypot(Td.x, Td.z) || 1));
+      // MEETING IT SQUARE, a quarter circle whose radius is the gap lands tangent on the rail; meeting it at a
+      // slant, a longer S onto it, further along
+      const sq = Math.abs(c) < 0.35, hp = Math.hypot(n.x - P0.x, n.z - P0.z);
+      for (const s of sq ? [1, -1] : [Math.sign(c)]) { const W = railWalk(n.R, n.t, s * (sq ? Math.max(hp, 0.8) : Math.max(N.bend, 2 * hp)));
+        tries.push({ P3: W.q, tin: W.R.d.clone().multiplyScalar(s), k: sq ? 0.5523 * Math.max(hp, 0.8) : 0 }); }
+    }
+    let made = 0;
+    for (const T of tries) {
+      const L = P0.distanceTo(T.P3), k = T.k || 0.45 * L;
+      const pts = bez(P0, P0.clone().addScaledVector(E.out, k), T.P3.clone().addScaledVector(T.tin, -k), T.P3, Math.max(4, Math.ceil(L / 0.5)));
+      if (!clear(pts)) { if (N.dbg) N.dbg.push(`rejected ${P.name} ${E.at} at ${P0.x.toFixed(1)},${P0.z.toFixed(1)} -> ${Q.name}`); continue; }
+      const C = railPath(pts, { name: 'link' }); C.link = 1; made++;
+      N.woven.push({ from: P.name, to: Q.name, x: P0.x, y: P0.y, z: P0.z, len: L, y2: tries.length > 1 });
+      if (SLC.built) { slTube('orange', pts.map(p => [p.x, p.y, p.z]), 0.05);
+        const m = pts[pts.length >> 1], g = groundAt(m.x, m.z, m.y - 0.2, 6), h = g.hit ? m.y - g.floor : 9;
+        if (h > 0.2 && h < 2.4) slGeo('metal', new THREE.CylinderGeometry(0.032, 0.04, h, 6, 1, true), slMat(m.x, g.floor + h / 2, m.z), { smooth: true }); }
+      else railDraw(C, { mat: 'orange' });
+      if (T.end) used.add(key(Q, T.end.at));
+    }
+    if (made) used.add(key(P, E.at));
+  }
+}
+// THE JOINS AND BRANCHES: every path end near another path, recorded on both
+function railLink() {
+  const N = RAILNET; N.joins = N.branches = 0;
+  const ok = PATHS.filter(P => !railEndless(P));
+  for (const P of ok) for (const E of pathEnds(P)) for (const Q of ok) {
+    if (Q === P) continue;
+    const n = railNear(Q, E.q); if (!n || n.d > N.linkR) continue;
+    const first = Q.segs[0], last = Q.segs[Q.segs.length - 1];
+    const at = !Q.closed && n.R === first && n.t < 1e-3 ? 'a' : !Q.closed && n.R === last && n.t > 1 - 1e-3 ? 'b' : 'm';
+    const jx = E.R.jx || (E.R.jx = { a: [], b: [] });
+    if (jx[E.at].some(J => J.R === n.R)) continue;
+    jx[E.at].push({ R: n.R, at, t: n.t }); N.joins++;
+    if (at === 'm') { (n.R.br || (n.R.br = [])).push({ t: n.t, R: E.R, at: E.at }); N.branches++; }
+  }
+}
+// which way on: the straightest, unless the left stick points down another
+function railPick(C, cur) {
+  const sw = stickWorld(), N = RAILNET; let best = null, bs = -1e9;
+  for (const c of C) {
+    const tx = c.R.d.x * c.dir, ty = c.R.d.y * c.dir, tz = c.R.d.z * c.dir, dot = tx * cur.x + ty * cur.y + tz * cur.z;
+    if (!c.nat && dot < N.minDot) continue;
+    const th = Math.max(Math.hypot(tx, tz), 0.2);
+    const s = dot + (sw.mag > N.stickMin ? N.stickK * sw.mag * (tx * sw.x + tz * sw.z) / th : 0) + (c.nat ? 0.05 : 0) + (c.bonus || 0);
+    if (s > bs) { bs = s; best = c; }
+  }
+  return best;
+}
+function railExit(R, at, dirIn) {
+  const cur = _ve.copy(R.d).multiplyScalar(dirIn), C = [];
+  if (at === 'b' && R.next) C.push({ R: R.next, t: 0, dir: 1, nat: 1 });
+  if (at === 'a' && R.prev) C.push({ R: R.prev, t: 1, dir: -1, nat: 1 });
+  if (RAILNET.on && R.jx) for (const J of R.jx[at]) {
+    if (J.at === 'a') C.push({ R: J.R, t: 0, dir: 1 }); else if (J.at === 'b') C.push({ R: J.R, t: 1, dir: -1 });
+    else { C.push({ R: J.R, t: J.t, dir: 1 }); C.push({ R: J.R, t: J.t, dir: -1 }); }
+  }
+  return C.length ? railPick(C, cur) : null;
 }
 const _v3 = new THREE.Vector3(), _m4 = new THREE.Matrix4();
 function grindLeave(pop) {
@@ -5004,7 +5158,101 @@ function hubDress() {
   slDecal('decal', 'bowlart', [-16, 0.012, -58], [1, 0, 0], [0, 0, -1], 7.5, null, 0.012);
   slDecal('decal', 'tag', [-46, 0.012, 40], [0.94, 0, 0.34], [0.34, 0, -0.94], 6.4, null, 0.012);
   slDecal('decal', 'goodlines', [24, 0.012, 46], [1, 0, 0], [0, 0, -1], 5.2, null, 0.012);
+  hubSky();         // r59: the floating islands over the hub
   Object.assign(CITY.spots, { 'hub deck': [-54, D.y, 59, Math.PI], 'hub ledges': [31, 0, -24, Math.PI], 'hub plinth': [-32, 0, 44, Math.PI], 'hub gap': [HUB.gap.x, 0, HUB.gap.z + 14, Math.PI] });
+}
+// ---- r59: THE SKYWAY. *"More upper levels -- floating buildings you can get up to."* Three islands over the hub,
+// every one reached by RAIL and every one ringed by a rail, so the whole thing is one grind network: a booster
+// up from the plaza onto the first (a little noodle bar on it), a booster bridge to the second, a long booster
+// across the park to the spire on the third, and two ways down -- the helix off the spire to the plaza, and a long
+// down rail off the first island onto the skate shop's roof, plus a steep one off the second onto the pavilion.
+// Arriving on a ring she carries on round it the straighter way; the LEFT STICK pointed down a rail leaving the
+// ring takes it. The island tops are floors (land on them, skate them, roll off the edge -- it is a long way down).
+const SKYW = { on: 1, ring: 0.6, inset: 0.35, boostUp: 14, boostX: 13, boostSpire: 15, helix: { x: 38, z: -17, r: 8, turns: 1.75, y1: 2.2 },
+  isl: [ { x: -10, z: 50, y: 12, hx: 6, hz: 5, rock: 0xc8b4e8 },
+         { x: 24, z: 44, y: 17, hx: 6, hz: 6, rock: 0xe8b4c8 },
+         { x: 42.65, z: -9, y: 24, hx: 5, hz: 5, rock: 0xb4c8e8 } ] };
+const skyRingPt = (I, side) => { const e = SKYW.inset, y = I.y + SKYW.ring;
+  return side === 'e' ? new THREE.Vector3(I.x + I.hx - e, y, I.z) : side === 'w' ? new THREE.Vector3(I.x - I.hx + e, y, I.z)
+    : side === 'n' ? new THREE.Vector3(I.x, y, I.z + I.hz - e) : new THREE.Vector3(I.x, y, I.z - I.hz + e); };
+function hubSky() {
+  if (!SKYW.on) return;
+  for (const I of SKYW.isl) {
+    const x0 = I.x - I.hx, x1 = I.x + I.hx, z0 = I.z - I.hz, z1 = I.z + I.hz, R = Math.max(I.hx, I.hz);
+    slBox('stone', x0, I.y - 0.9, z0, x1, I.y, z1, { top: 'paving', bev: 0.12, skip: '', solid: true, tag: 'sky isle', base: I.y - 0.9, tint: 0xf4ecfa });
+    slBox('neon', x0 - 0.02, I.y - 0.55, z0 - 0.02, x1 + 0.02, I.y - 0.48, z1 + 0.02, { bev: 0, tint: 0x40e8ff, skip: 'yY' });
+    // the rock it floats on: two jittered cones, apex down
+    for (const [s, dx, dz, hh] of [[1.05, 0, 0, Math.min(R * 0.9, I.y - 7)], [0.55, I.hx * 0.35, -I.hz * 0.3, Math.min(R * 1.2, I.y - 6)]]) {
+      const g = new THREE.ConeGeometry(R * s, hh, 8, 3); g.rotateX(Math.PI);
+      const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i); if (yy > hh / 2 - 0.01) continue;
+        const k = 0.75 + 0.5 * slr(); p.setXYZ(i, p.getX(i) * k, yy + (slr() - 0.5) * 0.6, p.getZ(i) * k); }
+      slGeo('stone', g, slMat(I.x + dx, I.y - 0.9 - hh / 2, I.z + dz), { tint: I.rock, base: I.y - 0.9 - hh });
+    }
+    slGlow(I.x, I.y - R * 0.8, I.z, R * 2.2, 0x9b7bff, 0.25);
+    slIvy(x0, z0, x1, z0, I.y - 0.85, 0, -1, 0.6, 1.2, 4.5); slIvy(x1, z1, x0, z1, I.y - 0.85, 0, 1, 0.6, 1.2, 4.5);
+    // the ring rail: steel on short posts, inset from the edge
+    const rg = slRound(I.x, I.z, I.hx - SKYW.inset, I.hz - SKYW.inset, 1.4, 4), y = I.y + SKYW.ring;
+    const pts = rg.P.map(p => [p[0], y, p[1]]);
+    slTube('steel', pts.concat([pts[0]]), 0.05);
+    pts.forEach((p, i) => { if (i % 3 === 0) slGeo('metal', new THREE.CylinderGeometry(0.03, 0.035, SKYW.ring, 6, 1, true), slMat(p[0], I.y + SKYW.ring / 2, p[2]), { smooth: true }); });
+    I.ringPts = pts;
+  }
+  // island 1: a noodle bar and a bench
+  { const I = SKYW.isl[0], y = I.y;
+    slBox('plaster', I.x - 4.5, y, I.z + 1.0, I.x + 0.5, y + 3.8, I.z + 4.0, { bev: 0.06, tint: 0xffb3d1, base: y, skip: 'y', solid: true, tag: 'sky hut' });
+    slBox('trim', I.x - 4.7, y + 3.8, I.z + 0.8, I.x + 0.7, y + 4.05, I.z + 4.2, { bev: 0.04, tint: 0xf8f2ff, skip: '' });
+    slShop(I.x - 4.5, I.x + 0.5, I.z + 1.0, -1, y, { col: 0xff6fb8, neon: 0x40e8ff, w: 3.4 });
+    slBlade(I.x + 0.5, y + 2.8, I.z + 1.0, -1, 'ramen', 0.9, 0xff6fd0);
+    slBench(I.x + 3, y, I.z + 2.6, Math.PI); slLamp(I.x + 4.8, y, I.z - 3.8); slShroom(I.x - 4.6, y, I.z - 3.4, 1.3, 0x7cf0ff); }
+  // island 2: palms, a lamp, a planter
+  { const I = SKYW.isl[1], y = I.y;
+    slPlanter(I.x - 3, y, I.z + 3, 1.8, 1.8, 0.6); slPalm(I.x - 3, y + 0.6, I.z + 3, 4.2, 0xff9ad2);
+    slPlanter(I.x + 3, y, I.z - 3, 1.8, 1.8, 0.6); slPalm(I.x + 3, y + 0.6, I.z - 3, 3.8, 0xc9a2ff);
+    slLamp(I.x - 4.6, y, I.z - 4.6); slLamp(I.x + 4.6, y, I.z + 4.6);
+    slDecal('decal', 'smile', [I.x, y + 0.012, I.z], [1, 0, 0], [0, 0, -1], 2.2, null, 0.012); }
+  // island 3: the spire -- the highest point over the hub, with a light that can be seen from the plaza
+  { const I = SKYW.isl[2], y = I.y;
+    slGeo('plaster', new THREE.CylinderGeometry(0.55, 1.0, 8, 14, 1, true), slMat(I.x + 1.2, y + 4, I.z + 1.2), { smooth: true, tint: 0x4a3c8a, base: y });
+    [[3, 1.6, 0.3, 0xff6fd0], [5, 1.25, -0.4, 0x40e8ff], [7, 0.9, 0.2, 0xffc23f]].forEach(([h, rr, tl, col], i) =>
+      slGeo('neon', new THREE.TorusGeometry(rr, 0.06, 6, 32).rotateX(Math.PI / 2 + tl).rotateY(i * 1.4), slMat(I.x + 1.2, y + h, I.z + 1.2), { tint: col }));
+    slGeo('neon', new THREE.SphereGeometry(0.7, 18, 12), slMat(I.x + 1.2, y + 8.8, I.z + 1.2), { smooth: true, tint: 0xfff0b0 });
+    slGlow(I.x + 1.2, y + 8.8, I.z + 1.2, 9, 0xffd060, 0.6);
+    solidAdd(I.x + 1.2, I.z + 1.2, 1.0, 1.0, y, y + 8, 0, { top: false, tag: 'sky spire' }); }
+}
+function skyRails() {
+  if (!SKYW.on || !SKYW.isl[0].ringPts) return;
+  const V = (x, y, z) => new THREE.Vector3(x, y, z), S = SKYW, [I1, I2, I3] = S.isl;
+  const bez = (a, da, b, db, n, ka, kb) => { const L = a.distanceTo(b), A = a.clone().addScaledVector(da, L * (ka || 0.45)), B = b.clone().addScaledVector(db, -L * (kb || 0.45)), out = [];
+    for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; out.push(V(0, 0, 0).addScaledVector(a, u * u * u).addScaledVector(A, 3 * u * u * t).addScaledVector(B, 3 * u * t * t).addScaledVector(b, t * t * t)); } return out; };
+  const geo = [];
+  const draw = (P, o) => railDraw(P, Object.assign({ into: geo }, o));
+  for (const I of S.isl) I.ring = railLoop(I.ringPts.map(p => V(p[0], p[1], p[2])), { name: 'sky ring' });
+  // UP: a flat run at kerb-and-a-bit height you ollie onto, then a booster climbing onto island 1's south ring
+  { const a = V(-18, 1.0, 19), b = V(-18, 1.0, 24), e = skyRingPt(I1, 's');
+    const pts = [a, ...bez(b, V(0, 0, 1), e, V(0, 0, 1), 24).slice(0)];
+    S.up = railPath(pts, { boost: S.boostUp, maxV: 17, name: 'sky up' }); draw(S.up, { postMax: 5 }); gemsAlong(S.up, 5, 0.9, 6); }
+  // ACROSS: island 1 east -> island 2 west
+  { const P = railPath(bez(skyRingPt(I1, 'e'), V(1, 0, 0), skyRingPt(I2, 'w'), V(1, 0, 0), 26), { boost: S.boostX, maxV: 17, name: 'sky bridge' });
+    draw(P, { posts: false }); gemsAlong(P, 5, 0.9); S.bridge = P; }
+  // ACROSS THE PARK: island 2 south -> the spire's north ring, climbing
+  { const P = railPath(bez(skyRingPt(I2, 's'), V(0, 0, -1), skyRingPt(I3, 'n'), V(0, 0, -1), 44, 0.35, 0.35), { boost: S.boostSpire, maxV: 18, name: 'sky span' });
+    draw(P, { posts: false }); gemsAlong(P, 6, 0.9); S.span = P; }
+  // DOWN 1: the helix off the spire's west ring, 1.75 turns to the plaza, and a run-out
+  { const H = S.helix, w = skyRingPt(I3, 'w'), pts = [w.clone()], N = Math.ceil(H.turns * 2 * Math.PI * H.r / 1.2);
+    for (let i = 1; i <= N; i++) { const u = i / N, a = Math.PI / 2 + u * H.turns * 2 * Math.PI; pts.push(V(H.x + H.r * Math.cos(a), w.y + (H.y1 - w.y) * u, H.z + H.r * Math.sin(a))); }
+    const last = pts[pts.length - 1]; for (let i = 1; i <= 5; i++) pts.push(V(last.x, H.y1 - 0.8 * i / 5, last.z + i * 1.6));
+    S.helixP = railPath(pts, { maxV: 17, name: 'sky helix' }); draw(S.helixP, { postMax: 4 }); gemsAlong(S.helixP, 8, 0.9, 6); }
+  // DOWN 2: island 1's west ring onto the skate shop's roof
+  { const roof = V(-50, HUB.deck.y + 7.6 + 0.6, 66.6), P = railPath(bez(skyRingPt(I1, 'w'), V(-1, 0, 0), roof, V(-1, 0, 0.35).normalize(), 28), { name: 'sky drop' });
+    draw(P, { posts: false }); gemsAlong(P, 6, 0.9); S.drop = P; }
+  // DOWN 3: island 2's north ring, steep, onto the pavilion roof
+  { const V2 = HUB.pav, end = V(V2.x, V2.y + 0.36 + 0.55, V2.z - V2.hz + 0.8), P = railPath(bez(skyRingPt(I2, 'n'), V(0, 0, 1), end, V(0, -0.2, 1).normalize(), 20), { maxV: 16, name: 'sky chute' });
+    draw(P, { posts: false }); S.chute = P; }
+  // merged by material: a handful of draw calls for the lot
+  const by = new Map(); for (const g of geo) { if (!by.has(g.mat)) by.set(g.mat, []); by.get(g.mat).push(g.geo.index ? g.geo.toNonIndexed() : g.geo); }
+  for (const [mat, gs] of by) { gs.forEach(g => { for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k); });
+    const m = new THREE.Mesh(mergeGeometries(gs), mat); m.castShadow = true; m.name = 'sky rails'; scene.add(m); SLC.meshes.push(m); }
+  Object.assign(CITY.spots, { 'skyway': [I1.x + 2, I1.y, I1.z - 2, Math.PI / 2], 'skyway spire': [I3.x - 1.5, I3.y, I3.z - 2.5, -Math.PI / 2] });
 }
 function buildSlice() {
   if (!SLC.on || !ORB.on) return;
@@ -5229,6 +5477,7 @@ function sliceRails() {
   // the terrace edge
   for (const [a, b] of [[-137.5, -154.4], [-159.6, -187.5]]) { const top = slRailing([[a, SLC.TER, 10.1], [b, SLC.TER, 10.1]], H, { lower: true }); railPath(railLine(V(top[0]), V(top[1]), 2), { name: 'slice' }); }
   for (const top of SLC.railQ) railPath(top.map(V), { name: 'slice' });
+  skyRails();       // r59: the rails up to, round and down off the islands
   // closed loops (the bowl's coping): the last segment hands on to the first, the way the halo's does
   for (const pts of SLC.railC) { const P = railPath(pts.concat([pts[0]]).map(V), { name: 'slice bowl' });
     if (P.segs.length > 2) { const a = P.segs[0], z = P.segs[P.segs.length - 1]; z.next = a; a.prev = z; P.closed = true; }
@@ -6873,7 +7122,7 @@ document.getElementById('resetB').addEventListener('click', respawn);
 // r45: THE CITY IS BIG AND HE TESTS ON A PHONE WITH NO CONSOLE, so a key walks round the places worth
 // looking at: the street, the Steps, the top of the Steps, the tower's spiral, its roof, the loop, his
 // buildings, the hydrant by C. The chip names where she went.
-const GO = ['hub deck', 'hub ledges', 'hub plinth', 'hub gap', 'slice', 'slice bridge', 'slice terrace', 'shores', 'alley', 'nova', 'transit', 'transit deck', 'spire', 'gardens', 'canals', 'overflow', 'bowls', 'gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
+const GO = ['skyway', 'skyway spire', 'hub deck', 'hub ledges', 'hub plinth', 'hub gap', 'slice', 'slice bridge', 'slice terrace', 'shores', 'alley', 'nova', 'transit', 'transit deck', 'spire', 'gardens', 'canals', 'overflow', 'bowls', 'gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
 let goI = -1;
 function goSpot(name) {
   const s = CITY.spots[name]; if (!s) return false;
@@ -8190,6 +8439,10 @@ const TAILUI = [
   ['AIR.aimArm',     'Thumb move to take over', 0, 90, 5, '', 'deg'],
   ['AIR.settleRamp', 'Hold down over a ramp = settle', 0, 1, 1, ''],
   ['LAND.flipMax',   'Longest flip',   0.4, 2.5, 0.05, 's'],
+  ['Rail network (r59)', ''],
+  ['RAILNET.on',     'Rails join up (junctions)', 0, 1, 1, ''],
+  ['RAILNET.stickK', 'Stick picks the way at a junction', 0, 4, 0.1, ''],
+  ['RAILNET.brMargin', 'Branch needs this much more stick', 0, 2, 0.05, ''],
   ['City (r45)', ''],
   ['SOLID.bounce',   'Wall bounce',    0,   0.8, 0.02, ''],
   ['RAILX.boostV',   'Booster rail speed x', 0.5, 1.8, 0.05, ''],
@@ -8218,7 +8471,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
+const UIOBJ = { RAILNET, TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -8338,7 +8591,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, SLC, NEX, HUB, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, SLC, NEX, HUB, RAILNET, SKYW, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

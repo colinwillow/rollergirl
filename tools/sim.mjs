@@ -659,7 +659,8 @@ CASES.inside = () => {
       run(3.2, (t, i) => {
         follow(); rg.stick.L.y = P.grounded ? -1 : 0; rg.stick.L.x = 0;
         if (i === 40 || i === 90) P.jump = 1;      // and at it in the air, rising
-        const d = top(P.pos.x, P.pos.z) - P.pos.y;
+        // r59: only a surface within 2 m over her feet -- a floating island 12 m up is not concrete she is inside
+        const g2 = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0), d = (g2.hit ? g2.floor : -1e9) - P.pos.y;
         if (d > deep) deep = d;
       });
       if (deep > worst) { worst = deep; worstAt = `${name} at ${v} m/s`; }
@@ -2363,7 +2364,7 @@ CASES.slice = () => {
   const along = (pts, ahead) => { let bi = 0, bd = 1e9; pts.forEach((q, i) => { const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 0.5; if (d < bd) { bd = d; bi = i; } });
     const t = pts[Math.min(pts.length - 1, bi + (ahead || 2))]; fwd(Math.atan2(t.x - P.pos.x, t.z - P.pos.z)); return bi; };
   const ride = (label, start, h, v, route, sec, goal) => { const sp0 = O.splashes; place(start[0], start[1], start[2], h, v); let low = 99, hit = null;
-    let kk = 0; run(sec, () => { along(route); city(); low = Math.min(low, P.pos.y); if (process.env.DBG === label.slice(0, 7) && kk++ % (process.env.DBGN ? +process.env.DBGN : 10) === 0) console.log('   ', fix(P.pos.x, 2), fix(P.pos.y, 2), fix(P.pos.z, 2), 'v', fix(P.speed), P.grounded ? 'G' : 'air', P.grind ? 'GRIND' : ''); if (!hit && goal(P.pos) && P.grounded) { hit = P.pos.clone(); hit.sp = O.splashes; } });
+    let kk = 0; run(sec, () => { along(route); if (P.grind) rg.stick.L.x = rg.stick.L.y = 0; city(); low = Math.min(low, P.pos.y); if (process.env.DBG === label.slice(0, 7) && kk++ % (process.env.DBGN ? +process.env.DBGN : 10) === 0) console.log('   ', fix(P.pos.x, 2), fix(P.pos.y, 2), fix(P.pos.z, 2), 'v', fix(P.speed), P.grounded ? 'G' : 'air', P.grind ? 'GRIND' : ''); if (!hit && goal(P.pos) && P.grounded) { hit = P.pos.clone(); hit.sp = O.splashes; } });
     say(label, !!hit && hit.sp === sp0, hit ? `there at ${fix(hit.x, 1)}, ${fix(hit.y, 2)}, ${fix(hit.z, 1)}` : `ended ${fix(P.pos.x, 1)}, ${fix(P.pos.y, 2)}, ${fix(P.pos.z, 1)}, splashes ${O.splashes - sp0}`); };
   const R1 = [V3(-192, Q, 6.6), V3(-185, Q + 0.75, 7.0), V3(-177.5, Q + 2.2, 6.2), V3(-169.6, 6, 4.3), V3(-166, 6, 3)];
   ride('north quay up the curving ramp onto the bastion', [-196, Q, 6.6], Math.PI / 2, 6, R1, 8, p => Math.hypot(p.x + 166, p.z - 3) < 3.5 && Math.abs(p.y - 6) < 0.2);
@@ -2459,6 +2460,60 @@ CASES.hub = () => {
     say('a tap beside the plinth: grind the coping ring', !!on, on ? `grinding '${on}'` : 'missed');
     place(G.x, 0, G.z + G.r + 4, Math.PI, 6); let minz = 99; run(2.5, () => { fwd(Math.PI); city(); minz = Math.min(minz, P.pos.z); });
     say('the pylon is solid', minz > G.z + 0.8, `stopped at z ${fix(minz, 2)}`); }
+  return ok;
+};
+// r59: THE RAIL NETWORK AND THE SKYWAY. Joins, branches and connectors are counted and listed; then grinds are
+// driven through them with the shipped `stepGrind`, the left stick doing what a thumb would.
+CASES.network = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(50)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const N = rg.RAILNET, S = rg.SKYW, city = () => rg.stepCity(DT);
+  const point = (dx, dz) => { rg.cam.az = Math.atan2(dx, dz); rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  const free = () => { rg.stick.L.x = rg.stick.L.y = 0; };
+  console.log(`  ${rg.PATHS.length} paths, ${N.joins} joins, ${N.branches} branches, ${N.woven.length} connectors woven`);
+  for (const w of N.woven) console.log(`    ${w.from} -> ${w.to} at ${fix(w.x, 1)},${fix(w.y, 1)},${fix(w.z, 1)}, ${fix(w.len, 1)} m${w.y2 ? ' (a Y, both ways)' : ''}`);
+  if (process.env.WEAVE) for (const d of N.dbg) console.log('    ' + d);
+  say('connectors were woven between railings', N.woven.length >= 3, `${N.woven.length}`);
+  say('rail ends are joined', N.joins > 10 && N.branches > 3, `${N.joins} joins, ${N.branches} branches`);
+  // a grind carried through a connector: put her on the start of each one's source and ride, stick off
+  { let through = 0, tried = 0;
+    for (const C of rg.PATHS.filter(P => P.link)) { tried++;
+      const a = C.segs[0].a, n = (() => { let best = null; for (const P of rg.PATHS) { if (P === C || P.link) continue; for (const R of P.segs) { for (const [q, t] of [[R.a, 0], [R.b, 1]]) { const d = q.distanceTo(a); if (d < 0.1 && (!best || d < best.d)) best = { R, t, d }; } } } return best; })();
+      if (!n) continue;
+      place(a.x, a.y, a.z, 0, 0); free();
+      // start 3 m back up the source rail, running toward the connector
+      const dir = n.t === 1 ? 1 : -1, back = rg.railExit ? null : null;
+      P.grind = { rail: n.R, t: n.t === 1 ? Math.max(0, 1 - 3 / n.R.len) : Math.min(1, 3 / n.R.len), dir, s: 7, side: 'left', time: 0 };
+      P.grounded = true; let onC = false, after = false;
+      const L = C.segs[C.segs.length - 1].d;   // the thumb down the connector's way out, which is how a Y is chosen
+      run(2.5, () => { if (onC) free(); else point(L.x, L.z); city(); if (P.grind && P.grind.rail.path === C) onC = true; if (onC && P.grind && P.grind.rail.path !== C) after = true; });
+      if (onC && after) through++;
+    }
+    say('a grind runs through every connector onto the next rail', tried > 0 && through === tried, `${through} of ${tried}`); }
+  // THE SKYWAY, end to end: tap onto the up rail from the plaza, steer round the network to the helix and down
+  { place(-18, 0, 12, 0, 8); run(0.25, () => { point(0, 1); city(); }); P.jump = 1; let names = [], low = 99, landed = null, t = 0;
+    const want = [['sky ring', [1, 0]], ['sky bridge', [1, 0]], ['sky ring', [0, -1]], ['sky span', [0, -1]], ['sky ring', [-1, 0]], ['sky helix', [-1, 0]]];
+    run(30, () => { t += DT; const nm = P.grind ? P.grind.rail.path.name : null;
+      if (nm && names[names.length - 1] !== nm) names.push(nm);
+      // the thumb: before a ring, point where the next leg leaves it
+      const k = names.filter(x => x).length; let aim = null;
+      if (nm === 'sky up' || (nm === 'sky ring' && names.indexOf('sky bridge') < 0)) aim = [1, 0];
+      else if (nm === 'sky bridge' || (nm === 'sky ring' && names.indexOf('sky span') < 0)) aim = [0, -1];
+      else if (nm === 'sky span' || (nm === 'sky ring' && names.indexOf('sky helix') < 0)) aim = [-1, 0];
+      if (aim) point(aim[0], aim[1]); else free();
+      city(); if (names.indexOf('sky helix') >= 0 && !P.grind && P.grounded && !landed) landed = P.pos.clone(); });
+    const route = names.join(' > ');
+    say('the skyway: up, round, across, to the spire, down the helix', ['sky up', 'sky ring', 'sky bridge', 'sky span', 'sky helix'].every(n => names.indexOf(n) >= 0) && !!landed && landed.y < 0.5,
+      `${route}${landed ? ` -- down at ${fix(landed.x, 1)},${fix(landed.z, 1)}` : ''}`); }
+  // on a ring with no stick she goes round and does NOT take a branch
+  { const I = S.isl[1], R = I.ring; place(I.x, I.y, I.z, 0, 0); P.grind = { rail: R.segs[0], t: 0.1, dir: 1, s: 6, side: 'left', time: 0 }; P.grounded = true;
+    let left = null; run(4, () => { free(); city(); if (P.grind && P.grind.rail.path !== R && !left) left = P.grind.rail.path.name; });
+    say('round a ring with no stick: no branch taken', !left, left ? `took '${left}'` : `still on the ring, ${P.grind ? fix(P.grind.s, 1) + ' m/s' : 'off'}`); }
+  // the two other ways down
+  for (const [nm, P2, endY] of [['sky drop', S.drop, rg.HUB.deck.y + 7.6], ['sky chute', S.chute, rg.HUB.pav.y + 0.36]]) {
+    const R0 = P2.segs[0]; place(R0.a.x, R0.a.y, R0.a.z, 0, 0); P.grind = { rail: R0, t: 0.02, dir: 1, s: 6, side: 'left', time: 0 }; P.grounded = true;
+    let land = null; run(8, () => { free(); city(); if (!P.grind && P.grounded && !land) land = P.pos.clone(); });
+    say(`${nm}: grind it down and land on the roof`, !!land && Math.abs(land.y - endY) < 0.15, land ? `landed at y ${fix(land.y, 2)}` : `at y ${fix(P.pos.y, 2)}`); }
   return ok;
 };
 CASES.shores = () => {

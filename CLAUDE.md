@@ -307,6 +307,33 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE RAIL NETWORK (r59, `RAILNET`, `railLink`, `railWeave`, `railPick`, `railExit`).** *"It would be really cool if the
+  railings attached to each other so they looped around -- you just continue grinding down the stairs and then along the
+  railing along the water ... make the grind rail system way more complex."* Built once, after every rail is in:
+      JOINS     a path END within `linkR` (0.75 m) of another path is joined to it -- end to end she runs straight on
+                (a join may FLIP the direction she runs the next segment in, so `stepGrind` carries `G.dir` across);
+                end to the MIDDLE of another path is a T, and she carries on whichever way is straighter
+      BRANCHES  the other half of a T: riding the long rail past where another leaves, she takes it only if the LEFT
+                STICK points down it by `brMargin` more than straight on. With no stick, never.
+      WEAVE     a railing that stops within `weaveR` (3.6 m) of another, pointing at it, gets a CONNECTOR: a curved
+                orange rail (a quarter circle onto it when it meets it square -- a Y onto BOTH ways, the stick picks;
+                a longer S when it meets it at a slant). Only between `weaveNames` paths (slice/hub/sky) and only
+                where nothing solid is in the way. The gallery stairs onto the south quay's water rail is his spot.
+  `npm run sim network` lists every join, branch and connector and rides a grind through each connector.
+  **A HARNESS THAT STEERS WHILE GRINDING NOW STEERS THE GRIND.** The slice's `ride()` pointed the stick at its route
+  the whole time, and on a rail that is a junction choice: "down the gallery stairs" grinded the stair rail, the
+  connector, and then -- stick pointing back at the stairs -- branched up the OTHER stair rail. `ride()` lets go of
+  the stick while grinding, which is what a player steering on foot does.
+- **THE SKYWAY (r59, `SKYW`, `hubSky`, `skyRails`).** *"More upper levels, like floating buildings you can get up to."*
+  Three floating islands over the hub (12, 17 and 24 m), every one ringed by a closed grind rail and reached by rail:
+  `sky up` (a booster off a low flat start by the plinth), `sky bridge` (island 1 -> 2), `sky span` (2 -> the spire),
+  and three ways down: `sky helix` (off the spire, 1.75 turns to the plaza), `sky drop` (island 1 -> the skate shop
+  roof), `sky chute` (island 2 -> the pavilion roof). Arriving on a ring she goes round it; the stick takes the next
+  leg. Island tops are floors. A noodle bar on 1, palms on 2, a neon spire on 3. ➤ stops: skyway, skyway spire.
+  **THE ORBITAL DISTRICT ALREADY OWNS `CITY.spots.sky`**, and the first version overwrote it -- which sent Orbital's
+  runway test 354 m off course. Spot names are one namespace across every district.
+  **`npm run sim inside` MEASURES ONLY SURFACES WITHIN 2 m OVER HER FEET NOW**: it took the HIGHEST floor at her
+  x,z, so skating under a floating island read as 15.8 m inside the concrete.
 - **THE HUB IS DRESSED (r58, `HUB`, `hubDress`).** *"A texture and detail pass, or more objects, buildings, park
   features."* The park she spawns in was a bare lavender floor with eight ramps on it -- every district since was built
   somewhere else. `hubDress` (called from `buildSlice`, so it shares the slice's buckets, textures, chunking and rail
