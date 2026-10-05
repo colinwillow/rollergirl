@@ -307,6 +307,26 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE HUB IS DRESSED (r58, `HUB`, `hubDress`).** *"A texture and detail pass, or more objects, buildings, park
+  features."* The park she spawns in was a bare lavender floor with eight ramps on it -- every district since was built
+  somewhere else. `hubDress` (called from `buildSlice`, so it shares the slice's buckets, textures, chunking and rail
+  queue -- **turn the slice off and the hub goes bare with it**) adds, all on ground probed empty first:
+      THE DECK      NW against the north bank, 2.4 m: a bank up the front, a stair set with a rail down each side, a
+                    bank off the east end, a grind ledge on top, a railing that grinds, the BLADES skate shop and a
+                    mural block behind it, vending machines, palms, lamps
+      THE LEDGES    SE: a manual pad (0.36 m -- a kerb she rolls up), a 0.62 m ledge with steel on both edges (a wall),
+                    a pyramid with a down rail on its north face, a flat bar
+      THE GAP       SW: a kicker, a flower bed, a landing deck and a bank -- 13 m/s clears it, 10 m/s + a pop at the
+                    lip clears it, 5 m/s rolls back
+      THE PLINTH    a round 0.38 m dais (a kerb) with a steel coping that is a closed grind ring, a neon pylon (solid)
+      also          a shade pavilion with festoon bulbs (roof is a floor you can land on, she rolls under it), a tree
+                    island, lamps and palms round the plaza edge and the bowl, floor graffiti
+  **KEPT CLEAR ON PURPOSE: the x = 60 strip, the z = 0 / x = 0 corridors and the gate runs**, because `npm run sim`
+  skates down them. A bench at the bowl's north rim deflected the `inside` case's bowl-rim run into a 1.37 m dip
+  through the bowl's edge; moving the bench was the fix, but **that dip is a pre-existing weakness of the bowl's
+  rim at an odd entry angle** and is worth a look of its own.
+  **A RAIL ALONG A BOX'S TOP EDGE SITS 0.11 m OUTSIDE IT**, or `npm run sim city`'s "nothing placed inside anything"
+  reads it as buried in the box. `npm run sim hub` rides every piece. ➤ stops: hub deck, hub ledges, hub plinth, hub gap.
 - **THE TRANSFER IS A SWIPE UP ON THE WALL'S FACE, AND THE MELEE IS THE BOOST (r57, corrects r56; `MELEE.boost`,
   `p.xferArm`, `VERT.faceArm`).** r56 made every ground swipe up a boost that ARMED the transfer from the flat. Wrong
   twice: *"I still wanted the melee to happen -- I just meant the melee shoots you forward"*, and *"it only makes you

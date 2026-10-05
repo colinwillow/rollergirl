@@ -2409,6 +2409,58 @@ CASES.slice = () => {
       say('up the fountain rings to the basin', Math.abs(top - (rg.SLC.Q + F.r.length * F.dy)) < 0.05, `highest floor ${fix(top, 2)}`); } }
   return ok;
 };
+// r58: THE HUB, DRESSED -- the deck, the ledges, the plinth. Every piece through the shipped step, from where
+// a player would come at it, with the thumb a player would hold.
+CASES.hub = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const H = rg.HUB, D = H.deck, city = () => rg.stepCity(DT);
+  const fwd = h => { rg.cam.az = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  const near = (x, z, r) => Math.hypot(P.pos.x - x, P.pos.z - z) < r;
+  if (!rg.SLC.built) { console.log('  the slice is off -- the hub is dressed with it'); return true; }
+  // the deck: up the front bank, down the stairs, off the east end
+  { place(-54, 0, 40, 0, 8); let at = null; run(4, () => { fwd(0); city(); if (!at && P.pos.z > D.z0 + 1 && P.grounded) at = P.pos.clone(); });
+    say('up the front bank onto the deck', !!at && Math.abs(at.y - D.y) < 0.08, at ? `on at z ${fix(at.z, 1)} y ${fix(at.y)}` : `got to z ${fix(P.pos.z, 1)} y ${fix(P.pos.y)}`); }
+  { place(-43, D.y, 58, Math.PI, 6); let at = null, low = 99; run(3, () => { fwd(Math.PI); city(); low = Math.min(low, P.pos.y); if (!at && P.pos.z < D.z0 - 7 && P.grounded) at = P.pos.clone(); });
+    say('down the stairs to the plaza', !!at && Math.abs(at.y) < 0.08 && low > -0.1 && P.hSpeed > 4, at ? `down at z ${fix(at.z, 1)}, ${fix(P.hSpeed, 1)} m/s` : `got to z ${fix(P.pos.z, 1)} y ${fix(P.pos.y)}`); }
+  { place(-40, D.y, 62, Math.PI / 2, 7); let at = null; run(3, () => { fwd(Math.PI / 2); city(); if (!at && P.pos.x > D.x1 + 9 && P.grounded) at = P.pos.clone(); });
+    say('off the east bank to the plaza', !!at && Math.abs(at.y) < 0.08, at ? `down at x ${fix(at.x, 1)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+  { const sx = (D.stairs[0] + D.stairs[1]) / 2; place(sx - 1.4, D.y, D.z0 + 2.2, Math.PI, 5); run(0.2, () => city()); P.jump = 1; let on = false, low = 99;
+    run(3, () => { city(); if (P.grind) { on = true; low = Math.min(low, P.pos.y); } });
+    say('a tap at the top of the stairs: grind the rail down', on && low < D.y - 1, on ? `grinding, down to ${fix(low, 1)}` : 'missed'); }
+  { place(-38, D.y, 57.6, Math.PI / 2, 5); run(0.2, () => city()); P.jump = 1; let on = false; run(2, () => { city(); if (P.grind) on = true; });
+    say('a tap beside the deck ledge: grind it', on, on ? 'grinding' : 'missed'); }
+  // the ledges
+  { const Pd = H.pad; place(31, 0, -26, Math.PI, 6); let top = 0; run(2, () => { fwd(Math.PI); city(); if (P.grounded && near(31, (Pd.z0 + Pd.z1) / 2, 1.2)) top = Math.max(top, P.pos.y); });
+    say('rolls up onto the manual pad (a kerb)', Math.abs(top - Pd.y) < 0.03, `on the pad at ${fix(top, 2)}`); }
+  { const L = H.ledge; place(36, 0, -40, Math.PI, 5); let minz = 99; run(1.5, () => { fwd(Math.PI); city(); minz = Math.min(minz, P.pos.z); });
+    say('the ledge is a wall, not a kerb', minz > L.z1 - 0.1, `stopped at z ${fix(minz, 2)} (face ${L.z1})`);
+    place(36, 0, -42.6, Math.PI / 2, 5); run(0.2, () => city()); P.jump = 1; let on = false; run(2, () => { city(); if (P.grind) on = true; });
+    say('a tap beside the ledge: grind its edge', on, on ? 'grinding' : 'missed'); }
+  { const Y = H.pyr; place(Y.x + 13, 0, Y.z - 0.6, -Math.PI / 2, 8); let top = 0, at = null, low = 9; run(4, () => { fwd(-Math.PI / 2); city(); top = Math.max(top, P.pos.y); low = Math.min(low, P.pos.y); if (!at && P.pos.x < Y.x - Y.r - 1 && P.grounded) at = P.pos.clone(); });
+    say('up and over the pyramid', top > Y.top - 0.1 && !!at && Math.abs(at.y) < 0.08 && low > -0.1, at ? `over the top (${fix(top, 2)}), down at x ${fix(at.x, 1)}` : `got to x ${fix(P.pos.x, 1)}, top ${fix(top, 2)}`);
+    place(Y.x + 1.3, 0, Y.z + Y.r + 3, Math.PI, 4); run(0.2, () => city()); P.jump = 1; let on = false; run(2, () => { city(); if (P.grind) on = true; });
+    say('a tap onto the pyramid down rail', on, on ? 'grinding' : 'missed'); }
+  { const R = H.bar; place(R.x + 1.4, 0, (R.z0 + R.z1) / 2, 0, 5); run(0.2, () => city()); P.jump = 1; let on = false; run(2, () => { city(); if (P.grind) on = true; });
+    say('a tap beside the flat bar: grind it', on, on ? 'grinding' : 'missed'); }
+  // the gap: at a run-up it clears the bed and lands on the far deck or its bank; slow, it does not
+  { const G = H.gap, zl = G.z - G.r * Math.sin(G.sweep), bed1 = zl - 0.3 - G.bed;
+    for (const [v, pop] of [[13, 0], [10, 1], [5, 0]]) { place(G.x, 0, G.z + 10, Math.PI, v); let land = null, air = false, inBed = false, fired = 0;
+      run(3, () => { rg.cam.az = Math.PI; city(); if (pop && !fired && P.grounded && P.pos.y > 0.55) { P.jump = 1; fired = 1; }
+        if (!P.grounded) air = true; if (air && P.grounded && !land) land = P.pos.clone(); if (P.pos.z < zl - 0.3 && P.pos.z > bed1 && P.grounded) inBed = true; });
+      const over = !!land && land.z < bed1 && !inBed;
+      say(`the gap at ${v} m/s${pop ? ' + a pop at the lip' : ''}: ${v > 8 ? 'clears the bed' : 'does not'}`, v > 8 ? over : !over, land ? `landed at z ${fix(land.z, 1)} y ${fix(land.y, 2)}${inBed ? ', in the bed' : ''}` : `no air, at z ${fix(P.pos.z, 1)}`); } }
+  { const V = H.pav; place(V.x - V.hx - 6, 0, V.z - 1, Math.PI / 2, 7); let ok2 = true; run(2.5, () => { rg.cam.az = Math.PI / 2; city(); if (P.pos.y > 0.3) ok2 = false; });
+    say('rolls under the pavilion roof', ok2 && P.pos.x > V.x + V.hx, `at x ${fix(P.pos.x, 1)} y ${fix(P.pos.y, 2)}`); }
+  // the plinth
+  { const G = H.ring; place(G.x + 3, 0, G.z + G.r + 4, Math.PI, 6); let top = 0; run(2.5, () => { fwd(Math.PI); city(); if (P.grounded && near(G.x + 3, G.z, 1.5)) top = Math.max(top, P.pos.y); });
+    say('rolls up onto the plinth (a kerb)', Math.abs(top - G.y) < 0.03, `on the plinth at ${fix(top, 2)}`);
+    place(G.x, 0, G.z + G.r + 1.4, Math.PI / 2, 4); run(0.2, () => city()); P.jump = 1; let on = null; run(2, () => { city(); if (P.grind && !on) on = P.grind.rail.path.name; });
+    say('a tap beside the plinth: grind the coping ring', !!on, on ? `grinding '${on}'` : 'missed');
+    place(G.x, 0, G.z + G.r + 4, Math.PI, 6); let minz = 99; run(2.5, () => { fwd(Math.PI); city(); minz = Math.min(minz, P.pos.z); });
+    say('the pylon is solid', minz > G.z + 0.8, `stopped at z ${fix(minz, 2)}`); }
+  return ok;
+};
 CASES.shores = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
