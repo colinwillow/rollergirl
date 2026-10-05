@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r50</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r51</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r50';
+const BUILD = 'r51';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -5284,7 +5284,10 @@ function groundQ(out) {
 // And *"jump, then hold forward on the right stick, and the trajectory changes from straight up to forward"*: the
 // right pad held UP past `xferAt` during a locked air releases the lock (`holdXfer`) -- the auto-turn is undone, the
 // left stick's thrust may carry her out, the transfer kick fires, and she rights to plumb like any other air.
-const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6, holdTilt: 1, holdXfer: 1, xferAt: 0.5 };
+// r51: *"I'm intuitively going off it and flicking forward instead"* -- the right pad's FLICK UP in a locked air is
+// the transfer now (`flickXfer`), and the HOLD goes back to being the 'up' grab. The hold transfer survives as
+// `holdXferOn` (off), renamed so a phone that saved the old `holdXfer` 1 on the panel does not keep it.
+const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6, holdTilt: 1, holdXferOn: 0, flickXfer: 1, xferAt: 0.5 };
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
@@ -5321,13 +5324,13 @@ function leaveGround(coy, xfer) {
 // THE HELD TRANSFER (r47): out of a locked vert air, onto the deck. The auto-turn already applied is taken back (a
 // transfer lands forward), the outward kick waits until she is clear of the lip as the swipe's does, and the
 // right pad is marked so the same hold does not also become a grab.
-function vertRelease() {
+function vertRelease(flick) {
   const p = player;
   if (!p.vertLock) return false;
   p.vertLock = 0;
   if (p.autoTurn) { p.heading -= p.autoTurn.side * (Math.PI - p.autoTurn.left); p.autoTurn = null; }
   p.xferKick = { ix: p.vertIx, iz: p.vertIz, hold: 1 };
-  p.xferHold = 1; p.grab = null;
+  p.xferHold = flick ? 0 : 1; p.grab = null;
   return true;
 }
 
@@ -5622,7 +5625,7 @@ function stepAir(dt) {
   // the yaw is set exactly below -- only the righting is eased.
   const sk = Math.sign(sx) * clamp((Math.abs(sx) - 0.08) / Math.max(0.05, AIR.spinFull - 0.08), 0, 1);
   // r47: right pad held UP during a locked vert air: it becomes a transfer
-  if (p.vertLock && VERT.holdXfer > 0.5 && stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y) vertRelease();
+  if (p.vertLock && VERT.holdXferOn > 0.5 && stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y) vertRelease();
   const hold = p.vertLock && VERT.holdTilt > 0.5 && p.vertQ;
   p.heading -= sk * AIR.spin * dt;
   if (hold) p.vertSpin -= sk * AIR.spin * dt;
@@ -5872,7 +5875,10 @@ function meleeStrike(wx, wz) {
   const tg = MELEE.airAim > 0.5 && RAILS.length ? kickTarget(wx, wz) : null;
   if (tg) { p.vel.set((tg.cx - p.pos.x) / tg.T, tg.vy, (tg.cz - p.pos.z) / tg.T); p.kickRail = { R: tg.R, dir: tg.dir }; p.vertLock = 0; p.xferKick = null; }
   else {
-    p.vel.x += wx * MELEE.airLunge; p.vel.z += wz * MELEE.airLunge;
+    let lx = wx * MELEE.airLunge, lz = wz * MELEE.airLunge;
+    // r51: a strike in a LOCKED vert air never carries her out over the coping -- the flick up is the way out
+    if (p.vertLock) { const o = -(lx * p.vertIx + lz * p.vertIz); if (o > 0) { lx += p.vertIx * o; lz += p.vertIz * o; } }
+    p.vel.x += lx; p.vel.z += lz;
     if (!p.airStrikes) p.vel.y = Math.max(p.vel.y, MELEE.airLift);
   }
   p.airStrikes = (p.airStrikes || 0) + 1; p.flip = null; p.autoTurn = null;
@@ -5957,6 +5963,8 @@ function rightFlick(dx, dy) {
     if (dir === 'up' && p.n.y < MELEE.xferN) { p.jump = 2; return 'transfer'; }
     return meleeStrike(w.x, w.z) ? 'strike' : null;
   }
+  // r51: a flick UP during a locked vert air is the transfer out over the coping
+  if (dir === 'up' && p.vertLock && VERT.flickXfer > 0.5 && vertRelease(true)) return 'transfer';
   return meleeStrike(w.x, w.z) ? 'strike' : null;      // r44: in the air it is the same chain
 }
 
@@ -6571,7 +6579,8 @@ const TAILUI = [
   ['RIG.tiltRate',   'Ground tilt ease', 2, 20,  0.5,  ''],
   ['VERT.autoTurn',  'Auto-turn on vert airs', 0, 1, 1, ''],
   ['VERT.holdTilt',  'Vert air keeps its tilt (Tony Hawk)', 0, 1, 1, ''],
-  ['VERT.holdXfer',  'Hold right stick up = transfer', 0, 1, 1, ''],
+  ['VERT.flickXfer', 'Flick right stick up = transfer', 0, 1, 1, ''],
+  ['VERT.holdXferOn', 'Hold right stick up = transfer', 0, 1, 1, ''],
   ['FLIPP.camRel',   'Flips relative to camera', 0, 1, 1, ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],

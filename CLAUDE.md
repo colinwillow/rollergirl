@@ -307,6 +307,17 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE TRANSFER IS A FLICK UP AGAIN, AND THE HOLD IS THE GRAB AGAIN (r51, `VERT.flickXfer`, `rightFlick`).** *"I'm
+  intuitively going off it and flicking forward instead of just jumping up ... which means we can restore the hold up
+  on the right stick in the air to do some grab."* During a LOCKED vert air the right pad's FLICK UP calls
+  `vertRelease(true)` -- the auto-turn is taken back, the outward kick fires once she is above the lip she left (so a
+  late flick on the way down still works), she lands forward on the deck. The flick before she leaves (on the wall,
+  or the coyote moment off the lip) was already the transfer (`p.jump` 2) and is unchanged. A HOLD up is the 'up'
+  grab again. r47's hold transfer survives as `VERT.holdXferOn` (off) -- **renamed, not just defaulted**, because the
+  panel saves every row and a phone that saved the old `holdXfer` 1 would have kept it for ever. Any other air flick
+  in a locked air is still a melee strike, and its `airLunge` now has its outward part removed the way the thrust's
+  is (with the flick transfer off, a flick up was a strike that lunged her out onto the deck anyway).
+  `npm run sim vertair`: flick -> deck, forward; switch off -> back in; hold -> grab, back in; old hold on -> deck.
 - **NEON SHORES: THE SECOND DISTRICT, FROM HIS TOP-DOWN MAP (r50, `SH`, `buildShores`, `shPlateau`).** *"Just a random
   generated top-down view -- use it as a framework ... this could operate next to the thing we already have, we could
   build multiple sections."* EAST of the park through a new gate in the east bank (`perimeter` now gates edges 0, 1 and
