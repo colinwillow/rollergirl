@@ -91,6 +91,31 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE SHEET PARK: HIS STYLE SHEET BUILT FROM THE KIT, AND THE PIECES IT WAS MISSING (r72, `kitSheet`, `SHEET`, `KIT_NEW_ROWS`,
+  `qpAdapt`, `pipeAdapt`, `freeBowl`, `squareBowl`, `bridge`, `roller`, `berm`, sizes `XXL`/`MEGA`).** *"See if you can build
+  it with the pieces that you have ... how the edges of each modular piece go together ... we might need a 45 degree elbow
+  ... I want this game to feel very big and exaggerated."* The kit world now SPAWNS at the main entry of a fenced 290 x 420 m
+  park at its west end (134 pieces, the sheet's 24 features; the map is in `docs/RAMP_KIT.md`), and ➤ walks its 'sheet' stops
+  first. Missing and built:
+  - `elbow` takes any `deg`, so 45 and 22.5 are included.
+  - Connectors between sizes: `qpAdapt` (height changes across a QP's width) and `pipeAdapt` (walls grow along a pipe).
+  - Free-form bowls with a shallow end and a deep end; a square bowl; a bridge you ride over and under.
+  - Pump-track rollers and berms of any angle.
+  - Hubbas on stairs, rails on a funbox, and a taller landing on a gap.
+  - Placeholder fence, shade, bleachers, planters and lamps.
+  - Two bigger sizes: XXL 7.2 m and MEGA 9.6 m.
+
+  What it found:
+  - **A gap XL's 9 m landing is overshot at MEGA speed**: she slammed the flat, and QP MEGA reached 6.5 of 9.6. `landH`/`landDeg` give it a 4.8 m landing at 15 deg, and she now airs 1.5 m over it.
+  - **67 m of flat between a roll-in and its kicker bled 25 m/s to 18 (the coast fade)**, so the kicker sits at the roll-in's foot.
+  - The kit world's grid had to grow to x +/-470, z -420..470.
+
+  **THREE HARNESS MISTAKES, NONE IN THE GAME:**
+  - **A `//` comment pasted mid-line ate the statements after it**, twice: a `ReferenceError` on a variable whose declaration had been commented out.
+  - **A local `const run` shadowed the harness's `run()`.**
+  - **The export round trip's sample grid had to follow each piece's own box.** A 190 m fence's square round its origin sampled the marker test's floors. And the turned copy's offset had to move to +30, because -70 put the giants row off the collider grid.
+
+  A swipe beside a hubba grinds the ledge's LIP, not its steel, because the lip is 8 cm nearer. Both are the hubba, and the test accepts either.
 - **A GRIND IS ASKED FOR: SWIPE DOWN (r71, `GRIND.intent`, `grindDown`, `grindTarget`, `lipEdges`, `lipTrace`, `ledgePath`,
   `LEDGE`).** *"Make it so that you have to swipe down to grind something -- that way you can launch off a ramp ... a swipe
   up or a tap off a ramp will always launch you off ... in the air swipe down and she shoots downward as if she's gonna

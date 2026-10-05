@@ -2690,7 +2690,7 @@ CASES.kit = async () => {
   // a piece-local point (u along, w across) in the world, and a piece-local direction as a heading
   const L = (pc, u, w) => rg.kT(pc.T, u, w, 0), H = (pc, phi) => pc.T.yaw + phi;
   const find = (kind, size, n) => K.pieces.filter(p => p.kind === kind && (!size || p.size === size))[n || 0];
-  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.kicked = 0; P.drift = 0; rg.ORB.safe = null; };
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.kicked = 0; P.drift = 0; rg.ORB.safe = null; P.kickRail = null; P.grindWant = 0; };
   const go = (pc, u, w, phi, v) => { reset(); const t = L(pc, u, w); place(t.x, 0.2, t.z, H(pc, phi), v); rg.stick.L.x = rg.stick.L.y = 0; };
   const fwd = h => { rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
   const loc = pc => { const fx = Math.sin(pc.T.yaw), fz = Math.cos(pc.T.yaw), dx = P.pos.x - pc.T.x, dz = P.pos.z - pc.T.z; return { u: dx * fx + dz * fz, w: dx * fz - dz * fx }; };
@@ -2875,7 +2875,7 @@ CASES.kit = async () => {
       if (!l) { out.push(q); continue; } const d = Math.hypot(l[0] - q[0], l[1] - q[1]); if (d < 0.5) continue;
       const n = Math.ceil(d); for (let i = 1; i <= n; i++) out.push([l[0] + (q[0] - l[0]) * i / n, l[1] + (q[1] - l[1]) * i / n]); } return out; };
   // P2. THE DROP-IN: off the spawn deck, down the roll-in, up the bank M onto the ring's deck and into the pipe
-  { const S0 = rg.SPAWN, wx = 220; reset(); place(S0.x, S0.y + 0.5, S0.z, Math.PI / 2, 0); let inPipe = 0, top = 0;
+  { const S0 = { x: KP.spawn[0], y: KP.spawn[1], z: KP.spawn[2] }, wx = 220; reset(); place(S0.x, S0.y + 0.5, S0.z, Math.PI / 2, 0); let inPipe = 0, top = 0;      // r72: the spawn is the sheet park's now, so the r70 park's own
     const r = ride(8, () => { if (P.pos.x < wx - 9) fwd(Math.PI / 2); else rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.x > 205 ? P.pos.y : 0);
       if (P.grounded && Math.abs(P.pos.x - wx) < 6 && P.pos.y < 2.2) inPipe = 1; });
     say('mega drop-in: roll-in XL, bank M, over the coping into the ring', inPipe && !r.falls && !r.bail, inPipe ? `in the pipe (got to ${fix(top)} m on the way over)` : `never reached the pipe -- ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
@@ -2931,6 +2931,99 @@ CASES.kit = async () => {
     for (const [nm, pc] of [['bowl M', KP.bowl], ['pool M', KP.pool]]) for (const h of [0, Math.PI / 2, Math.PI]) upAndSwipe(`${nm} h${fix(h, 1)}`, pc.T.x, pc.T.z, h, KSZ.M.H, 8);
     say(`mega park: swipe down up ${n} walls grinds the coping`, !bad.length, bad.slice(0, 4).join('; ') || `${good.length} copings`);
     rg.ledgeClear(); rg.GRIND.intent = 0; }
+  // ---- r72: THE SHEET PARK and THE PIECES IT NEEDED -----------------------------------------------------------------------
+  { const SH = rg.SHEET, A = SH.at, sheetP = K.pieces.filter(p => p.park && p.park.startsWith('sheet'));
+    // S0. every new piece in the gallery rides: the adapters, the free bowl, the square bowl, the bridge over and under, the berm
+    { const pa = find('pipeAdapt'); go(pa, 1, 0, 0, 9); const r = ride(3, () => { fwd(pa.T.yaw); city(); });
+      const l = loc(pa); say('pipe adapter M > L: along it, M walls to L walls', l.u > pa.len - 1 && !r.falls && !r.bail && r.low > -0.05, `ends u ${fix(l.u, 1)} of ${fix(pa.len, 1)}`); }
+    { const qa = find('qpAdapt'); for (const w of [-3, 0, 3]) { const Ht = KSZ.M.H + (KSZ.XL.H - KSZ.M.H) * (w + 4) / 8; go(qa, -12, w, 0, Math.sqrt(2 * g * Ht) + 2); const r = ride(4);
+      say(`QP adapter M > XL at w ${w}: up the face (${fix(Ht, 1)} m there)`, r.top > Ht * 0.9 && !r.falls && !r.bail && r.low > -0.05, `up to ${fix(r.top)}`); } }
+    { const fb = find('freeBowl', 'XL'); for (const h of [0, Math.PI / 2, Math.PI]) { reset(); const Rr = fb.R * (1 + 0.2 * Math.cos(2 * h)) + 1.2, t = rg.kT(fb.T, Rr * Math.cos(h), Rr * Math.sin(h), 0);
+        place(t.x, KSZ.XL.H + 0.5, t.z, 0, 0); P.heading = P.faceH = Math.atan2(fb.T.x - t.x, fb.T.z - t.z); P.vel.set(Math.sin(P.heading) * 3, 0, Math.cos(P.heading) * 3);
+        const r = ride(8); say(`peanut bowl XL: dropped in at ${fix(h * 180 / Math.PI, 0)} deg, swings`, r.low < 1.2 && !r.falls && !r.bail && r.low > -0.05 && r.top > 3, `down to ${fix(r.low)}, up to ${fix(r.top)}`); } }
+    { const sq = find('squareBowl'); go(sq, -2, 0.3, 0, Math.sqrt(2 * g * 2.4) + 1.5); const r = ride(10); say('square bowl M: swings, stays in', r.top > 2.2 && !r.falls && !r.bail && r.low > -0.05, `up to ${fix(r.top)}`); }
+    { const br = find('bridge'); go(br, -8, 0, 0, 10); const r1 = ride(4); const l1 = loc(br);
+      say('bridge M: ridden UNDER at ground level', l1.u > br.len + 2 && P.pos.y < 0.2 && !r1.bail, `ends u ${fix(l1.u, 1)} y ${fix(P.pos.y)}`);
+      reset(); const t = rg.kT(br.T, 1, 0, 0); place(t.x, br.h + 0.3, t.z, br.T.yaw, 8); let on = 0; ride(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && Math.abs(P.pos.y - br.h) < 0.05) on = 1; });
+      say('bridge M: ridden OVER on its deck', on, on ? 'on the deck' : `y ${fix(P.pos.y)}`); }
+    { const bm = find('berm'); go(bm, -6, 0, 0, 10); const r = ride(3, () => { fwd(P.heading); city(); }); const turned = Math.abs(rg.wrapAngle ? rg.wrapAngle(P.heading - bm.T.yaw) : 0);
+      say('berm M 90: round it on the bank', !r.falls && !r.bail && r.top > 0.2 && r.low > -0.05, `up to ${fix(r.top)} on the bank`); }
+    // S1. NOTHING IN THE SHEET PARK INSIDE ANYTHING ELSE, and nothing outside its fence
+    { const bad = [], out = [];
+      for (let i = 0; i < sheetP.length; i++) { const a = sheetP[i]; if (!a.bb) continue;
+        if (a.kind !== 'fence' && (a.bb[0] < SH.x0 || a.bb[3] > SH.x1 + 25 || a.bb[2] < SH.z0 || a.bb[5] > SH.z1)) out.push(a.label);
+        for (let j = i + 1; j < sheetP.length; j++) { const b = sheetP[j]; if (!b.bb || (a.group && a.group === b.group)) continue;
+          const o = [0, 1, 2].map(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k])); if (o.every(v => v > 0.3)) bad.push(`${a.label} x ${b.label}`); } }
+      say(`sheet park: ${sheetP.length} pieces, none inside another, all inside the fence`, sheetP.length > 100 && !bad.length && !out.length, (bad.concat(out)).slice(0, 4).join('; ') || 'clear'); }
+    // S2. THE SPAWN: off the entry deck, down the grand stairs into the hub
+    { reset(); const S0 = SH.spawn; place(S0[0], S0[1] + 0.3, S0[2], S0[3], 0); let hub = 0;
+      const r = ride(6, () => { fwd(-Math.PI / 2); city(); if (P.grounded && P.pos.y < 0.05 && P.pos.x < -200) hub = 1; });
+      say('sheet entry: off the deck, down the grand stairs into the hub', hub && !r.bail && !r.falls, hub ? 'in the hub' : `ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+    // S3. THE QUARTER PIPE ROW: straight at every QP and every adapter, up its face and back
+    { const bad = []; for (const q of A.qps) { const Ht = q.kind === 'qp' ? KSZ[q.size].H : (KSZ[q.size].H + KSZ[q.o.to].H) / 2;
+        go(q, -16, 0, 0, Math.min(22, Math.sqrt(2 * g * Ht) + 3)); const r = ride(5);
+        if (!(r.top > Ht * 0.85 && !r.falls && !r.bail && r.low > -0.05)) bad.push(`${q.label}: up to ${fix(r.top)} of ${fix(Ht)}${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}`); }
+      say(`sheet quarter pipes: ${A.qps.length} faces S to XXL, adapters between, each ridden`, !bad.length, bad.slice(0, 3).join('; ') || 'every one'); }
+    // S4. THE VERT: rolled in off the east deck, she swings the MEGA pipe to the far wall's coping
+    { const v = A.vert, S = KSZ.MEGA, xd = v.T.x + 5 + S.lip + 1.2; reset(); place(xd, S.H + 0.3, v.T.z, -Math.PI / 2, 2); let far = 0;
+      const r = ride(10, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.pos.x < v.T.x - 5) far = Math.max(far, P.pos.y); });
+      say('sheet vert: drop in off the 9.6 m deck, up the far wall', far > S.H * 0.85 && !r.falls && !r.bail && r.low > -0.05, `far wall up to ${fix(far)} of ${S.H}`);
+      const st = A.vertStairs; reset(); const t = rg.kT(st.T, -4, 0, 0); place(t.x, 0.3, t.z, st.T.yaw, 10); let up = 0;
+      ride(6, () => { fwd(st.T.yaw); city(); if (P.grounded && Math.abs(P.pos.y - S.H) < 0.08) up = 1; });
+      say('sheet vert: up the stairs MEGA onto the deck', up, up ? 'on the deck at 9.6' : `ends y ${fix(P.pos.y)}`); }
+    // S5. THE BOWL COMPLEX: up the bank XXL onto the deck; dropped into the clover from four sides; into the raised round bowl
+    { const bk = A.bowlBank; reset(); const t = rg.kT(bk.T, -6, 0, 0); place(t.x, 0.3, t.z, bk.T.yaw, Math.sqrt(2 * g * 7.2) + 3); let deck = 0;
+      ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && Math.abs(P.pos.y - 7.2) < 0.06) deck = 1; });
+      say('sheet bowls: up the bank XXL onto the 7.2 m deck', deck, deck ? 'on the deck' : `top ${fix(P.pos.y)}`);
+      const c = A.clover, bad = []; let deepest = 99;
+      for (const h of [0, Math.PI / 2, Math.PI, -Math.PI / 2, Math.PI / 4]) { reset(); const R = c.R * (1 + 0.2 * Math.cos(3 * (h - 30 * Math.PI / 180))) + 1.2;
+        const t2 = rg.kT(c.T, R * Math.cos(h), R * Math.sin(h), 0); place(t2.x, 7.6, t2.z, 0, 0); P.heading = P.faceH = Math.atan2(c.T.x - t2.x, c.T.z - t2.z);
+        P.vel.set(Math.sin(P.heading) * 3, 0, Math.cos(P.heading) * 3); const r = ride(9); deepest = Math.min(deepest, r.low);
+        if (r.falls || r.bail || r.low < -0.05 || r.low > 3.3) bad.push(`at ${fix(h * 180 / Math.PI, 0)}: ${r.falls ? 'fell' : r.bail ? 'bailed' : 'low ' + fix(r.low)}`); }
+      say('sheet bowls: dropped into the clover XXL from five sides', !bad.length && deepest < 0.3, bad.join('; ') || `deep end reached (${fix(deepest)})`);
+      const rb = A.round; reset(); const t3 = rg.kT(rb.T, rb.R + 1.2, 0, 0); place(t3.x, 7.6, t3.z, 0, 0); P.heading = P.faceH = Math.atan2(rb.T.x - t3.x, rb.T.z - t3.z);
+      P.vel.set(Math.sin(P.heading) * 3, 0, Math.cos(P.heading) * 3); const r = ride(8);
+      say('sheet bowls: into the round bowl XL, raised to share the deck', Math.abs(r.low - 2.4) < 0.15 && !r.falls && !r.bail && r.top > 6, `floor ${fix(r.low)}, up to ${fix(r.top)}`); }
+    // S6. THE BRIDGE: across it off the clover's deck to the tower and down the bank; and under it at ground level
+    { const b = A.bridge; reset(); const t = rg.kT(b.T, -1, 0, 0); place(t.x, 7.5, t.z, b.T.yaw, 6); let tower = 0, down = 0;
+      const r = ride(10, () => { fwd(b.T.yaw); city(); if (P.grounded && Math.abs(P.pos.y - 7.2) < 0.06 && loc(b).u > b.len + 1) tower = 1; if (tower && P.grounded && P.pos.y < 0.05) down = 1; });
+      say('sheet bridge: across it to the tower, down the bank XXL', tower && down && !r.falls && !r.bail, `tower ${tower ? 'yes' : 'no'}, down ${down ? 'yes' : 'no'}`);
+      reset(); const m = rg.kT(b.T, b.len / 2 + 3.3, -14, 0); place(m.x, 0.3, m.z, b.T.yaw + Math.PI / 2, 10); let under = 0;      // between two posts
+      ride(3, () => { fwd(b.T.yaw + Math.PI / 2); city(); if (loc(b).w > 5 && P.pos.y < 0.2) under = 1; });
+      say('sheet bridge: ridden under it, across the bowl side', under, under ? 'came out the far side' : `ends w ${fix(loc(b).w, 1)} y ${fix(P.pos.y)}`); }
+    // S7. THE SNAKE RUN (45-degree elbows) and the PUMP TRACK (a full lap), steering down their middles
+    { const pts = line(A.snake), s0 = pts[1]; reset(); place(s0[0], 0.2, s0[1], Math.atan2(pts[4][0] - s0[0], pts[4][1] - s0[1]), 9); const so = {}; const r = follow(pts, 14, so);
+      say('sheet snake run: pipe L, four 45-degree elbows, end to end', r.far >= pts.length - 6 && !r.falls && !r.bail && r.low > -0.05, `${r.far}/${pts.length} of the line, worst ${fix(r.offMax, 1)} m off (${so.at})`); }
+    { const L0 = line(A.pump), pts = L0.concat(L0.slice(1, 20)), s0 = pts[1]; reset(); place(s0[0], 0.2, s0[1], Math.atan2(pts[4][0] - s0[0], pts[4][1] - s0[1]), 8); const so = {};
+      const r = follow(pts, 20, so); say('sheet pump track: a full lap of rollers and two 180 berms', r.far >= L0.length && !r.falls && !r.bail && r.low > -0.05, `${r.far}/${L0.length}, worst ${fix(r.offMax, 1)} m off (${so.at})`); }
+    { const pts = line(A.flowRun), s0 = pts[0]; reset(); place(s0[0], 0.2, s0[1], Math.atan2(pts[4][0] - s0[0], pts[4][1] - s0[1]), 9); const so = {};
+      const r = follow(pts, 10, so); say('sheet flow: rollers into a berm and out', r.far >= pts.length - 4 && !r.falls && !r.bail, `${r.far}/${pts.length}, worst ${fix(r.offMax, 1)} m off (${so.at})`); }
+    // S8. THE HUBBAS: a swipe down beside the grand stairs grinds one to the foot
+    { const st = A.stairs, rl = KSZ.L.H / Math.tan(32 * Math.PI / 180); rg.GRIND.intent = 1; rg.ledgeClear();
+      reset(); const t = rg.kT(st.T, rl + 3, 9.2, 0); place(t.x, KSZ.L.H + 0.3, t.z, st.T.yaw + Math.PI, 6);      // on the landing, 1.6 m in from the hubba's steel P.grindCool = 0; P.grindLast = null;
+      const w = rg.rightFlick(0, 60); let hub = 0, low = 99; run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && (/hubba/.test(P.grind.rail.path.name) || P.grind.rail.path.ledge)) { hub = 1; low = Math.min(low, P.pos.y); } });
+      say('sheet entry: a swipe down beside the stairs grinds a hubba down them', hub && low < 1.2, `${w}, ${hub ? 'on the hubba, down to ' + fix(low) : 'NO HUBBA'}`);
+      rg.ledgeClear(); rg.GRIND.intent = 0; }
+    // S9. THE MEGA RAMP: off the roll-in MEGA, pushing down the run, over the gap XL, up the QP MEGA
+    { const ri = A.megaIn, gp = A.megaGap, qp = A.megaQP, top = rg.kT(ri.T, ri.top + 1.5, 0, 0); reset(); place(top.x, KSZ.MEGA.H + 0.3, top.z, Math.PI / 2, 1);
+      let vMax = 0, landed = 0, qpTop = 0, tq = 0; const kick = rg.kT(gp.T, 9, 0, 0).x, landX = gp.T.x + 9 + 12;
+      const r = ride(14, () => { if (P.pos.x < kick - 4 && P.hSpeed < 18) fwd(Math.PI / 2); else { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = Math.PI / 2; } city(); vMax = Math.max(vMax, P.hSpeed);
+        if (P.grounded && P.pos.x > landX - 1 && P.pos.x < qp.T.x - 2 && !landed) landed = P.pos.x; if (P.pos.x > qp.T.x) qpTop = Math.max(qpTop, P.pos.y); if (process.env.DBG && ((tq = (tq || 0) + 1) % 6 === 0)) console.log('     ', fix(P.pos.x, 1), fix(P.pos.y), fix(P.pos.z, 1), fix(P.hSpeed, 1), fix(P.vel.y, 1), P.grounded ? 'G' : 'a', P.grind ? 'GRIND ' + P.grind.rail.path.name : '', P.bailT > 0 ? 'BAIL' : ''); });
+      say('sheet mega ramp: roll-in MEGA, the gap XL cleared, up the QP MEGA', landed && qpTop > KSZ.MEGA.H * 0.9 && !r.falls, `${fix(vMax, 1)} m/s, landed ${landed ? 'at x ' + fix(landed, 1) + ' (gap ends ' + fix(landX, 1) + ')' : 'SHORT'}, QP MEGA up to ${fix(qpTop)}`); }
+    // S10. THE GAP XL at speed, and the rooftop: up the bank XL, down the stairs XL
+    { const gp = K.pieces.find(p => p.park === 'sheet gap' && p.kind === 'gap'); go(gp, -8, 0, 0, 22); let land = 0; const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && loc(gp).u > 9 + 12) land = 1; });
+      say('sheet gap XL (12 m) at 22 m/s: cleared', land && !r.bail && !r.falls, land ? 'landed past the gap' : `ends u ${fix(loc(gp).u, 1)}`); }
+    { const st = A.roofStairs; reset(); const t = rg.kT(st.T, st.len - 1, 0, 0); place(t.x, KSZ.XL.H + 0.3, t.z, st.T.yaw + Math.PI, 4); let down = 0;
+      const r = ride(4, () => { fwd(st.T.yaw + Math.PI); city(); if (P.grounded && P.pos.y < 0.05) down = 1; });
+      say('sheet rooftop: down the stairs XL (the advanced line)', down && !r.bail && !r.falls, down ? 'at the foot' : `ends y ${fix(P.pos.y)}`); }
+    // S11. THE FENCE holds her in, and every ➤ stop in the sheet park stands her on a floor
+    { reset(); place(SH.x0 + 25, 0.2, -60, -Math.PI / 2, 16); const r = ride(3, () => { fwd(-Math.PI / 2); city(); });
+      say('sheet fence: ridden into at 16 m/s, holds', P.pos.x > SH.x0 && !r.falls, `ends x ${fix(P.pos.x, 1)} (fence ${SH.x0})`); }
+    { const bad = []; for (const n of K.go.filter(n => /^sheet /.test(n))) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+        run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; });
+        if (gr < 30 || Math.abs(P.pos.y - y0) > 0.1) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+      say('sheet park: every ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${K.go.filter(n => /^sheet /.test(n)).length} stops`); }
+  }
   // P5. EVERY ➤ STOP IN THE PARK puts her on a floor, standing, and she stays there
   { const bad = []; for (const n of K.go.filter(n => /^park /.test(n))) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
       run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; });
@@ -2939,13 +3032,13 @@ CASES.kit = async () => {
   // 13. AN `fn_` MARKER IN A GLB IS REBUILT AS ITS PIECE: a scene the way GLTFLoader hands one over, through the shipped
   //     levelIngest -- one by its name alone, turned 90 degrees, and one by its extras with an option
   { const root = new THREE.Group(), n0 = K.pieces.length;
-    const a = new THREE.Object3D(); a.name = 'fn_qp_M_7'; a.position.set(0, 0, 385); a.rotation.y = Math.PI / 2; root.add(a);
-    const b = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)); b.name = 'fn_marker_whatever'; b.userData = { fn: 'qpIn', size: 'L', rc: 3 }; b.position.set(60, 0, 385); root.add(b);
+    const a = new THREE.Object3D(); a.name = 'fn_qp_M_7'; a.position.set(0, 0, -395); a.rotation.y = Math.PI / 2; root.add(a);      // r72: z 385 is under the giants row now, and its floor was sampled as theirs
+    const b = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)); b.name = 'fn_marker_whatever'; b.userData = { fn: 'qpIn', size: 'L', rc: 3 }; b.position.set(60, 0, -395); root.add(b);
     root.updateMatrixWorld(true);
     const st = rg.levelIngest(null, root, new THREE.Matrix4(), 'fntest'), S = KSZ.M, Sl = KSZ.L;
     // the qp turned +90: its +u runs along world +x, so its deck is at x = lip + 0.8
     // (groundAt hands back ONE shared object, so each answer is copied before the next question)
-    const gf = (x, z) => ({ ...rg.groundAt(x, z, 10, 0) }), d1 = gf(S.lip + 0.8, 385), d0 = gf(-0.8, 385), d2 = gf(60 + 3 + Sl.lip + 0.8, 385 + 0.3);
+    const gf = (x, z) => ({ ...rg.groundAt(x, z, 10, 0) }), d1 = gf(S.lip + 0.8, -395), d0 = gf(-0.8, -395), d2 = gf(60 + 3 + Sl.lip + 0.8, -395 + 0.3);
     say('fn_ markers rebuild their pieces where they stand', st.fn === 2 && K.pieces.length === n0 + 2 && Math.abs(d1.floor - S.H) < 0.02 && d0.floor < 0.01 && Math.abs(d2.floor - Sl.H) < 0.05,
       `${st.fn} built; qp deck at ${fix(d1.floor)} (H ${S.H}), behind its toe ${fix(d0.floor)}; corner deck ${fix(d2.floor)} (H ${Sl.H})`);
     const pc = K.pieces[n0]; go(pc, -12, 0, 0, Math.sqrt(2 * g * (S.H + 1.2)) + 1); const r = ride(5);
@@ -2963,13 +3056,15 @@ CASES.kit = async () => {
       // r70: SAMPLE THE ORIGINALS FIRST, then clear the collider and ingest the copy alone -- the world spans 600 m now
       // and a turned copy cannot land anywhere it does not overlap something else
       const gf = (x, z) => { const q = rg.groundAt(x, z, 30, 0); return q.hit ? q.floor : -1; }, samp = [];
-      for (const pc of gal) { const R = Math.max(pc.len || 8, pc.wid || 8) + 3;
+      // r72: OVER EACH PIECE'S OWN DRAWN BOX (+1 m), not a square of its length round its origin -- a 190 m fence's square
+      // took in the floors of the marker test's pieces, which belong to nothing in the gallery
+      for (const pc of gal) { if (!pc.bb) continue;
         // offset off the round numbers every edge in the kit sits on: a sample EXACTLY on a triangle's edge is a rounding
         // tie, inside on one side of a 180-degree turn and outside on the other
-        for (let u = -R + 0.0137; u <= R; u += 0.6) for (let w = -R + 0.0291; w <= R; w += 0.6) { const t = rg.kT(pc.T, u, w, 0), a = gf(t.x, t.z); if (a >= 0.05) samp.push([-t.x, -t.z - 70, a, pc.label, t.x, t.z]); } }
+        for (let x = pc.bb[0] - 1 + 0.0137; x <= pc.bb[3] + 1; x += 0.6) for (let z = pc.bb[2] - 1 + 0.0291; z <= pc.bb[5] + 1; z += 0.6) { const a = gf(x, z); if (a >= 0.05) samp.push([-x, -z + 30, a, pc.label, x, z]); } }
       rg.colliderReset();
       gl.scene.updateMatrixWorld(true);
-      const place = new THREE.Matrix4().makeTranslation(0, 0, -70).multiply(new THREE.Matrix4().makeRotationY(Math.PI));
+      const place = new THREE.Matrix4().makeTranslation(0, 0, 30).multiply(new THREE.Matrix4().makeRotationY(Math.PI));     // r72: +30, not -70 -- the giants row at z 412 turned to -482, off the collider's grid
       const st = rg.levelIngest(gl.scene, gl.scene, place, 'kitglb'), got = K.pieces.slice(n0);
       const sig = p => p.kind + ' ' + p.size + ' ' + JSON.stringify(Object.fromEntries(Object.entries(p.o || {}).filter(([k]) => k !== 'yaw').sort()));
       const A = gal.map(sig).sort().join('|'), B = got.map(sig).sort().join('|');
@@ -2985,7 +3080,7 @@ CASES.kit = async () => {
       let rn = 0, rbad = 0, rworst = 0;
       gal.forEach((pc, i) => { const A = pc.rails || [], B = (got[i] && got[i].rails) || []; if (A.length !== B.length) { rbad++; return; }
         A.forEach((R, j) => { const Q = B[j], e = [[R.segs[0].a, Q.segs[0].a], [R.segs[R.segs.length - 1].b, Q.segs[Q.segs.length - 1].b]];
-          for (const [a, b] of e) { const d = Math.hypot(-a.x - b.x, a.y - b.y, -a.z - 70 - b.z); rn++; rworst = Math.max(rworst, d); if (d > 0.01) rbad++; } }); });
+          for (const [a, b] of e) { const d = Math.hypot(-a.x - b.x, a.y - b.y, -a.z + 30 - b.z); rn++; rworst = Math.max(rworst, d); if (d > 0.01) rbad++; } }); });
       say('  every rail comes back with both ends in place', rn > 60 && !rbad, `${rn} rail ends, ${rbad} off, worst ${fix(rworst, 3)} m`);
       const lp = got.filter(p => /^loop/.test(p.kind));
       say('  its loops come back as booster rails that turn over', lp.length === gal.filter(p => /^loop/.test(p.kind)).length && lp.every(p => p.rail && p.rail.boost && p.rail.ups && p.rail.segs.length > 20), `${lp.length} loops`);

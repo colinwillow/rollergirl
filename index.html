@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r71</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r72</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r71';
+const BUILD = 'r72';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1357,13 +1357,18 @@ function perimeter(S, r, sweep, back, apron) {
 // named assemblies too, because one object is easier to place than six.
 // =====================================================================================================
 const KITW = { W: 4, deck: 1.5, cope: 0.3, seg: 28, rseg: 16, rc: 1.5, floorS: 10, built: 0, pieces: [], go: [], labels: [], keep: !!globalThis.__kitKeep,
-  x0: -130, x1: 470, z0: -330, z1: 420 };
+  x0: -470, x1: 470, z0: -420, z1: 470 };     // r72: west to -470 for the sheet park, and room for two more rows
 const D2R = Math.PI / 180;
 const KSZ = {
   S:  { H: 1.2, sweep: 70 * D2R, tint: 0xdff5ec },
   M:  { H: 2.4, sweep: 80 * D2R, tint: 0xdcecfb },
   L:  { H: 3.6, sweep: 85 * D2R, tint: 0xe9e0fa },
   XL: { H: 4.8, sweep: 88 * D2R, tint: 0xfbe6dc },
+  // r72: *"I want the scale to be fairly large ... I want this game to feel very big and exaggerated, like you're really
+  // flying around like crazy."* Two more rungs on the same 1.2 m ladder, so they snap to everything below them: XXL is a
+  // big vert wall, MEGA a mega ramp. At MEGA she needs ~20 m/s to reach the coping and leaves a full-speed air ~14 m up.
+  XXL:  { H: 7.2, sweep: 88 * D2R, tint: 0xfff0c8 },
+  MEGA: { H: 9.6, sweep: 88 * D2R, tint: 0xffd6e8 },
 };
 for (const k in KSZ) { const s = KSZ[k]; s.r = s.H / (1 - Math.cos(s.sweep)); s.lip = s.r * Math.sin(s.sweep); }
 const KCOL = { cope: 0x6fcfff, side: 0xc9cbd6, deck: 0xeceef4, floorA: 0xf7f7fa, floorB: 0xeeeef3, line: 0xd6d7e0 };
@@ -1452,7 +1457,7 @@ const KIT_KINDS = {
     const p = qpProf(S, S.tint, rc, dk), R = rc + S.lip + dk, seg = Math.max(4, Math.round(KITW.rseg * (a1 - a0) / (Math.PI / 2)));
     kRev(T, 0, 0, p, a0, a1, seg);
     // the deck out to the square corner, as a fan from that corner to the arc
-    for (let q = Math.floor(a0 / (Math.PI / 2) + 1e-9); q * Math.PI / 2 < a1 - 1e-9; q++) { const qa = q * Math.PI / 2, qb = qa + Math.PI / 2;
+    if (o.fill !== false) for (let q = Math.floor(a0 / (Math.PI / 2) + 1e-9); q * Math.PI / 2 < a1 - 1e-9; q++) { const qa = q * Math.PI / 2, qb = qa + Math.PI / 2;
       const lo = Math.max(a0, qa), hi = Math.min(a1, qb); if (hi - lo < 1e-6) continue;
       const cx = Math.cos(qa + Math.PI / 4) * Math.SQRT2 * R, cw = Math.sin(qa + Math.PI / 4) * Math.SQRT2 * R, Cn = kP(T, cx, S.H, cw);
       const n = Math.max(2, Math.round(seg * (hi - lo) / (a1 - a0)));
@@ -1499,7 +1504,12 @@ const KIT_KINDS = {
       else kWall(top(ua, wa), top(ub, wb), bot(ub2, wb2), bot(ua2, wa2), out, KCOL.side);
     }
     const P = kP(T, len / 2, 0, 0); solidAdd(P[0], P[2], w, len / 2, T.y, T.y + H, T.yaw, { tag: 'kit block' });
-    return { len: B.u1 - B.u0, wid: B.w1 - B.w0, h: H };
+    // r72: A FUNBOX WITH RAILS -- a flat bar along the top and a down rail over each bank, 0.45 m proud
+    let rails;
+    if (o.rails) { const hr = 0.45; rails = [kRail(T, [[0.5, H + hr, 0], [len - 0.5, H + hr, 0]], { name: 'funbox rail' })];
+      if (b[1]) rails.push(kRail(T, [[len, H + hr, w * 0.55], [len + L, hr, w * 0.55]], { name: 'funbox down rail' }));
+      if (b[0]) rails.push(kRail(T, [[0, H + hr, -w * 0.55], [-L, hr, -w * 0.55]], { name: 'funbox down rail' })); }
+    return { len: B.u1 - B.u0, wid: B.w1 - B.w0, h: H, rails };
   },
   // ROLL-IN: the tall one you drop down to get speed -- a deck at H, a steep straight face, a concave transition at the
   // bottom into the flat, and a long bank up the back so it can be climbed. `u` runs up the face, from the toe.
@@ -1542,7 +1552,9 @@ const KIT_KINDS = {
   gap(T, S, o) {
     const k = KIT_KINDS.kicker(T, S, { w: 4, h: S.H * 0.6, angle: 36 });
     // the landing: a 3 m deck at the kicker's height and a long 18-degree run off it, so a range of speeds lands
-    const u0 = k.len + (o.gap || 5), H = k.h, land = H / Math.tan(18 * D2R), w = 2.5;
+    // r72: `landH` / `landDeg` -- a MEGA line lands at 25 m/s, 20 m out, and an 18-degree run off a 2.9 m deck is nine
+    // metres long: she sails past its foot and slams the flat. A taller, flatter landing catches the whole range.
+    const u0 = k.len + (o.gap || 5), H = o.landH || k.h, land = H / Math.tan((o.landDeg || 18) * D2R), w = o.landW || 2.5;
     kStrip(T, [{ u: u0, y: 0, c: KCOL.side }, { u: u0, y: H, c: KCOL.deck }, { u: u0 + 3, y: H, c: S.tint }, { u: u0 + 3 + land, y: 0, c: KCOL.side }], -w, w);
     const P = kP(T, u0 + 1.5, 0, 0); solidAdd(P[0], P[2], w, 1.5, T.y, T.y + H, T.yaw, { tag: 'kit block' });
     return { len: u0 + 3 + land, wid: 5, h: H };
@@ -1563,9 +1575,9 @@ const KIT_KINDS = {
   // HALF PIPE along w: two straights facing each other across `flat`
   halfpipe(T, S, o) {
     const F = o.flat || 6, len = o.len || 8;
-    KIT_KINDS.qp(kT(T, F / 2, 0, 0), S, { w: len });
-    KIT_KINDS.qp(kT(T, -F / 2, 0, Math.PI), S, { w: len });
-    return { len: F + 2 * (S.lip + KITW.deck), wid: len, h: S.H };
+    KIT_KINDS.qp(kT(T, F / 2, 0, 0), S, { w: len, deck: o.deck });
+    KIT_KINDS.qp(kT(T, -F / 2, 0, Math.PI), S, { w: len, deck: o.deck });
+    return { len: F + 2 * (S.lip + (o.deck || KITW.deck)), wid: len, h: S.H };
   },
   // POOL: a half pipe with both ends capped by pairs of inside corners -- the "half bowl for an end", twice
   pool(T, S, o) {
@@ -1737,6 +1749,21 @@ Object.assign(KIT_KINDS, {
     const A = P(0, 0, -w), B = P(run, H, -w), C = P(run, H, w), D = P(0, 0, w);
     kCol(A, D, C); kCol(A, C, B);
     KIT_KINDS.platform(kT(T, run, 0, 0), S, { w: 2 * w, d: land });
+    // r72: HUBBAS -- a ledge `hh` (0.6) proud of the step noses down each side instead of a handrail, steel on its edge.
+    // Its top is a sloped floor; underneath it is stepped solids, so from the side it is a wall like any ledge.
+    if (o.hubba) { const hh = o.hh || 0.6, hw = o.hw || 0.7, rails = [];
+      for (const sg of [-1, 1]) { const wa = sg * w, wb = sg * (w + hw), lo = Math.min(wa, wb), hi = Math.max(wa, wb);
+        kQuad(P(0, hh, lo), P(run, H + hh, lo), P(run, H + hh, hi), P(0, hh, hi), KCOL.deck);
+        kQuad(P(run, H + hh, lo), P(run + land, H + hh, lo), P(run + land, H + hh, hi), P(run, H + hh, hi), KCOL.deck);
+        const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), out = [sg * fz, -sg * fx];
+        kWall(P(0, 0, wb), P(run, H, wb), P(run, H + hh, wb), P(0, hh, wb), out, KCOL.side);
+        kWall(P(run, 0, wb), P(run + land, 0, wb), P(run + land, H + hh, wb), P(run, H + hh, wb), out, KCOL.side);
+        kWall(P(0, 0, lo), P(0, 0, hi), P(0, hh, hi), P(0, hh, lo), [-fx, -fz], KCOL.side);
+        const nb = 6; for (let i = 0; i < nb; i++) { const u0 = run * i / nb, u1 = run * (i + 1) / nb, M = kP(T, (u0 + u1) / 2, 0, (lo + hi) / 2);
+          solidAdd(M[0], M[2], hw / 2, (u1 - u0) / 2, T.y, T.y + hh + H * i / nb - 0.05, T.yaw, { tag: 'kit hubba', top: false }); }
+        const M = kP(T, run + land / 2, 0, (lo + hi) / 2); solidAdd(M[0], M[2], hw / 2, land / 2, T.y, T.y + H + hh, T.yaw, { tag: 'kit hubba' });
+        rails.push(kRail(T, [[0, hh + 0.02, sg * (w + hw + 0.08)], [run, H + hh + 0.02, sg * (w + hw + 0.08)], [run + land - 0.3, H + hh + 0.02, sg * (w + hw + 0.08)]], { name: 'hubba', posts: false, mat: 'bar' })); }
+      return { len: run + land, wid: 2 * (w + hw), h: H, rails, out: { u: run + land, w: 0, y: H, dyaw: 0 } }; }
     const rails = o.rails === false ? [] : [-1, 1].map(s => kRail(T, [[-1, hr, s * (w - 0.25)], [0, hr, s * (w - 0.25)], [run, H + hr, s * (w - 0.25)], [run + land - 0.5, H + hr, s * (w - 0.25)]], { name: 'handrail', ...o }));
     return { len: run + land, wid: 2 * w, h: H, rails, out: { u: run + land, w: 0, y: H, dyaw: 0 } };
   },
@@ -1757,10 +1784,14 @@ Object.assign(KIT_KINDS, {
     KIT_KINDS.qp(kT(T, L / 2, -F / 2, -Math.PI / 2), S, { w: L });
     return { len: L, wid: 2 * kPipeC(S, F), h: S.H, out: { u: L, w: 0, y: 0, dyaw: 0 } }; },
   // ELBOW: a 90-degree bend of the same pipe
-  elbow(T, S, o) { const F = o.flat || 6, sd = o.right ? -1 : 1, rIn = KITW.deck + S.lip, Rc = rIn + F / 2;
-    const O = kT(T, 0, sd * Rc, 0), a = sd > 0 ? { a0: -Math.PI / 2, a1: 0 } : { a0: 0, a1: Math.PI / 2 };
-    KIT_KINDS.qpOut(O, S, a); KIT_KINDS.qpIn(O, S, { rc: rIn + F, ...a });
-    return { len: Rc + kPipeC(S, F), wid: Rc + kPipeC(S, F), h: S.H, out: { u: Rc, w: sd * Rc, y: 0, dyaw: sd * Math.PI / 2 } }; },
+  // r72: ANY ANGLE (`deg`, 90 by default). *"We might think all we needed was a 90 degree elbow, but it turns out we need a
+  // 45 -- maybe a 20."* The same two corners on the same centre, swept by less; `out` is the point `deg` round the bend.
+  // Only a 90 fills its deck out to the square corner (that is what lets an L meet two straights' decks); a partial bend
+  // keeps its deck on the arc, which is where the next straight's deck starts.
+  elbow(T, S, o) { const F = o.flat || 6, sd = o.right ? -1 : 1, A = (o.deg || 90) * D2R, rIn = KITW.deck + S.lip, Rc = rIn + F / 2;
+    const O = kT(T, 0, sd * Rc, 0), a = sd > 0 ? { a0: -Math.PI / 2, a1: -Math.PI / 2 + A } : { a0: Math.PI / 2 - A, a1: Math.PI / 2 };
+    KIT_KINDS.qpOut(O, S, a); KIT_KINDS.qpIn(O, S, { rc: rIn + F, fill: Math.abs(A - Math.PI / 2) < 1e-6, ...a });
+    return { len: Rc + kPipeC(S, F), wid: Rc + kPipeC(S, F), h: S.H, out: { u: Rc * Math.sin(A), w: sd * Rc * (1 - Math.cos(A)), y: 0, dyaw: sd * A } }; },
   // TEE: a pipe `len` long with a second leaving its middle toward +w (`right: 1` for -w), `leg` long -- the T assembly,
   // turned into this frame. `out` carries straight on, `out2` is the end of the branch.
   tee(T, S, o) { const F = o.flat || 6, sd = o.right ? -1 : 1, c = kPipeC(S, F), L = Math.max(o.len || 20, 2 * c + 2), leg = o.leg || 8;
@@ -1770,6 +1801,174 @@ Object.assign(KIT_KINDS, {
   pipeEnd(T, S, o) { const F = o.flat || 6;
     KIT_KINDS.qpIn(T, S, { rc: F / 2, a0: -Math.PI / 2, a1: Math.PI / 2 });
     return { len: kPipeC(S, F), wid: 2 * kPipeC(S, F), h: S.H }; },
+});
+// ===================================================================================================== r72: WHAT HIS SHEET NEEDED
+// *"See if you can build it with the pieces you have ... and then we are missing pieces, let's build those -- we might
+// think all we needed was a 90 degree elbow but it turns out we need a 45, maybe a 20; connector pieces, boxes, grind
+// rails, big vert half pipes, quarter pipes, different styles of bowls."* Building his mega-skatepark style sheet with
+// the r70 kit came up short in these places, and each is a piece now:
+//   elbow `deg`     (above) a 45, a 22.5 -- a snake run bends, it does not turn corners
+//   qpAdapt         a quarter pipe whose height ramps from one size to another across its width -- the CONNECTOR that
+//   pipeAdapt       lets a QP M run into a QP L, or a pipe change size; r70's list said "pipes never change size"
+//   freeBowl        a clover / kidney / peanut bowl with a DEEP END and a shallow end -- the sheet's bowl complex
+//   squareBowl      a square bowl with radiused corners, the other classic shape
+//   bridge          a deck on posts you can ride over AND under, railings that grind -- the elevated platform
+//   stairs hubba    ledges down both sides of a stair set instead of handrails
+//   roller, berm    a pump bump and a banked turn -- a pump track / flow line is a list of these
+//   frustum rails   a funbox with a rail along its top and down rails over its banks
+//   fence, shade, bleachers, planter, lamp -- the park's furniture: walls that keep her in, a roof to land on, seats
+//                   and planters that are ledges
+// ---- drawing helpers ------------------------------------------------------------------------------------------------
+// a triangle wound to face AWAY from a point -- for the undersides and the rounded things (a canopy) `kTri` would turn up
+function kTriOut(A, B, C, Q, col, solid) {
+  const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const d = nx * (A[0] - Q[0]) + ny * (A[1] - Q[1]) + nz * (A[2] - Q[2]);
+  if (d < 0) pushTri(A[0], A[1], A[2], C[0], C[1], C[2], B[0], B[1], B[2], col, solid === true);
+  else pushTri(A[0], A[1], A[2], B[0], B[1], B[2], C[0], C[1], C[2], col, solid === true);
+}
+// A BOX in the piece's frame, drawn; and (unless `solid: false`) a solid -- a wall all round, its top a floor unless
+// `floor: false`. The drawn top is never collided: `solidAdd` puts the box's top in the floor collider itself.
+function kBox(T, u0, u1, w0, w1, y0, y1, top, side, o) {
+  o = o || {};
+  const P = (u, y, w) => kP(T, u, y, w), C = kP(T, (u0 + u1) / 2, (y0 + y1) / 2, (w0 + w1) / 2);
+  const q = (a, b, c, d, col) => { kTriOut(a, b, c, C, col); kTriOut(a, c, d, C, col); };
+  q(P(u0, y1, w0), P(u1, y1, w0), P(u1, y1, w1), P(u0, y1, w1), top);
+  q(P(u0, y0, w0), P(u0, y0, w1), P(u0, y1, w1), P(u0, y1, w0), side);
+  q(P(u1, y0, w0), P(u1, y0, w1), P(u1, y1, w1), P(u1, y1, w0), side);
+  q(P(u0, y0, w0), P(u1, y0, w0), P(u1, y1, w0), P(u0, y1, w0), side);
+  q(P(u0, y0, w1), P(u1, y0, w1), P(u1, y1, w1), P(u0, y1, w1), side);
+  if (o.bottom) q(P(u0, y0, w0), P(u1, y0, w0), P(u1, y0, w1), P(u0, y0, w1), side);
+  if (o.solid !== false) { const M = kP(T, (u0 + u1) / 2, 0, (w0 + w1) / 2);
+    solidAdd(M[0], M[2], (w1 - w0) / 2, (u1 - u0) / 2, T.y + y0, T.y + y1, T.yaw, { tag: o.tag || 'kit box', top: o.floor !== false }); }
+}
+// a QP cross-section with a FIXED number of points for any height, so two of them can be lofted into one surface
+function qpProfN(H, sweep, tint, deck, n) {
+  const r = H / (1 - Math.cos(sweep)), lip = r * Math.sin(sweep), p = [{ u: 0, y: 0, c: tint }];
+  for (let i = 1; i <= n; i++) { const a = sweep * i / n; p.push({ u: r * Math.sin(a), y: r * (1 - Math.cos(a)), c: i === n ? KCOL.cope : tint }); }
+  p.push({ u: lip + KITW.cope, y: H, c: KCOL.deck }); p.push({ u: lip + deck, y: H, c: KCOL.side }); p.push({ u: lip + deck, y: 0, c: KCOL.side });
+  return { p, lip, H };
+}
+Object.assign(KIT_KINDS, {
+  // QP ADAPTER: across its width the height runs from this size (at -w) to `to` (at +w), the sweep with it. A straight of
+  // each size meets it at either end; its deck slopes from one deck to the other. The deck's solid is a box per strip,
+  // topped at the LOWER edge, so it is a wall from behind and the sloped deck above it is what she rides.
+  qpAdapt(T, S, o) {
+    const S2 = o.toS || KSZ[o.to] || S, w = (o.w || 6) / 2, dk = o.deck || KITW.deck, n = KITW.seg, cols = Math.max(4, Math.ceil(2 * w));
+    const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), C = [];
+    for (let j = 0; j <= cols; j++) { const t = j / cols;
+      C.push({ w: -w + 2 * w * t, ...qpProfN(S.H + (S2.H - S.H) * t, S.sweep + (S2.sweep - S.sweep) * t, t < 0.5 ? S.tint : S2.tint, dk, n) }); }
+    for (let j = 0; j < cols; j++) { const A = C[j], B = C[j + 1], m = A.p.length;
+      for (let i = 0; i < m - 1; i++) { const a0 = A.p[i], a1 = A.p[i + 1], b0 = B.p[i], b1 = B.p[i + 1];
+        const Q = [kP(T, a0.u, a0.y, A.w), kP(T, a1.u, a1.y, A.w), kP(T, b1.u, b1.y, B.w), kP(T, b0.u, b0.y, B.w)];
+        if (i === m - 2) kWall(Q[0], Q[1], Q[2], Q[3], [fx, fz], KCOL.side); else kQuad(Q[0], Q[1], Q[2], Q[3], a0.c); }
+      const u0 = Math.max(A.lip, B.lip) + KITW.cope, u1 = Math.min(A.lip, B.lip) + dk;
+      if (u1 - u0 > 0.3) { const M = kP(T, (u0 + u1) / 2, 0, (A.w + B.w) / 2);
+        solidAdd(M[0], M[2], (B.w - A.w) / 2, (u1 - u0) / 2, T.y, T.y + Math.min(A.H, B.H) - 0.02, T.yaw, { tag: 'kit deck' }); } }
+    // the two end skirts
+    for (const [E, sg] of [[C[0], -1], [C[cols], 1]]) for (let i = 0; i < E.p.length - 2; i++) { const a = E.p[i], b = E.p[i + 1];
+      if (a.y < 0.01 && b.y < 0.01) continue;
+      kWall(kP(T, a.u, a.y, E.w), kP(T, b.u, b.y, E.w), kP(T, b.u, 0, E.w), kP(T, a.u, 0, E.w), [sg * fz, -sg * fx], KCOL.side); }
+    return { len: Math.max(C[0].lip, C[cols].lip) + dk, wid: 2 * w, h: Math.max(S.H, S2.H) };
+  },
+  // PIPE ADAPTER: a pipe `len` long that leaves at size `to` -- a snapped run can change size here
+  pipeAdapt(T, S, o) { const F = o.flat || 6, L = o.len || 8, S2 = KSZ[o.to] || S;
+    KIT_KINDS.qpAdapt(kT(T, L / 2, F / 2, Math.PI / 2), S2, { toS: S, w: L, deck: o.deck });     // this wall's -w end is the far end
+    KIT_KINDS.qpAdapt(kT(T, L / 2, -F / 2, -Math.PI / 2), S, { toS: S2, w: L, deck: o.deck });
+    return { len: L, wid: F + 2 * (Math.max(S.lip, S2.lip) + KITW.deck), h: Math.max(S.H, S2.H), out: { u: L, w: 0, y: 0, dyaw: 0 } }; },
+  // FREE BOWL: a clover (`lobes` 3), peanut (2) or kidney bowl, with a DEEP END and a SHALLOW END. Its rim is a radius that
+  // swells and pinches round the centre (`R` +/- `amp`); its depth runs from `shallow` to the size's full height, deepest
+  // toward `deepAt` (degrees from +u). The rim is the deck height everywhere -- the size's H -- so the floor rises toward
+  // the shallow end, a gentle cone from the deep end's toe to the shallow end's. The walls run in RADIALLY from the rim, so
+  // a pinch between two lobes comes out as a hip and nothing folds over itself. Its deck fills out to a square, wall all
+  // round, so it is a block he can butt other decks against. Origin at the centre.
+  freeBowl(T, S, o) {
+    const N = 96, n = KITW.seg, k = o.lobes != null ? o.lobes : 3, amp = o.amp != null ? o.amp : 0.18, ph = (o.phase || 0) * D2R;
+    const Hd = S.H, Hs = o.shallow != null ? o.shallow : S.H * 0.55, deep = (o.deepAt || 0) * D2R, sw = S.sweep, dkM = o.deck || 3;
+    const depth = a => Hs + (Hd - Hs) * (1 + Math.cos(a - deep)) / 2, lipOf = H => H / (1 - Math.cos(sw)) * Math.sin(sw);
+    let R0 = o.R || lipOf(Hd) + 6; R0 = Math.max(R0, (lipOf(Hd) + 2.5) / (1 - amp));
+    const rim = a => R0 * (1 + amp * Math.cos(k * (a - ph))), Q = R0 * (1 + amp) + dkM;
+    const at = (rho, y, a) => kP(T, rho * Math.cos(a), y, rho * Math.sin(a));
+    const prof = [], toes = []; let Hsum = 0;
+    for (let s = 0; s <= N; s++) { const a = s / N * Math.PI * 2, H = depth(a), r = H / (1 - Math.cos(sw)), lip = r * Math.sin(sw), Rr = rim(a), y0 = Hd - H;
+      const B = Q / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a))), p = [{ u: Rr - lip, y: y0, c: S.tint }];
+      for (let i = 1; i <= n; i++) { const b = sw * i / n; p.push({ u: Rr - lip + r * Math.sin(b), y: y0 + r * (1 - Math.cos(b)), c: i === n ? KCOL.cope : S.tint }); }
+      p.push({ u: Rr + KITW.cope, y: Hd, c: KCOL.deck }); p.push({ u: B, y: Hd, c: KCOL.deck });
+      prof.push({ a, p }); if (s < N) Hsum += H; }
+    for (let s = 0; s < N; s++) { const A = prof[s], B = prof[s + 1];
+      for (let i = 0; i < A.p.length - 1; i++) kQuad(at(A.p[i].u, A.p[i].y, A.a), at(A.p[i + 1].u, A.p[i + 1].y, A.a), at(B.p[i + 1].u, B.p[i + 1].y, B.a), at(B.p[i].u, B.p[i].y, B.a), A.p[i].c);
+      // the floor: a fan from the middle, at the average depth
+      kTri(kP(T, 0, Hd - Hsum / N, 0), at(A.p[0].u, A.p[0].y, A.a), at(B.p[0].u, B.p[0].y, B.a), KCOL.floorA); }
+    // the outside: four walls, and a band of solid inside each so riding at it from outside stops her
+    const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), c = (u, w) => kP(T, u, Hd, w), g = (u, w) => kP(T, u, 0, w);
+    for (const [u0, w0, u1, w1, out] of [[Q, -Q, Q, Q, [fx, fz]], [-Q, Q, -Q, -Q, [-fx, -fz]], [Q, Q, -Q, Q, [fz, -fx]], [-Q, -Q, Q, -Q, [-fz, fx]]]) {
+      kWall(c(u0, w0), c(u1, w1), g(u1, w1), g(u0, w0), out, KCOL.side);
+      const M = kP(T, (u0 + u1) / 2 - Math.sign(u0 + u1) * 0.5 * (u0 === u1), 0, (w0 + w1) / 2 - Math.sign(w0 + w1) * 0.5 * (w0 === w1));
+      solidAdd(M[0], M[2], u0 === u1 ? Q : 0.5, u0 === u1 ? 0.5 : Q, T.y, T.y + Hd, T.yaw, { tag: 'kit bowl wall' }); }
+    return { len: 2 * Q, wid: 2 * Q, h: Hd, R: R0, Q };
+  },
+  // SQUARE BOWL: a flat square `side` across with straights on all four sides and inside corners of radius `rc`
+  squareBowl(T, S, o) { const a = (o.side || 10) / 2, rc = Math.min(o.rc || 3, a - 0.5), wl = 2 * (a - rc);
+    for (const [du, dw, dy] of [[a, 0, 0], [0, a, Math.PI / 2], [-a, 0, Math.PI], [0, -a, -Math.PI / 2]]) KIT_KINDS.qp(kT(T, du, dw, dy), S, { w: wl });
+    for (const [su, sw, a0] of [[1, 1, 0], [-1, 1, 0.5], [-1, -1, 1], [1, -1, 1.5]]) KIT_KINDS.qpIn(kT(T, su * (a - rc), sw * (a - rc), 0), S, { rc, a0: a0 * Math.PI, a1: (a0 + 0.5) * Math.PI });
+    const R = a + S.lip + KITW.deck; return { len: 2 * R, wid: 2 * R, h: S.H }; },
+  // BRIDGE: a deck `len` along +u at the size's height (or `h`), `w` wide, on posts, a railing down each edge that grinds.
+  // A floor on top, a ceiling underneath: at M and up she rides under it. Ends meet whatever decks it spans.
+  bridge(T, S, o) { const h = o.h != null ? o.h : S.H, L = o.len || 16, w = (o.w || 5) / 2, th = 0.5;
+    kBox(T, 0, L, -w, w, h - th, h, KCOL.deck, KCOL.side, { bottom: 1, tag: 'kit bridge' });
+    const nP = Math.max(2, Math.ceil(L / 8) + 1);
+    for (let i = 0; i < nP; i++) { const u = 0.6 + (L - 1.2) * i / (nP - 1);
+      for (const s of [-1, 1]) kBox(T, u - 0.25, u + 0.25, s * (w - 0.1) - 0.25, s * (w - 0.1) + 0.25, 0, h - th, KCOL.side, KCOL.side, { floor: false, tag: 'kit post' }); }
+    const rails = [-1, 1].map(s => kRail(T, [[0, h + 1.0, s * (w - 0.15)], [L, h + 1.0, s * (w - 0.15)]], { name: 'bridge rail', ...o }));
+    return { len: L, wid: 2 * w, h, rails, out: { u: L, w: 0, y: h, dyaw: 0 } }; },
+  // ROLLER: one pump bump, `h` (0.7) over `len` (5), a sine hump, `w` (4) wide -- a flow line is rollers and berms
+  roller(T, S, o) { const h = o.h || 0.7, L = o.len || 5, w = (o.w || 4) / 2, p = [];
+    for (let i = 0; i <= 14; i++) { const u = L * i / 14; p.push({ u, y: h * (1 - Math.cos(2 * Math.PI * u / L)) / 2, c: S.tint }); }
+    kStrip(T, p, -w, w);
+    return { len: L, wid: 2 * w, h, out: { u: L, w: 0, y: 0, dyaw: 0 } }; },
+  // BERM: a banked turn of `deg` (180) on a centreline radius `r` (7), turning toward +w (or `right`). The bank rises across
+  // the track to `h` (the size's 0.6) at its outside, and in along the turn -- flat where it meets a straight at either
+  // end, steepest half way round -- so it snaps to rollers and straights with no step.
+  berm(T, S, o) { const A = (o.deg || 180) * D2R, sd = o.right ? -1 : 1, wf = o.w || 4, Rc = Math.max(o.r || 7, wf / 2 + 1), h = o.h || S.H * 0.6;
+    const Ri = Rc - wf / 2, Ro = Rc + wf / 2 + 1.5, O = kT(T, 0, sd * Rc, 0), a0 = sd > 0 ? -Math.PI / 2 : Math.PI / 2;
+    const na = Math.max(8, Math.ceil(A * Rc / 1.2)), nr = 7;
+    const pt = (i, j) => { const t = i / na, a = a0 + sd * A * t, rho = Ri + (Ro - Ri) * j / nr;
+      return kP(O, rho * Math.cos(a), h * Math.pow(Math.sin(Math.PI * t), 0.8) * Math.pow(j / nr, 1.6), rho * Math.sin(a)); };
+    for (let i = 0; i < na; i++) for (let j = 0; j < nr; j++) kQuad(pt(i, j), pt(i + 1, j), pt(i + 1, j + 1), pt(i, j + 1), j < nr - 2 ? S.tint : KCOL.cope);
+    // the outside skirt down to the ground
+    for (let i = 0; i < na; i++) { const a = pt(i, nr), b = pt(i + 1, nr); if (a[1] < T.y + 0.01 && b[1] < T.y + 0.01) continue;
+      const mid = kP(O, 0, 0, 0), q = [a, b, [b[0], T.y, b[2]], [a[0], T.y, a[2]]]; kTriOut(q[0], q[1], q[2], mid, KCOL.side); kTriOut(q[0], q[2], q[3], mid, KCOL.side); }
+    const cl = []; for (let i = 0; i <= 12; i++) { const a = a0 + sd * A * i / 12; cl.push([Rc * Math.cos(a), sd * Rc + Rc * Math.sin(a)]); }
+    return { len: Rc + Ro, wid: Rc + Ro, h, cl, out: { u: Rc * Math.sin(A), w: sd * Rc * (1 - Math.cos(A)), y: 0, dyaw: sd * A } }; },
+  // ---- THE FURNITURE: what keeps her in, what she lands on, what she grinds that is not a rail ---------------------------
+  // FENCE: a wall `len` along +u, `h` (1.8) tall -- solid, so the park has an edge she stops against
+  fence(T, S, o) { const L = o.len || 20, h = o.h || 1.8;
+    kBox(T, 0, L, -0.08, 0.08, 0, h, 0xaab0c2, 0xbfc4d4, { floor: false, tag: 'kit fence' });
+    const n = Math.max(1, Math.round(L / 4)); for (let i = 0; i <= n; i++) { const u = L * i / n; kBox(T, u - 0.1, u + 0.1, -0.12, 0.12, 0, h + 0.15, 0x8a90a4, 0x8a90a4, { solid: false }); }
+    return { len: L, wid: 0.3, h, out: { u: L, w: 0, y: 0, dyaw: 0 } }; },
+  // SHADE: four posts and a roof `h` (4.5) up -- the roof is a floor, so it is somewhere to land
+  shade(T, S, o) { const d = o.d || 8, w = (o.w || 8) / 2, h = o.h || 4.5;
+    for (const [u, ww] of [[0.4, -w + 0.4], [0.4, w - 0.4], [d - 0.4, -w + 0.4], [d - 0.4, w - 0.4]]) kBox(T, u - 0.15, u + 0.15, ww - 0.15, ww + 0.15, 0, h, 0x6b7390, 0x6b7390, { floor: false, tag: 'kit post' });
+    kBox(T, -0.6, d + 0.6, -w - 0.6, w + 0.6, h, h + 0.35, 0x34477a, 0x2a3866, { bottom: 1, tag: 'kit roof' });
+    return { len: d + 1.2, wid: 2 * w + 1.2, h: h + 0.35 }; },
+  // BLEACHERS: `rows` (5) of seats stepping up along +u, `len` (12) wide -- every seat edge a ledge
+  bleachers(T, S, o) { const n = o.rows || 5, L = (o.len || 12) / 2, rh = o.rh || 0.45, rd = o.rd || 0.9;
+    for (let i = 0; i < n; i++) kBox(T, i * rd, (i + 1) * rd, -L, L, 0, (i + 1) * rh, 0xc4cadb, 0xa9b0c6, { tag: 'kit seat' });
+    return { len: n * rd, wid: 2 * L, h: n * rh }; },
+  // PLANTER: a box `h` (0.6) high -- a ledge -- with a tree in it
+  planter(T, S, o) { const s = (o.size || 3) / 2, h = o.h || 0.6, th = o.tree || 5.5;
+    kBox(T, -s, s, -s, s, 0, h, 0x9fd49a, 0xb7bccd, { tag: 'kit planter' });
+    kBox(T, -0.15, 0.15, -0.15, 0.15, h, th * 0.55, 0x8a6a4a, 0x8a6a4a, { floor: false, tag: 'kit trunk' });
+    const top = kP(T, 0, th, 0), mid = kP(T, 0, th * 0.62, 0), rr = th * 0.28, ring = [];
+    for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; ring.push(kP(T, rr * Math.cos(a), th * 0.6, rr * Math.sin(a))); }
+    const bot = kP(T, 0, th * 0.42, 0);
+    for (let i = 0; i < 7; i++) { const a = ring[i], b = ring[(i + 1) % 7]; kTriOut(top, a, b, mid, 0x7cc47a); kTriOut(bot, b, a, mid, 0x67ad68); }
+    return { len: 2 * s, wid: 2 * s, h: th }; },
+  // LAMP: a light pole `h` (8)
+  lamp(T, S, o) { const h = o.h || 8;
+    kBox(T, -0.12, 0.12, -0.12, 0.12, 0, h, 0x7d849a, 0x7d849a, { floor: false, tag: 'kit lamp' });
+    kBox(T, -0.5, 0.5, -0.3, 0.3, h, h + 0.3, 0xfff1a8, 0xd8dbe6, { solid: false });
+    return { len: 1, wid: 1, h }; },
 });
 // ONE ENTRY POINT. A size name or an object; options as the kinds take them. The record is what the export writes out
 // and what an `fn_` marker in a GLB carries back in.
@@ -1827,6 +2026,14 @@ const KIT_RAIL_ROWS = [
   ['pipe modules', 352, [['pipe', 'M', { len: 12 }, 'pipe M (straight)'], ['elbow', 'M', {}, 'elbow M (left)'], ['elbow', 'M', { right: 1 }, 'elbow M (right)'], ['tee', 'M', {}, 'tee M'], ['pipeEnd', 'M', {}, 'pipe end M (half bowl)']]],
   ['ledges + stairs', -235, [['ledge', 'S', { h: 0.6 }, 'ledge 0.6 m'], ['ledge', 'S', {}, 'ledge S'], ['stairs', 'S', {}, 'stairs S + rails'], ['stairs', 'M', {}, 'stairs M + rails'], ['stairs', 'L', {}, 'stairs L + rails']]],
 ];
+// r72: THE PIECES HIS SHEET NEEDED (south), and THE GIANTS (north)
+const KIT_NEW_ROWS = [
+  ['new pieces (r72)', -340, [['elbow', 'M', { deg: 45 }, 'elbow M 45'], ['elbow', 'M', { deg: 22.5, right: 1 }, 'elbow M 22.5 (right)'], ['pipeAdapt', 'M', { to: 'L', len: 10 }, 'pipe adapter M > L'],
+    ['qpAdapt', 'M', { to: 'XL', w: 8 }, 'QP adapter M > XL'], ['freeBowl', 'XL', { R: 11, lobes: 2, amp: 0.2, deepAt: 0 }, 'peanut bowl XL (deep end)'], ['squareBowl', 'M', { side: 10, rc: 3 }, 'square bowl M'],
+    ['bridge', 'M', { len: 16 }, 'bridge M'], ['stairs', 'M', { hubba: 1 }, 'stairs M + hubbas'], ['frustum', 'M', { len: 6, w: 5, banks: [1, 1, 0, 0], rails: 1 }, 'funbox M + rails'], ['berm', 'M', { deg: 90, r: 8 }, 'berm M 90']]],
+  ['giants (r72)', 412, [['qp', 'XXL', { w: 8 }, 'QP XXL'], ['qp', 'MEGA', { w: 8 }, 'QP MEGA'], ['halfpipe', 'XXL', { flat: 8, len: 12 }, 'half pipe XXL'],
+    ['halfpipe', 'MEGA', { flat: 10, len: 12, deck: 3 }, 'half pipe MEGA'], ['freeBowl', 'XXL', { R: 15, lobes: 3, amp: 0.2, shallow: 4 }, 'clover bowl XXL'], ['rollin', 'MEGA', { r: 8 }, 'roll-in MEGA']]],
+];
 // THE CHAIN: pieces snapped end to end off each other's `out` -- the spec in action, and the thing `npm run sim kit`
 // grinds from one end to the other
 const KIT_CHAIN = [['rail', 'M', { len: 6 }], ['railCurve', 'M', {}], ['railDown', 'M', {}], ['rail', 'S', { len: 4 }], ['railCurve', 'S', { right: 1 }], ['railKink', 'S', {}], ['rail', 'S', { h: 0.6, len: 4 }]];
@@ -1844,7 +2051,7 @@ KIT_KINDS.bankDeck = (T, S, o) => {
   KIT_KINDS.platform(kT(T, b.len, 0, 0), S, { w: 4, d: 4 });
   return { len: b.len + 4, wid: 4, h: S.H };
 };
-const KIT_FITS = { S: 'H 1.2 m', M: 'H 2.4 m', L: 'H 3.6 m', XL: 'H 4.8 m' };
+const KIT_FITS = { S: 'H 1.2 m', M: 'H 2.4 m', L: 'H 3.6 m', XL: 'H 4.8 m', XXL: 'H 7.2 m', MEGA: 'H 9.6 m' };
 function kitFloor() {
   const s = KITW.floorS;
   for (let x = KITW.x0; x < KITW.x1; x += s) for (let z = KITW.z0; z < KITW.z1; z += s) {
@@ -1854,7 +2061,7 @@ function kitFloor() {
 }
 function kitGallery() {
   const xs = n => { const out = []; for (let i = 0; i < n; i++) out.push((i - (n - 1) / 2) * 44); return out; };
-  for (const [title, z, row] of KIT_ROWS.concat(KIT_RAIL_ROWS)) {
+  for (const [title, z, row] of KIT_ROWS.concat(KIT_RAIL_ROWS, KIT_NEW_ROWS)) {
     const X = xs(row.length);
     row.forEach(([kind, size, o, label], i) => {
       const T = { x: X[i], y: 0, z, yaw: o.yaw || 0 }, rec = kitPiece(kind, size, T, o);
@@ -1901,8 +2108,9 @@ function kitRun(zone, T, steps) {
   for (const [kind, size, o, label, branch] of steps) {
     const r = pk(zone, kind, size, T.x, T.z, T.yaw, o, null, label, T.y); out.push(r);
     const S = KSZ[size], F = (o && o.flat) || 6, Rc = KITW.deck + S.lip + F / 2, sd = o && o.right ? -1 : 1, c = [];
-    if (kind === 'elbow') { const O = kT(T, 0, sd * Rc, 0);
-      for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI / 2, f = kT(O, Rc * Math.sin(a), -sd * Rc * Math.cos(a), 0); c.push([f.x, f.z]); } }
+    if (r.cl) { for (const q of r.cl) { const f = kT(T, q[0], q[1], 0); c.push([f.x, f.z]); } }      // r72: a piece that says where its middle is
+    else if (kind === 'elbow') { const O = kT(T, 0, sd * Rc, 0), A = ((o && o.deg) || 90) * D2R, n = Math.max(2, Math.round(8 * A / (Math.PI / 2)));
+      for (let i = 0; i <= n; i++) { const a = i / n * A, f = kT(O, Rc * Math.sin(a), -sd * Rc * Math.cos(a), 0); c.push([f.x, f.z]); } }
     else if (r.out) { for (let i = 0; i <= 4; i++) { const f = kT(T, r.out.u * i / 4, 0, 0); c.push([f.x, f.z]); } }
     else { for (let i = 0; i <= 2; i++) { const f = kT(T, (r.len || 4) * i / 2 * 0.6, 0, 0); c.push([f.x, f.z]); } }
     r.cl = c;
@@ -2036,6 +2244,159 @@ function kitPark() {
   SPAWN.set(KPARK.spawn[0], KPARK.spawn[1] + 0.2, KPARK.spawn[2]); SPAWN.h = KPARK.spawn[3];
   CITY.spots['park drop-in'] = KPARK.spawn.slice();
 }
+// ===================================================================================================== r72: THE SHEET PARK
+// *"Why don't you try to build this skate park ... see if you can build it with the pieces you have -- how the edges of
+// each modular piece go together, and if we're missing pieces, let's build those. And make the scale fairly large -- I
+// want this game to feel very big and exaggerated, like you're really flying around."* His MEGA SKATEPARK style sheet,
+// laid out at about 1.7x its own scale on the west side of the kit world (x -450..-160, z -270..150), oriented as drawn:
+// standing at the main entry looking in, the sheet's up is world -x and its right is world -z. Every feature is kit
+// pieces (what an `fn_` node in his file makes); where the kit could not build it, a piece was added (above).
+//   1 MAIN ENTRY     a deck at L you spawn on, the grand stairs L with HUBBAS down into the hub, banks either side
+//   2 STREET COURSE  two blocks at M -- stairs + handrails, stairs + hubbas -- ledges, manual pads, a kink and a down rail
+//   4 BOWL COMPLEX   a CLOVER bowl XXL with a deep end (7.2 m) and a shallow lobe (4 m), and a round bowl XL raised to
+//                    share its deck -- varied depths; a bank XXL up, and the BRIDGE off its deck
+//   5 FLOW PARK      hips, a bank-to-bank, a berm, rollers, a pyramid
+//   6 VERT           a half pipe MEGA (9.6 m) with 4 m decks and stairs MEGA up to one
+//   7 SPINE          QP XL > spine XL > QP XL, a transfer
+//   8 SNAKE RUN      pipe L with 45-degree elbows, capped both ends; and a PUMP TRACK of rollers and two 180 berms
+//   9 BRIDGE         a deck XXL on posts from the bowl complex to a tower, a bank down -- ride over it or under it
+//  10 GAP            a gap XL (12 m) and a drop off a deck L
+//  13 QUARTER PIPES  S, M, L, XL and XXL in one row, joined by ADAPTERS so the coping climbs with no step
+//  14 FUNBOX         a funbox M with a rail along its top and down rails over its banks
+//  16 MINI RAMP      half pipe M
+//  17 ROOFTOP        a block XL with a street on its roof; 18 ADVANCED LINE: stairs XL with handrails off it
+//  MEGA RAMP         along the north fence: roll-in MEGA, 65 m of run, a gap XL, and a QP MEGA at the end
+//  19 BEGINNER LINE  S pieces; 20-24 bleachers, shade roofs, planters, lamps and a fence all round
+const SHEET = { x0: -450, x1: -160, z0: -270, z1: 150, spawn: null, runs: {}, at: {} };
+function kitSheet() {
+  const P = Math.PI, stop = [], L25 = s => KSZ[s].H / Math.tan(25 * D2R), sp = (zone, kind, size, x, z, yaw, o, group, label, y) =>
+    pk('sheet ' + zone, kind, size, x, z, yaw, o, group, label, y);
+  const area = (name, sub, x, z, sx, sz, sy, sh, ly) => { kitLabel(name.toUpperCase(), sub, x, ly || 9, z);
+    CITY.spots['sheet ' + name] = [sx, sy || 0, sz, sh || 0]; stop.push('sheet ' + name); };
+  const A = SHEET.at;
+  // ---- 1 MAIN ENTRY: the deck you spawn on, the grand stairs with hubbas, a bank either side, a bank out through the fence
+  { const xD = -181;
+    sp('entry', 'platform', 'L', xD, -47, P / 2, { w: 26, d: 18 }, 'entry', 'entry deck L');
+    A.stairs = sp('entry', 'stairs', 'L', xD - 3 - KSZ.L.H / Math.tan(32 * D2R), -47, P / 2, { w: 10, hubba: 1 }, 'entry', 'grand stairs L + hubbas');
+    for (const z of [-56.5, -37.5]) sp('entry', 'bank', 'L', xD - L25('L'), z, P / 2, { w: 6.6 }, 'entry', 'bank L down into the hub');
+    sp('entry', 'bank', 'L', xD + 18 + L25('L'), -47, -P / 2, { w: 8 }, 'entry', 'bank L out the back (to the gallery)');
+    SHEET.spawn = [xD + 11, KSZ.L.H, -47, -P / 2];
+    area('main entry', 'deck L > grand stairs + hubbas > hub', -172, -47, xD + 11, -47, KSZ.L.H, -P / 2, 12); }
+  // ---- 2 STREET COURSE: two blocks at M, each with a bank up the east side and a stair set down the west
+  for (const [z, hub, nm] of [[-24, 0, 'stairs M + handrails'], [-74, 1, 'stairs M + hubbas']]) {
+    const x0 = -250, run = KSZ.M.H / Math.tan(32 * D2R);
+    sp('street', 'platform', 'M', x0, z, P / 2, { w: 12, d: 10 }, 'block' + z, 'street block M');
+    sp('street', 'bank', 'M', x0 + 10 + L25('M'), z, -P / 2, { w: 8 }, 'block' + z, 'bank M up');
+    sp('street', 'stairs', 'M', x0 - 3 - run, z, P / 2, { w: 6, hubba: hub }, 'block' + z, nm); }
+  sp('street', 'ledge', 'S', -212, -64, -P / 2, { h: 0.6, len: 12 }, null, 'ledge 0.6');
+  sp('street', 'ledge', 'S', -212, -56, -P / 2, { h: 0.36, w: 3, len: 10 }, null, 'manual pad');
+  sp('street', 'ledge', 'S', -212, -30, -P / 2, { len: 12 }, null, 'ledge S');
+  sp('street', 'railKink', 'M', -212, -10, -P / 2, {}, null, 'kink rail M');
+  sp('street', 'railDown', 'M', -268, -50, -P / 2, { len: 8 }, null, 'down rail M');
+  sp('street', 'rail', 'S', -268, -42, -P / 2, { len: 12 }, null, 'flat rail S');
+  area('street', 'stairs, hubbas, ledges, manual pad, rails', -240, -50, -222, -50, 0, -P / 2);
+  // ---- 15 PYRAMID L and 14 FUNBOX with rails
+  sp('pyramid', 'frustum', 'L', -300, -52, -P / 2, { len: 6, w: 6, banks: [1, 1, 1, 1] }, null, 'pyramid L');
+  sp('funbox', 'frustum', 'M', -322, -18, -P / 2, { len: 8, w: 6, banks: [1, 1, 0, 0], rails: 1 }, null, 'funbox M + rails');
+  area('pyramid', 'pyramid L, funbox M with rails', -310, -38, -286, -40, 0, -P / 2);
+  // ---- 10 GAP: a gap XL (12 m) toward the west, and a drop off a deck L
+  sp('gap', 'gap', 'XL', -345, -48, -P / 2, { gap: 12 }, null, 'gap XL (12 m)');
+  sp('gap', 'platform', 'L', -360, -14, -P / 2, { w: 8, d: 8 }, 'drop', 'drop deck L');
+  sp('gap', 'bank', 'L', -360 + L25('L'), -14, -P / 2, { w: 8 }, 'drop', 'bank L up to the drop');
+  area('gap', 'gap XL 12 m, drop off a deck L', -360, -32, -333, -48, 0, -P / 2);
+  // ---- 13 QUARTER PIPES of every height, joined by ADAPTERS: S > M > L > XL > XXL along the west, facing into the park
+  { const xT = -412, yaw = -P / 2, seq = [['qp', 'S'], ['qpAdapt', 'S', 'M'], ['qp', 'M'], ['qpAdapt', 'M', 'L'], ['qp', 'L'], ['qpAdapt', 'L', 'XL'], ['qp', 'XL'], ['qpAdapt', 'XL', 'XXL'], ['qp', 'XXL']];
+    let z = -150; A.qps = [];
+    for (const [kind, size, to] of seq) { const w = kind === 'qp' ? 8 : 6;
+      A.qps.push(sp('qps', kind, size, xT, z + w / 2, yaw, { w, to }, 'qprow', kind === 'qp' ? 'QP ' + size : 'adapter ' + size + ' > ' + to)); z += w; }
+    area('quarter pipes', 'S > M > L > XL > XXL, joined by adapters', -395, -118, -392, -118, 0, -P / 2); }
+  // ---- 6 VERT: a half pipe MEGA with 4 m decks, and stairs MEGA up the north side onto the east deck
+  { const C = { x: -406, z: -194 }, F = 10, dk = 4, S = KSZ.MEGA;
+    A.vert = sp('vert', 'halfpipe', 'MEGA', C.x, C.z, P / 2, { flat: F, len: 18, deck: dk }, 'vert', 'half pipe MEGA (9.6 m)');
+    const xd = C.x + F / 2 + S.lip + KITW.cope + (dk - KITW.cope) / 2, run = S.H / Math.tan(32 * D2R);
+    A.vertStairs = sp('vert', 'stairs', 'MEGA', xd, -185 + 3 + run, P, { w: 4 }, 'vert', 'stairs MEGA up to the deck');
+    area('vert', 'half pipe MEGA, 9.6 m -- stairs up the north side', C.x, -175, xd, -189, S.H, -P / 2 + 0, 14); }
+  // ---- 7 SPINE: QP XL > spine XL > QP XL, south of the vert
+  { const S = KSZ.XL, z = -243, x0 = -400, flat = 6;
+    sp('spine', 'qp', 'XL', x0, z, -P / 2, { w: 10 }, 'spine', 'QP XL');
+    sp('spine', 'spine', 'XL', x0 + flat, z, P / 2, { w: 10 }, 'spine', 'spine XL');
+    const x2 = x0 + flat + 2 * S.lip + 0.2 + flat; sp('spine', 'qp', 'XL', x2, z, P / 2, { w: 10 }, 'spine', 'QP XL');
+    area('spine', 'QP XL > spine XL > QP XL', x0 + 14, -230, x0 + 3, z, 0, P / 2); }
+  // ---- 4 BOWL COMPLEX: the clover XXL (deep end west, shallow lobe east), the round bowl XL raised to share its deck
+  { const C = { x: -334, z: -178 };
+    A.clover = sp('bowls', 'freeBowl', 'XXL', C.x, C.z, 0, { R: 15, lobes: 3, amp: 0.2, phase: 30, shallow: 4, deepAt: 180 }, 'bowls', 'clover bowl XXL, deep end 7.2 m');
+    const Q = A.clover.Q, x1 = C.x + Q, R2 = 8, Q2 = R2 + 3;
+    sp('bowls', 'platform', 'M', x1, C.z, P / 2, { w: 2 * Q2, d: 2 * Q2 }, 'bowls', 'base M under the round bowl');
+    A.round = sp('bowls', 'freeBowl', 'XL', x1 + Q2, C.z, 0, { R: R2, lobes: 0, amp: 0, shallow: KSZ.XL.H }, 'bowls', 'round bowl XL (raised 2.4)', KSZ.M.H);
+    A.bowlBank = sp('bowls', 'bank', 'XXL', x1 + 2 * Q2 + L25('XXL'), C.z, -P / 2, { w: 8 }, 'bowls', 'bank XXL up to the bowl deck');
+    // ---- 9 THE BRIDGE off the clover's north deck to a tower, and a bank XXL down
+    const zb = C.z + Q, L = 28;
+    A.bridge = sp('bridge', 'bridge', 'XXL', C.x, zb, 0, { len: L, w: 5 }, 'bridge', 'bridge XXL (ride over it or under it)');
+    sp('bridge', 'platform', 'XXL', C.x, zb + L, 0, { w: 10, d: 10 }, 'bridge', 'tower XXL');
+    A.bridgeBank = sp('bridge', 'bank', 'XXL', C.x, zb + L + 10 + L25('XXL'), P, { w: 8 }, 'bridge', 'bank XXL down off the tower');
+    area('bowl complex', 'clover XXL + round XL, one deck at 7.2 m', C.x + 20, C.z, A.bowlBank.T.x + 3, C.z, 0, -P / 2, 13);
+    area('bridge', 'deck XXL on posts -- over it or under it', C.x + 8, zb + 14, C.x, zb + L + 5, KSZ.XXL.H, P, 12); }
+  // ---- 5 FLOW PARK: hips, a bank-to-bank, a berm, rollers, a pyramid M
+  sp('flow', 'frustum', 'L', -240, -150, -P / 2, { len: 6, w: 6, banks: [1, 0, 1, 0] }, null, 'hip L');
+  sp('flow', 'frustum', 'L', -240, -120, -P / 2, { len: 6, w: 6, banks: [1, 0, 0, 1] }, null, 'hip L (mirrored)');
+  sp('flow', 'bank', 'L', -205, -200, P / 2, { w: 10 }, 'b2b', 'bank L');
+  sp('flow', 'bank', 'L', -205 + L25('L') + 12 + L25('L'), -200, -P / 2, { w: 10 }, 'b2b', 'bank L (facing)');
+  A.flowRun = kitRun('sheet flow', { x: -270, y: 0, z: -235, yaw: P / 2 }, [['roller', 'M', { len: 6, h: 0.8, w: 5 }], ['roller', 'M', { len: 6, h: 0.8, w: 5 }], ['roller', 'M', { len: 6, h: 0.8, w: 5 }],
+    ['berm', 'M', { deg: 90, r: 9, w: 5, h: 1.6 }, 'berm M 90'], ['roller', 'M', { len: 6, h: 0.8, w: 5 }], ['roller', 'M', { len: 6, h: 0.8, w: 5 }]]);
+  sp('flow', 'frustum', 'M', -268, -140, P / 2, { len: 4, w: 4, banks: [1, 1, 1, 1] }, null, 'pyramid M');
+  area('flow park', 'hips, bank-to-bank, rollers, a berm', -235, -175, -270, -238, 0, P / 2);
+  // ---- 8 SNAKE RUN: pipe L, 45-degree elbows, capped both ends, entered over a bank L at its start
+  { const T0 = { x: -232, y: 0, z: 40, yaw: -P / 2 }, F = 6;
+    sp('snake', 'pipeEnd', 'L', T0.x, T0.z, P / 2, { flat: F }, 'snake', 'snake start (half bowl)');
+    A.snake = kitRun('sheet snake', T0, [['pipe', 'L', { flat: F, len: 10 }, 'snake pipe L'], ['elbow', 'L', { flat: F, deg: 45 }, 'elbow L 45'], ['pipe', 'L', { flat: F, len: 8 }],
+      ['elbow', 'L', { flat: F, deg: 45 }, 'elbow L 45'], ['pipe', 'L', { flat: F, len: 8 }], ['elbow', 'L', { flat: F, deg: 45, right: 1 }, 'elbow L 45 (right)'],
+      ['elbow', 'L', { flat: F, deg: 45, right: 1 }, 'elbow L 45 (right)'], ['pipe', 'L', { flat: F, len: 12 }], ['pipeEnd', 'L', { flat: F }, 'snake end (half bowl)']]);
+    for (const r of A.snake) r.group = 'snake';        // a bent piece's bounding box overlaps its neighbours' by construction
+    const c = kPipeC(KSZ.L, F); sp('snake', 'bank', 'L', T0.x + 6, T0.z - c - L25('L'), 0, { w: 8 }, 'snakebank', 'bank L onto the snake deck');
+    area('snake run', 'pipe L, four 45-degree elbows, two ends', T0.x - 10, T0.z - 16, T0.x + 6, T0.z - c + 1, KSZ.L.H, 0, 11); }
+  // ---- PUMP TRACK: rollers and two 180 berms, a closed oval
+  A.pump = kitRun('sheet pump', { x: -290, y: 0, z: 34, yaw: -P / 2 }, [['roller', 'S', { len: 5, h: 0.7 }], ['roller', 'S', { len: 5, h: 0.7 }], ['roller', 'S', { len: 5, h: 0.7 }],
+    ['berm', 'M', { deg: 180, r: 7, h: 1.5 }, 'berm 180'], ['roller', 'S', { len: 5, h: 0.7 }], ['roller', 'S', { len: 5, h: 0.7 }], ['roller', 'S', { len: 5, h: 0.7 }],
+    ['berm', 'M', { deg: 180, r: 7, h: 1.5 }, 'berm 180']]);
+  area('pump track', 'rollers + two 180 berms', -298, 41, -290, 34, 0, -P / 2);
+  // ---- 16 MINI RAMP (north-west) and the BEGINNER LINE
+  A.mini = sp('mini', 'halfpipe', 'M', -392, 100, P / 2, { flat: 6, len: 14, deck: 2 }, null, 'mini ramp M');
+  area('mini ramp', 'half pipe M', -392, 88, -392, 100, 0, P / 2);
+  sp('beginner', 'kicker', 'S', -250, 110, -P / 2, {}, null, 'kicker S'); sp('beginner', 'ledge', 'S', -265, 100, -P / 2, { h: 0.4, w: 2, len: 8 }, null, 'curb 0.4');
+  sp('beginner', 'frustum', 'S', -280, 115, -P / 2, { len: 5, w: 4, banks: [1, 1, 0, 0] }, null, 'funbox S'); sp('beginner', 'qp', 'S', -300, 108, -P / 2, { w: 8 }, null, 'QP S');
+  area('beginner line', 'low pieces: kicker, curb, funbox, QP S', -270, 96, -240, 108, 0, -P / 2);
+  // ---- 17 ROOFTOP: a block XL with a street on the roof; 18 ADVANCED LINE: stairs XL with handrails down its south side
+  { const x0 = -372, z0 = 96, S = KSZ.XL;
+    sp('rooftop', 'platform', 'XL', x0, z0 + 12, P / 2, { w: 24, d: 24 }, 'roof', 'rooftop block XL');
+    sp('rooftop', 'bank', 'XL', x0 + 24 + L25('XL'), z0 + 12, -P / 2, { w: 6 }, 'roof', 'bank XL up to the roof');
+    sp('rooftop', 'ledge', 'S', x0 + 6, z0 + 18, P / 2, { h: 0.6, len: 10 }, null, 'roof ledge', S.H);
+    sp('rooftop', 'rail', 'S', x0 + 6, z0 + 8, P / 2, { len: 10, h: 1.2 }, null, 'roof rail', S.H);
+    A.roofStairs = sp('rooftop', 'stairs', 'XL', x0 + 12, z0 - 3 - S.H / Math.tan(32 * D2R), 0, { w: 6 }, 'roof', 'stairs XL + handrails (the advanced line)');
+    area('rooftop', 'block XL, street on the roof, stairs XL off it', x0 + 12, z0 + 12, x0 + 20, z0 + 12, S.H, P / 2, 13); }
+  // ---- MEGA RAMP along the north fence: roll-in MEGA, the run, a gap XL, a QP MEGA
+  { const z = 138;
+    A.megaIn = sp('mega', 'rollin', 'MEGA', -395, z, -P / 2, { w: 8, r: 8, deck: 4 }, null, 'roll-in MEGA');
+    // the kicker straight off the roll-in's foot: a long flat run hands the drop's speed to the coast fade (25 -> 18 m/s over 67 m)
+    A.megaGap = sp('mega', 'gap', 'XL', -378, z, P / 2, { gap: 12, landH: 4.8, landDeg: 15, landW: 4 }, null, 'gap XL (12 m), landing XL');
+    A.megaQP = sp('mega', 'qp', 'MEGA', -308, z, P / 2, { w: 12, deck: 3 }, null, 'QP MEGA');
+    const top = kT(A.megaIn.T, A.megaIn.top + 1.5, 0, 0);
+    area('mega ramp', 'roll-in MEGA > gap XL > QP MEGA', -360, z - 8, top.x, top.z, KSZ.MEGA.H, P / 2, 15); }
+  // ---- 20-24: bleachers, shade, planters, lamps, the fence
+  sp('furniture', 'bleachers', 'S', -195, 22, -P / 2, { rows: 5, len: 16 }, null, 'bleachers'); sp('furniture', 'bleachers', 'S', -195, 46, -P / 2, { rows: 5, len: 16 }, null, 'bleachers');
+  sp('furniture', 'shade', 'S', -205, 80, 0, { w: 9, d: 9 }, null, 'shade roof'); sp('furniture', 'shade', 'S', -205, -248, 0, { w: 9, d: 9 }, null, 'shade roof');
+  for (const [x, z] of [[-225, -90], [-215, 8], [-300, -95], [-300, 0], [-420, 30], [-420, -20], [-180, 120], [-430, -258], [-180, -150], [-320, 80]])
+    sp('furniture', 'planter', 'S', x, z, 0, {}, null, 'planter + tree');
+  const { x0, x1, z0, z1 } = SHEET;
+  for (let x = x0 + 20; x < x1; x += 45) { sp('furniture', 'lamp', 'S', x, z0 + 3, 0); sp('furniture', 'lamp', 'S', x, z1 - 3, 0); }
+  for (let z = z0 + 25; z < z1; z += 45) { sp('furniture', 'lamp', 'S', x0 + 3, z, 0); if (z < -70 || z > -25) sp('furniture', 'lamp', 'S', x1 - 3, z, 0); }
+  // THE FENCE: all four sides, with a gap where the entry's back bank runs out to the gallery
+  sp('fence', 'fence', 'S', x0, z0, P / 2, { len: x1 - x0 }, 'fence', 'fence south'); sp('fence', 'fence', 'S', x0, z1, P / 2, { len: x1 - x0 }, 'fence', 'fence north');
+  sp('fence', 'fence', 'S', x0, z0, 0, { len: z1 - z0 }, 'fence', 'fence west');
+  sp('fence', 'fence', 'S', x1, z0, 0, { len: -52 - z0 }, 'fence', 'fence east'); sp('fence', 'fence', 'S', x1, -42, 0, { len: z1 + 42 }, 'fence', 'fence east');
+  KITW.go.unshift(...stop);
+  SPAWN.set(SHEET.spawn[0], SHEET.spawn[1] + 0.2, SHEET.spawn[2]); SPAWN.h = SHEET.spawn[3];
+  CITY.spots['sheet main entry'] = SHEET.spawn.slice();
+}
 // THE PICTURE: everything pushed since `from` into one mesh -- plain, near-white, NOT the detail pass; this is a kit to
 // read shapes off, and texture would only hide them. `offset` pushes a floor back in depth the way the plaza is.
 function kitFlush(from, name, offset) {
@@ -2059,7 +2420,7 @@ function kitRailsDraw() {
 function kitWorld() {
   CITY.on = 0;
   kitFloor(); const nF = MESH.pos.length;
-  kitGallery(); kitPark(); KITW.nGallery = KITW.pieces.length;
+  kitGallery(); kitPark(); kitSheet(); KITW.nGallery = KITW.pieces.length;
   triBuild(); solidBuild();
   kitRailsDraw(); railLink();
   ORB.built = 1; splashMake(m => scene.add(m));
@@ -9982,7 +10343,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, SHEET, kitSheet, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

@@ -25,6 +25,11 @@ Pieces of the same size meet at the same deck height, so they fit together.
 | M    | 2.4 m    | 2.90                | 2.86               | 80°   | blue   |
 | L    | 3.6 m    | 3.94                | 3.93               | 85°   | lilac  |
 | XL   | 4.8 m    | 4.97                | 4.97               | 88°   | peach  |
+| XXL  | 7.2 m    | 7.46                | 7.46               | 88°   | cream  |
+| MEGA | 9.6 m    | 9.95                | 9.94               | 88°   | pink   |
+
+XXL and MEGA (r72) are the big end: vert you fly out of, a 7.2 m bowl deck, a 9.6 m mega ramp. Everything that took a
+size before takes these too.
 
 Every straight piece is **4 m wide**. A quarter pipe's deck runs **1.5 m** behind the coping, and the coping is 0.3 m.
 
@@ -233,3 +238,79 @@ grindable: every pipe and quarter pipe coping, bowl and pool rim, platform and b
 and stairs is found off the collider when she swipes (`lipEdges`). So the kit needs **no rail along a coping**. Rails
 (`rail_` lines, the rail kit) are still rails; put one where there is no edge to grind, or where you want a bar standing
 proud of the deck.
+
+
+## The sheet park (r72): building his style sheet out of the kit
+
+His MEGA SKATEPARK style sheet (24 numbered features) is built at the WEST end of the kit world. It is fenced, 290 x 420 m,
+134 pieces, and the kit world now SPAWNS at its main entry. ➤ walks its 16 'sheet' stops first and then the r70 park's.
+The point was to find where the pieces do not meet and to build what was missing, not to make a great park.
+
+| # | sheet feature | built from |
+|---|---------------|------------|
+| 1 | main entry | platform L deck (spawn), grand stairs L with hubbas, a bank L either side, a bank out through the fence gap |
+| 2 | street course | two blocks at M: stairs + handrails, stairs + hubbas; ledges, a manual pad, kink, down rail, flat rail |
+| 3 | hub | the open floor at the foot of the grand stairs that every area opens onto |
+| 4 | bowl complex | **freeBowl XXL** clover (3 lobes, 4 m shallow end to 7.2 m deep end); **freeBowl XL** round, raised on platform M so its deck meets the clover's; bank XXL up to the deck |
+| 5 | flow park | hips L, bank-to-bank L, rollers into a **berm** 90 and out, pyramid M |
+| 6 | vert / mega ramp | **halfpipe MEGA** with a 4 m deck and stairs MEGA up to it; the MEGA line: **rollin MEGA**, a gap XL with a tall landing, **qp MEGA** |
+| 7 | spine | QP XL > spine XL > QP XL |
+| 8 | snake run / pump track | pipe L through **four 45° elbows**; a **roller** and **berm** 180 pump loop |
+| 9 | elevated bridge | **bridge** XXL off the clover's deck to a platform XXL tower, bank XXL down; ridden under at ground level |
+| 10 | gap / drop | gap XL (12 m), a drop deck L |
+| 11 | hubba / manual pads | **stairs `hubba`**, ledges S at 0.3 / 0.6 m |
+| 12 | handrails | stairs handrails, kink, down rails |
+| 13 | QPs of varied height | a row: qp S, **qpAdapt** S>M, qp M, ... qp XL, qpAdapt XL>XXL, qp XXL |
+| 14 | funbox with rails | **frustum `rails`** |
+| 15 | pyramid / euro gap | frustum L pyramid; the euro gap is composed from a frustum and a bank, not a piece |
+| 16 | mini ramp | halfpipe M |
+| 17 | rooftop | platform XL 24 x 24 with a ledge and rail on it, bank XL up, stairs XL down |
+| 18 / 19 | advanced / beginner line | the rooftop stairs XL; an S line of kicker, ledge, funbox, QP |
+| 20-24 | seating, shade, landscaping, lighting, fence | **bleachers, shade, planter, lamp, fence**: placeholders, solid where you would hit them |
+
+**Pieces the sheet needed and the kit did not have (all built, in the gallery's 'new pieces (r72)' row at z -340 and
+the 'giants (r72)' row at z 412):**
+
+| kind | what | options (default) |
+|------|------|-------------------|
+| `elbow` | now ANY angle, `deg` 90 (45 and 22.5 in the gallery). `out` turns by `deg`. | `deg` 90, `right`, `flat` 6 |
+| `qpAdapt` | a quarter pipe whose height changes across its width: size S at -w, `to` at +w. The connector between two QPs of different sizes | `to`, `w` 6, `deck` |
+| `pipeAdapt` | a pipe whose walls grow from S to `to` along its length: the connector between two pipe sizes | `to`, `flat` 6, `len` 8 |
+| `freeBowl` | a bowl with a free-form rim (`lobes` x `amp`: a peanut is 2 lobes, a clover 3, 0 is round) and a depth that runs from `shallow` to H, deepest at `deepAt` degrees | `R` lip + 6, `lobes` 3, `amp` .18, `phase`, `shallow` .55 H, `deepAt` 0, `deck` 3 |
+| `squareBowl` | four straights and four inside corners on one centre | `side` 10, `rc` 3 |
+| `bridge` | a deck at H on posts, railings that grind, rideable underneath | `len` 16, `w` 5, `h` |
+| `roller` | a sine hump for a pump track | `h` .7, `len` 5, `w` 4 |
+| `berm` | a banked turn of any angle; snaps like an elbow | `deg` 180, `r` 7, `w` 4, `h` .6 H, `right` |
+| `stairs` `hubba` | ledges down both sides of a flight instead of handrails | `hh` .6, `hw` .7 |
+| `frustum` `rails` | a rail along the top and down rails over the banks | |
+| `gap` `landH`, `landDeg`, `landW` | a taller, flatter landing for a big gap | |
+| `fence`, `shade`, `bleachers`, `planter`, `lamp` | the sheet's site furniture | `len`, `h`, `rows`, ... |
+
+**Tested in `npm run sim kit`:**
+- Every new gallery piece is ridden: along the pipe adapter; up the QP adapter at three widths; the peanut bowl from
+  three sides; the square bowl; under and over the bridge; round the berm.
+- The sheet: no piece inside another and all of it inside the fence.
+- Down the grand stairs from the spawn.
+- All 9 faces of the QP row.
+- The MEGA vert to 8.3 of its 9.6 m far wall; up the stairs MEGA.
+- Up the bank XXL; the clover from five sides; the raised round bowl.
+- Across and under the bridge.
+- The snake end to end; a pump-track lap; the flow line.
+- A swipe-down hubba grind.
+- The MEGA line: 25 m/s, cleared, 11.2 m up the 9.6 m QP.
+- The gap XL at 22 m/s; the rooftop stairs.
+- The fence; every ➤ stop.
+
+## What the sheet park found
+
+1. **Elbows needed other angles.** A snake that only turns 90° is a grid. 45° and 22.5° are in; any `deg` works.
+2. **Sizes needed connectors.** Two pipes or two QPs of different sizes could not meet. `pipeAdapt` and `qpAdapt` are
+   those connectors.
+3. **Big gaps need big landings.** At MEGA speed (25 m/s) a gap XL's 9 m landing is overshot and she slams the flat
+   (QP MEGA reached 6.5 m of 9.6). A 4.8 m landing at 15° catches the whole range.
+4. **A long flat between a drop and its kicker eats the drop.** 67 m of flat bled 25 m/s to 18 (the coast fade). Put the
+   kicker at the roll-in's foot.
+5. **Bowls are still built up, not sunk.** The round bowl shares the clover's 7.2 m deck by standing on a platform M;
+   anything sunk into a floor has to be sized to it.
+6. **Still not there:** a pipe that rises or falls (a downhill snake), a branch at an angle other than 90°, a euro gap
+   piece, a bowl hip or a spined bowl, a bowl extension between two bowls. The furniture is placeholder art.
