@@ -307,6 +307,25 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE NEXUS: THE ARRIVAL IS A SUNK BOWL IN A TERRACED PLAZA (r54, `NEX`, `sliceNexus`, `slSunkBowl`, `slRound`).**
+  *"More layering in the foreground ... a sunken bowl / terraced plaza like the second painting."* The start view
+  looked across 20 m of flat paving. The entry ramp moved down into the gate's own corridor (x -79 -> -93, under a
+  NEXUS gateway) and the head of the canal is a plaza at quay height with: a BOWL sunk into it (rim at Q, floor
+  0.4 -- the street at 0 is the only floor below it, so 2.6 m is as deep as it goes), a teal tile band and a steel
+  coping that is a CLOSED grind loop (`SLC.railC`, named `slice bowl`); six TERRACES of 0.4 m off its north side
+  (under `SK.step` 0.42, so every step is a kerb she rolls up -- each tier is a full-height column in the collider so
+  the side walls stand), a bank up their east end, a grind ledge on the top nose and a hubba down the middle; a
+  stepped FOUNTAIN terrace (three 0.35 m rings, a basin, an orb, arcs of slime) off its south side. The spawn
+  (`slice`) is at the bowl's east lip facing down the canal. The mural wall is SOLID now and runs to x -91: without
+  it a ride up the bank launched off its top and out over the back of the platform.
+  **A TAP AT THE BOWL'S LIP GRINDS THE COPING** -- r41's homing finds the coping rail, which is what a tap there
+  should do. A plain air comes back in (vert lock, the wall is 78 deg at the top); a swipe goes out, onto the
+  terraces. `npm run sim slice` rides all of it: spawn into the bowl, the air, the coping, the swipe, up the
+  terraces kerb by kerb, up the bank, the hubba, the fountain rings.
+  **THE SLICE IS CHUNKED BY POSITION** (`SLC.chunk` 48 m, buckets over `chunkMin` 2400 triangles): one mesh per
+  material spanned the whole street, so its bounding sphere was always on screen and culling never dropped any of it.
+  **AND ITS GLOW CARDS ARE ONE `Points` DRAW** (sized in world metres through `uK`, fogged by alpha) instead of a
+  Sprite each -- about ninety draw calls, more than the rest of the street. 76 slice draws (was ~180), 89k triangles.
 - **THE SLICE IN LAYERS (r53, `slDeck`, `slBastion`, `slStairs`, `sliceLayers`).** *"One raised level leads to a ramp
   that goes up to another level, kind of cock-eyed, that goes to a bridge -- very organic, layers upon layers."* Every new
   level is ONE generator, `slDeck`: a Catmull-Rom centreline with a width, parapet walls (solid, per-segment rotated

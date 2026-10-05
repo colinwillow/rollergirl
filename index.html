@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r53</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r54</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r53';
+const BUILD = 'r54';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3905,7 +3905,7 @@ function buildShores() {
 const SLC = { on: 1, Q: 3, WY: 0.7, TER: 9, built: 0, glows: [], anim: [], meshes: [],
   canal: { x0: -204, x1: -117, z0: -14, z1: 0 },
   br: { x: -150, hw: 4, z0: -17, z1: 3, zc: -7, rise: 1.8 },
-  tex: 512 };
+  tex: 512, chunk: 48, chunkMin: 2400 };
 const SLB = {};
 const SLV = (x, y, z) => new THREE.Vector3(x, y, z);
 let _slseed = 9101;
@@ -4458,7 +4458,7 @@ function slBoat(x, z, ry, col) {
 // deck along any centreline, with parapet walls or railings, piers or a solid skirt under it. A ramp, a crooked
 // bridge, a gallery round a tower and a viaduct are all the same call with different numbers, so a new level is
 // a list of points rather than a new piece of code.
-SLC.railQ = [];
+SLC.railQ = []; SLC.railC = [];
 function slDeck(o) {
   const curve = new THREE.CatmullRomCurve3(o.pts.map(p => SLV(p[0], p[1], p[2])), false, 'centripetal', 0.5);
   const len = curve.getLength(), n = Math.max(2, Math.ceil(len / (o.seg || 1))), P = curve.getSpacedPoints(n);
@@ -4611,10 +4611,6 @@ function sliceLayers() {
     slQuad('paint', [x - 0.02, y1, z - 0.7], [x - 0.02, y1, z + 0.7], [x - 0.02, y0, z + 0.7], [x - 0.02, y0, z - 0.7], [-1, 0, 0], { tint: col });
     slDecal('decal', key, [x + 0.01, (y0 + y1) / 2 + 0.3, z], [0, 0, -1], [0, 1, 0], 1.1, null, 0.01);
     slTube('metal', [[x, y0 + 0.02, z - 0.75], [x, y0 + 0.02, z + 0.75]], 0.03); }
-  // a curved concrete ledge in the head plaza: something to ollie onto the moment you arrive, its edges grindable
-  slDeck({ pts: [[-111.2, Q + 0.55, 12.2], [-112.9, Q + 0.55, 6.6], [-111.9, Q + 0.55, 1.2]], w: 1.5, wallH: 0, skirt: Q, top: 'concrete', side: 'concrete', rail: false });
-  SLC.railQ.push([[-110.5, Q + 0.6, 12.0], [-112.15, Q + 0.6, 6.6], [-111.15, Q + 0.6, 1.4]]);
-  slTube('metal', [[-110.47, Q + 0.57, 12.0], [-112.12, Q + 0.57, 6.6], [-111.12, Q + 0.57, 1.4]], 0.04);
   // THE TOWPATH: a ledge at the foot of the south canal wall, just above the water, with boats moored along it --
   // reached by a ramp down off the canal head
   slDeck({ pts: [[-115.4, Q + 0.02, -12.75], [-120, Q - 0.6, -12.8], [-126, 1.6, -12.8], [-133, 1.5, -12.8], [-144.6, 1.5, -12.8]], w: 2.8, wallH: 0, rail: 'edge', led: 0x40e8ff,
@@ -4636,15 +4632,136 @@ function sliceLayers() {
 }
 
 // ---- the street ------------------------------------------------------------------------------------------------
+// ---- r54: THE NEXUS -- the arrival, from his second painting -------------------------------------------------
+// *"More layering in the foreground ... a sunken bowl, terraced plaza."* The head of the canal used to be one 47 m
+// ramp and a strip of paving, which is what the start view looked at. Now the entry ramp is down in the gate's own
+// corridor and the head is a plaza at quay height with a BOWL sunk into it (rim at the quay, floor 0.4 m over the
+// street -- the street is the only floor below it), TERRACES rising off its north side in 0.4 m steps (under
+// `SK.step`, so every one of them is a kerb she rolls up, not a wall), a bank up their east end, a grind ledge along
+// the top, a hubba rail down the middle, and a stepped FOUNTAIN terrace off its south side. A gateway with the NEXUS
+// sign stands over the ramp.
+const NEX = { x0: -117, x1: -91, z0: -26, z1: 21.5, ramp0: -79, rampX: -93,
+  bowl: { x0: -112.5, x1: -99, z0: -12, z1: 1.5, rc: 5.5, floor: 0.4, sweep: 78 * Math.PI / 180 },
+  tier: { x0: -112, x1: -97.5, z: 3.5, step: 1.5, dy: 0.4, n: 6 },
+  fount: { x: -105, z: -19.6, r: [5.2, 4.0, 2.8], dy: 0.35, basin: 1.9 } };
+// a rounded-rectangle outline: points and their outward normals, counter-clockwise in plan, `seg` per corner
+function slRound(cx, cz, hx, hz, rc, seg) {
+  const P = [], N = [];
+  for (const [sx, sz, a0] of [[1, 1, 0], [-1, 1, Math.PI / 2], [-1, -1, Math.PI], [1, -1, Math.PI * 1.5]])
+    for (let k = 0; k <= seg; k++) { const a = a0 + k / seg * Math.PI / 2, nx = Math.cos(a), nz = Math.sin(a);
+      P.push([cx + sx * (hx - rc) + nx * rc, cz + sz * (hz - rc) + nz * rc]); N.push([nx, nz]); }
+  return { P, N };
+}
+// A SUNK BOWL: the rim at `top`, a quarter-round transition of radius r down to a flat floor. Offsetting a rounded
+// rectangle inward by d is the same rounded rectangle with its corner radius cut by d, so every ring of the wall is
+// the rim's own points moved along their own normals -- ring k corresponds to ring k+1 point for point.
+function slSunkBowl(B, top, o) {
+  o = o || {};
+  const cx = (B.x0 + B.x1) / 2, cz = (B.z0 + B.z1) / 2, hx = (B.x1 - B.x0) / 2, hz = (B.z1 - B.z0) / 2;
+  const depth = top - B.floor, r = depth / (1 - Math.cos(B.sweep)), K = 10, out = slRound(cx, cz, hx, hz, B.rc, 9), n = out.P.length;
+  const ring = (inset, y) => out.P.map((p, i) => [p[0] - out.N[i][0] * inset, y, p[1] - out.N[i][1] * inset]);
+  const rings = []; for (let k = 0; k <= K; k++) { const th = k / K * B.sweep; rings.push(ring(r * (1 - Math.sin(th)), B.floor + r * (1 - Math.cos(th)))); }
+  rings.push(ring(0, top));
+  for (let k = 0; k < rings.length - 1; k++) for (let i = 0; i < n; i++) { const j = (i + 1) % n, a = rings[k][i], b = rings[k][j], c = rings[k + 1][j], d = rings[k + 1][i];
+    slQuad(o.k || 'concrete', a, b, c, d, [-out.N[i][0], 0.35, -out.N[i][1]], { solid: true, tint: k >= K - 1 && k < K + 1 ? 0x6fd6f0 : o.tint, base: B.floor, T: 3.2 }); }
+  const fl = rings[0];
+  for (let i = 0; i < n; i++) slTri(o.k || 'concrete', [cx, B.floor, cz], fl[(i + 1) % n], fl[i], { solid: true, tint: o.tint });
+  // the corners of the rectangle the rounded rim leaves behind, at plaza height
+  for (let c = 0; c < 4; c++) { const sx = c === 0 || c === 3 ? 1 : -1, sz = c < 2 ? 1 : -1, corner = [cx + sx * hx, top, cz + sz * hz];
+    for (let k = 0; k < 9; k++) { const i = c * 10 + k, a = rings[K + 1][i], b = rings[K + 1][i + 1];
+      slTri('paving', corner, a, b, { solid: true }); } }
+  // the coping: a steel tube round the rim, and it is a closed grind rail
+  const cp = out.P.map((p, i) => [p[0] - out.N[i][0] * 0.06, top + 0.02, p[1] - out.N[i][1] * 0.06]);
+  slTube('steel', cp.concat([cp[0]]), 0.065);
+  SLC.railC.push(out.P.map((p, i) => [p[0] - out.N[i][0] * 0.06, top + 0.07, p[1] - out.N[i][1] * 0.06]));
+  // a border of warm stone set into the paving round it, the way the painting's plaza rings its bowl
+  if (o.inlay) for (let i = 0; i < n; i++) { const j = (i + 1) % n, q = (k, d) => [out.P[k][0] + out.N[k][0] * d, top + 0.012, out.P[k][1] + out.N[k][1] * d];
+    slQuad('stone', q(i, o.inlay[0]), q(j, o.inlay[0]), q(j, o.inlay[1]), q(i, o.inlay[1]), [0, 1, 0], { tint: 0xfff0ea, T: 1.6 }); }
+  return { cx, cz, r };
+}
+function sliceNexus() {
+  const Q = SLC.Q, N = NEX, B = N.bowl;
+  // THE ENTRY RAMP, down in the gate's corridor between the two ends of the bank
+  { const x0 = N.ramp0, x1 = N.rampX, g = PARK.gate;
+    slQuad('concrete', [x0, 0.02, -g], [x0, 0.02, g], [x1, Q, g], [x1, Q, -g], [0, 1, 0], { solid: true });
+    const th = Math.atan2(Q, x0 - x1);
+    for (let i = 0; i < 4; i++) { const x = x0 - 2.5 - i * 4.2; slDecal('decal', 'chevron', [x, Q * (x0 - x) / (x0 - x1) + 0.03, 0], [0, 0, -1], [-Math.cos(th), Math.sin(th), 0], 2.6, null, 0.03); }
+    // THE GATEWAY: two pylons on the ramp's edges, a beam across, NEXUS on both faces
+    const gx = -88, yb = 7.6;
+    for (const s of [-1, 1]) { const z = s * (g - 0.55), yg = Q * (x0 - gx) / (x0 - x1);
+      slBox('plaster', gx - 0.5, 0, z - 0.45, gx + 0.5, yb, z + 0.45, { bev: 0.08, tint: 0x3a3366, base: yg, solid: true, floor: false });
+      slBox('neon', gx - 0.52, yg + 0.4, z - 0.08, gx + 0.52, yb - 0.3, z + 0.08, { bev: 0, tint: s > 0 ? 0xff6fd0 : 0x40e8ff, skip: 'yY' }); }
+    slBox('plaster', gx - 0.6, yb, -g, gx + 0.6, yb + 1.5, g, { bev: 0.08, tint: 0x2a2552 });
+    slBox('trim', gx - 0.7, yb + 1.5, -g - 0.1, gx + 0.7, yb + 1.7, g + 0.1, { bev: 0.04, tint: 0xf8f2e6, skip: '' });
+    for (const s of [-1, 1]) slDecal('sign', 'nexus', [gx + s * 0.62, yb + 0.75, 0], [0, 0, -s], [0, 1, 0], 4.6, null, 0.01);
+    slGlow(gx + 1, yb + 0.75, 0, 7, 0xb98bff, 0.4); slGlow(gx - 1, yb + 0.75, 0, 7, 0xb98bff, 0.4); }
+  // THE PLAZA at quay height: boxes round the bowl's rectangle, tops paving, the faces nobody sees left out
+  const pz = (x0, x1, z0, z1, skip) => slBox('stone', x0, 0, z0, x1, Q, z1, { top: 'paving', bev: 0, solid: true, skip: skip || 'yxXzZ', base: 0 });
+  pz(N.x0, B.x0, N.z0, N.z1); pz(B.x0, N.rampX, B.z1, N.z1); pz(B.x0, N.rampX, N.z0, B.z0); pz(B.x1, N.rampX, B.z0, B.z1);
+  // a landing at the top of the ramp, framed by two stone planters, so the first thing in front of her is the bowl
+  for (const z of [0.9, -11.4]) slPlanter(-97.6, Q, z, 1.4, 1.4, 0.6);
+  pz(N.rampX, N.x1, PARK.gate, N.z1, 'yxX'); pz(N.rampX, N.x1, N.z0, -PARK.gate, 'yxX');
+  // THE BOWL
+  const bw = slSunkBowl(B, Q, { tint: 0xf2eefa, inlay: [0.4, 1.15] });
+  slDecal('decal', 'alien', [bw.cx, B.floor + 0.02, bw.cz], [1, 0, 0], [0, 0, -1], 4.6, null, 0.02);
+  for (const [dx, dz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) { const x = dx > 0 ? B.x1 - 0.55 : B.x0 + 0.55, z = dz > 0 ? B.z1 - 0.55 : B.z0 + 0.55; slLamp(x, Q, z); }
+  // THE TERRACES: six 0.4 m steps, each a full-height column in the collider so the tallest wall stands at the sides
+  { const T = N.tier;
+    for (let k = 1; k <= T.n; k++) { const z0 = T.z + (k - 1) * T.step, y0 = Q + (k - 1) * T.dy, y1 = Q + k * T.dy;
+      slBox('stone', T.x0, y0 - 0.02, z0, T.x1, y1, N.z1 - 0.05, { top: 'paving', bev: 0.04, base: Q, skip: 'yZ', tint: k % 2 ? 0xffffff : 0xf2e8dc });
+      solidAdd((T.x0 + T.x1) / 2, (z0 + N.z1) / 2, (T.x1 - T.x0) / 2, (N.z1 - z0) / 2, Q, y1, 0, { top: true, tag: 'slice tier' });
+      // a strip of light under each nose, the painting's warm LED
+      slBox('neon', T.x0 + 0.1, y1 - 0.06, z0 - 0.02, T.x1 - 0.1, y1 - 0.03, z0 + 0.01, { bev: 0, tint: 0xffc23f, skip: 'yYZ' });
+      if (k === 2 || k === 4) for (const x of [T.x0 + 1.4, T.x1 - 1.4]) slPlanter(x, y1, z0 + 0.75, 1.8, 1.0, 0.45); }
+    const yT = Q + T.n * T.dy, zT = T.z + (T.n - 1) * T.step;
+    // the bank up their east end, and the high platform it arrives on
+    slQuad('concrete', [T.x1, Q, 9.5], [N.x1, Q, 9.5], [N.x1, yT, 16], [T.x1, yT, 16], [0, 1, 0], { solid: true });
+    for (let i = 0; i < 3; i++) { const z = 10.6 + i * 2.0, th = Math.atan2(yT - Q, 6.5); slDecal('decal', 'chevron', [(T.x1 + N.x1) / 2, Q + (yT - Q) * (z - 9.5) / 6.5 + 0.03, z], [-1, 0, 0], [0, Math.sin(th), Math.cos(th)], 2.2, null, 0.02); }
+    { const pts = [[9.5, Q], [16, yT], [21.45, yT]]; for (let i = 0; i < pts.length - 1; i++) { const [za, ya] = pts[i], [zb, yb] = pts[i + 1];
+        slQuad('stone', [N.x1, Q, za], [N.x1, Q, zb], [N.x1, yb, zb], [N.x1, ya, za], [1, 0, 0], { base: Q }); } }
+    slBox('stone', T.x1, Q, 16, N.x1, yT, N.z1 - 0.05, { top: 'paving', bev: 0.04, base: Q, skip: 'yxzX', solid: true, tag: 'slice tier' });
+    // the ledge along the top step: a steel angle on the nose, grindable
+    slBox('metal', T.x0 + 0.2, yT - 0.08, zT - 0.12, T.x1 - 0.2, yT + 0.04, zT + 0.06, { bev: 0.01 });
+    SLC.railQ.push([[T.x0 + 0.3, yT + 0.05, zT - 0.08], [(T.x0 + T.x1) / 2, yT + 0.05, zT - 0.08], [T.x1 - 0.3, yT + 0.05, zT - 0.08]]);
+    // the hubba: a handrail down the middle of the steps, from the top platform to the walkway
+    const hx = (T.x0 + T.x1) / 2, top = slRailing([[hx, yT, zT + 2.4], [hx, yT, zT + 0.2], [hx, Q, T.z - 0.3]], 0.95, { step: 1.6 });
+    SLC.railQ.push(top);
+    // up top: palms, a bench, lamps, mushrooms
+    slPalm(T.x0 + 2.4, yT + 0.7, 18.6, 4.6, 0xff9ad2); slPlanter(T.x0 + 2.4, yT, 18.6, 2.2, 1.6, 0.7);
+    slPalm(T.x1 - 3.2, yT + 0.7, 19.0, 4.0, 0xc9a2ff); slPlanter(T.x1 - 3.2, yT, 19.0, 2.2, 1.6, 0.7);
+    slBench(hx - 2.6, yT, 14.2, 0); slBench(hx + 2.6, yT, 14.2, 0);
+    slLamp(T.x0 + 0.6, yT, zT + 0.8); slLamp(T.x1 - 0.6, yT, zT + 0.8);
+    slShroom(hx - 4.8, yT, 19.6, 1.5, 0x7cf0ff); slShroom(hx + 0.6, yT, 20.2, 1.9, 0xff6fd0); }
+  // THE FOUNTAIN TERRACE: three stepped rings, a basin, a pedestal with a glowing orb and arcs of water into it
+  { const F = N.fount, seg = 36;
+    F.r.forEach((rr, k) => { const y1 = Q + (k + 1) * F.dy, y0 = Q + k * F.dy;
+      for (let s = 0; s < seg; s++) { const a0 = s / seg * Math.PI * 2, a1 = (s + 1) / seg * Math.PI * 2, A = [F.x + Math.cos(a0) * rr, F.z + Math.sin(a0) * rr], Bp = [F.x + Math.cos(a1) * rr, F.z + Math.sin(a1) * rr];
+        slTri(k === 0 ? 'paving' : 'stone', [F.x, y1, F.z], [Bp[0], y1, Bp[1]], [A[0], y1, A[1]], { solid: true, tint: 0xf4ecdf });
+        slQuad('stone', [A[0], y0, A[1]], [Bp[0], y0, Bp[1]], [Bp[0], y1, Bp[1]], [A[0], y1, A[1]], [Math.cos((a0 + a1) / 2), 0, Math.sin((a0 + a1) / 2)], { base: y0, tint: 0xe8dccb }); }
+      slGeo('neon', new THREE.TorusGeometry(rr - 0.06, 0.025, 4, seg).rotateX(Math.PI / 2), slMat(F.x, y1 - 0.06, F.z), { tint: k === 1 ? 0xff6fd0 : 0x40e8ff }); });
+    const yb = Q + F.r.length * F.dy, rim = yb + 0.5;
+    slGeo('stone', new THREE.CylinderGeometry(F.basin, F.basin + 0.1, 0.5, 32, 1, true), slMat(F.x, yb + 0.25, F.z), { smooth: true, tint: 0xf0e4d0, base: yb });
+    slGeo('stone', new THREE.TorusGeometry(F.basin, 0.13, 6, 32).rotateX(Math.PI / 2), slMat(F.x, rim, F.z), { smooth: true, tint: 0xf8f0e2 });
+    slGeo('slime', new THREE.CircleGeometry(F.basin - 0.08, 32).rotateX(-Math.PI / 2), slMat(F.x, rim - 0.12, F.z));
+    cylSolid(F.x, F.z, F.basin, yb - 0.05, rim, 14, 'slice');
+    slQuad('paving', [F.x - F.basin, rim, F.z - F.basin], [F.x + F.basin, rim, F.z - F.basin], [F.x + F.basin, rim, F.z + F.basin], [F.x - F.basin, rim, F.z + F.basin], [0, 1, 0], { solid: true, noDraw: true });
+    slGeo('stone', new THREE.CylinderGeometry(0.28, 0.42, 1.4, 12), slMat(F.x, rim + 0.5, F.z), { smooth: true, tint: 0xf4ecdf });
+    slGeo('neon', new THREE.SphereGeometry(0.5, 16, 10), slMat(F.x, rim + 1.6, F.z), { smooth: true, tint: 0x8ff6ff });
+    slGlow(F.x, rim + 1.6, F.z, 4.5, 0x60f0ff, 0.55); slGlow(F.x, rim - 0.1, F.z, 5, 0x6dff9a, 0.4);
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.3, pts = [];
+      for (let i = 0; i <= 8; i++) { const t = i / 8, rr = 0.3 + t * (F.basin - 0.6); pts.push([F.x + Math.cos(a) * rr, rim + 1.15 + Math.sin(t * Math.PI) * 0.7 - t * 1.25, F.z + Math.sin(a) * rr]); }
+      slTube('slime', pts, 0.05); }
+    for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + 0.2, rr = (F.r[1] + F.r[2]) / 2 + 0.2; slBush(F.x + Math.cos(a) * rr, Q + 2 * F.dy, F.z + Math.sin(a) * rr, 0.45 + slr() * 0.25); }
+    solidAdd(F.x, F.z, 0.35, 0.35, rim, rim + 2.2, 0, { top: false, tag: 'slice prop' }); }
+  // planting and light round the bowl: palms at the canal end, mushrooms by the coping
+  slPalm(-115, Q + 0.75, 4.5, 4.4, 0xff9ad2); slPlanter(-115, Q, 4.5, 2.0, 2.0, 0.75);
+  slShroom(-114.4, Q, -8.0, 1.4, 0x7cf0ff); slShroom(-114.4, Q, 1.2, 1.2, 0xff6fd0);
+}
 function buildSlice() {
   if (!SLC.on || !ORB.on) return;
   _slseed = 4242;
   const Q = SLC.Q, WY = SLC.WY, TER = SLC.TER, C = SLC.canal, BR = SLC.br;
-  // THE ENTRY: from the west gate's street level up a broad ramp onto the head of the canal
-  { const x0 = -96, x1 = -110, z0 = -26, z1 = 21.5;
-    slQuad('concrete', [x0, 0.02, z0], [x0, 0.02, z1], [x1, Q, z1], [x1, Q, z0], [0, 1, 0], { solid: true });
-    for (let i = 0; i < 6; i++) { const z = z0 + 3 + i * 7.6; slDecal('decal', 'chevron', [(x0 + x1) / 2, Q / 2 + 0.03, z], [0, 0, -1], [-Math.cos(Math.atan2(Q, 14)), Math.sin(Math.atan2(Q, 14)), 0], 2.6, null, 0.03); } }
-  slBox('stone', -117, 0, -26, -110, Q, 21.5, { top: 'paving', bev: 0, solid: true, skip: 'yXx' });
+  sliceNexus();     // r54: the entry ramp, the plaza at quay height, the bowl, the terraces, the fountain
   // THE QUAYS: stone boxes with paving tops, rough masonry where they meet the canal
   const quay = (x0, x1, z0, z1, canalSide) => {
     slBox('stone', x0, 0, z0, x1, Q, z1, { top: 'paving', bev: 0, solid: true, skip: 'yxX' + (canalSide > 0 ? 'Z' : 'z') });
@@ -4689,9 +4806,10 @@ function buildSlice() {
     for (let i = 0; i < pts.length - 1; i++) slQuad('stone', [pts[i][0], pts[i][1], 15.0], [pts[i + 1][0], pts[i + 1][1], 15.0], [pts[i + 1][0], pts[i + 1][1], 15.3], [pts[i][0], pts[i][1], 15.3], [0, 1, 0], { tint: 0xf4ecdf }); }
 
   // THE MURAL WALL along the left, from the street to the terrace -- dark render covered in graffiti
-  slBox('dark', -137, 0, 21.5, -96, 10.5, 22.6, { bev: 0.06, baseF: (x) => x > -110 ? Q * (-96 - x) / 14 : (x > -117 ? Q : yR(x)), skip: 'yZx' });
-  slBox('stone', -137.2, 10.4, 21.35, -95.8, 10.75, 22.75, { bev: 0.05, tint: 0xeee4d4, skip: '' });
-  slDecal('decal', 'further', [-103.6, 6.4, 21.5], [-1, 0, 0], [0, 1, 0], 9.2);
+  slBox('dark', -137, 0, 21.5, -91, 10.5, 22.6, { bev: 0.06, baseF: (x) => x > -117 ? (x > -112 && x < -97.5 ? Q + 2.4 : Q) : yR(x), skip: 'yZx' });
+  slBox('stone', -137.2, 10.4, 21.35, -90.8, 10.75, 22.75, { bev: 0.05, tint: 0xeee4d4, skip: '' });
+  solidAdd(-114, 22.05, 23, 0.55, 0, 10.5, 0, { top: true, tag: 'slice wall' });     // r54: it holds the terraces in
+  slDecal('decal', 'further', [-104.6, 7.95, 21.5], [-1, 0, 0], [0, 1, 0], 6.8);
   slDecal('decal', 'cat', [-116.2, 6.6, 21.5], [-1, 0, 0], [0, 1, 0], 6.2);
   slDecal('decal', 'tag', [-126, 9.0, 21.5], [-1, 0, 0], [0, 1, 0], 4.2);
   slDecal('decal', 'smile', [-132.5, 11.6 - 0.1, 21.5], [-1, 0, 0], [0, 1, 0], 2.4);
@@ -4755,7 +4873,7 @@ function buildSlice() {
   }
 
   // THE SOUTH SIDE: shopfronts on the quay, the slime pipe, the Nimbus tower
-  slBuilding(-117, -96, -42, -26, 15, 'z', { tint: 0xf3dcc8, street: 0, roof: true, shut: 0x5a7fc0 });
+  slBuilding(-117, -96, -42, -26, 15, 'z', { tint: 0xf3dcc8, roof: true, shut: 0x5a7fc0 });
   slBuilding(-133, -117, -42, -26, 16, 'z', { tint: 0xf6e4cc, shop: { sign: 'ramen', signW: 3.0, col: 0xff5f8f, neon: 0xff4fa0, glow: 0xff5f8f }, balc: [1], shut: 0x3f9e8c });
   slBuilding(-147, -133, -40, -26, 13, 'z', { tint: 0xdcd4ee, shut: 0xd07a5a, poster: 'humans', ac: 2 });
   slBuilding(-162, -147, -42, -26, 19, 'z', { tint: 0xf3ecdc, shop: { col: 0xffc23f, neon: 0xffd15c }, balc: [1, 3] });
@@ -4839,7 +4957,7 @@ function buildSlice() {
   slIvy(-117, -0.24, -204, -0.24, Q - 0.02, 0, -1, 0.5, 0.6, 1.8); slIvy(-117, -13.76, -204, -13.76, Q - 0.02, 0, 1, 0.5, 0.6, 1.8);
   slIvy(-203.9, 38, -203.9, -42, 17.4, 1, 0, 0.6, 1.2, 3.4);
   sliceLayers();
-  Object.assign(CITY.spots, { slice: [-116.5, Q, 5, -Math.PI / 2], 'slice bridge': [BR.x, yB(BR.zc), BR.zc + 6, Math.PI], 'slice terrace': [-140, TER, 15, -Math.PI / 2] });
+  Object.assign(CITY.spots, { slice: [-97.8, Q, -5.25, -Math.PI / 2], 'slice bridge': [BR.x, yB(BR.zc), BR.zc + 6, Math.PI], 'slice terrace': [-140, TER, 15, -Math.PI / 2] });
   SLC.built = 1;
 }
 // the slice's rails: the quay edges, the bridge, the stair rail and the ramp's down rail -- all on posts, all grindable
@@ -4861,6 +4979,10 @@ function sliceRails() {
   // the terrace edge
   for (const [a, b] of [[-137.5, -154.4], [-159.6, -187.5]]) { const top = slRailing([[a, SLC.TER, 10.1], [b, SLC.TER, 10.1]], H, { lower: true }); railPath(railLine(V(top[0]), V(top[1]), 2), { name: 'slice' }); }
   for (const top of SLC.railQ) railPath(top.map(V), { name: 'slice' });
+  // closed loops (the bowl's coping): the last segment hands on to the first, the way the halo's does
+  for (const pts of SLC.railC) { const P = railPath(pts.concat([pts[0]]).map(V), { name: 'slice bowl' });
+    if (P.segs.length > 2) { const a = P.segs[0], z = P.segs[P.segs.length - 1]; z.next = a; a.prev = z; P.closed = true; }
+    let cum = 0; for (const S of P.segs) { S.s0 = cum; cum += S.len; } P.len = cum; }
 }
 
 // ---- turning the buckets into meshes -----------------------------------------------------------------------------
@@ -4884,6 +5006,7 @@ function sliceMeshes() {
     concrete: std(cc, { roughness: 0.8, normalScale: new THREE.Vector2(0.6, 0.6) }), dark: std(dk, { roughness: 0.85 }), plaster: std(pl, { roughness: 0.95, normalScale: new THREE.Vector2(0.5, 0.5) }),
     trim: std(pl, { roughness: 0.75, normalScale: new THREE.Vector2(0.3, 0.3) }), wood: std(wd, { roughness: 0.8 }),
     metal: slAO(new THREE.MeshStandardMaterial({ color: 0x2b303d, metalness: 0.55, roughness: 0.42, vertexColors: true })),
+    steel: new THREE.MeshStandardMaterial({ color: 0xd4d8e2, metalness: 0.85, roughness: 0.3 }),
     orange: new THREE.MeshStandardMaterial({ color: 0xff7426, metalness: 0.2, roughness: 0.32, emissive: 0x5a1800, emissiveIntensity: 0.25 }),
     paint: slAO(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, vertexColors: true })),
     window: new THREE.MeshStandardMaterial({ map: win.map, emissiveMap: win.em, emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.15, metalness: 0.2 }),
@@ -4899,17 +5022,29 @@ function sliceMeshes() {
     neonS: null,
   };
   M.neonS = new THREE.MeshBasicMaterial({ map: A.tex, transparent: true, alphaTest: 0.04, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, depthWrite: false });
+  // r54: CHUNKED BY POSITION AS WELL AS BY MATERIAL. One mesh per material spans the whole street, so its bounding
+  // sphere is always on screen and frustum culling never drops a triangle of it. Each big bucket is cut into
+  // `SLC.chunk`-metre cells by triangle centroid; a small one stays whole, because a draw call costs more than
+  // the few hundred triangles it would save.
   for (const k in SLB) {
     const B = SLB[k]; if (!B.p.length) continue;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(B.p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(B.n, 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(B.u, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(B.c, 3));
-    g.setAttribute('aH', new THREE.Float32BufferAttribute(B.h, 1)); g.computeBoundingSphere();
-    const mat = k === 'sign' ? M.neonS : (M[k] || M.paint);
-    const m = new THREE.Mesh(g, mat); m.name = 'slice:' + k;
-    if (['decal', 'sign', 'neon', 'lampglass', 'screen'].indexOf(k) < 0) { m.castShadow = k !== 'vine' && k !== 'bush' && k !== 'window'; m.receiveShadow = true; }
-    if (k === 'decal' || k === 'sign') m.renderOrder = 2;
-    scene.add(m); SLC.meshes.push(m);
+    const nt = B.p.length / 9, cells = new Map(), C = SLC.chunk;
+    for (let t = 0; t < nt; t++) { const key = nt < SLC.chunkMin ? '' : Math.floor((B.p[t * 9] + B.p[t * 9 + 3] + B.p[t * 9 + 6]) / 3 / C) + ',' + Math.floor((B.p[t * 9 + 2] + B.p[t * 9 + 5] + B.p[t * 9 + 8]) / 3 / C);
+      let L = cells.get(key); if (!L) cells.set(key, L = []); L.push(t); }
+    for (const [key, L] of cells) {
+      const n = L.length, p = new Float32Array(n * 9), nr = new Float32Array(n * 9), u = new Float32Array(n * 6), c = new Float32Array(n * 9), ah = new Float32Array(n * 3);
+      L.forEach((t, j) => { for (let q = 0; q < 9; q++) { p[j * 9 + q] = B.p[t * 9 + q]; nr[j * 9 + q] = B.n[t * 9 + q]; c[j * 9 + q] = B.c[t * 9 + q]; }
+        for (let q = 0; q < 6; q++) u[j * 6 + q] = B.u[t * 6 + q]; for (let q = 0; q < 3; q++) ah[j * 3 + q] = B.h[t * 3 + q]; });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nr, 3));
+      g.setAttribute('uv', new THREE.BufferAttribute(u, 2)); g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+      g.setAttribute('aH', new THREE.BufferAttribute(ah, 1)); g.computeBoundingSphere();
+      const mat = k === 'sign' ? M.neonS : (M[k] || M.paint);
+      const m = new THREE.Mesh(g, mat); m.name = 'slice:' + k + (key ? '@' + key : '');
+      if (['decal', 'sign', 'neon', 'lampglass', 'screen'].indexOf(k) < 0) { m.castShadow = k !== 'vine' && k !== 'bush' && k !== 'window'; m.receiveShadow = true; }
+      if (k === 'decal' || k === 'sign') m.renderOrder = 2;
+      scene.add(m); SLC.meshes.push(m);
+    }
   }
   // THE WATER
   { const N = slWaterTex(), C = SLC.canal;
@@ -4975,9 +5110,36 @@ function sliceMeshes() {
       pg.attributes.position.needsUpdate = true; });
   }
   // GLOW CARDS: lamps, neon, the slime -- additive, so they read as lit in daylight with no bloom pass
-  { const tex = slGlowTex();
-    for (const G of SLC.glows) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: G.col, transparent: true, opacity: G.a, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
-      s.position.set(G.x, G.y, G.z); s.scale.set(G.s, G.s, 1); scene.add(s); SLC.meshes.push(s); } }
+  // r54: ONE draw call for all of them, not a Sprite each -- a hundred sprites were a hundred draw calls, more than the
+  // whole rest of the street. A point per card, sized in world metres (`uK` turns metres at a distance into pixels).
+  if (SLC.glows.length) { const n = SLC.glows.length, pos = new Float32Array(n * 3), col = new Float32Array(n * 4), sz = new Float32Array(n), cc = new THREE.Color();
+    SLC.glows.forEach((G, i) => { pos.set([G.x, G.y, G.z], i * 3); cc.setHex(G.col); col.set([cc.r, cc.g, cc.b, G.a], i * 4); sz[i] = G.s; });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aC', new THREE.BufferAttribute(col, 4)); g.setAttribute('aS', new THREE.BufferAttribute(sz, 1));
+    g.computeBoundingSphere();
+    const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: true,
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uMap: { value: slGlowTex() }, uK: { value: 600 } }]),
+      vertexShader: `attribute float aS; attribute vec4 aC; uniform float uK; varying vec4 vC;
+        #include <fog_pars_vertex>
+        void main(){ vC = aC; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition;
+          gl_PointSize = min(aS * uK / max(-mvPosition.z, 0.1), 1500.0);
+        #include <fog_vertex>
+        }`,
+      fragmentShader: `uniform sampler2D uMap; varying vec4 vC;
+        #include <fog_pars_fragment>
+        void main(){ vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(vC.rgb * t.rgb, t.a * vC.a);
+          #include <colorspace_fragment>
+          #ifdef USE_FOG
+            #ifdef FOG_EXP2
+              float fogF = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+            #else
+              float fogF = smoothstep(fogNear, fogFar, vFogDepth);
+            #endif
+            gl_FragColor.a *= 1.0 - fogF;
+          #endif
+        }` });
+    const pts = new THREE.Points(g, mat), vb = new THREE.Vector2(); pts.name = 'slice glows'; pts.renderOrder = 3;
+    pts.onBeforeRender = (r, s, cam) => { r.getDrawingBufferSize(vb); mat.uniforms.uK.value = vb.y / (2 * Math.tan(cam.fov * Math.PI / 360)); };
+    scene.add(pts); SLC.meshes.push(pts); }
   SLC.ms = Math.round(performance.now() - t0);
   SLC.tris = SLC.meshes.reduce((n, m) => n + (m.geometry && m.geometry.attributes.position ? m.geometry.attributes.position.count / 3 : 0), 0);
   ORB.anim.push((dt, t) => { for (const f of SLC.anim) f(dt, t); });
@@ -7843,7 +8005,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, SLC, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, SLC, NEX, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

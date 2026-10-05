@@ -2283,7 +2283,7 @@ CASES.slice = () => {
   if (process.env.TRIS) for (const m of L.meshes) if (m.geometry && m.geometry.attributes.position) console.log('   ', m.name, Math.round(m.geometry.attributes.position.count / 3));
   console.log(`  built ${L.built}, ${L.meshes.length} meshes, ${Math.round(L.tris / 1000)}k tris, textures + meshes in ${L.ms} ms`);
   if (!L.built) return false;
-  { const sp0 = O.splashes; place(-40, 0, 0, -Math.PI / 2, 12); let at = null, sp = 0; run(8, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -112 && P.grounded) { at = P.pos.clone(); sp = O.splashes; } });
+  { const sp0 = O.splashes; place(-40, 0, 2.5, -Math.PI / 2, 12); let at = null, sp = 0; run(8, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -112 && P.grounded) { at = P.pos.clone(); sp = O.splashes; } });
     say('west gate, up the entry ramp, onto the canal head', !!at && Math.abs(at.y - Q) < 0.15 && sp === sp0, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
   { place(-115, Q, 18, -Math.PI / 2, 8); let at = null; run(6, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -139 && P.grounded) at = P.pos.clone(); });
     say('up the ramp onto the terrace', !!at && Math.abs(at.y - TER) < 0.2, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
@@ -2320,6 +2320,33 @@ CASES.slice = () => {
   ride('down the gallery stairs to the quay', [-194.2, 7.5, -24.25], Math.PI / 2, 3, GS, 6, p => p.z > -16 && Math.abs(p.y - Q) < 0.15);
   { place(-178, 9.6, 17.1, -Math.PI / 2, 7); run(0.2, () => city()); P.jump = 1; let on = null; run(2.5, () => { city(); if (P.grind && !on) on = P.grind.rail.path.name; });
     say('a tap onto the viaduct parapet rail', on === 'slice', on ? `grinding '${on}'` : 'missed'); }
+  // r54: THE NEXUS -- the bowl, the terraces, the fountain, all from where you would actually be
+  { const N = rg.NEX, B = N.bowl, bx = (B.x0 + B.x1) / 2, bz = (B.z0 + B.z1) / 2, sp = rg.CITY.spots.slice, sp0 = O.splashes;
+    place(sp[0], sp[1], sp[2], sp[3], 5); let low = 99; run(4, () => { fwd(sp[3]); city(); low = Math.min(low, P.pos.y); });
+    say('from the spawn, roll straight into the bowl', low < B.floor + 0.15 && O.splashes === sp0, `lowest ${fix(low, 2)} (floor ${B.floor}), splashes ${O.splashes - sp0}`);
+    // up the wall at speed: no pop comes back in; a tap at the lip hops onto the coping and grinds it (r41's
+    // homing, and a coping grind is exactly what a tap at the lip of a bowl should be); a swipe goes out
+    for (const [v, pop] of [[13, 0], [13, 1], [13, 2]]) { let kk = 0; const s0 = O.splashes; place(bx, B.floor, bz, 0, v); let phase = 0, land = null, fired = 0, top = 0, on = null;
+      run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0; top = Math.max(top, P.pos.y); if (P.grind && !on) on = P.grind.rail.path.name;
+        if (pop && !fired && P.grounded && P.pos.y > rg.SLC.Q - 0.7 && P.vel.y > 0) { P.jump = pop; fired = 1; }
+        if (phase === 0 && !P.grounded) phase = 1;
+        if (phase === 1 && P.grounded && !P.grind) { phase = 2; land = P.pos.clone(); } if (process.env.DBG === 'bowl' && kk++ % 6 === 0) console.log('   ', fix(P.pos.y, 2), fix(P.pos.z, 2), fix(P.vel.y), P.grounded ? 'G' : 'air', P.grind ? 'GRIND' : ''); });
+      const out = !!land && land.z > B.z1 && land.y > rg.SLC.Q - 0.1, inb = !!land && land.z < B.z1 && land.y < rg.SLC.Q - 0.3;
+      const good = O.splashes === s0 && (pop === 0 ? inb && top > rg.SLC.Q : pop === 1 ? on === 'slice bowl' : out);
+      say(`the bowl at ${v} m/s ${['with no pop: air, back in', '+ a tap at the lip: grinds the coping', '+ a SWIPE: out of the bowl'][pop]}`, good,
+        pop === 1 ? (on ? `grinding '${on}'` : 'no grind') : land ? `up to ${fix(top, 1)}, down at z ${fix(land.z, 1)} y ${fix(land.y, 2)}` : 'never landed'); }
+    { place(bx, rg.SLC.Q, B.z1 + 1.1, -Math.PI / 2, 6); run(0.2, () => city()); P.jump = 1; let on = null; run(2.5, () => { city(); if (P.grind && !on) on = P.grind.rail.path.name; });
+      say('a tap on the walkway onto the bowl coping', on === 'slice bowl', on ? `grinding '${on}'` : 'missed'); }
+    const T = N.tier, yT = rg.SLC.Q + T.n * T.dy;
+    { place(-100.5, rg.SLC.Q, T.z - 1.2, 0, 6); let at = null; run(5, () => { fwd(0); city(); if (!at && P.pos.z > T.z + T.n * T.step && P.grounded) at = P.pos.clone(); });
+      say('up the terrace steps, kerb by kerb, to the top', !!at && Math.abs(at.y - yT) < 0.1, at ? `on at z ${fix(at.z, 1)} y ${fix(at.y, 2)}` : `got to z ${fix(P.pos.z, 1)} y ${fix(P.pos.y, 2)}`); }
+    { place(-94.2, rg.SLC.Q, 7, 0, 7); let at = null; run(5, () => { fwd(0); city(); if (!at && P.pos.z > 17 && P.grounded) at = P.pos.clone(); });
+      say('up the bank onto the top platform', !!at && Math.abs(at.y - yT) < 0.1, at ? `on at z ${fix(at.z, 1)} y ${fix(at.y, 2)}` : `got to z ${fix(P.pos.z, 1)} y ${fix(P.pos.y, 2)}`); }
+    { const hx = (T.x0 + T.x1) / 2; place(hx + 0.9, yT, T.z + (T.n - 1) * T.step + 2.6, Math.PI, 5); run(0.2, () => city()); P.jump = 1; let on = null, low = 99;
+      run(3, () => { city(); if (P.grind && !on) on = P.grind.rail.path.name; if (P.grind) low = Math.min(low, P.pos.y); });
+      say('a tap onto the hubba, grind it down the steps', on === 'slice' && low < yT - 1, on ? `grinding, down to ${fix(low, 1)}` : 'missed'); }
+    { const F = N.fount; place(F.x, rg.SLC.Q, F.z + F.r[0] + 1.5, Math.PI, 5); let top = 0; run(3, () => { fwd(Math.PI); city(); if (P.grounded) top = Math.max(top, P.pos.y); });
+      say('up the fountain rings to the basin', Math.abs(top - (rg.SLC.Q + F.r.length * F.dy)) < 0.05, `highest floor ${fix(top, 2)}`); } }
   return ok;
 };
 CASES.shores = () => {
