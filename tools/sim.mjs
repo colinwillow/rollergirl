@@ -1661,10 +1661,10 @@ CASES.city = async () => {
   const inside = () => !!rg.solidAt(P.pos.x, P.pos.y + 0.5, P.pos.z, -0.05);
   // 0. NOTHING PLACED INSIDE ANYTHING ELSE: no gem in a wall, no rail through one, no hydrant in a building
   { const inGem = rg.GEM.list.filter(g => rg.solidAt(g.x, g.y, g.z, 0.3));
-    const inRail = rg.RAILS.filter(R => R.path.name !== 'park' && rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench' && b.tag !== 'helix wall'));
+    const inRail = rg.RAILS.filter(R => R.path.name !== 'park' && rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench' && !/wall$/.test(b.tag)));
     const inHyd = rg.HYD.list.filter(H => rg.solidAt(H.x, 0.4, H.z, 0.3, b => b.tag !== 'hydrant'));
     say('nothing placed inside anything', !inGem.length && !inRail.length && !inHyd.length,
-      `${inGem.length} gems, ${inRail.length} rail segments, ${inHyd.length} hydrants inside a box` + (inGem.length ? ' -- gems at ' + inGem.map(g => `${fix(g.x, 1)},${fix(g.y, 1)},${fix(g.z, 1)} in ${rg.solidAt(g.x, g.y, g.z, 0.3).tag}`).join('; ') : '') + (inRail.length ? ' -- ' + inRail.map(R => { const b = rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench' && b.tag !== 'helix wall'); return `${R.path.name} at ${fix(R.mx, 1)},${fix((R.a.y + R.b.y) / 2, 2)},${fix(R.mz, 1)} in ${b.tag} top ${fix(b.y1, 2)}`; }).join('; ') : '')); }
+      `${inGem.length} gems, ${inRail.length} rail segments, ${inHyd.length} hydrants inside a box` + (inGem.length ? ' -- gems at ' + inGem.map(g => `${fix(g.x, 1)},${fix(g.y, 1)},${fix(g.z, 1)} in ${rg.solidAt(g.x, g.y, g.z, 0.3).tag}`).join('; ') : '') + (inRail.length ? ' -- ' + inRail.map(R => { const b = rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench' && !/wall$/.test(b.tag)); return `${R.path.name} at ${fix(R.mx, 1)},${fix((R.a.y + R.b.y) / 2, 2)},${fix(R.mz, 1)} in ${b.tag} top ${fix(b.y1, 2)}`; }).join('; ') : '')); }
   // 1. a wall: straight into B's west face at 10 m/s
   { place(54, 0, 150.5, Math.PI / 2, 10); let worst = 0, inAny = false;
     run(1.5, () => { worst = Math.max(worst, P.pos.x); inAny = inAny || inside(); });
@@ -2259,6 +2259,92 @@ CASES.orbital = () => {
   // 15. A LANE pushes: at the foot of the helix with no thumb
   { const s = rg.CITY.spots.nimbus; place(s[0], s[1], s[2] - 13, s[3], 2); run(2, () => city());
     say('a boost lane pushes her with no thumb', P.speed > 8, `${fix(P.speed, 1)} m/s after 2 s from 2`); }
+  return ok;
+};
+// r50: NEON SHORES -- the district from his top-down map, every route ridden through the shipped `stepPlayer` +
+// `stepCity`: the east gate and the causeway, the lagoon and a canal (and back), a bridge, the plaza's berm and
+// ring rail, the alley's launcher and roof run onto the transit spiral, the spiral to the deck, the track to the
+// Spire, the secret route down, the gardens (launcher, ramp, rail back), the lighthouse, the Overflow, the snake
+// run into the bowls, the market skyway. `follow` steers at a point a few metres along a path, as a thumb would.
+CASES.shores = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.SH, O = rg.ORB, Y = S.y, T = S.transit, path = n => rg.PATHS.find(q => q.name === n), city = () => rg.stepCity(DT);
+  const fwd = h => { rg.cam.az = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  const along = (pts, ahead) => { let bi = 0, bd = 1e9; pts.forEach((q, i) => { const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 0.5; if (d < bd) { bd = d; bi = i; } });
+    const t = pts[Math.min(pts.length - 1, bi + (ahead || 3))]; fwd(Math.atan2(t.x - P.pos.x, t.z - P.pos.z)); return bi; };
+  const ride = (pts, sec, ahead) => { let low = 99, last = 0; run(sec, () => { last = along(pts, ahead); city(); low = Math.min(low, P.pos.y); }); return { low, last }; };
+  console.log(`  plateau ${S.nx}x${S.nz} cells, ${O.launch.length} launchers, ${O.water.length} water rects`);
+  // 1. OUT OF THE EAST GATE AND UP THE CAUSEWAY
+  { const sp0 = O.splashes; place(40, 0, 0, Math.PI / 2, 12); let at = null; run(8, () => { fwd(Math.PI / 2); city(); if (!at && P.pos.x > S.x0 + 4 && P.grounded) at = P.pos.clone(); });
+    say('east gate, the causeway, onto the plateau', !!at && Math.abs(at.y - Y) < 0.15 && O.splashes === sp0, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}, splashes ${O.splashes - sp0}`); }
+  // 2. OFF THE WEST CLIFF INTO THE LAGOON, and back
+  { const sp0 = O.splashes; place(152, Y, 12, -Math.PI / 2, 0); run(0.5, () => city()); P.vel.set(-9, 0, 0); P.heading = P.faceH = -Math.PI / 2;
+    let wet = false; run(3, () => { city(); if (O.splashes > sp0) wet = true; });
+    say('off the cliff into the lagoon: put back', wet && Math.abs(P.pos.y - Y) < 0.2 && P.pos.x > S.x0 + 1, `splashes ${O.splashes - sp0}, back at x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+  // 3. INTO A CANAL, and back; and OVER IT on the bridge
+  { const sp0 = O.splashes; place(165, Y, -40, Math.PI / 2, 0); run(0.5, () => city()); P.vel.set(8, 0, 0);
+    let wet = false; run(3, () => { city(); if (O.splashes > sp0) wet = true; });
+    say('into a canal: put back', wet && Math.abs(P.pos.y - Y) < 0.2, `splashes ${O.splashes - sp0}, back at y ${fix(P.pos.y)}`);
+    const sp1 = O.splashes; place(164, Y, -30, Math.PI / 2, 9); let at = null; run(2.5, () => { fwd(Math.PI / 2); city(); if (!at && P.pos.x > 182 && P.grounded) at = P.pos.clone(); });
+    say('over the canal on a bridge', !!at && Math.abs(at.y - Y) < 0.15 && O.splashes === sp1, at ? `across at x ${fix(at.x, 1)}` : `got to x ${fix(P.pos.x, 1)}, splashes ${O.splashes - sp1}`); }
+  // 4. THE PLAZA: carve the berm; tap onto the ring rail from the plinth
+  { const Pz = S.plaza; place(Pz.x + 23, Y, Pz.z - 8, 0, 12); let top = 0; const cx = Pz.x, cz = Pz.z;
+    run(3, () => { const a = Math.atan2(P.pos.z - cz, P.pos.x - cx); fwd(Math.atan2(-Math.sin(a) - Math.cos(a) * 0.15, Math.cos(a) - Math.sin(a) * 0.15)); city(); top = Math.max(top, P.pos.y); });
+    say('carving round the plaza berm', top > Y + 1.0 && P.pos.y > Y - 0.1, `up to ${fix(top - Y)} m on the bank`);
+    const rr = path('nova ring'); place(Pz.x, Y + Pz.pedH, Pz.z - 5.6, Math.PI / 2, 0); P.jump = 1; let on = false;
+    run(2, () => { city(); if (P.grind && P.grind.rail.path === rr) on = true; });
+    say('a tap on the plinth onto the ring rail', on, on ? 'grinding round the globe' : 'missed'); }
+  // 5. THE ALLEY LAUNCHER onto the roof run, along the roofs, onto the spiral, up to the deck
+  { place(179, Y, 6, 0, 3); let air = false, land = null; run(4, () => { fwd(0); city(); if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
+    say('the alley launcher onto the roof run', !!land && Math.abs(land.y - S.roofY) < 0.2, land ? `landed at z ${fix(land.z, 1)} y ${fix(land.y, 1)}` : 'never landed');
+    const route = []; for (let z = 22; z < 126; z += 2) route.push(new THREE.Vector3(179, S.roofY, z));
+    route.push(...S.link.map(q => q.clone())); const L = S.link[S.link.length - 1]; route.push(new THREE.Vector3(T.x + (L.x - T.x) * 0.75, T.deck, T.z + (L.z - T.z) * 0.75));
+    place(179, S.roofY, 26, 0, 8); let kk = 0; const r = { low: 99 }; run(40, () => { along(route, 3); city(); r.low = Math.min(r.low, P.pos.y); if (process.env.DBG && kk++ % 20 === 0) console.log('   R', fix(kk / 60, 1), fix(P.pos.x, 1), fix(P.pos.y, 2), fix(P.pos.z, 1), 'v', fix(P.speed), P.grounded, P.grind ? 'GRIND' : ''); });
+    const onDeck = Math.abs(P.pos.y - T.deck) < 0.3;
+    say('roof run -> the link -> the transit deck', onDeck && r.low > S.roofY - 1, `ended y ${fix(P.pos.y, 1)}, lowest ${fix(r.low, 1)}`); }
+  // 6. THE SPIRAL from the street
+  { const s = rg.CITY.spots.transit; place(s[0], s[1], s[2], s[3], 6); const r = ride(S.spiral.pts, 40, 3);
+    say('up the transit spiral from the street', Math.abs(P.pos.y - T.deck) < 0.3 && r.low > Y - 0.3, `ended y ${fix(P.pos.y, 1)} at ${fix(Math.hypot(P.pos.x - T.x, P.pos.z - T.z), 1)} m from the tower`); }
+  // 7. THE TRACK TO THE SPIRE
+  { S.peakGot = 0; const s = rg.CITY.spots['transit deck']; place(s[0], s[1], s[2], s[3], 4); const r = ride(S.track, 20, 3);
+    run(2, () => { fwd(P.heading); city(); });
+    say('the elevated track up to THE SPIRE', S.peakGot === 1 && Math.abs(P.pos.y - S.spire.y) < 0.2, `spire ${S.peakGot ? 'REACHED' : 'not reached'}, y ${fix(P.pos.y, 1)}, lowest ${fix(r.low, 1)}`); }
+  // 8. THE SECRET ROUTE down to the market roof
+  { const sr = path('secret route'); place(sr.segs[0].a.x, S.spire.y, sr.segs[0].a.z + 1.5, Math.atan2(sr.segs[0].d.x, sr.segs[0].d.z), 0); P.jump = 1; let on = false;
+    run(14, () => { city(); if (P.grind && P.grind.rail.path === sr) on = true; });
+    const m2 = S.market[1], inM = P.pos.x > m2[0] && P.pos.x < m2[1] && P.pos.z > S.market[0][2] && P.pos.z < m2[3];
+    say('the secret route onto the market roof', on && P.grounded && inM && P.pos.y > 13.5, `${on ? 'rode it' : 'never caught'}, ended ${fix(P.pos.x, 1)}, ${fix(P.pos.y, 1)}, ${fix(P.pos.z, 1)}`); }
+  // 9. THE GARDENS: launcher up, the ramp across, the rail back to the deck
+  { const [G1, G2] = S.gardens, s = rg.CITY.spots.gardens; place(s[0], s[1], s[2], 0, 3); let air = false, land = null;
+    run(4, () => { fwd(0); city(); if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
+    say('the launcher up to the first garden', !!land && Math.abs(land.y - G1.y) < 1 && Math.hypot(land.x - G1.x, land.z - G1.z) < G1.r, land ? `landed y ${fix(land.y, 1)}, ${fix(Math.hypot(land.x - G1.x, land.z - G1.z), 1)} m from its centre` : 'never landed');
+    place(G1.x, G1.y, G1.z, Math.atan2(G2.x - G1.x, G2.z - G1.z), 3); let got = false;
+    run(6, () => { if (!got) along(S.gardenRamp, 2); else rg.stick.L.y = 0; city(); if (P.grounded && Math.abs(P.pos.y - G2.y) < 0.2 && Math.hypot(P.pos.x - G2.x, P.pos.z - G2.z) < G2.r - 2) got = true; });
+    say('the boost ramp up to the high garden', got, got ? 'on the high garden' : `ended y ${fix(P.pos.y, 1)}`);
+    const gr = path('garden rail'), a = gr.segs[0].a; place(a.x, G2.y, a.z, Math.atan2(gr.segs[0].d.x, gr.segs[0].d.z), 0); P.jump = 1; let on = false;
+    run(12, () => { city(); if (P.grind && P.grind.rail.path === gr) on = true; });
+    say('the garden rail back down to the transit deck', on && Math.abs(P.pos.y - T.deck) < 0.3, `${on ? 'rode it' : 'never caught'}, ended y ${fix(P.pos.y, 1)}`); }
+  // 10. THE LIGHTHOUSE: over its bridge, the pad throws her up, the rail down to the catwalk
+  { const L = S.light; place(198, Y, L.z, -Math.PI / 2, 6); let top = 0, up = false; run(5, () => { if (!P.grounded) up = true; if (up) rg.stick.L.y = 0; else fwd(-Math.PI / 2); city(); top = Math.max(top, P.pos.y); });
+    say('lighthouse bridge + pad to the top deck', Math.abs(P.pos.y - L.top) < 0.3, `ended y ${fix(P.pos.y, 1)} (top ${fix(top, 1)})`);
+    const lr = path('lighthouse rail'), a = lr.segs[0].a; place(a.x - 0.5, L.top, a.z, Math.atan2(lr.segs[0].d.x, lr.segs[0].d.z), 0); P.jump = 1; let on = false;
+    run(8, () => { city(); if (P.grind && P.grind.rail.path === lr) on = true; });
+    say('the lighthouse rail down to the catwalk', on && Math.abs(P.pos.y - S.catwalk.y) < 0.3, `${on ? 'rode it' : 'never caught'}, ended y ${fix(P.pos.y, 1)}`); }
+  // 11. THE OVERFLOW pad up to the catwalk
+  { place(216, Y, -70, Math.PI, 3); let air = false, land = null; run(4, () => { fwd(Math.PI); city(); if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
+    say('the Overflow launcher up to the catwalk', !!land && Math.abs(land.y - S.catwalk.y) < 0.2, land ? `landed at ${fix(land.x, 1)}, ${fix(land.y, 1)}, ${fix(land.z, 1)}` : 'never landed'); }
+  // 12. THE SNAKE RUN, off the catwalk's end and down into the bowls
+  { place(S.catwalk.x1 + 2, S.catwalk.y, -92, Math.PI / 2, 6); const r = ride(S.snake, 22, 3);
+    const e = S.snake[S.snake.length - 1];
+    say('the snake run, catwalk down to the bowls', Math.abs(P.pos.y - Y) < 0.3 && Math.hypot(P.pos.x - e.x, P.pos.z - e.z) < 25 && r.last > S.snake.length - 6, `ended ${fix(Math.hypot(P.pos.x - e.x, P.pos.z - e.z), 1)} m from its end at y ${fix(P.pos.y, 1)}, got to point ${r.last}/${S.snake.length - 1}`); }
+  // 13. THE BIG BOWL
+  { const b = S.bowlsMade[0]; place(b.x + b.rim + 0.4, Y + 3, b.z, -Math.PI / 2, 8); let low = 99, inside = false;
+    run(4, () => { city(); low = Math.min(low, P.pos.y); if (Math.hypot(P.pos.x - b.x, P.pos.z - b.z) < 4) inside = true; });
+    say('dropped into the big bowl', low > Y - 0.1 && inside, `lowest ${fix(low - Y)} above the plateau, crossed the middle: ${inside}`); }
+  // 14. THE MARKET SKYWAY
+  { place(277, Y, 122, Math.PI, 6); const r = ride(S.marketSky, 6, 2);
+    say('the market skyway onto the roof', Math.abs(P.pos.y - S.market[1][4]) < 0.2, `ended y ${fix(P.pos.y, 1)}`); }
   return ok;
 };
 CASES.grind = () => {

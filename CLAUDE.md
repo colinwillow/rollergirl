@@ -307,6 +307,53 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **NEON SHORES: THE SECOND DISTRICT, FROM HIS TOP-DOWN MAP (r50, `SH`, `buildShores`, `shPlateau`).** *"Just a random
+  generated top-down view -- use it as a framework ... this could operate next to the thing we already have, we could
+  build multiple sections."* EAST of the park through a new gate in the east bank (`perimeter` now gates edges 0, 1 and
+  2 -- the pieces offset along the edge itself, x for north/south and z for east), up a walled CAUSEWAY over a glowing
+  LAGOON onto a raised plateau at 8 m, laid out as his map is, map-north to world-north:
+      NOVA PLAZA      a dish ringed by a BERM you carve round (four street gaps), the alien globe on a rideable plinth
+                      with a ring rail round its base
+      NEON ALLEY      two rows of shops and neon either side of a street with a high rail down it; the inner row's
+                      roofs at 18 m are a ROOF RUN, bridged over the cross streets, reached by a LAUNCHER, and carrying
+                      straight on into the ROOF LINK up to the transit deck
+      ORBITAL TRANSIT the tower; a SPIRAL ROAD (one turn, boost lane, outer wall) up to a RING DECK at 24 m
+      THE SPIRE       up the walled elevated TRACK from the deck to a floating island at 36 m with the alien on it --
+                      the district's high point (`SH.peak`, THE SPIRE! toast) -- and the SECRET ROUTE: a 100 m rail
+                      down onto the market roof
+      SKY GARDENS     two floating groves of pink trees: a launcher up from the plateau's corner, a boost ramp between
+                      them, a booster rail from the high one back to the deck
+      ORBITAL MARKET  two halls, a skyway onto their roofs, a bridge between them, a parapet to stop the secret route's
+                      landing, stalls on the street
+      CANAL DISTRICT  canals CUT into the plateau (`SH.canals`, water at 5 m), five bridges (`shBridge`, the Orbital
+                      bridge made general), a lighthouse island with a launcher to its top and a rail down to the
+                      Overflow, boats, the canal spilling off the edge into the lagoon as two waterfalls
+      THE OVERFLOW    tanks, two pipe rails on racks, a launcher up to a catwalk at 20 m
+      GRAVITY BOWLS   three raised bowls on the plateau (`obBowl` takes a base height now) and a SNAKE RUN: a U-channel
+                      (`shSweep`, a ribbon with any cross-section) winding 12 m down from the catwalk into them
+  **THE LAGOON IS THE EDGE** -- off the plateau anywhere is water, and water puts her back where she stood. **The safe
+  spot is now generic**: one with floor at her height 2 m out in all four directions, so it is never a brink.
+  **THE PLATEAU IS A GRID OF 5 m CELLS** (`shSolid`): canals are cells left out, corners are rounded off, the solids
+  are the rest merged into rectangles, tops tiled by ZONE (`shTile`), and every exposed side drawn as a CLIFF to the
+  lagoon or a masonry wall to a canal -- the coastline, the canal walls and the collider come from one map.
+  **LAUNCHERS** (`ORB.launch`, `shPad`, the map's "lift / launcher"): stand on one and it SOLVES the throw onto its
+  target. **The launch caps her air drift** (`p.drift = AIR.driftMax`): the sim's first Overflow launch, with the thumb
+  held forward as a player holds it, overshot the catwalk by 29 m into the lagoon.
+  **A LANE IS A CONVEYOR, NOT A RUNWAY (`lane.gov`)**: on the transit spiral she pushed on top of the lane to 23 m/s
+  round a 19.5 m radius, hopped off the creases (a helix's quads are twisted -- its inner edge is steeper than its
+  outer) and slid out of the bend. A governed lane bleeds anything over `v + gov`; the spiral, the track and the Nimbus
+  helix are governed. Ribbons are also cut into six strips across now, which halves every crease.
+  **A GAP IN A SPIRAL'S WALL IS A DOOR SHE SLIDES OUT OF AT SPEED.** The roof run first merged onto the spiral through
+  a gap, and the street-to-deck ride left by it every time. It goes to the deck over the spiral instead, and the
+  spiral is sealed. **And a mouth on a roof's flank is a corner she flies past** -- the link starts ON the roof, in
+  line with the run, walled.
+  `npm run sim shores`: twenty routes, every one through the shipped step -- the gate and causeway, the lagoon and a
+  canal and back, a bridge, the berm and the ring rail, the alley launcher, the roof run to the deck, the spiral from
+  the street, the track to THE SPIRE, the secret route, the gardens up and back, the lighthouse and its rail, the
+  Overflow launcher, the snake run end to end, the big bowl, the market skyway.
+  The ➤ key's first stops are Neon Shores: shores, alley, nova, transit, transit deck, spire, gardens, canals, overflow,
+  bowls. Both districts together: 172k triangles in 70 meshes, chunked; the sign atlas is 2048x2176 (about 24 MB on
+  the GPU with mips) -- **if a phone reloads in the city, the atlas and the kit textures are the first suspects.**
 - **ORBITAL: THE DISTRICT FROM HIS CONCEPT PAINTINGS (r49, `ORB`, `buildOrbital`, `orbitalRails`, `orbMeshes`,
   `stepOrbital`).** *"I'm just gonna give you these concept images ... first and foremost a giant skate park world ...
   jump from one building to another, but don't fall between the buildings ... get up to the highest peak ... loop grind

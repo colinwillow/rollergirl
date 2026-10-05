@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r49</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r50</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r49';
+const BUILD = 'r50';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1233,17 +1233,20 @@ function perimeter(S, r, sweep, back, apron) {
     // r45: THE NORTH EDGE IS TWO PIECES WITH A GATE BETWEEN THEM, each with its end wall drawn, and the
     // gap floored at street level all the way out -- a hole in the bank must not be a hole in the world.
     // r49: AND THE SOUTH EDGE HAS ONE TOO, out to the canal quarter -- the same two pieces, mirrored
-    if ((i === 0 || i === 2) && PARK.gate > 0) {
-      const g = PARK.gate, hw = (S - g) / 2, cz = Math.cos(yaw) * S;
-      for (const sx of [-1, 1]) extrude(sx * (g + hw), cz, yaw, hw, prof, true);
-      extrude(0, cz, yaw, g, prof.slice(i0), false);           // the outer bank runs across the gate too
+    // r50: AND THE EAST EDGE, out to Neon Shores. The two pieces sit either side of the edge's middle, offset along
+    // the edge itself -- which is x for north and south and z for east.
+    if ((i === 0 || i === 1 || i === 2) && PARK.gate > 0) {
+      const g = PARK.gate, hw = (S - g) / 2, ex = Math.sin(yaw) * S, ez = Math.cos(yaw) * S, ux = Math.cos(yaw), uz = -Math.sin(yaw);
+      for (const sx of [-1, 1]) extrude(ex + ux * sx * (g + hw), ez + uz * sx * (g + hw), yaw, hw, prof, true);
+      extrude(ex, ez, yaw, g, prof.slice(i0), false);           // the outer bank runs across the gate too
       continue;
     }
     extrude(Math.sin(yaw) * S, Math.cos(yaw) * S, yaw, S, prof, false);
   }
   if (PARK.gate > 0) { const g = PARK.gate, L = u0;
     quad([-g, 0, S], [-g, 0, S + L], [g, 0, S + L], [g, 0, S], CONC);
-    quad([-g, 0, -S], [g, 0, -S], [g, 0, -S - L], [-g, 0, -S - L], CONC); }
+    quad([-g, 0, -S], [g, 0, -S], [g, 0, -S - L], [-g, 0, -S - L], CONC);
+    quad([S, 0, -g], [S, 0, g], [S + L, 0, g], [S + L, 0, -g], CONC); }
   // the wall on the edge deck: four straight runs and a ring of chords round each corner -- invisible,
   // and no floor on top, so nothing can stand on it and nothing gets past it
   const E = PARK.edge, D = S + E.u, wy0 = E.y - 0.5, wy1 = E.y + 40;
@@ -1282,6 +1285,7 @@ function buildPark() {
   bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
+  buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
   triBuild();
   solidBuild();
   buildRails();      // AFTER the collider: each post is measured down to the ground under it
@@ -2239,7 +2243,7 @@ const ORB = {
            { x0: -124, x1: -100, z0: -262, z1: -238, h: 13 }, { x0: -92, x1: -76, z0: -266, z1: -240, h: 15.5 } ],
   bounceV: 19, bounceCool: 0.45,
   laneHelix: { v: 15, acc: 9 }, laneRun: { v: 24, acc: 16 }, laneRoof: { v: 16, acc: 12 },
-  lanes: [], water: [], bounce: [], rails: [], gems: [], anim: [], shrooms: [],
+  lanes: [], water: [], bounce: [], rails: [], gems: [], anim: [], shrooms: [], launch: [],
   splashes: 0, peakGot: 0, safe: null, safeT: 0, bad: 0, built: 0,
 };
 // ---- buffers: lit (vertex colour, the toon-lit world), glow (unlit, neon and lamps), back (the far city) ----
@@ -2485,7 +2489,10 @@ function obRibbon(pts, hw, o) {
   const E = Math.min(0.55, hw * 0.25), deck = o.col || 0xd6cde4, edge = o.edge || 0x3fd3ff, th = o.thick || 0.9;
   const at = (i, w, dy) => [pts[i].x + S[i][0] * w, pts[i].y + (dy || 0), pts[i].z + S[i][1] * w];
   for (let i = 0; i < n - 1; i++) {
-    for (const [w0, w1, c] of [[-hw, -hw + E, edge], [-hw + E, hw - E, (i & 1) ? deck : shade(deck, 0.96)], [hw - E, hw, edge]])
+    const mid = hw - E, bands = [[-hw, -hw + E, edge]];
+    for (let b = 0; b < 4; b++) bands.push([-mid + 2 * mid * b / 4, -mid + 2 * mid * (b + 1) / 4, (i & 1) ? deck : shade(deck, 0.96)]);
+    bands.push([hw - E, hw, edge]);
+    for (const [w0, w1, c] of bands)
       obQuad(B, at(i, w0), at(i + 1, w0), at(i + 1, w1), at(i, w1), UPN, c, o.solid !== false);
     for (const sg of [-1, 1]) {
       const nn = [S[i][0] * sg, 0, S[i][1] * sg];
@@ -2493,8 +2500,10 @@ function obRibbon(pts, hw, o) {
     }
     obQuad(B, at(i, -hw, -th), at(i + 1, -hw, -th), at(i + 1, hw, -th), at(i, hw, -th), DNN, 0x8e86a8);
     // the barrier: a thin wall up the given edge, solid, its top a rail if asked
-    if (o.wall) {
-      const sg = o.wall, wh = o.wallH || 1.0, p = at(i, sg * (hw - 0.15)), q = at(i + 1, sg * (hw - 0.15));
+    // r50: either edge or both (`walls`), and a segment can be left open (`wallSkip`) where another line joins
+    for (const sg of (o.walls || (o.wall ? [o.wall] : []))) {
+      if (o.wallSkip && o.wallSkip(i, sg)) continue;
+      const wh = o.wallH || 1.0, p = at(i, sg * (hw - 0.15)), q = at(i + 1, sg * (hw - 0.15));
       const dx = q[0] - p[0], dz = q[2] - p[2], L = Math.hypot(dx, dz) || 1e-3;
       solidAdd((p[0] + q[0]) / 2, (p[2] + q[2]) / 2, L / 2 + 0.06, 0.15, Math.min(p[1], q[1]) - 0.4, Math.max(p[1], q[1]) + wh, Math.atan2(-dz / L, dx / L), { top: false, tag: o.tag || 'barrier' });
       const nn = [S[i][0] * sg, 0, S[i][1] * sg], ni = [-nn[0], 0, -nn[2]];
@@ -2505,7 +2514,7 @@ function obRibbon(pts, hw, o) {
     }
   }
   if (o.lane) {
-    ORB.lanes.push({ pts: pts.map(q => q.clone()), hw, v: o.lane.v, acc: o.lane.acc, name: o.name || 'lane' });
+    ORB.lanes.push({ pts: pts.map(q => q.clone()), hw, v: o.lane.v, acc: o.lane.acc, gov: o.lane.gov || 0, name: o.name || 'lane' });
     // chevrons every few metres, pointing along the lane
     let cum = 0, next = 2;
     for (let i = 0; i < n - 1; i++) {
@@ -2539,12 +2548,13 @@ function laneAt(x, y, z) {
 }
 // A RAISED BOWL: the floor of the city is a single plane, so a bowl is built UP rather than dug -- a bank up to
 // a coping ring, and the transition back down to the street, which is its floor. Painted on the floor.
-function obBowl(cx, cz, rim, r, sweep, back, art) {
+function obBowl(cx, cz, rim, r, sweep, back, art, y0) {
+  y0 = y0 || 0;   // r50: on a plateau, the floor it stands on
   const D = r * (1 - Math.cos(sweep)), run = r * Math.sin(sweep), inner = rim - run;
-  const p = [{ u: rim + 1.4 + back, y: 0, c: RAMP }, { u: rim + 1.4, y: D, c: DECK }, { u: rim, y: D, c: COPE }];
-  for (let i = 1; i <= 16; i++) { const a = sweep * (1 - i / 16); p.push({ u: inner + r * Math.sin(a), y: r * (1 - Math.cos(a)), c: (i & 1) ? 0xd9c8f0 : 0xd2c0ea }); }
+  const p = [{ u: rim + 1.4 + back, y: y0, c: RAMP }, { u: rim + 1.4, y: y0 + D, c: DECK }, { u: rim, y: y0 + D, c: COPE }];
+  for (let i = 1; i <= 16; i++) { const a = sweep * (1 - i / 16); p.push({ u: inner + r * Math.sin(a), y: y0 + r * (1 - Math.cos(a)), c: (i & 1) ? 0xd9c8f0 : 0xd2c0ea }); }
   obRev(OB.lit, cx, cz, p, 48, 1, true);
-  if (art) obDecal(art, cx, 0.03, cz, 0, inner * 1.8);
+  if (art) obDecal(art, cx, y0 + 0.03, cz, 0, inner * 1.8);
   return { D, inner };
 }
 // A MUSHROOM TREE. The stem is solid; the cap is a FLOOR and a TRAMPOLINE -- land on it and it throws her up.
@@ -3033,7 +3043,7 @@ function buildOrbital() {
   { const rc = T.r + T.lane / 2, a0 = Math.PI, aEnd = a0 + T.turns * Math.PI * 2, aRise = aEnd - Math.PI / 2, pts = [];
     const da = 1.5 / rc;
     for (let a = a0; a <= aEnd + 1e-6; a += da) pts.push(V(T.x + rc * Math.cos(a), 0.02 + (T.h - 0.02) * clamp((a - a0) / (aRise - a0), 0, 1), T.z + rc * Math.sin(a)));
-    obRibbon(pts, T.lane / 2, { wall: -1, wallH: 1.05, rail: { boost: 15, boostK: 2.5 }, lane: { v: ORB.laneHelix.v, acc: ORB.laneHelix.acc, every: 7 }, name: 'nimbus helix', tag: 'helix wall', col: 0xd9d0ea, edge: 0xff4fb8 });
+    obRibbon(pts, T.lane / 2, { wall: -1, wallH: 1.05, rail: { boost: 15, boostK: 2.5 }, lane: { v: ORB.laneHelix.v, acc: ORB.laneHelix.acc, gov: 4, every: 7 }, name: 'nimbus helix', tag: 'helix wall', col: 0xd9d0ea, edge: 0xff4fb8 });
     const e = pts[pts.length - 1], f = pts[pts.length - 2], yaw = Math.atan2(e.x - f.x, e.z - f.z);
     solidAdd(e.x, e.z, T.lane / 2, 0.3, T.h - 0.5, T.h + 1.2, Math.atan2(-(e.z - f.z), e.x - f.x) + Math.PI / 2, { tag: 'helix end', top: false });
     obGeo(B, new THREE.BoxGeometry(T.lane, 1.2, 0.6), obM(e.x, T.h + 0.6, e.z, yaw), 0xece4f6);
@@ -3334,6 +3344,7 @@ function orbMeshes() {
     const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.35, color: 0xa8ffcf, transparent: true, opacity: 0.9, depthWrite: false }));
     pts.frustumCulled = false; add(pts, 'splash');
     ORB.spl = { pos, vel: new Float32Array(n * 3), age: new Float32Array(n).fill(9), n, head: 0, g }; }
+  shMeshes();
   OB.lit = OB.glow = OB.back = null; OB.sign = OB.fall = null; OB.railGeo = [];
 }
 // A WORD IN THE MIDDLE OF THE SCREEN for the things worth a word -- the chip is too small to notice a splash in
@@ -3368,14 +3379,20 @@ function stepOrbital(dt) {
   } else if (p.grounded && !p.grind) {
     ORB.safeT -= dt;
     if (ORB.safeT <= 0) { ORB.safeT = ORB.safeEvery;
-      const x = p.pos.x, z = p.pos.z, c = ORB.canal, near = x > c.x0 - 1.5 && x < c.x1 + 1.5 && z > c.z0 - 1.5 && z < c.z1 + 1.5 && p.pos.y < ORB.nq.y + 0.2;
-      if (!near) ORB.safe = { pos: p.pos.clone(), h: p.heading }; }
+      // r50: NEVER AT A BRINK -- a safe spot has floor at her own height two metres out in every direction, so
+      // being put back is never being put back at the edge she just rolled off
+      const x = p.pos.x, y = p.pos.y, z = p.pos.z;
+      const ok = [[2, 0], [-2, 0], [0, 2], [0, -2]].every(([dx, dz]) => { const g = groundAt(x + dx, z + dz, y + 0.5, 1.2); return g.hit && Math.abs(g.floor - y) < 0.8; });
+      if (ok) ORB.safe = { pos: p.pos.clone(), h: p.heading }; }
   }
   // BOOST LANES: grounded, going its way, pushed up to its speed
   if (p.grounded && !p.grind && ORB.lanes.length) {
     const L = laneAt(p.pos.x, p.pos.y, p.pos.z);
     if (L) { const along = p.vel.x * L.dx + p.vel.y * L.dy + p.vel.z * L.dz;
       if (along > -0.5 && along < L.L.v) { const add = Math.min(L.L.acc * dt, L.L.v - along); p.vel.x += L.dx * add; p.vel.y += L.dy * add; p.vel.z += L.dz * add; }
+      // r50: AND IT HOLDS HER NEAR ITS SPEED. A lane up a spiral or a track is a conveyor, not a runway: pushing on
+      // top of it took her to 23 m/s round a 19 m radius, hopping off the creases and sliding out of the bend
+      else if (L.L.gov && along > L.L.v + L.L.gov) { const k = (along - L.L.v - L.L.gov) * (1 - Math.exp(-1.5 * dt)); p.vel.x -= L.dx * k; p.vel.y -= L.dy * k; p.vel.z -= L.dz * k; }
       p.onLane = L.L.name; } else p.onLane = null;
   }
   // MUSHROOMS THROW HER UP
@@ -3385,6 +3402,15 @@ function stepOrbital(dt) {
     if (Math.hypot(p.pos.x - M.x, p.pos.z - M.z) < M.r * 0.92 && p.pos.y > M.y - M.r * 0.5 && p.pos.y < M.y + 0.6) {
       leaveGround(0, false); p.vel.y = ORB.bounceV; M.cool = ORB.bounceCool; sparkBurst(10);
     }
+  }
+  // r50: LAUNCHERS (the map's "lift / launcher"): stand on one and it throws her onto its target, solved
+  for (const L of ORB.launch) {
+    L.cool = Math.max(0, L.cool - dt);
+    if (L.cool > 0 || p.grind || !p.grounded || Math.hypot(p.pos.x - L.x, p.pos.z - L.z) > L.r || Math.abs(p.pos.y - L.y) > 0.6) continue;
+    const g = SK.g, dy = L.ty - p.pos.y, a = Math.max(0, dy) + L.apex, vy = Math.sqrt(2 * g * a), T = (vy + Math.sqrt(Math.max(0, vy * vy - 2 * g * dy))) / g;
+    leaveGround(0, false); p.vel.set((L.tx - p.pos.x) / T, vy, (L.tz - p.pos.z) / T);
+    p.vertLock = 0; p.xferKick = null; p.autoTurn = null; L.cool = 1; sparkBurst(16);
+    p.drift = AIR.driftMax;   // the launch IS the flight: holding forward must not carry her past what it aimed at
   }
   // THE TRAIN, and what it does to anyone grinding its beam
   const Mo = ORB.mono;
@@ -3414,6 +3440,12 @@ function stepOrbital(dt) {
     if (!ORB.peakGot) { ORB.peakGot = 1; sparkBurst(40); toast('PEAK!', '#ffc93c'); }
     if (!ORB.peakMsgT || ORB.t - ORB.peakMsgT > 6) { ORB.peakMsgT = ORB.t; CITY.goMsg = 'PEAK!'; CITY.goAt = performance.now(); }
   }
+  // r50: THE SPIRE, Neon Shores' high point
+  const P2 = SH.peak;
+  if (P2 && p.grounded && !p.grind && Math.hypot(p.pos.x - P2.x, p.pos.z - P2.z) < P2.r && p.pos.y > P2.y - 0.5) {
+    if (!SH.peakGot) { SH.peakGot = 1; sparkBurst(40); toast('THE SPIRE!', '#ffc93c'); }
+    if (!SH.peakMsgT || ORB.t - SH.peakMsgT > 6) { SH.peakMsgT = ORB.t; CITY.goMsg = 'THE SPIRE'; CITY.goAt = performance.now(); }
+  }
   for (const f of ORB.anim) f(dt, ORB.t);
   const S = ORB.spl;
   if (S) { for (let i = 0; i < S.n; i++) { if (S.age[i] > 1.2) { S.pos[i * 3 + 1] = -999; continue; } S.age[i] += dt; S.vel[i * 3 + 1] -= 16 * dt;
@@ -3425,6 +3457,423 @@ function railPoint(P, s, out) {
   let lo = 0, hi = P.segs.length - 1;
   while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (P.segs[mid].s0 <= s) lo = mid; else hi = mid - 1; }
   const S = P.segs[lo]; return out.copy(S.a).lerp(S.b, clamp((s - S.s0) / S.len, 0, 1));
+}
+
+
+// =====================================================================================================
+// NEON SHORES (r50) -- THE SECOND DISTRICT, FROM HIS TOP-DOWN MAP
+// *"Just a random generated top-down view -- you're welcome to use it as a framework ... this could also
+// operate next to the thing we already have, we could build multiple different sections."* So it stands next
+// to the park on the EAST, through a new gate in the east bank: a raised island district on a glowing LAGOON,
+// laid out the way his map is, map-north to world-north:
+//   NOVA PLAZA (centre)    the hub: a dish ringed by a BERM you can carve round, with four street gaps, the
+//                          alien globe on a rideable plinth, and a ring rail round its base
+//   NEON ALLEY (west)      narrow streets of shops and neon; the inner row's roofs at 18 m are a ROOF RUN,
+//                          bridged over the cross streets and joined onto the transit spiral
+//   ORBITAL TRANSIT (north) the tower, a SPIRAL ROAD up round it to a ring deck at 24 m
+//   THE SPIRE (north-east) a floating island at 36 m with the alien on it, up an elevated track from the deck --
+//                          the district's high point -- and a SECRET ROUTE: a long down rail to the market roof
+//   SKY GARDENS (north-west) two floating groves of pink trees: a launcher up, a boost ramp between them, a rail
+//                          from the high one back to the transit deck
+//   ORBITAL MARKET (east)  two market halls with a skyway onto their roofs, stalls along the street
+//   CANAL DISTRICT (south-west) canals CUT through the plateau with bridges, boats, a lighthouse island in the
+//                          basin, and the water spilling off the edge into the lagoon as two waterfalls
+//   THE OVERFLOW (south)   the industrial yard: pipe rails, tanks, a launcher onto a catwalk at 20 m
+//   GRAVITY BOWLS (south-east) a big bowl and two small ones -- and a SNAKE RUN winding down into them from
+//                          the catwalk, a U-channel twelve metres downhill
+// THE LAGOON IS THE EDGE: off the plateau anywhere is the water, and the water puts her back where she stood.
+// The district is a grid of 5 m cells; canals are cells left out, and the slabs are the rest merged into
+// rectangles, so the coastline, the canal walls and the collider all come from one map.
+// =====================================================================================================
+const SH = {
+  on: 1, x0: 145, z0: -100, cell: 5, nx: 31, nz: 52, y: 8,
+  lagoon: { x0: 112, x1: 318, z0: -112, z1: 178, y: 1.6 },
+  canalY: 5,
+  canals: [[160, 195, -75, -50], [145, 160, -65, -55], [175, 185, -100, -75], [170, 180, -50, -15], [170, 215, -15, -5]],
+  plaza: { x: 222, z: 45, r: 30, ped: 6, pedH: 2 },
+  transit: { x: 222, z: 128, r: 9, top: 48, deck: 24, deckR: 16, lane: 7, a0: 1.5 * Math.PI },
+  spire: { x: 296, z: 186, y: 36, r: 13 },
+  gardens: [{ x: 152, z: 182, y: 18, r: 10 }, { x: 176, z: 207, y: 25, r: 9 }],
+  light: { x: 177.5, z: -62.5, r: 6.5, top: 20, deckR: 4 },
+  catwalk: { x0: 208, x1: 238, z0: -95, z1: -89, y: 20 },
+  bowls: [[264, -50, 12, 3.4], [264, -2, 6, 2.6], [290, 2, 4, 2.2]],
+  alley1: [[146, 163, 20, 40, 20], [146, 163, 47, 67, 26], [146, 163, 74, 94, 16], [146, 163, 101, 121, 22], [146, 163, 128, 150, 18]],
+  alley2: [[170, 188, 20, 38], [170, 188, 45, 63], [170, 188, 70, 88], [170, 188, 95, 113], [170, 188, 120, 150]], roofY: 18,
+  market: [[256, 298, 24, 52, 14], [256, 298, 58, 86, 16]],
+  laneSpiral: { v: 14, acc: 9 }, laneTrack: { v: 16, acc: 10 }, laneRamp: { v: 14, acc: 12 },
+  peak: null, peakGot: 0, built: 0,
+};
+SIGNS.push(
+  ['shores', 512, 192, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 26, '#0c1638', NEON.teal, 8); aNeon(g, 'NEON', w / 2, h * 0.33, 62, NEON.pink); aNeon(g, 'SHORES', w / 2, h * 0.7, 62, NEON.teal); }],
+  ['alley', 512, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 18, '#1a0a26', NEON.pink, 6); aNeon(g, 'NEON ALLEY', w / 2, h / 2, 60, NEON.pink); }],
+  ['nova', 512, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 18, '#14102e', NEON.purple, 6); aNeon(g, '★ NOVA PLAZA', w / 2, h / 2, 54, '#f2e8ff'); }],
+  ['transit', 640, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 18, '#0b1430', NEON.cyan, 6); aSaturn(g, 64, h / 2, 26, NEON.cyan); aNeon(g, 'ORBITAL TRANSIT', w / 2 + 34, h / 2, 54, '#ffffff'); }],
+  ['gardens', 512, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 18, '#0e2a24', NEON.lime, 6); aNeon(g, 'SKY GARDENS', w / 2, h / 2, 56, '#d8ffc8'); }],
+  ['bowlsign', 512, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 18, '#14183a', NEON.blue, 6); aNeon(g, '@ GRAVITY BOWLS', w / 2, h / 2, 50, NEON.cyan); }],
+  ['overflow', 512, 128, (g, w, h) => { g.fillStyle = '#ffd23f'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#1a1a1a'; for (let x = -h; x < w; x += 48) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + 24, h); g.lineTo(x + 24 + h, 0); g.lineTo(x + h, 0); g.fill(); }
+    aPanel(g, 40, 18, w - 80, h - 36, 10, '#1a1a1a', null); g.font = AF(52); g.fillStyle = '#ffd23f'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('THE OVERFLOW', w / 2, h / 2 + 2); }],
+  ['spire2', 512, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 18, '#1a1030', NEON.gold, 6); aCrown(g, 56, h / 2 + 4, 26, NEON.gold); aNeon(g, 'THE SPIRE', w / 2 + 30, h / 2, 56, NEON.gold); }],
+);
+// a cell of the district grid: solid ground, or not (canal, or off the coastline)
+function shSolid(i, k) {
+  if (i < 0 || k < 0 || i >= SH.nx || k >= SH.nz) return false;
+  if ((i <= 1 && k <= 2) || (i >= 30 && k <= 0) || (i >= 28 && k >= 49) || (i <= 0 && k >= 50)) return false;   // the corners, rounded off
+  const x = SH.x0 + (i + 0.5) * SH.cell, z = SH.z0 + (k + 0.5) * SH.cell;
+  return !SH.canals.some(([x0, x1, z0, z1]) => x > x0 && x < x1 && z > z0 && z < z1);
+}
+function shTile(x, z, k) {
+  const P = SH.plaza, d = Math.hypot(x - P.x, z - P.z);
+  if (d < P.r + 2) return (Math.floor(d / 4) & 1) ? 0xe8e1f4 : 0xdcd3ec;
+  if (x < 192 && z > 12) return k ? 0xb8aec8 : 0xafa5c0;               // the alley: dark and close
+  if (x > 205 && x < 245 && z < -40) return k ? 0xaba79f : 0xa29e96;   // the overflow: yard concrete
+  if (x > 245 && z < 15) return k ? 0xd6e8e3 : 0xcde0da;               // the bowls: mint
+  if (x > 252) return k ? 0xe9ddcc : 0xe0d3c1;                         // the market: sand
+  if (z > 92) return k ? 0xd8d1e8 : 0xcec7e0;                          // transit
+  return k ? 0xd4c8b6 : 0xcabeaa;                                      // the canal district: stone
+}
+// THE PLATEAU: solids merged from the grid, tops tiled by zone, and every exposed side drawn -- a CLIFF to the
+// lagoon (strata, moss at the waterline, boulders, vines) or a masonry WALL to a canal
+function shPlateau() {
+  const B = OB.lit, c = SH.cell, Y = SH.y, nx = SH.nx, nz = SH.nz, X = i => SH.x0 + i * c, Z = k => SH.z0 + k * c;
+  const runs = [];
+  for (let k = 0; k < nz; k++) for (let i = 0; i < nx;) {
+    if (!shSolid(i, k)) { i++; continue; }
+    let j = i; while (j + 1 < nx && shSolid(j + 1, k)) j++;
+    const prev = runs.find(r => r.i === i && r.j === j && r.k1 === k - 1);
+    if (prev) prev.k1 = k; else runs.push({ i, j, k0: k, k1: k });
+    i = j + 1;
+  }
+  for (const r of runs) { const xa = X(r.i), xb = X(r.j + 1), za = Z(r.k0), zb = Z(r.k1 + 1);
+    solidAdd((xa + xb) / 2, (za + zb) / 2, (xb - xa) / 2, (zb - za) / 2, 0, Y, 0, { tag: 'shores' }); }
+  const inCanal = (i, k) => { const x = X(i) + c / 2, z = Z(k) + c / 2; return SH.canals.some(([x0, x1, z0, z1]) => x > x0 && x < x1 && z > z0 && z < z1); };
+  for (let k = 0; k < nz; k++) for (let i = 0; i < nx; i++) {
+    if (!shSolid(i, k)) continue;
+    const xa = X(i), xb = xa + c, za = Z(k), zb = za + c;
+    obQuad(B, [xa, Y + 0.006, za], [xb, Y + 0.006, za], [xb, Y + 0.006, zb], [xa, Y + 0.006, zb], UPN, shTile(xa + c / 2, za + c / 2, (i + k) & 1));
+    for (const [di, dk, a, b, n] of [[1, 0, [xb, za], [xb, zb], [1, 0, 0]], [-1, 0, [xa, za], [xa, zb], [-1, 0, 0]], [0, 1, [xa, zb], [xb, zb], [0, 0, 1]], [0, -1, [xa, za], [xb, za], [0, 0, -1]]]) {
+      if (shSolid(i + di, k + dk)) continue;
+      const canal = inCanal(i + di, k + dk), o = 0.02, ax = a[0] + n[0] * o, az = a[1] + n[2] * o, bx = b[0] + n[0] * o, bz = b[1] + n[2] * o;
+      const band = (y0, y1, col) => obQuad(B, [ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az], n, col);
+      const v = ((i * 7 + k * 13) % 3);
+      if (canal) { band(0, SH.canalY - 0.4, 0x5f6b62); band(SH.canalY - 0.4, SH.canalY + 0.35, 0x6f9a4a); band(SH.canalY + 0.35, Y - 0.3, [0xc4b8a6, 0xbcb09d, 0xc9bdab][v]); }
+      else { band(0, SH.lagoon.y + 0.1, 0x4f4a58); band(SH.lagoon.y + 0.1, SH.lagoon.y + 0.9, 0x6f9a4a);
+        band(SH.lagoon.y + 0.9, 4.2, [0x9a8d84, 0x8f8278, 0xa39484][v]); band(4.2, 6.4, [0xa89a8a, 0xb2a392, 0x9f9182][v]); band(6.4, Y - 0.3, 0xbdae9b);
+        if ((i + k) % 2 === 0) obGeo(B, new THREE.IcosahedronGeometry(1.0 + orand() * 1.2, 0), obM((ax + bx) / 2 + n[0] * 1.2, SH.lagoon.y + 0.2, (az + bz) / 2 + n[2] * 1.2, orand() * 3, 1, 0.7, 1), opick([0x8a7d74, 0x7d7068, 0x958779]));
+        if (orand() < 0.25) { const u = orand(); obQuad(B, [ax + (bx - ax) * u, Y, az + (bz - az) * u], [ax + (bx - ax) * (u + 0.15), Y, az + (bz - az) * (u + 0.15)],
+          [ax + (bx - ax) * (u + 0.1), Y - 3 - orand() * 3, az + (bz - az) * (u + 0.1)], [ax + (bx - ax) * (u + 0.04), Y - 3.5 - orand() * 3, az + (bz - az) * (u + 0.04)], n, opick([0x4f9a3f, 0x5fae44, 0xc24fa8])); } }
+      // the coping along the top of every exposed edge
+      obQuad(B, [ax + n[0] * 0.12, Y - 0.3, az + n[2] * 0.12], [bx + n[0] * 0.12, Y - 0.3, bz + n[2] * 0.12], [bx + n[0] * 0.12, Y + 0.012, bz + n[2] * 0.12], [ax + n[0] * 0.12, Y + 0.012, az + n[2] * 0.12], n, 0xe9e0cf);
+      obQuad(B, [ax, Y + 0.012, az], [bx, Y + 0.012, bz], [bx + n[0] * 0.12, Y + 0.012, bz + n[2] * 0.12], [ax + n[0] * 0.12, Y + 0.012, az + n[2] * 0.12], UPN, 0xf0e8da);
+    }
+  }
+  ORB.water.push({ x0: SH.lagoon.x0, x1: SH.lagoon.x1, z0: SH.lagoon.z0, z1: SH.lagoon.z1, y: SH.lagoon.y, col: 0x2fc8e8, col2: 0xb8f4ff, splash: true });
+  for (const [x0, x1, z0, z1] of SH.canals) ORB.water.push({ x0, x1, z0, z1, y: SH.canalY, col: 0x34e0c8, col2: 0xb8ffe8, splash: true });
+}
+// A BRIDGE from bank to bank: a humped deck, an arch under it, rails down both edges. Orbital's bridges, general.
+function shBridge(ax, az, bx, bz, hw, rise, y, water) {
+  const B = OB.lit, L = Math.hypot(bx - ax, bz - az), yaw = Math.atan2(bx - ax, bz - az), N = 14;
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw), P = (u, yy, w) => [ax + fx * u + sx * w, yy, az + fz * u + sz * w];
+  const dk = u => y + rise * Math.sin(Math.PI * clamp(u / L, 0, 1)), prof = [];
+  for (let i = 0; i <= N; i++) prof.push({ u: i / N * L, y: dk(i / N * L), c: (i % 3) ? 0xdccdb6 : 0xd2c2aa });
+  obExtrude(B, ax, az, yaw, hw, prof, { skirt: false });
+  const sp = 0.9, top = dk(L / 2) - 0.9, ya = u => (u <= sp || u >= L - sp) ? 0 : water - 0.4 + (top - water + 0.4) * Math.sqrt(Math.max(0, 1 - ((u - L / 2) / (L / 2 - sp)) ** 2));
+  for (let i = 0; i < N; i++) {
+    const u0 = i / N * L, u1 = (i + 1) / N * L;
+    for (const sg of [-1, 1]) obQuad(B, P(u0, ya(u0), sg * hw), P(u1, ya(u1), sg * hw), P(u1, dk(u1), sg * hw), P(u0, dk(u0), sg * hw), [sx * sg, 0, sz * sg], sg > 0 ? 0xcdbfa8 : 0xc3b59e);
+    if (u0 >= sp && u1 <= L - sp) obQuad(B, P(u0, ya(u0), -hw), P(u0, ya(u0), hw), P(u1, ya(u1), hw), P(u1, ya(u1), -hw), DNN, 0x8f8478);
+  }
+  for (const w of [hw - 0.2, -hw + 0.2]) {
+    const pts = []; for (let u = -1.4; u <= L + 1.41; u += 1.4) { const q = P(u, dk(u) + 1.1, w); pts.push(new THREE.Vector3(q[0], q[1], q[2])); }
+    ORB.rails.push({ pts, o: { name: 'bridge rail' }, d: { mat: 'orange', every: 3, postMax: 2 } });
+  }
+}
+// A SWEEP: a ribbon with any cross-section -- the snake run is a U-channel, floor flat, walls curling up
+function shSweep(pts, prof, o) {
+  o = o || {};
+  const B = OB.lit, n = pts.length, S = [];
+  for (let i = 0; i < n; i++) { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)]; let fx = b.x - a.x, fz = b.z - a.z; const l = Math.hypot(fx, fz) || 1; S.push([-fz / l, fx / l]); }
+  const at = (i, w, h) => [pts[i].x + S[i][0] * w, pts[i].y + h, pts[i].z + S[i][1] * w];
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < prof.length - 1; j++) {
+      const p = prof[j], q = prof[j + 1], dw = q.w - p.w, dh = q.h - p.h, nl = Math.hypot(dw, dh) || 1, nw = -dh / nl, nh = dw / nl;
+      obQuad(B, at(i, p.w, p.h), at(i + 1, p.w, p.h), at(i + 1, q.w, q.h), at(i, q.w, q.h), [S[i][0] * nw, nh, S[i][1] * nw], (i & 1) ? p.c : shade(p.c, 0.95), true);
+    }
+    const W0 = prof[0], W1 = prof[prof.length - 1], base = o.base != null ? o.base : 0;
+    for (const [P, sg] of [[W0, -1], [W1, 1]]) {
+      const nn = [S[i][0] * sg, 0, S[i][1] * sg], a = at(i, P.w, P.h), b = at(i + 1, P.w, P.h);
+      obQuad(B, a, b, [b[0], base, b[2]], [a[0], base, a[2]], nn, sg > 0 ? 0xb8b0cc : 0xaea6c2);
+    }
+  }
+  return S;
+}
+function shTree(x, z, y0, h, col) {
+  obGeo(OB.lit, new THREE.CylinderGeometry(0.22, 0.38, h, 7), obM(x, y0 + h / 2, z, orand() * 3, 1, 1, 1, (orand() - 0.5) * 0.15), 0x6a4a3a);
+  for (let k = 0; k < 6; k++) {
+    const a = orand() * Math.PI * 2, d = orand() * 1.6, r = 1.1 + orand() * 1.1;
+    obGeo(OB.lit, new THREE.IcosahedronGeometry(r, 0), obM(x + Math.cos(a) * d, y0 + h + orand() * 1.4 - 0.3, z + Math.sin(a) * d, orand() * 3), col || opick([0xff6fc8, 0xf25ab8, 0xffa0dc, 0xe86fd8]));
+  }
+  solidAdd(x, z, 0.4, 0.4, y0, y0 + h, 0, { tag: 'tree', top: false });
+}
+function shPad(x, z, y, tx, ty, tz, apex) {
+  ORB.launch.push({ x, z, y, r: 1.6, tx, ty, tz, apex: apex == null ? 3 : apex, cool: 0 });
+  obGeo(OB.glow, new THREE.TorusGeometry(1.5, 0.16, 5, 24).rotateX(Math.PI / 2), obM(x, y + 0.08, z), 0x8dff3a);
+  obGeo(OB.glow, new THREE.CircleGeometry(1.2, 20).rotateX(-Math.PI / 2), obM(x, y + 0.05, z), 0x2a6a1a);
+  for (let k = 0; k < 3; k++) obGeo(OB.glow, new THREE.TorusGeometry(1.1 - k * 0.25, 0.05, 4, 18).rotateX(Math.PI / 2), obM(x, y + 0.6 + k * 0.7, z), 0xc8ff9a);
+  obDecal('chevron', x, y + 0.04, z, Math.atan2(tx - x, tz - z), 2.2);
+}
+
+const shOnPlateau = (x, z) => shSolid(Math.floor((x - SH.x0) / SH.cell), Math.floor((z - SH.z0) / SH.cell));
+// the boats: little hulls ping-ponging along the canals and round the lagoon, one instanced mesh
+function shMeshes() {
+  if (!SH.built) return;
+  const C = { pos: [], nrm: [], col: [] };
+  obGeo(C, new THREE.BoxGeometry(1.8, 0.7, 4.2), obM(0, 0.35, 0), (t) => ((t[0][1] + t[1][1] + t[2][1]) / 3 > 0.5 ? 0xf4f2fa : 0xff8a2a));
+  obGeo(C, new THREE.ConeGeometry(0.9, 1.6, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1.4, 0.55, 1), obM(0, 0.35, 2.9), 0xff8a2a);
+  obGeo(C, new THREE.BoxGeometry(1.3, 0.9, 1.6), obM(0, 1.15, -0.4), 0x2fd8c8);
+  obGeo(C, new THREE.BoxGeometry(1.36, 0.3, 1.2), obM(0, 1.25, 0.05), 0x2a3a5e);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(C.pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(C.nrm, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C.col, 3));
+  const N = SH.boats.length, im = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }), N);
+  im.frustumCulled = false; im.name = 'boats'; scene.add(im); ORB.meshes.push(im);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+  const bs = SH.boats.map(([a, b], i) => { const inCanal = SH.canals.some(([x0, x1, z0, z1]) => a[0] >= x0 - 1 && a[0] <= x1 + 1 && a[1] >= z0 - 1 && a[1] <= z1 + 1);
+    return { a, b, L: Math.hypot(b[0] - a[0], b[1] - a[1]), y: inCanal ? SH.canalY : SH.lagoon.y, s: i * 0.37, v: 2.2 + (i % 3) * 0.8 }; });
+  ORB.anim.push((dt, t) => { bs.forEach((B, i) => { const ph = (t * B.v / B.L + B.s) % 2, u = ph < 1 ? ph : 2 - ph, fw = ph < 1 ? 1 : -1;
+    v.set(B.a[0] + (B.b[0] - B.a[0]) * u, B.y + Math.sin(t * 2 + i) * 0.06, B.a[1] + (B.b[1] - B.a[1]) * u);
+    q.setFromAxisAngle(UP, Math.atan2((B.b[0] - B.a[0]) * fw, (B.b[1] - B.a[1]) * fw)); m.compose(v, q, one); im.setMatrixAt(i, m); }); im.instanceMatrix.needsUpdate = true; });
+}
+
+function buildShores() {
+  if (!SH.on || !ORB.on) return;
+  _oseed = 777;
+  const B = OB.lit, G = OB.glow, Y = SH.y, V = (x, y, z) => new THREE.Vector3(x, y, z), hi = AIR.jump * AIR.jump / (2 * SK.g) * CITY.railK;
+  shPlateau();
+  // ===== THE CAUSEWAY, from the park's east gate up onto the plateau ===================================
+  { const pts = []; for (let i = 0; i <= 24; i++) { const t = i / 24; pts.push(V(98 + (SH.x0 - 98) * t, 0.02 + (Y - 0.02) * t, 0)); }
+    obRibbon(pts, 4.5, { walls: [-1, 1], wallH: 0.9, rail: { name: 'causeway rail' }, railSide: 1, name: 'causeway', tag: 'causeway wall', col: 0xd6cde4, edge: 0x3ff0e0,
+      lane: { v: 12, acc: 6, every: 5 } });
+    for (const sz of [-1, 1]) { solidAdd(SH.x0 + 3, sz * 5.6, 0.45, 0.45, Y, Y + 9, 0, { tag: 'gate' }); obBox(B, SH.x0 + 2.55, SH.x0 + 3.45, Y, Y + 9, sz * 5.6 - 0.45, sz * 5.6 + 0.45, 0xe9e0cf, 0xd8cdb8); }
+    obBox(B, SH.x0 + 2.65, SH.x0 + 3.35, Y + 7.6, Y + 9, -6.2, 6.2, 0x2a2f4a, 0x3a3f5a);
+    obSign('shores', SH.x0 + 2.6, Y + 8.3, 0, -Math.PI / 2, 4.2); obSign('shores', SH.x0 + 3.4, Y + 8.3, 0, Math.PI / 2, 4.2); }
+  // ===== CANALS: bridges, the lighthouse island, the waterfalls =====================================
+  const cy = SH.canalY;
+  shBridge(170, -30, 180, -30, 3.5, 1.1, Y, cy); shBridge(192, -5, 192, -15, 3.5, 1.1, Y, cy); shBridge(208, -5, 208, -15, 3.5, 1.1, Y, cy);
+  shBridge(152, -55, 152, -65, 3, 1.0, Y, cy); shBridge(175, -90, 185, -90, 3, 1.0, Y, cy);
+  const Lh = SH.light;
+  shBridge(195, Lh.z, Lh.x + Lh.r, Lh.z, 3, 1.0, Y, cy);
+  cylSolid(Lh.x, Lh.z, Lh.r, 0, Y, 20, 'lighthouse isle'); obDisk(B, Lh.x, Y + 0.006, Lh.z, Lh.r, 24, 0xd4c8b6, true);
+  obGeo(B, new THREE.CylinderGeometry(Lh.r, Lh.r + 0.4, Y, 24, 1, true), obM(Lh.x, Y / 2, Lh.z), (t, i) => ((i / 6) & 1 ? 0xbcb09d : 0xc4b8a6));
+  cylSolid(Lh.x, Lh.z, 2.5, Y, Lh.top, 12, 'lighthouse');
+  obGeo(B, new THREE.CylinderGeometry(2.3, 2.6, Lh.top - Y, 16, 1, true), obM(Lh.x, (Lh.top + Y) / 2, Lh.z), (t, i) => (Math.floor(i / 16) % 2 ? 0xffffff : 0xff5a6a));
+  obDisk(B, Lh.x, Lh.top, Lh.z, Lh.deckR, 20, 0xd8d0e8, true);
+  obRev(B, Lh.x, Lh.z, [{ u: Lh.deckR, y: Lh.top, c: 0xe9e0cf }, { u: Lh.deckR, y: Lh.top - 0.5 }], 20, 0, false);
+  obGeo(G, new THREE.CylinderGeometry(0.9, 0.9, 1.6, 10), obM(Lh.x, Lh.top + 1.4, Lh.z), 0xfff1a8);
+  obGeo(B, new THREE.ConeGeometry(1.3, 1.2, 10), obM(Lh.x, Lh.top + 2.8, Lh.z), 0xff5a6a);
+  shPad(Lh.x + 4.2, Lh.z, Y, Lh.x + 2.4, Lh.top, Lh.z, 2.5);
+  obFall(SH.x0 - 0.05, cy + 0.1, -60, Math.PI, 9.6, cy - SH.lagoon.y + 0.2, 0xbffff0);
+  obFall(180, cy + 0.1, SH.z0 - 0.05, -Math.PI / 2, 9.6, cy - SH.lagoon.y + 0.2, 0xbffff0);
+  for (const [x, z] of [[157, -70], [198, -52], [183, -28], [200, -1]]) obLamp(x, z, Y);
+  obSign('tag', 160.1, 6.5, -70, Math.PI / 2, 5); obSign('flow', 194.9, 6.6, -60, -Math.PI / 2, 5); obSign('bunny', 179.9, 6.4, -40, -Math.PI / 2, 2);
+  obSign('sameplanet', 170.1, 6.4, -25, Math.PI / 2, 2.2); obSign('push', 200, 6.3, -14.9, 0, 2.2);
+  for (const [x, z] of [[150, -40], [160, -88], [200, -40], [190, -95], [152, -20]]) obPalm(x, z, Y, 6.5 + orand() * 2, orand() < 0.4);
+  // ===== NOVA PLAZA ===============================================================================
+  const Pz = SH.plaza;
+  { const gap = 0.22, R = 3.6, sw = 70 * Math.PI / 180, prof = [{ u: 21, y: Y + 0.02, c: RAMP }];
+    for (let i = 1; i <= 10; i++) { const a = sw * i / 10; prof.push({ u: 21 + R * Math.sin(a), y: Y + R * (1 - Math.cos(a)), c: i > 9 ? COPE : RAMP }); }
+    const top = prof[prof.length - 1];
+    prof.push({ u: top.u + 2.4, y: top.y, c: DECK }, { u: Pz.r, y: Y + 0.02, c: RAMP });
+    for (let q = 0; q < 4; q++) {
+      const a0 = q * Math.PI / 2 + gap, a1 = (q + 1) * Math.PI / 2 - gap;
+      obRev(B, Pz.x, Pz.z, prof, 18, 1, true, a0, a1);
+      for (const a of [a0, a1]) { const tn = a === a0 ? [Math.sin(a), 0, -Math.cos(a)] : [-Math.sin(a), 0, Math.cos(a)];
+        for (let i = 0; i < prof.length - 1; i++) { const p = prof[i], r = prof[i + 1], c = Math.cos(a), s = Math.sin(a);
+          obQuad(B, [Pz.x + c * p.u, p.y, Pz.z + s * p.u], [Pz.x + c * r.u, r.y, Pz.z + s * r.u], [Pz.x + c * r.u, Y, Pz.z + s * r.u], [Pz.x + c * p.u, Y, Pz.z + s * p.u], tn, SIDE); } }
+    }
+    obRev(B, Pz.x, Pz.z, [{ u: 20.6, y: Y + 0.03, c: 0x3ff0e0 }, { u: 20.2, y: Y + 0.03 }], 64, 1, false);
+    obRev(B, Pz.x, Pz.z, [{ u: 12.4, y: Y + 0.03, c: 0xff4fb8 }, { u: 12.0, y: Y + 0.03 }], 48, 1, false); }
+  // the plinth, two banks onto it, the ring rail round the globe, and the globe
+  cylSolid(Pz.x, Pz.z, Pz.ped, Y, Y + Pz.pedH, 20, 'nova plinth'); obDisk(null, Pz.x, Y + Pz.pedH, Pz.z, Pz.ped, 24, 0, true);
+  obGeo(B, new THREE.CylinderGeometry(Pz.ped, Pz.ped, Pz.pedH, 28, 1, true), obM(Pz.x, Y + Pz.pedH / 2, Pz.z), (t, i) => ((i / 6) & 1 ? 0xe2d9c8 : 0xd5cbb8));
+  obRev(B, Pz.x, Pz.z, [{ u: Pz.ped, y: Y + Pz.pedH + 0.01, c: 0xf0e8da }, { u: Pz.ped - 0.7, y: Y + Pz.pedH + 0.01, c: 0xc9bfd8 }, { u: 0, y: Y + Pz.pedH + 0.01 }], 28, 1, false);
+  for (const sg of [1, -1]) obExtrude(B, Pz.x, Pz.z + sg * (Pz.ped + 6), sg > 0 ? Math.PI : 0, 2.6, [{ u: 0, y: Y, c: RAMP }, { u: 6, y: Y + Pz.pedH, c: COPE }]);
+  obSign('nova', Pz.x + Pz.ped + 0.06, Y + Pz.pedH / 2, Pz.z, Math.PI / 2, 5); obSign('nova', Pz.x - Pz.ped - 0.06, Y + Pz.pedH / 2, Pz.z, -Math.PI / 2, 5);
+  { const gy = Y + Pz.pedH + 5.4, gr = 4.6;
+    solidAdd(Pz.x, Pz.z, 3.2, 3.2, Y + Pz.pedH, gy + 4, 0, { tag: 'globe', top: false });
+    obGeo(B, new THREE.SphereGeometry(gr, 28, 18), obM(Pz.x, gy, Pz.z), (t) => { const yy = (t[0][1] + t[1][1] + t[2][1]) / 3 - gy, xx = (t[0][0] + t[1][0] + t[2][0]) / 3 - Pz.x;
+      return Math.sin(yy * 1.3 + xx * 0.6) > 0.25 ? 0x9b6bff : (yy > 1.5 ? 0x7ff0d8 : 0x5fd8c8); });
+    for (const sg of [-1, 1]) obGeo(B, new THREE.SphereGeometry(1.1, 10, 6), obM(Pz.x - gr * 0.86, gy + 0.5, Pz.z + sg * 1.3, 0, 0.4, 0.75, 1, 0, 0), 0x12101e);
+    for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, c = new THREE.CatmullRomCurve3([V(Pz.x + Math.cos(a) * 2.6, gy - 3.4, Pz.z + Math.sin(a) * 2.6),
+      V(Pz.x + Math.cos(a) * 4.4, gy - 4.6, Pz.z + Math.sin(a) * 4.4), V(Pz.x + Math.cos(a + 0.4) * 5.4, Y + Pz.pedH + 0.3, Pz.z + Math.sin(a + 0.4) * 5.4), V(Pz.x + Math.cos(a + 0.9) * 4.6, Y + Pz.pedH + 0.6, Pz.z + Math.sin(a + 0.9) * 4.6)]);
+      obGeo(G, new THREE.TubeGeometry(c, 16, 0.32, 6, false), new THREE.Matrix4(), k & 1 ? 0x3ff0e0 : 0x7fffd8); }
+    for (const sg of [-1, 1]) { obGeo(B, new THREE.CylinderGeometry(0.1, 0.1, 2.6, 5), obM(Pz.x - 1, gy + gr + 0.9, Pz.z + sg * 1.5, 0, 1, 1, 1, sg * 0.35, 0.3), 0x5fd8c8);
+      obGeo(G, new THREE.IcosahedronGeometry(0.35, 0), obM(Pz.x - 1.5, gy + gr + 2.1, Pz.z + sg * 1.95), 0xff4fb8); }
+    const pts = []; for (let k = 0; k <= 48; k++) { const t = k / 48 * Math.PI * 2; pts.push(V(Pz.x + 4.9 * Math.cos(t), Y + Pz.pedH + 1.1, Pz.z + 4.9 * Math.sin(t))); }
+    ORB.rails.push({ pts, o: { name: 'nova ring' }, d: { mat: 'orange', every: 2.6, postMax: 1.5 }, closed: true, gems: 6 }); }
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + 0.39; obPalm(Pz.x + Math.cos(a) * 33, Pz.z + Math.sin(a) * 33, Y, 7 + orand() * 2.5, k & 1); obLamp(Pz.x + Math.cos(a + 0.39) * 32, Pz.z + Math.sin(a + 0.39) * 32, Y); }
+  for (const a of [0.78, 2.36, 3.93, 5.5]) obPlanter(Pz.x + Math.cos(a) * 14, Pz.z + Math.sin(a) * 14, 2.4, 2.4, Y);
+  // ===== NEON ALLEY ===============================================================================
+  const ry = SH.roofY, acol = [0xb9a6d9, 0x8fb5b8, 0xd99a7a, 0xc9bfd8, 0xa6c9b9, 0xe0b0c8];
+  SH.alley1.forEach(([x0, x1, z0, z1, h], i) => obBlock(x0, x1, z0, z1, h, { y0: Y, tag: 'alley', shop: ['e'], col: acol[i % 6], vines: true, lit: 0.5, clutter: 2 }));
+  SH.alley2.forEach(([x0, x1, z0, z1], i) => obBlock(x0, x1, z0, z1, ry, { y0: Y, tag: 'alley roof', shop: ['w', 'e'], col: acol[(i + 3) % 6], vines: true, lit: 0.5 }));
+  for (let i = 0; i < SH.alley2.length - 1; i++) { const za = SH.alley2[i][3], zb = SH.alley2[i + 1][2];
+    obRibbon([V(179, ry, za), V(179, ry, (za + zb) / 2), V(179, ry, zb)], 3.5, { name: 'roof bridge', col: 0xd6cde4, edge: 0xff4fb8 });
+    for (const w of [-3.3, 3.3]) ORB.rails.push({ pts: railLine(V(179 + w, ry + 1.1, za - 2), V(179 + w, ry + 1.1, zb + 2), 2), o: { name: 'roof rail' }, d: { mat: 'orange', every: 3, postMax: 1.5 } }); }
+  orbLane(V(179, ry, SH.alley2[0][2] + 3), V(179, ry, SH.alley2[0][3] - 2), 3.4, { v: 13, acc: 8 });
+  shPad(179, 12, Y, 179, ry, 28, 2.5);
+  // the street between the rows: a high rail down it on posts, neon over it, a gateway sign
+  ORB.rails.push({ pts: railLine(V(166.5, Y + hi, 24), V(166.5, Y + hi, 118), 2), o: { name: 'alley rail' }, d: { mat: 'orange', every: 6, postMax: 5 }, gems: 6 });
+  for (const sx of [163.6, 169.4]) obGeo(B, new THREE.CylinderGeometry(0.18, 0.18, 9, 6), obM(sx, Y + 4.5, 15), 0x3a3550);
+  obBox(B, 163.4, 169.6, Y + 8, Y + 9.3, 14.7, 15.3, 0x1a1028, 0x2a2038); obSign('alley', 166.5, Y + 8.65, 14.64, Math.PI, 5.6); obSign('alley', 166.5, Y + 8.65, 15.36, 0, 5.6);
+  { const ks = ['blades', 'ramen', 'saturn', 'humans', 'curiosity', 'cat', 'alien', 'bunny', 'smile', 'tag', 'further', 'goodlines'];
+    SH.alley1.forEach(([x0, x1, z0, z1, h], i) => { obSign(ks[(i * 2) % ks.length], x1 + 0.06, Y + 5.6, (z0 + z1) / 2 - 3, Math.PI / 2, i % 2 ? 3 : 2.2); obSign(ks[(i * 2 + 1) % ks.length], x1 + 0.06, Y + 9.5, (z0 + z1) / 2 + 4, Math.PI / 2, 2.6); });
+    SH.alley2.forEach(([x0, x1, z0, z1], i) => { obSign(ks[(i + 5) % ks.length], x0 - 0.06, Y + 6.2, (z0 + z1) / 2, -Math.PI / 2, 2.6); obSign(ks[(i + 8) % ks.length], x1 + 0.06, Y + 6.2, (z0 + z1) / 2, Math.PI / 2, 2.8); }); }
+  for (let z = 30; z < 150; z += 18) obBanner(166.5 + (z % 36 ? -2.6 : 2.6), z, Y, z % 36 ? Math.PI / 2 : -Math.PI / 2, opick(['bannerA', 'bannerB', 'bannerC']));
+  // ===== ORBITAL TRANSIT: the tower, the spiral road, the ring deck ================================
+  const T = SH.transit;
+  cylSolid(T.x, T.z, T.r, Y, T.top, 24, 'transit');
+  obGeo(B, new THREE.CylinderGeometry(T.r, T.r, T.top - Y, 32, 1, true), obM(T.x, (T.top + Y) / 2, T.z), (t, i) => ((i / 6) & 1 ? 0xe8e2f2 : 0xdcd4ea));
+  for (let y = Y + 4; y < T.top; y += 4.5) obGeo(G, new THREE.CylinderGeometry(T.r + 0.06, T.r + 0.06, 0.3, 32, 1, true), obM(T.x, y, T.z), (y | 0) % 9 < 4 ? 0x5fe8ff : 0xff6fc8);
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; obGeo(G, new THREE.BoxGeometry(0.3, T.top - T.deck - 2, 0.3), obM(T.x + Math.cos(a) * (T.r + 0.1), (T.top + T.deck) / 2, T.z + Math.sin(a) * (T.r + 0.1)), 0xb98bff); }
+  obWrap('transit', T.x, T.z, T.r + 0.15, Math.PI - 0.95, Math.PI + 0.95, T.top - 6, T.top - 3.6, 12);
+  obWrap('transit', T.x, T.z, T.r + 0.15, -0.95, 0.95, T.top - 6, T.top - 3.6, 12);
+  obDisk(B, T.x, T.top, T.z, T.r, 32, 0xc9bfe0, false);
+  obGeo(B, new THREE.CylinderGeometry(0.3, 0.6, 9, 6), obM(T.x, T.top + 4.5, T.z), 0xd8d0e8); obGeo(G, new THREE.IcosahedronGeometry(0.8, 0), obM(T.x, T.top + 9.2, T.z), 0x5fe8ff);
+  // the ring deck at 24 m, open over the spiral's flat end (south-east) and where the track leaves (north-east)
+  obRev(B, T.x, T.z, [{ u: T.deckR, y: T.deck, c: 0xd6cde4 }, { u: T.deckR - 1.2, y: T.deck, c: 0xcfc6df }, { u: T.r, y: T.deck }], 48, 1, true);
+  obRev(B, T.x, T.z, [{ u: T.deckR, y: T.deck - 0.7, c: 0x8e86a8 }, { u: T.r, y: T.deck - 0.7 }], 48, -1, false);
+  obRev(B, T.x, T.z, [{ u: T.deckR, y: T.deck, c: 0xa99fc4 }, { u: T.deckR, y: T.deck - 0.7 }], 48, 0, false);
+  obGeo(G, new THREE.TorusGeometry(T.deckR, 0.1, 4, 64).rotateX(Math.PI / 2), obM(T.x, T.deck + 0.02, T.z), 0x3ff0e0);
+  const trackA = Math.PI / 4; SH.linkA = 0.8 * Math.PI;
+  const deckOpen = a => { const w = wrapAngle(a); return (w < 0 && w > -Math.PI / 2 - 0.05) || Math.abs(wrapAngle(a - trackA)) < 0.28 || Math.abs(wrapAngle(a - SH.linkA)) < 0.3; };
+  for (let k = 0; k < 40; k++) { const a = (k + 0.5) / 40 * Math.PI * 2; if (deckOpen(a)) continue;
+    const rr = T.deckR - 0.2, hl = T.deckR * Math.tan(Math.PI / 40) + 0.08, cx = T.x + Math.cos(a) * rr, cz = T.z + Math.sin(a) * rr;
+    solidAdd(cx, cz, hl, 0.15, T.deck - 0.3, T.deck + 1.0, Math.atan2(-Math.cos(a), -Math.sin(a)), { tag: 'deck wall', top: false });
+    obGeo(B, new THREE.BoxGeometry(hl * 2, 1.0, 0.3), obM(cx, T.deck + 0.5, cz, Math.atan2(-Math.sin(a), Math.cos(a)) + Math.PI / 2), 0xece4f6); }
+  // THE SPIRAL ROAD: one full turn up from the plateau to the deck, then a flat quarter alongside it
+  { const rc = T.deckR + T.lane / 2, a0 = T.a0, aR = a0 + Math.PI * 2, aE = aR + Math.PI / 2, pts = [], da = 1.5 / rc;
+    for (let a = a0; a <= aE + 1e-6; a += da) pts.push(V(T.x + rc * Math.cos(a), Y + 0.02 + (T.deck - Y - 0.02) * clamp((a - a0) / (aR - a0), 0, 1), T.z + rc * Math.sin(a)));
+    const yAt = a => Y + (T.deck - Y) * clamp((a - a0) / (aR - a0), 0, 1);
+    obRibbon(pts, T.lane / 2, { wall: -1, wallH: 1.0, rail: { boost: 14, boostK: 2.5, name: 'spiral rail' }, lane: { v: SH.laneSpiral.v, acc: SH.laneSpiral.acc, gov: 4, every: 6 }, name: 'transit spiral',
+      tag: 'spiral wall', col: 0xd9d0ea, edge: 0x5fe8ff });
+    const e = pts[pts.length - 1], f = pts[pts.length - 2];
+    solidAdd(e.x, e.z, T.lane / 2, 0.3, T.deck - 0.5, T.deck + 1.2, Math.atan2(-(e.z - f.z), e.x - f.x) + Math.PI / 2, { tag: 'spiral end', top: false });
+    obGeo(B, new THREE.BoxGeometry(T.lane, 1.2, 0.6), obM(e.x, T.deck + 0.6, e.z, Math.atan2(e.x - f.x, e.z - f.z)), 0xece4f6);
+    SH.spiral = { pts, yAt };
+    // THE ROOF LINK: the alley's roof run carries straight on off the last roof and up to the ring deck, over the
+    // spiral (four metres of headroom above it there). It STARTS ON the roof, in line with the run, walled both sides,
+    // so a skater coming north at speed is already in it -- a mouth on the roof's flank was a corner she flew past.
+    const D = V(T.x + T.deckR * Math.cos(SH.linkA), T.deck + 0.02, T.z + T.deckR * Math.sin(SH.linkA)), P0 = V(179, ry + 0.02, 126), P1 = V(179, ry + 0.02, 141), P2 = V(D.x - 12, T.deck, D.z + 1.5), lp = [];
+    for (let i = 0; i <= 26; i++) { const t = i / 26, u = 1 - t, q = V(0, 0, 0).addScaledVector(P0, u * u * u).addScaledVector(P1, 3 * u * u * t).addScaledVector(P2, 3 * u * t * t).addScaledVector(D, t * t * t);
+      q.y = ry + 0.02 + (T.deck - ry) * smooth(0.3, 1, t); lp.push(q); }
+    obRibbon(lp, 3.5, { walls: [-1, 1], wallH: 0.8, lane: { v: 13, acc: 10, every: 4 }, name: 'roof link', tag: 'link wall', col: 0xd6cde4, edge: 0xff4fb8 });
+    SH.link = lp; }
+  // ===== THE SPIRE: the elevated track up to it, the island, the alien, and the secret route down =====
+  const Sp = SH.spire;
+  { const s0 = V(T.x + T.deckR * Math.cos(trackA), T.deck, T.z + T.deckR * Math.sin(trackA)), dIn = V(Sp.x - T.x, 0, Sp.z - T.z).normalize();
+    const e = V(Sp.x, Sp.y, Sp.z).addScaledVector(dIn, -(Sp.r - 0.3)), out = V(Math.cos(trackA), 0, Math.sin(trackA));
+    const P1 = s0.clone().addScaledVector(out, 22), P2 = e.clone().addScaledVector(dIn, -18), pts = [];
+    for (let i = 0; i <= 48; i++) { const t = i / 48, u = 1 - t, q = V(0, 0, 0).addScaledVector(s0, u * u * u).addScaledVector(P1, 3 * u * u * t).addScaledVector(P2, 3 * u * t * t).addScaledVector(e, t * t * t);
+      q.y = T.deck + (Sp.y - T.deck) * smooth(0, 1, t) + 0.02; pts.push(q); }
+    obRibbon(pts, 3.5, { walls: [-1, 1], wallH: 1.0, rail: { boost: 15, boostK: 2.5, name: 'track rail' }, railSide: -1, lane: { v: SH.laneTrack.v, acc: SH.laneTrack.acc, gov: 5, every: 5 },
+      name: 'spire track', tag: 'track wall', col: 0xe6dcf2, edge: 0xffc93c });
+    for (let i = 6; i < pts.length - 4; i += 8) { const q = pts[i], base = shOnPlateau(q.x, q.z) ? Y : SH.lagoon.y - 0.5; obGeo(B, new THREE.CylinderGeometry(0.5, 0.8, q.y - 1 - base, 8), obM(q.x, (q.y - 1 + base) / 2, q.z), 0xe6e0ee); }
+    SH.track = pts; }
+  obIsland(Sp, { fall: Math.atan2(Sp.z - T.z, Sp.x - T.x) + 1.3 });
+  { const dIn = V(Sp.x - T.x, 0, Sp.z - T.z).normalize(), n = 30;
+    for (let k = 0; k < n; k++) { const a = (k + 0.5) / n * Math.PI * 2, dx = Math.cos(a), dz = Math.sin(a); if (dx * dIn.x + dz * dIn.z < -0.86) continue;
+      const rr = Sp.r - 0.35, hl = Sp.r * Math.tan(Math.PI / n) + 0.1, cx = Sp.x + dx * rr, cz = Sp.z + dz * rr;
+      solidAdd(cx, cz, hl, 0.25, Sp.y - 0.3, Sp.y + 0.9, Math.atan2(-dx, -dz), { tag: 'rim' });
+      obGeo(B, new THREE.BoxGeometry(hl * 2, 0.9, 0.5), obM(cx, Sp.y + 0.45, cz, Math.atan2(-dz, dx) + Math.PI / 2), k & 1 ? 0xd8c7a6 : 0xcdbb98); }
+    // the alien, standing on the far side of the island
+    const ax = Sp.x + dIn.x * 5.5, az = Sp.z + dIn.z * 5.5, face = Math.atan2(-dIn.x, -dIn.z);
+    solidAdd(ax, az, 1.6, 1.6, Sp.y, Sp.y + 9, 0, { tag: 'alien statue', top: false });
+    obGeo(B, new THREE.CylinderGeometry(1.8, 2.2, 1.4, 10), obM(ax, Sp.y + 0.7, az), 0xd8d0e8);
+    obGeo(B, new THREE.CapsuleGeometry(0.9, 2.6, 4, 10), obM(ax, Sp.y + 3.0, az), 0x7ff0a8);
+    obGeo(B, new THREE.SphereGeometry(1.9, 16, 12).scale(1, 1.25, 1), obM(ax, Sp.y + 6.4, az, face), 0x7ff0a8);
+    for (const sg of [-1, 1]) obGeo(B, new THREE.SphereGeometry(0.6, 8, 6).scale(1.3, 0.7, 0.5), obM(ax - dIn.x * 1.6 + dIn.z * sg * 0.75, Sp.y + 6.5, az - dIn.z * 1.6 - dIn.x * sg * 0.75, face + sg * 0.5), 0x101018);
+    obGeo(G, new THREE.TorusGeometry(2.6, 0.12, 4, 24).rotateX(Math.PI / 2), obM(ax, Sp.y + 9.2, az), 0xffc93c);
+    SH.peak = { x: Sp.x, y: Sp.y, z: Sp.z, r: Sp.r - 1 };
+    obSign('spire2', Sp.x - dIn.x * 9, Sp.y + 2.2, Sp.z - dIn.z * 9, Math.atan2(-dIn.x, -dIn.z), 4.4);
+    for (const a of [1.2, 2.6, 4.4]) shTree(Sp.x + Math.cos(a) * 8, Sp.z + Math.sin(a) * 8, Sp.y, 4, 0xff6fc8);
+    // THE SECRET ROUTE: off the island's south side, a long rail down onto the market's roof
+    const m2 = SH.market[1], a = V(Sp.x - 1, Sp.y + hi, Sp.z - 7), b = V((m2[0] + m2[1]) / 2, m2[4] + 1.0, (m2[2] + m2[3]) / 2 + 6);
+    ORB.rails.push({ pts: railLine(a, b, 2), o: { name: 'secret route', maxV: 20 }, d: { mat: 'boost', posts: false }, gems: 6 }); }
+  // ===== SKY GARDENS ===============================================================================
+  const [G1, G2] = SH.gardens;
+  for (const Gd of SH.gardens) { obIsland(Gd, { fall: Math.atan2(Gd.z - Pz.z, Gd.x - Pz.x) + 0.6 });
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.5; shTree(Gd.x + Math.cos(a) * Gd.r * 0.6, Gd.z + Math.sin(a) * Gd.r * 0.6, Gd.y, 4 + orand() * 2); } }
+  shPad(156, SH.z0 + SH.nz * SH.cell - 6, Y, G1.x + 1, G1.y, G1.z - 3, 3);
+  { const d = V(G2.x - G1.x, 0, G2.z - G1.z).normalize(), a = V(G1.x, G1.y + 0.02, G1.z).addScaledVector(d, 2.5), b = V(G2.x, G2.y, G2.z).addScaledVector(d, -(G2.r - 0.3)), pts = [];
+    for (let i = 0; i <= 14; i++) { const q = a.clone().lerp(b, i / 14); q.y = a.y + (b.y - a.y) * smooth(0, 1, i / 14); pts.push(q); }
+    obRibbon(pts, 3, { walls: [-1, 1], wallH: 0.8, lane: { v: SH.laneRamp.v, acc: SH.laneRamp.acc, every: 4 }, name: 'garden ramp', tag: 'garden wall', col: 0xd8f0d8, edge: 0xff6fc8 });
+    SH.gardenRamp = pts;
+    const d2 = V(T.x - T.r - 3.5 - G2.x, 0, T.z - G2.z).normalize(), r0 = V(G2.x, G2.y + hi, G2.z).addScaledVector(d2, 2), r1 = V(T.x - T.r - 3.5, T.deck + 1.0, T.z);
+    ORB.rails.push({ pts: railLine(r0, r1, 2), o: { boost: 14, boostK: 3, name: 'garden rail' }, d: { mat: 'boost', posts: false }, gems: 5 }); }
+  obSign('gardens', G1.x, G1.y + 2.6, G1.z - G1.r + 1.4, Math.PI, 4.2);
+  for (const x of [G1.x - 1.8, G1.x + 1.8]) obGeo(B, new THREE.CylinderGeometry(0.08, 0.08, 3.4, 5), obM(x, G1.y + 1.7, G1.z - G1.r + 1.4), 0x3a3550);
+  // ===== ORBITAL MARKET ===========================================================================
+  SH.market.forEach(([x0, x1, z0, z1, h], i) => obBlock(x0, x1, z0, z1, h, { y0: Y, tag: 'market' + (i + 1), shop: ['w', 'n', 's', 'e'], col: i ? 0xd7e8e6 : 0xe8dccb, trim: 0xf6f0e6, vines: true, lit: 0.45 }));
+  { const m1 = SH.market[0], m2 = SH.market[1], x = 277;
+    const sk = []; for (let i = 0; i <= 12; i++) { const t = i / 12; sk.push(V(x, Y + 0.02 + (m2[4] - Y - 0.02) * t, 116 - (116 - m2[3]) * t)); }
+    obRibbon(sk, 4, { walls: [-1, 1], wallH: 0.8, lane: { v: 14, acc: 10, every: 4 }, name: 'market skyway', tag: 'skyway wall', col: 0xe9ddcc, edge: 0x3ff0e0 });
+    SH.marketSky = sk;
+    obRibbon([V(x, m2[4], m2[2]), V(x, (m1[4] + m2[4]) / 2, (m1[3] + m2[2]) / 2), V(x, m1[4], m1[3])], 4, { name: 'market bridge', col: 0xe9ddcc, edge: 0x3ff0e0 });
+    solidAdd((m1[0] + m1[1]) / 2, m1[2] + 0.3, (m1[1] - m1[0]) / 2, 0.3, m1[4], m1[4] + 1.0, 0, { tag: 'market parapet' });
+    obBox(B, m1[0], m1[1], m1[4], m1[4] + 1.0, m1[2], m1[2] + 0.6, 0xf6f0e6, 0xe9e0cf);
+    obSign('market', m1[0] - 0.06, Y + 6.0, (m1[2] + m1[3]) / 2, -Math.PI / 2, 9); obSign('market', m2[0] - 0.06, Y + 6.6, (m2[2] + m2[3]) / 2, -Math.PI / 2, 9);
+    obSign('ramen', m2[0] - 0.06, Y + 3.6, m2[3] - 5, -Math.PI / 2, 1.6); obSign('blades', (m2[0] + m2[1]) / 2 + 10, Y + 6.2, m2[3] + 0.06, 0, 6);
+    for (const xs of [260, 266, 285, 291]) { obBox(B, xs - 2, xs + 2, Y, Y + 1.0, 92, 96, 0xc8a27a, 0xd8b88e);
+      solidAdd(xs, 94, 2, 2, Y, Y + 1.0, 0, { tag: 'stall' });
+      for (let s = 0; s < 4; s++) obQuad(B, [xs - 2.4 + s * 1.2, Y + 3.1, 91.6], [xs - 1.2 + s * 1.2, Y + 3.1, 91.6], [xs - 1.2 + s * 1.2, Y + 2.6, 96.4], [xs - 2.4 + s * 1.2, Y + 2.6, 96.4], [0, 1, -0.2], s & 1 ? 0xfff0f6 : opick([0xff5fa8, 0x2fd8c8, 0xffa23a]));
+      for (const dx of [-1.9, 1.9]) for (const dz of [92, 96]) obGeo(B, new THREE.CylinderGeometry(0.06, 0.06, 2.6, 4), obM(xs + dx, Y + 1.3 + 1.0, dz), 0x3a3550); } }
+  // ===== THE OVERFLOW ===============================================================================
+  const Cw = SH.catwalk;
+  solidAdd((Cw.x0 + Cw.x1 + 8) / 2, (Cw.z0 + Cw.z1) / 2, (Cw.x1 + 8 - Cw.x0) / 2, (Cw.z1 - Cw.z0) / 2, Cw.y - 0.6, Cw.y, 0, { tag: 'catwalk' });
+  obBox(B, Cw.x0, Cw.x1 + 8, Cw.y - 0.6, Cw.y, Cw.z0, Cw.z1, 0xb8b0a0, null, 0x8a847a);
+  for (let x = Cw.x0; x < Cw.x1 + 8; x += 2) obQuad(B, [x, Cw.y + 0.006, Cw.z0], [x + 2, Cw.y + 0.006, Cw.z0], [x + 2, Cw.y + 0.006, Cw.z1], [x, Cw.y + 0.006, Cw.z1], UPN, (x / 2) & 1 ? 0x9a948a : 0xa8a298);
+  for (const x of [Cw.x0 + 2, (Cw.x0 + Cw.x1) / 2, Cw.x1 + 4]) for (const z of [Cw.z0 + 0.6, Cw.z1 - 0.6]) { solidAdd(x, z, 0.35, 0.35, Y, Cw.y - 0.6, 0, { tag: 'catwalk leg', top: false });
+    obGeo(B, new THREE.BoxGeometry(0.5, Cw.y - 0.6 - Y, 0.5), obM(x, (Cw.y - 0.6 + Y) / 2, z), 0xff8a2a); }
+  for (const z of [Cw.z0 + 0.1, Cw.z1 - 0.1]) ORB.rails.push({ pts: railLine(V(Cw.x0 + 1, Cw.y + 1.1, z), V(Cw.x1 + 6, Cw.y + 1.1, z), 2), o: { name: 'catwalk rail' }, d: { mat: 'orange', every: 3, postMax: 1.5 } });
+  shPad(216, -76, Y, 222, Cw.y, (Cw.z0 + Cw.z1) / 2, 3);
+  for (const x of [220, 228]) {   // the pipe rails, on racks
+    const a = V(x, Y + hi, -88), b = V(x, Y + hi, -44);
+    obGeo(B, new THREE.CylinderGeometry(0.42, 0.42, 44, 10).rotateX(Math.PI / 2), obM(x, Y + hi - 0.45, -66), 0xc8743a);
+    for (let z = -86; z <= -46; z += 8) obGeo(B, new THREE.BoxGeometry(1.2, hi - 0.8, 0.4), obM(x, Y + (hi - 0.8) / 2, z), 0x6a6460);
+    ORB.rails.push({ pts: railLine(a, b, 2), o: { name: 'pipe rail' }, d: { skip: true }, gems: 4 }); }
+  for (const [x, z, r, h] of [[238, -56, 4, 12], [210, -52, 3, 9], [238, -74, 3, 7]]) { cylSolid(x, z, r, Y, Y + h, 14, 'tank');
+    obGeo(B, new THREE.CylinderGeometry(r, r, h, 18), obM(x, Y + h / 2, z), (t, i) => ((i / 12) & 1 ? 0xd8d2c4 : 0xc9c2b2));
+    obGeo(G, new THREE.TorusGeometry(r + 0.05, 0.1, 4, 24).rotateX(Math.PI / 2), obM(x, Y + h * 0.7, z), 0xffd23f); }
+  obSign('overflow', 210, Y + 6.5, -52 + 3.1, 0, 4.6);
+  // the lighthouse's rail down onto the catwalk
+  { const a = V(Lh.x + 1.6, Lh.top + hi, Lh.z - 1.2), b = V(Cw.x0 + 3, Cw.y + 1.0, (Cw.z0 + Cw.z1) / 2);
+    ORB.rails.push({ pts: railLine(a, b, 2), o: { boost: 12, boostK: 3, name: 'lighthouse rail' }, d: { mat: 'boost', posts: false }, gems: 3 }); }
+  // THE SNAKE RUN: a U-channel winding down from the catwalk's end into the bowls
+  { const ctl = [[Cw.x1 + 8, -92], [258, -94], [270, -89], [282, -94], [292, -86], [290, -74], [294, -62], [289, -50], [293, -38], [286, -26]].map(([x, z]) => V(x, 0, z));
+    const cv = new THREE.CatmullRomCurve3(ctl, false, 'centripetal'), L = cv.getLength(), n = Math.round(L / 1.5), pts = [];
+    for (let i = 0; i <= n; i++) { const q = cv.getPointAt(i / n); q.y = Cw.y - (Cw.y - Y - 0.03) * (i / n); pts.push(q); }
+    const prof = [{ w: -4.6, h: 2.0, c: COPE }, { w: -3.96, h: 1.98, c: 0xd2c0ea }];
+    for (let j = 1; j <= 7; j++) { const th = 80 * Math.PI / 180 * (1 - j / 7); prof.push({ w: -1.6 - 2.4 * Math.sin(th), h: 2.4 - 2.4 * Math.cos(th), c: j & 1 ? 0xd9c8f0 : 0xd2c0ea }); }
+    prof.push({ w: 1.6, h: 0, c: 0xd2c0ea });
+    for (let j = 1; j <= 7; j++) { const th = 80 * Math.PI / 180 * j / 7; prof.push({ w: 1.6 + 2.4 * Math.sin(th), h: 2.4 - 2.4 * Math.cos(th), c: j & 1 ? 0xd9c8f0 : 0xd2c0ea }); }
+    prof[prof.length - 1].c = COPE; prof.push({ w: 4.6, h: 2.0, c: COPE });
+    shSweep(pts, prof, { base: Y });
+    SH.snake = pts; }
+  // ===== GRAVITY BOWLS =============================================================================
+  SH.bowlsMade = SH.bowls.map(([x, z, rim, r]) => Object.assign(obBowl(x, z, rim, r, 80 * Math.PI / 180, 5, 'bowlart', Y), { x, z, rim }));
+  obSign('bowlsign', 268, Y + 4, 13.0, 0, 5);
+  for (const dx of [-2.4, 2.4]) obGeo(B, new THREE.CylinderGeometry(0.1, 0.1, 5, 5), obM(268 + dx, Y + 2.5, 12.9), 0x3a3550);
+  for (const [x, z] of [[250, -20], [298, -40], [250, -80], [298, -96], [280, 8]]) obPalm(x, z, Y, 6.5 + orand() * 2, orand() < 0.5);
+  // the boats, on the canals and the lagoon
+  SH.boats = [[[125, -100], [125, 170]], [[150, -106], [310, -106]], [[175, -48], [175, -17]], [[172, -10], [213, -10]], [[309, -100], [309, 170]], [[150, 170], [305, 170]], [[163, -72], [192, -54]], [[178, -98], [182, -77]]];
+  // where the ➤ key goes
+  Object.assign(CITY.spots, {
+    shores: [92, 0.2, 0, Math.PI / 2], alley: [166.5, Y + 0.2, 20, 0], nova: [Pz.x, Y + 0.2, Pz.z - 18, 0],
+    transit: [T.x + (T.deckR + T.lane / 2) * Math.cos(T.a0) - 6, Y + 0.2, T.z + (T.deckR + T.lane / 2) * Math.sin(T.a0), Math.PI / 2],
+    'transit deck': [T.x + 12.5 * Math.cos(trackA), T.deck + 0.2, T.z + 12.5 * Math.sin(trackA), Math.atan2(Math.cos(trackA), Math.sin(trackA))],
+    gardens: [156, Y + 0.2, SH.z0 + SH.nz * SH.cell - 10, 0], spire: [Sp.x, Sp.y + 0.2, Sp.z, Math.PI],
+    canals: [200, Y + 0.2, -62.5, -Math.PI / 2], overflow: [216, Y + 0.2, -70, Math.PI], bowls: [278, Y + 0.2, -30, Math.PI] });
+  SH.built = 1;
 }
 
 
@@ -4894,7 +5343,7 @@ document.getElementById('resetB').addEventListener('click', respawn);
 // r45: THE CITY IS BIG AND HE TESTS ON A PHONE WITH NO CONSOLE, so a key walks round the places worth
 // looking at: the street, the Steps, the top of the Steps, the tower's spiral, its roof, the loop, his
 // buildings, the hydrant by C. The chip names where she went.
-const GO = ['gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
+const GO = ['shores', 'alley', 'nova', 'transit', 'transit deck', 'spire', 'gardens', 'canals', 'overflow', 'bowls', 'gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
 let goI = -1;
 function goSpot(name) {
   const s = CITY.spots[name]; if (!s) return false;
@@ -6144,6 +6593,10 @@ const TAILUI = [
   ['ORB.mono.v',     'Monorail train m/s', 0, 30, 0.5, ''],
   ['ORB.mono.boost', 'Monorail grind m/s', 6, 30, 0.5, ''],
   ['ORB.halo.boost', 'Halo ring m/s', 6, 26, 0.5, ''],
+  ['Neon Shores (r50)', ''],
+  ['SH.laneSpiral.v', 'Transit spiral lane m/s', 0, 24, 0.5, ''],
+  ['SH.laneTrack.v', 'Spire track lane m/s', 0, 26, 0.5, ''],
+  ['SH.laneRamp.v',  'Garden ramp lane m/s', 0, 24, 0.5, ''],
   ['Grinding', ''],
   ['GRIND.catchR',   'Rail catch reach', 0.2, 1.5, 0.05, ''],
   ['GRIND.drag',     'Rail drag',      0,   2,   0.05, ''],
@@ -6152,7 +6605,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -6272,7 +6725,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
