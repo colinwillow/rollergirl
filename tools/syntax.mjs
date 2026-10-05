@@ -22,4 +22,14 @@ while ((m = re.exec(html))) {
   });
   if (miss) { console.error('POSE WITHOUT ANIM'); bad++; }
 }
+// A BARE CLASS RULE MUST NOT SHARE A NAME WITH A STATE CLASS (r63). r62 added a global `.pop{...animation...forwards}`
+// for the score popups -- and `.pop` is also the class a stick pad gets for a moment when a gesture fires (`.pad.pop`).
+// Every flick then ran the popup's fade-and-rise on the STICK and left it invisible 30 px up the screen. A class used
+// as a modifier (`.a.b`) is a state somebody adds to other elements, so a rule for `.b` on its own styles all of them.
+{
+  const css = (html.match(/<style>([\s\S]*?)<\/style>/) || ['', ''])[1];
+  const state = new Set([...css.matchAll(/\.[\w-]+\.([\w-]+)/g)].map(x => x[1]));
+  const clash = [...css.matchAll(/(?:^|[\s},])\.([\w-]+)\s*[{,]/gm)].map(x => x[1]).filter(c => state.has(c));
+  if (clash.length) { console.error('a bare CSS rule styles a STATE class other elements use: .' + [...new Set(clash)].join(', .')); bad++; }
+}
 console.log(bad ? 'SYNTAX FAIL' : `syntax ok (${n} module script${n === 1 ? '' : 's'})`); process.exit(bad ? 1 : 0);

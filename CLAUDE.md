@@ -307,6 +307,14 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **r62 MADE THE STICKS VANISH, AND IT WAS ONE CSS CLASS NAME (fixed r63).** *"They turned invisible, then show up when
+  you make swipes, but higher up -- I didn't ask you to change anything."* He did not, and it was not a setting: the
+  score popups were styled with a GLOBAL `.pop { animation: popup ... forwards }`, and `.pop` is also the class a stick
+  pad is given for a moment whenever a gesture fires (`.pad.pop .ring`, the little ring pulse). So every tap or flick
+  ran the popup's rise-and-fade ON THE STICK and left it at opacity 0, 30 px up. The popups are `#pops .tpop` now.
+  **`npm run check:syntax` FAILS A BARE CLASS RULE THAT SHARES A NAME WITH A STATE CLASS** (one used as `.a.b`
+  anywhere in the stylesheet) -- verified by putting `.pop{` back: it fails. No harness here renders the HUD, so a
+  source-shape check is the only gate that can see this class of fault.
 - **TRICK POINTS (r62, `SCORE`, `trick`, `scoreStep`, `scoreBank`, `#score`, `#pops`).** *"Every time you do a trick ...
   +15 +10 +25 +100, flips, air tricks, grabs, spins, grinds."* THPS's shape: every trick in one line goes into a COMBO
   (shown beside the star total as it builds), BANKED times the number of tricks in it (cap `multMax`) once she has been

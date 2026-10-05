@@ -93,11 +93,11 @@
   #score b{font-size:15px;color:#ffe066}
   #score i{font-style:normal;color:#ff9ad2;margin-left:8px}
   #pops{position:fixed;left:50%;top:38%;transform:translateX(-50%);pointer-events:none;z-index:6;display:flex;flex-direction:column;align-items:center;gap:2px}
-  .pop{font:900 20px "Arial Black",Impact,sans-serif;letter-spacing:1px;color:#fff;white-space:nowrap;
-    text-shadow:0 0 10px #40e8ff,0 3px 0 #2a1a5a;animation:popup 1.15s ease-out forwards}
-  .pop.big{font-size:30px;color:#ffe066;text-shadow:0 0 14px #ff6fd0,0 3px 0 #3a1a5a}
-  .pop.bad{color:#ff8a8a;text-shadow:0 0 10px #ff3d6a,0 3px 0 #3a1a2a}
-  @keyframes popup{0%{opacity:0;transform:translateY(10px) scale(.7)}14%{opacity:1;transform:translateY(0) scale(1.1)}24%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
+  #pops .tpop{font:900 20px "Arial Black",Impact,sans-serif;letter-spacing:1px;color:#fff;white-space:nowrap;
+    text-shadow:0 0 10px #40e8ff,0 3px 0 #2a1a5a;animation:tpopup 1.15s ease-out forwards}
+  #pops .tpop.big{font-size:30px;color:#ffe066;text-shadow:0 0 14px #ff6fd0,0 3px 0 #3a1a5a}
+  #pops .tpop.bad{color:#ff8a8a;text-shadow:0 0 10px #ff3d6a,0 3px 0 #3a1a2a}
+  @keyframes tpopup{0%{opacity:0;transform:translateY(10px) scale(.7)}14%{opacity:1;transform:translateY(0) scale(1.1)}24%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
   #toast{position:fixed;left:50%;top:28%;transform:translate(-50%,-50%) scale(.6);pointer-events:none;opacity:0;z-index:6;
     font:900 42px "Arial Black",Impact,sans-serif;letter-spacing:2px;color:#fff;text-shadow:0 0 18px #ff4fb8,0 4px 0 #3a1a5a;transition:opacity .25s,transform .25s}
   #toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -176,7 +176,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r62</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r63</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -199,7 +199,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r62';
+const BUILD = 'r63';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -7837,7 +7837,7 @@ const SCORE = { on: 1, total: 0, best: 0, combo: 0, n: 0, list: [], ground: 0, b
 const popsEl = document.getElementById('pops');
 function scorePop(txt, big, bad) {
   if (!popsEl || !popsEl.appendChild) return;
-  const d = document.createElement('div'); d.className = 'pop' + (big ? ' big' : '') + (bad ? ' bad' : ''); d.textContent = txt;
+  const d = document.createElement('div'); d.className = 'tpop' + (big ? ' big' : '') + (bad ? ' bad' : ''); d.textContent = txt;
   popsEl.appendChild(d);
   while (popsEl.children && popsEl.children.length > 5 && popsEl.removeChild) popsEl.removeChild(popsEl.children[0]);
   setTimeout(() => { if (d.parentNode && d.parentNode.removeChild) d.parentNode.removeChild(d); }, 1200);
