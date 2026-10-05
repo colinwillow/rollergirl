@@ -307,6 +307,19 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE SETTLE DIVES NOW, AND THE PLAIN PUNCH IS OUT OF THE CHAIN (r61, `AIR.slam*`, `p.slamN`, `p.slamS`).**
+  *"It slows you way down -- you transfer into the bowl but you're not going very fast. I want it to give you speed, like
+  you just hit some velocity down the ramp."* Over a ramp, the held-down settle turns her velocity DOWN THE FACE (the fall
+  line, tipped `slamIn` into it), at least `slamMin` 12 m/s and gaining `slamAdd` a second while held, up to `slamMax`.
+  **STEERING THE AIR VELOCITY WAS NOT ENOUGH ON ITS OWN**: from any height a dive meets the flatter bottom of the curve
+  nearly square and the landing projection threw the speed away (18 m/s in, 6.9 out). So the dive's speed is handed
+  over on touchdown (`slamKeep` .85, along the way she rolls). `npm run sim feel`: 4 m/s over the half pipe -> 15.8 on
+  the ramp; ollie off the flat over the bowl rim and hold down -> in the bowl at 15.1; `slam` 0 is the old brake.
+  **THE PUNCH**: *"one of my melees is just a punch ... I like the acrobatic stuff."* Measured by posing Zap's rig through
+  every strike (head over hips, how far the body turns, how far hands and feet travel): `melee_02` goes fully upside
+  down (the handspring), `melee_05` nearly (the flip), `melee_04` half way; `melee_01` and `melee_03` stay upright but
+  use the whole body (a deep lean, a 175 deg spin); **`melee_extra` is the punch -- one second, the feet never move, no
+  flip** -- and is dropped from `MELEE.fist`. It stays in `melee_zap.glb`.
 - **`npm run export` WRITES THE WORLD AS A GLB FOR BLENDER (r60, `tools/export.mjs`, `docs/BLENDER_EXPORT.md`).**
   *"Is there any way to get this scene into a Blender file?"* It boots the real module headless (the sim's page),
   lets `init()` build every district and writes `exports/rollergirl_world.glb` (the picture -- one object per chunk,

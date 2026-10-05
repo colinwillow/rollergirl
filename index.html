@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r60</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r61</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r60';
+const BUILD = 'r61';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -280,7 +280,7 @@ const FOOTIK = { on: 1, maxDrop: 0.25, maxRaise: 0.06, near: 0.16, align: 1, ali
 //                         at the bar's top at the same moment -- and the catch is relaxed for that rail.
 const MELEE = {
   on: 1, file: 'models/melee_zap.glb', failed: 0,
-  fist: ['melee_01', 'melee_02', 'melee_03', 'melee_04', 'melee_05', 'melee_extra'],
+  fist: ['melee_01', 'melee_02', 'melee_03', 'melee_04', 'melee_05'],   // r61: not 'melee_extra', the plain punch (see CLAUDE.md)
   weap: ['weapon_melee_01', 'weapon_melee_02', 'weapon_melee_03', 'weapon_melee_04'],
   useWeap: 0,          // 1 deals his blaster melees into the pool too
   rate: 1.75, beatMin: 0.55, beatMax: 1.30,     // weirdport's: the clip compressed to a readable beat
@@ -634,6 +634,7 @@ const AIR = {
   settleN: 0.94,       // the face straight below must be at least this steep (its normal's y under this) to count as a ramp
   settleAt: 0.55,      // how far DOWN the right pad has to be held
   settleDrag: 4,       // per second: how fast her horizontal speed bleeds off while settling
+  slam: 1, slamMin: 12, slamAdd: 12, slamMax: 24, slamIn: 0.35, slamK: 9, slamKeep: 0.85,   // r61: the settle over a ramp DIVES down its face (see `stepAir`)
   settleEase: 9,       // per second: how fast her body turns onto the face below
   preAlign: 0.4,       // seconds: falling, this close to touchdown, she turns to match the surface
   pitch: 0,            // 1 leans her into the arc instead; 0 is plumb
@@ -7506,7 +7507,22 @@ function stepAir(dt) {
     }
     if (w > 0) _qb.slerp(_q3.setFromUnitVectors(UP, _v.set(below.nx, below.ny, below.nz)), w);
   }
-  if (settle) { p.vel.x = decay(p.vel.x, AIR.settleDrag, dt); p.vel.z = decay(p.vel.z, AIR.settleDrag, dt); }
+  // r61: THE DIVE. *"Right now it slows you way down -- yeah, you transfer into the bowl, but then you're not going very
+  // fast. I want it to give you speed, like you just hit some velocity down the ramp."* Over a ramp the settle no longer
+  // throws her speed away: it is turned DOWN THE FACE -- along its fall line, angled `slamIn` into it so she meets it
+  // at a graze and the landing keeps it -- at no less than `slamMin` and gaining `slamAdd` a second while held, so she
+  // hits the wall going and carries it out across the bowl. The face is remembered (`p.slamN`), so drifting past a
+  // narrow wall does not turn the dive into a dive at the flat. `slam` 0 is r33's brake.
+  if (!settle) p.slamN = null;
+  if (settle && AIR.slam > 0.5 && (overRamp || p.slamN)) {
+    if (overRamp) (p.slamN || (p.slamN = new THREE.Vector3())).set(below.nx, below.ny, below.nz);
+    const n = p.slamN, k = AIR.slamIn;
+    let dx = n.x * n.y - n.x * k, dy = n.y * n.y - 1 - n.y * k, dz = n.z * n.y - n.z * k;   // straight down, laid on the face, tipped in
+    const dl = Math.hypot(dx, dy, dz) || 1; dx /= dl; dy /= dl; dz /= dl;
+    const sT = Math.min(AIR.slamMax, Math.max(p.vel.length(), AIR.slamMin) + AIR.slamAdd * dt), a = 1 - Math.exp(-AIR.slamK * dt);
+    p.vel.x += (dx * sT - p.vel.x) * a; p.vel.y += (dy * sT - p.vel.y) * a; p.vel.z += (dz * sT - p.vel.z) * a;
+    p.slamS = Math.max(p.slamS || 0, sT);
+  } else if (settle) { p.vel.x = decay(p.vel.x, AIR.settleDrag, dt); p.vel.z = decay(p.vel.z, AIR.settleDrag, dt); }
   // THE YAW IS EXACT, THE TILT IS EASED (r27). `_qb` is the target swing (plumb, any pitch, and the
   // face below when settling or close to it); the yaw goes on as is.
   if (hold) {
@@ -7822,6 +7838,18 @@ function stepPlayer(dt) {
   for (let i = 0; i < n; i++) {
     if (p.grind) stepGrind(sdt); else if (p.grounded) stepGround(sdt); else stepAir(sdt);
     if (!p.grind) solidPush();          // r45: the city's walls, after every sub-step
+    // r61: THE DIVE LANDS WITH ITS SPEED. Steering the air velocity down the face is not enough on its own: a dive from
+    // high up often meets the flatter part of the curve, or the flat, nearly square, and the landing projection takes
+    // the speed away. So what she was diving at is handed to her on the ground -- `slamKeep` of it, along the way she
+    // is rolling (or straight down the face if she is not rolling yet).
+    if (p.slamS && (p.grounded || p.grind)) {
+      const want = p.slamS * AIR.slamKeep, v = p.vel.length(); p.slamS = 0;
+      if (p.grounded && !p.grind && v < want) {
+        if (v > 1) p.vel.multiplyScalar(want / v);
+        else { const n = p.n, dx = n.x * n.y, dy = n.y * n.y - 1, dz = n.z * n.y, l = Math.hypot(dx, dy, dz);
+          if (l > 0.05) p.vel.set(dx / l * want, dy / l * want, dz / l * want); }
+      }
+    }
   }
   // TWO SPEEDS, AND THE CAMERA NEEDS THE HORIZONTAL ONE. Straight up a vert wall her
   // horizontal speed is nearly zero while she is doing fifteen -- so a bearing taken from
@@ -8438,6 +8466,10 @@ const TAILUI = [
   ['AIR.aimK',       'Air turn snap',  2,   40,  1,    ''],
   ['AIR.aimArm',     'Thumb move to take over', 0, 90, 5, '', 'deg'],
   ['AIR.settleRamp', 'Hold down over a ramp = settle', 0, 1, 1, ''],
+  ['AIR.slam',       'Settle dives down the ramp (0 = brake)', 0, 1, 1, ''],
+  ['AIR.slamMin',    'Dive speed at least', 4, 24, 0.5, 'm/s'],
+  ['AIR.slamAdd',    'Dive gains per second held', 0, 30, 1, ''],
+  ['AIR.slamIn',     'Dive angle into the face', 0, 1, 0.05, ''],
   ['LAND.flipMax',   'Longest flip',   0.4, 2.5, 0.05, 's'],
   ['Rail network (r59)', ''],
   ['RAILNET.on',     'Rails join up (junctions)', 0, 1, 1, ''],

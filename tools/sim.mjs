@@ -2222,15 +2222,29 @@ CASES.feel = () => {
     const on = drop(rg.AIR.preAlign), off = drop(0);
     chk('pre-align: lands already matching a ramp', on !== null && on < 12 && off !== null && off > face * 0.6,
         `${fix(on, 1)} deg out at touchdown, against ${fix(off, 1)} without it (the face is ${fix(face, 0)} deg)`);
-    // the settle: high over it, moving, right pad held DOWN -- speed bleeds off, body squares to the face
+    // the settle: high over it, moving, right pad held DOWN -- r61: she DIVES down the face, body squared to it, and
+    // keeps the speed through the landing
     const keepSP = rg.AIR.settleRamp; rg.AIR.settleRamp = 1;     // r56: the pad settles only with a ramp below (this is one)
-    place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
+    place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 6; P.vel.set(0, 2, 4); P.airT = 0.3;
     Object.assign(rg.stick.R, { down: 1, x: 0, y: 1 });
-    run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
-    const hs = Math.hypot(P.vel.x, P.vel.z), so = upOff(), high = P.pos.y - n0.floor;
+    let touch = null, so = 99, after = null;
+    run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!touch) { so = upOff(); if (P.grounded) touch = P.speed; } else if (after === null) after = P.speed; });
     Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); rg.AIR.settleRamp = keepSP;
-    chk('settle: right pad held down, high over a ramp', hs < 1.5 && so < 10 && high > 3,
-        `8 m/s -> ${fix(hs, 2)} m/s across, body ${fix(so, 1)} deg off the face, still ${fix(high, 1)} m up`);
+    chk('settle: held down over a ramp, she dives onto it with speed', touch !== null && touch > 11 && after > 11 && so < 12,
+        touch !== null ? `4 m/s across -> ${fix(touch, 1)} m/s at touchdown, ${fix(after, 1)} on the ramp, body ${fix(so, 1)} deg off the face` : 'never landed');
+    { const keepS = rg.AIR.slam; rg.AIR.slam = 0; rg.AIR.settleRamp = 1;
+      place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
+      Object.assign(rg.stick.R, { down: 1, x: 0, y: 1 }); run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+      const hs = Math.hypot(P.vel.x, P.vel.z); Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); rg.AIR.slam = keepS; rg.AIR.settleRamp = keepSP;
+      chk('settle with the dive off is the old brake', hs < 1.5, `8 m/s -> ${fix(hs, 2)} m/s across`); }
+    // from the flat, over the bowl's rim: ollie, hold down, drop in hot
+    { const B = rg.BOWL; place(B.x, 0, B.z + B.r + 12, Math.PI, 10); let fired = 0, inB = null;
+      run(3, () => { rg.cam.az = Math.PI; rg.stick.L.x = 0; rg.stick.L.y = P.grounded && !fired ? -1 : 0;
+        if (!fired && P.pos.z < B.z + B.r + 2.2) { P.jump = 1; fired = 1; }
+        if (fired && !P.grounded) Object.assign(rg.stick.R, { down: 1, x: 0, y: 1 }); else Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
+        if (fired && P.grounded && P.pos.y < -0.3 && !inB) inB = { v: P.speed, y: P.pos.y }; });
+      Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
+      chk('ollie over the bowl rim, hold down: drops in fast', !!inB && inB.v > 12, inB ? `in the bowl at ${fix(inB.v, 1)} m/s (y ${fix(inB.y, 2)})` : 'never got into the bowl'); }
     // and the same without it is still upright up there
     place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
     run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
