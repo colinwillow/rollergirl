@@ -307,6 +307,35 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **IN THE AIR THE LEFT STICK IS A HEADING NOW (r55, `AIR.aim`, `aimRate`/`aimK`/`aimArm`/`aimFresh`/`aimSteady`).**
+  *"She points in whatever direction the stick is turned, so you can rotate your thumb round in a circle to rotate
+  her."* The stick is read through the camera exactly as on the ground (`stickWorld`) and she turns onto it at up to
+  `aimRate` 14 rad/s -- a thumb circling the pad once a second is a 416 deg spin in an ordinary air. It TAKES OVER only
+  once the thumb has moved `aimArm` from where it was at takeoff, or was pushed less than `aimFresh` before it:
+  **a thumb still held forward from the run-up up a pipe would otherwise pin her nose and cancel the vert air's auto
+  180** (`npm run sim stance` has both: the auto-turn lands forward, pointing her out of the pipe lands fakie). Until
+  it takes over the run-up's thumb carries her as before; after, the push is along where she points, faded out while
+  the thumb is circling (`aimSteady`), so a spin is not also a shove round in a circle. Taking over cancels the auto
+  180. `AIR.aim` 0 on the panel is r26's spin rate. `npm run sim airctl` tables both modes.
+- **THE GRABS WORK (r55, `grabStep`, `MOVES.grabMin`/`grabPush`).** *"The grabs don't really work."* Two faults. The
+  direction was picked ONCE at `grabAt` (0.3 s) after the press -- and the stick FLOATS, so the thumb lands as the
+  centre and had often not moved yet: every grab was the centre one and pushing over afterwards changed nothing. And
+  held DOWN was the settle. Now a thumb pushed past `grabPush` grabs after `grabMin` (0.12 s), the centre one still
+  waits `grabAt`, the grab FOLLOWS the thumb (with a little hysteresis), down is the swan grab, and the settle is key F
+  or `AIR.settlePad` 1 on the panel. **And the right pad no longer orbits the camera in the air** -- held sideways
+  for a grab it was swinging the lens round her for the whole flight. `npm run sim r42` drives all of it.
+- **THE DETAIL PASS IS A SHADER ON EVERY VERTEX-COLOURED WORLD MATERIAL (r55, `DETAIL`, `detailPatch`, `detailTex`).**
+  The park, the city's stand-in boxes, Orbital and Neon Shores had no UVs and no material ids, so the slice's generated
+  textures go on in the fragment shader, projected in world metres: PAVING on flat floors (`paveT` 5 m, so a slab is
+  1.25 m and the tiles line up with the park's 5 m cells), CONCRETE on ramps, PLASTER on walls (triplanar on x/z), each
+  with its normal map. The texture is applied as LUMINANCE over its own mean (`texMeanLum`), so vertex colours keep
+  their hue. Four colour and four normal fetches a fragment; `DETAIL.k` / `nrm` on the panel. The slice reuses the same
+  three textures (`DT.p/f/w`), so they are generated and held once.
+- **THE BANK'S END WALLS AT EVERY GATE ARE SOLID (r55, tag `bank end`).** A ramp is a floor, not a solid, and there is
+  no floor UNDER a bank -- so riding into a bank's end from a gate corridor took her inside it and she fell out of the
+  world. `npm run sim solid`'s random runs found it once the air steering changed their paths. 1 m boxes inside each
+  end, each topped just under the surface above it (the back slope is one 14 m segment, so it is cut into pieces or its
+  low end sits at zero and is skipped).
 - **THE NEXUS: THE ARRIVAL IS A SUNK BOWL IN A TERRACED PLAZA (r54, `NEX`, `sliceNexus`, `slSunkBowl`, `slRound`).**
   *"More layering in the foreground ... a sunken bowl / terraced plaza like the second painting."* The start view
   looked across 20 m of flat paving. The entry ramp moved down into the gate's own corridor (x -79 -> -93, under a

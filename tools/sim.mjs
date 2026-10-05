@@ -491,6 +491,9 @@ CASES.tap = async () => {
 // the back of one ramp and reach the next, so what matters is how far it actually carries her.
 CASES.airctl = () => {
   let ok = true;
+  const keepAim = rg.AIR.aim;
+  // r26's SPIN RATE (AIR.aim 0): X spins her, Y pushes her
+  rg.AIR.aim = 0;
   for (const [name, sx, sy] of [['spin right', 1, 0], ['spin left', -1, 0], ['no input', 0, 0], ['hold forward', 0, -1]]) {
     place(60, 1, -60, 0, 10);
     P.jump = 1;
@@ -504,14 +507,30 @@ CASES.airctl = () => {
       if (!P.grounded) { if (z0 === null) z0 = P.pos.z; z1 = P.pos.z; air += DT;
                          yaw = (P.heading - h0) * 180 / Math.PI; }
     });
-    console.log(`  ${name.padEnd(13)} yaw ${fix(yaw, 0).padStart(5)} deg, carried ${fix(z1 - z0)} m over ${fix(air)} s of air`);
+    console.log(`  rate  ${name.padEnd(13)} yaw ${fix(yaw, 0).padStart(5)} deg, carried ${fix(z1 - z0)} m over ${fix(air)} s of air`);
     // heading grows +Z toward +X, which turns her LEFT, so a thumb pushed RIGHT must DECREASE it
     if (name === 'spin right' && !(yaw < -240)) ok = false;
     if (name === 'spin left' && !(yaw > 240)) ok = false;
     if (name === 'no input' && Math.abs(yaw) > 1) ok = false;
     if (name === 'hold forward' && !(z1 - z0 > 16)) ok = false;
   }
-  // and the thrust has to be worth holding: it is the difference between the last two rows
+  // r55: THE STICK IS A HEADING (AIR.aim 1). A thumb pushed right in the air points her right and she stays there;
+  // a thumb circling the pad spins her with it; a thumb held forward from the run-up still carries her; and the
+  // thumb only takes over once it has MOVED from where it was at takeoff.
+  rg.AIR.aim = 1;
+  const go = (name, thumb, check) => { place(60, 1, -60, 0, 10); P.jump = 1; const h0 = P.heading; let z0 = null, z1 = 0, air = 0, yaw = 0, t = 0, maxYaw = 0;
+    run(1.4, () => { rg.cam.az = 0; rg.cam.steerAz = 0; const s = thumb(P.grounded, t); rg.stick.L.x = s[0]; rg.stick.L.y = s[1]; rg.stick.L.down = s[2] ? 1 : 0;
+      if (!P.grounded) { t += DT; if (z0 === null) z0 = P.pos.z; z1 = P.pos.z; air += DT; yaw = (P.heading - h0) * 180 / Math.PI; maxYaw = Math.max(maxYaw, Math.abs(yaw)); } });
+    rg.stick.L.down = 0;
+    const good = check(yaw, z1 - z0, maxYaw); if (!good) ok = false;
+    console.log(`  aim   ${name.padEnd(30)} yaw ${fix(yaw, 0).padStart(5)} deg, carried ${fix(z1 - z0)} m${good ? '' : '   <- WRONG'}`); };
+  go('pushed right, held', (gr) => gr ? [0, 0, 0] : [1, 0, 1], (y) => Math.abs(y + 90) < 3);
+  go('pushed left, held', (gr) => gr ? [0, 0, 0] : [-1, 0, 1], (y) => Math.abs(y - 90) < 3);
+  go('pulled back, held', (gr) => gr ? [0, 0, 0] : [0, 1, 1], (y) => Math.abs(Math.abs(y) - 180) < 3);
+  go('thumb circling, 1 turn a second', (gr, t) => gr ? [0, 0, 0] : [Math.sin(t * 6.283), -Math.cos(t * 6.283), 1], (y, d, m) => y < -300);
+  go('held forward from the run-up', (gr) => [0, -1, 1], (y, d) => Math.abs(y) < 1 && d > 16);
+  go('no input', () => [0, 0, 0], (y) => Math.abs(y) < 1);
+  rg.AIR.aim = keepAim;
   return ok;
 };
 // ---------------------------------------------------------------- and a bad landing is a bail
@@ -1286,13 +1305,22 @@ CASES.stance = () => {
   // and spinning an extra 180 on top of the auto-turn is how you come down fakie on purpose
   // r47: DRIVEN THROUGH THE STICK, not by writing the heading -- on a held vert air the body turns about the
   // wall's normal (`vertSpin`) and a heading written from outside is a spin the game never sees
-  { place(0, 3, 29, 0, 13); let air = false, at = null, spun = 0;
+  { const keepAim = rg.AIR.aim; rg.AIR.aim = 0; place(0, 3, 29, 0, 13); let air = false, at = null, spun = 0;
     run(5, (t) => { rg.stick.L.y = 0; rg.cam.az = 0;
       if (!P.grounded && !air) air = true;
       rg.stick.L.x = (air && !P.grounded && spun < Math.PI / rg.AIR.spin) ? 1 : 0; if (rg.stick.L.x) spun += DT;
       if (air && P.grounded && !at) at = { stance: P.stance }; });
     const good = at && at.stance === -1;
     console.log(`  ...plus a 180 of her own spin    -> ${!at ? 'never landed' : at.stance < 0 ? 'FAKIE' : 'forward'}${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false; rg.AIR.aim = keepAim; }
+  // r55: with the stick as a heading, POINTING her back up the screen (out of the pipe) in the air does the same
+  { place(0, 3, 29, 0, 13); let air = false, at = null;
+    run(5, () => { rg.cam.az = 0; rg.cam.steerAz = 0; if (!P.grounded && !air) air = true;
+      const on = air && !P.grounded; rg.stick.L.x = 0; rg.stick.L.y = on ? -1 : 0; rg.stick.L.down = on ? 1 : 0;
+      if (air && P.grounded && !at) at = { stance: P.stance }; });
+    rg.stick.L.down = 0; rg.stick.L.y = 0;
+    const good = at && at.stance === -1;
+    console.log(`  ...or the stick pointing her out -> ${!at ? 'never landed' : at.stance < 0 ? 'FAKIE' : 'forward'}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false; }
   // FAKIE, AND THE THUMB WHERE SHE IS GOING: she speeds up BACKWARDS, and stays fakie
   { place(60, 1, -60, Math.PI, 0); P.vel.set(0, 0, 2); P.stance = -1;
@@ -1590,11 +1618,23 @@ CASES.r42 = () => {
   { const { moves } = gameClips('models/alien_rollerskate_blue.glb'); const keepM = rg.girl.moves; rg.girl.moves = moves;
     const air = (x, y, hold) => { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 8; P.vel.y = 2; P.grab = null; P.settling = false; P.rHold = 0;
       Object.assign(rg.stick.R, { down: 1, x, y }); run(hold, () => {}); const g = P.grab; Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); return g; };
-    const c = air(0, 0, 0.45), u = air(0, -0.8, 0.45), t = air(0, 0, 0.2), d = air(0, 0.9, 0.6);
+    const c = air(0, 0, 0.45), u = air(0, -0.8, 0.45), t = air(0, 0, 0.2), d = air(0, 0.9, 0.6), l = air(-0.8, 0, 0.2), r = air(0.8, 0, 0.2);
     check('hold in the air = grab (centre)', c && c.nm === 'blade_pose_duck_R_forward', c ? c.nm : 'none');
     check('hold UP = a different grab', u && u.nm === 'blade_daffy_forward', u ? u.nm : 'none');
     check('a tap-length hold is not a grab', !t, t ? t.nm : 'none');
-    check('a hard DOWN hold is the settle, not a grab', !d && P.settling !== undefined, d ? d.nm : 'settle');
+    check('r55: hold DOWN = the swan grab, not the settle', d && d.nm === 'blade_pose_swan_L_forward' && !P.settling, d ? d.nm : 'none');
+    check('r55: pushed LEFT / RIGHT grab at once', l && r && l.nm === 'blade_onefootfront_L_forward' && r.nm === 'blade_onefootfront_R_forward', `${l && l.nm} / ${r && r.nm}`);
+    { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 8; P.vel.y = 2; P.grab = null; P.rHold = 0;
+      Object.assign(rg.stick.R, { down: 1, x: 0, y: 0 }); run(0.4, () => {}); const g0 = P.grab && P.grab.k;
+      Object.assign(rg.stick.R, { x: 0.8, y: 0 }); run(0.1, () => {}); const g1 = P.grab && P.grab.k;
+      Object.assign(rg.stick.R, { x: 0, y: -0.8 }); run(0.1, () => {}); const g2 = P.grab && P.grab.k;
+      Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
+      check('r55: the grab follows the thumb', g0 === 'centre' && g1 === 'right' && g2 === 'up', `${g0} -> ${g1} -> ${g2}`); }
+    { const keepS = rg.AIR.settlePad; rg.AIR.settlePad = 1; const d2 = air(0, 0.9, 0.6); rg.AIR.settlePad = keepS;
+      check('...and with "hold down = settle" on, down settles', !d2, d2 ? d2.nm : 'settle'); }
+    { const az0 = rg.cam.az; place(60, 1, -60, 0, 6); P.grounded = false; P.pos.y += 8; Object.assign(rg.stick.R, { down: 1, x: 1, y: 0 });
+      for (let i = 0; i < 30; i++) rg.stepCam(DT); Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
+      check('r55: a grab held sideways does not orbit the camera', Math.abs(wrap(rg.cam.az - az0)) < 0.05, `${fix(wrap(rg.cam.az - az0) * 57.3, 1)} deg`); }
     run(0.1, () => {}); check('let go and the grab ends', !P.grab);
     rg.girl.moves = keepM; }
   // THE TAP HOP: no kick
@@ -2140,12 +2180,13 @@ CASES.feel = () => {
   const half = rg.centreOffset(hl, 1, Math.PI / 2, 0.5, new THREE.Vector3()), r = hl.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
   chk('...turned with the model, and by the dial', Math.abs(r.x * 0.5 + half.x) < 1e-9 && Math.abs(r.z * 0.5 + half.z) < 1e-9);
   // 3. THE AIR SPIN: full rate from 60% of the pad, and her body's yaw IS her heading, every frame
+  const keepAimF = rg.AIR.aim; rg.AIR.aim = 0;     // r26's rate mode; r55's heading mode is `npm run sim airctl`
   place(60, 1, -60, 0, 0); P.grounded = false; P.pos.y += 30; P.vel.set(0, 0, 0); P.flip = null;
   const h0 = P.heading; let worstYaw = 0;
   run(0.1, () => { rg.stick.L.x = 0.6; rg.stick.L.y = 0;
     const f = new THREE.Vector3(0, 0, 1).applyQuaternion(P.bq);
     worstYaw = Math.max(worstYaw, Math.abs(wrap(Math.atan2(f.x, f.z) - P.heading)) * 57.3); });
-  const spun = Math.abs(P.heading - h0);
+  const spun = Math.abs(P.heading - h0); rg.AIR.aim = keepAimF;
   chk('air spin at 60% of the pad: full speed at once', spun > rg.AIR.spin * 0.1 * 0.9, `${fix(spun * 57.3, 0)} deg in 0.1 s`);
   chk('air spin: the body yaw IS the heading', worstYaw < 1.5, `worst ${fix(worstYaw, 2)} deg behind`);
   // 4. r33: THE PRE-ALIGN AND THE SETTLE, over the half pipe's steep transition (z ~34.6, x 0).
@@ -2163,11 +2204,12 @@ CASES.feel = () => {
     chk('pre-align: lands already matching a ramp', on !== null && on < 12 && off !== null && off > face * 0.6,
         `${fix(on, 1)} deg out at touchdown, against ${fix(off, 1)} without it (the face is ${fix(face, 0)} deg)`);
     // the settle: high over it, moving, right pad held DOWN -- speed bleeds off, body squares to the face
+    const keepSP = rg.AIR.settlePad; rg.AIR.settlePad = 1;     // r55: the pad's settle is a switch now (key F always)
     place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
     Object.assign(rg.stick.R, { down: 1, x: 0, y: 1 });
     run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
     const hs = Math.hypot(P.vel.x, P.vel.z), so = upOff(), high = P.pos.y - n0.floor;
-    Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
+    Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); rg.AIR.settlePad = keepSP;
     chk('settle: right pad held down, high over a ramp', hs < 1.5 && so < 10 && high > 3,
         `8 m/s -> ${fix(hs, 2)} m/s across, body ${fix(so, 1)} deg off the face, still ${fix(high, 1)} m up`);
     // and the same without it is still upright up there
@@ -2303,7 +2345,7 @@ CASES.slice = () => {
   const along = (pts, ahead) => { let bi = 0, bd = 1e9; pts.forEach((q, i) => { const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z) + Math.abs(q.y - P.pos.y) * 0.5; if (d < bd) { bd = d; bi = i; } });
     const t = pts[Math.min(pts.length - 1, bi + (ahead || 2))]; fwd(Math.atan2(t.x - P.pos.x, t.z - P.pos.z)); return bi; };
   const ride = (label, start, h, v, route, sec, goal) => { const sp0 = O.splashes; place(start[0], start[1], start[2], h, v); let low = 99, hit = null;
-    let kk = 0; run(sec, () => { along(route); city(); low = Math.min(low, P.pos.y); if (process.env.DBG === label.slice(0, 7) && kk++ % 10 === 0) console.log('   ', fix(P.pos.x, 2), fix(P.pos.y, 2), fix(P.pos.z, 2), 'v', fix(P.speed), P.grounded ? 'G' : 'air', P.grind ? 'GRIND' : ''); if (!hit && goal(P.pos) && P.grounded) { hit = P.pos.clone(); hit.sp = O.splashes; } });
+    let kk = 0; run(sec, () => { along(route); city(); low = Math.min(low, P.pos.y); if (process.env.DBG === label.slice(0, 7) && kk++ % (process.env.DBGN ? +process.env.DBGN : 10) === 0) console.log('   ', fix(P.pos.x, 2), fix(P.pos.y, 2), fix(P.pos.z, 2), 'v', fix(P.speed), P.grounded ? 'G' : 'air', P.grind ? 'GRIND' : ''); if (!hit && goal(P.pos) && P.grounded) { hit = P.pos.clone(); hit.sp = O.splashes; } });
     say(label, !!hit && hit.sp === sp0, hit ? `there at ${fix(hit.x, 1)}, ${fix(hit.y, 2)}, ${fix(hit.z, 1)}` : `ended ${fix(P.pos.x, 1)}, ${fix(P.pos.y, 2)}, ${fix(P.pos.z, 1)}, splashes ${O.splashes - sp0}`); };
   const R1 = [V3(-192, Q, 6.6), V3(-185, Q + 0.75, 7.0), V3(-177.5, Q + 2.2, 6.2), V3(-169.6, 6, 4.3), V3(-166, 6, 3)];
   ride('north quay up the curving ramp onto the bastion', [-196, Q, 6.6], Math.PI / 2, 6, R1, 8, p => Math.hypot(p.x + 166, p.z - 3) < 3.5 && Math.abs(p.y - 6) < 0.2);
@@ -2426,8 +2468,10 @@ CASES.shores = () => {
     run(4, () => { city(); low = Math.min(low, P.pos.y); if (Math.hypot(P.pos.x - b.x, P.pos.z - b.z) < 4) inside = true; });
     say('dropped into the big bowl', low > Y - 0.1 && inside, `lowest ${fix(low - Y)} above the plateau, crossed the middle: ${inside}`); }
   // 14. THE MARKET SKYWAY
-  { place(277, Y, 122, Math.PI, 6); const r = ride(S.marketSky, 6, 2);
-    say('the market skyway onto the roof', Math.abs(P.pos.y - S.market[1][4]) < 0.2, `ended y ${fix(P.pos.y, 1)}`); }
+  // r55: judged on ARRIVING on the roof. Past the path's last point the harness's thumb swings round to point back at
+  // it, and with the stick as an air heading (r55) that turns her round in the hop over the crest -- a thumb nobody holds
+  { place(277, Y, 122, Math.PI, 6); let on = null; run(6, () => { along(S.marketSky, 2); city(); if (!on && P.grounded && Math.abs(P.pos.y - S.market[1][4]) < 0.2) on = P.pos.clone(); });
+    say('the market skyway onto the roof', !!on, on ? `on the roof at z ${fix(on.z, 1)}` : `ended y ${fix(P.pos.y, 1)}`); }
   return ok;
 };
 CASES.grind = () => {

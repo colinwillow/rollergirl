@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r54</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r55</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r54';
+const BUILD = 'r55';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -612,6 +612,12 @@ const AIR = {
   // now, left and right."* So the pad's X is a yaw RATE and its Y is THRUST: *"in the air you'll
   // hold forward"*, which is how you clear the back of one ramp and reach the next.
   spinFull: 0.55,      // r27: of the pad's travel at which the spin is already full speed
+  aim: 1,              // r55: 1 the stick is a HEADING in the air (she points where it points); 0 is r26's spin rate
+  aimRate: 14,         // rad/s: the fastest she turns onto it -- a 360 in 0.45 s
+  aimK: 18,            // per second: how hard she closes on it (so she settles rather than overshooting)
+  aimArm: 0.5,         // rad the thumb has to move from where it was at takeoff before it takes over
+  aimFresh: 0.2,       // s: a thumb pushed less than this before takeoff counts as meant for the air, and takes over
+  aimSteady: 3,        // rad/s of thumb rotation at which the air push fades to nothing (circling = spinning)
   spin: 7.5,           // rad/s of yaw. r26: *"she needs to rotate in the air faster"* -- 4.2 was 240
                        // deg/s, a 360 in 1.5 s, longer than most airs; 7.5 is a 360 in 0.84 s
   drift: 11,           // m/s^2 along her facing while the thumb is forward
@@ -622,6 +628,7 @@ const AIR = {
   // comes upright over `ease`, which reads as straightening out rather than as a snap.
   ease: 4.5,
   // r33: the SETTLE (right pad held down in the air) and the PRE-ALIGN -- see `stepAir`
+  settlePad: 0,        // r55: 0 -- the right pad held DOWN is a grab now, like every other direction; key F still settles
   settleAt: 0.55,      // how far DOWN the right pad has to be held
   settleDrag: 4,       // per second: how fast her horizontal speed bleeds off while settling
   settleEase: 9,       // per second: how fast her body turns onto the face below
@@ -1243,6 +1250,20 @@ function perimeter(S, r, sweep, back, apron) {
     }
     extrude(Math.sin(yaw) * S, Math.cos(yaw) * S, yaw, S, prof, false);
   }
+  // r55: AND THE BANK'S END WALLS AT EACH GATE ARE SOLID. A ramp is a floor, not a solid, so riding into the end of
+  // the bank from the gate's corridor took her INSIDE it -- and there is no floor under a bank. `npm run sim solid`
+  // found it (four frames falling through at 20,-80). A run of boxes inside each end, each topped just under the
+  // surface above it, so riding ON the bank is untouched and only going into it is stopped.
+  if (PARK.gate > 0) { const g = PARK.gate;
+    for (let i = 0; i < 4; i++) { const yaw = i * Math.PI / 2, ux = Math.cos(yaw), uz = -Math.sin(yaw), ox = Math.sin(yaw), oz = Math.cos(yaw);
+      // the profile in 1 m pieces (its long straight back slope is ONE segment from the deck to the ground, and the
+      // lower end of a single box over it would sit at zero)
+      const yAt = u => { for (let j = 0; j < i0; j++) { const a = prof[j], b = prof[j + 1]; if (u <= b.u) return a.y + (b.y - a.y) * clamp((u - a.u) / Math.max(1e-6, b.u - a.u), 0, 1); } return 0; };
+      const uEnd = prof[i0].u;
+      for (let u = 0; u < uEnd - 1e-6; u += 1) { const ub = Math.min(uEnd, u + 1), top = Math.min(yAt(u), yAt(ub), yAt((u + ub) / 2)) - 0.05;
+        if (top < 0.15) continue;
+        const um = S + (u + ub) / 2;
+        for (const sx of [-1, 1]) solidAdd(ox * um + ux * sx * (g + 0.3), oz * um + uz * sx * (g + 0.3), 0.3, (ub - u) / 2, -1, top, yaw, { top: false, tag: 'bank end' }); } } }
   if (PARK.gate > 0) { const g = PARK.gate, L = u0;
     quad([-g, 0, S], [-g, 0, S + L], [g, 0, S + L], [g, 0, S], CONC);
     quad([-g, 0, -S], [g, 0, -S], [g, 0, -S - L], [-g, 0, -S - L], CONC);
@@ -1302,7 +1323,7 @@ function buildPark() {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(cat(MESH.nrm), 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(cat(MESH.col), 3));
     g.computeBoundingSphere(); return g; };
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0.0 });
+  const mat = detailPatch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0.0 }));    // r55: the detail pass
   // THE CITY'S STAND-IN BOXES ARE THEIR OWN MESH, so the kit can switch them off when it arrives
   const F = CITY.fall || [MESH.pos.length, MESH.pos.length];
   parkMesh = new THREE.Mesh(geo([nPlaza, F[0]], [F[1], MESH.pos.length]), mat);
@@ -1314,7 +1335,7 @@ function buildPark() {
   // is coplanar with the floor to within depth precision whatever the geometry does. `polygonOffset`
   // moves only the depth the floor is tested at, not where it is drawn or collided, so her skates and
   // the collider are untouched.
-  const plazaMesh = new THREE.Mesh(geo([0, nPlaza]), mat.clone());
+  const plazaMesh = new THREE.Mesh(geo([0, nPlaza]), detailPatch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0.0 })));
   Object.assign(plazaMesh.material, { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 });
   plazaMesh.receiveShadow = true; plazaMesh.name = 'plaza';
   scene.add(plazaMesh);
@@ -3251,7 +3272,7 @@ function orbMeshes() {
     }
     return by.size;
   };
-  const litMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.0 });
+  const litMat = detailPatch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.0 }));     // r55: the detail pass
   const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
   ORB.chunks = chunk(OB.lit, litMat, 'orb', true) + chunk(OB.glow, glowMat, 'orb glow', false);
   { const g = new THREE.BufferGeometry(), K = OB.back;
@@ -4583,7 +4604,7 @@ function sliceLayers() {
   slBastion(B.x, B.z, B.r, B.y, [[2.78, 0.6], [0.8, 0.6], [-1.87, 0.6]]);    // openings where R1, R2 and the crooked bridge cross the rim
   slLamp(B.x + 2.2, B.y, B.z - 1.6); slShroom(B.x - 1.4, B.y, B.z + 0.4, 1.6, 0xff6fd0); slShroom(B.x - 0.4, B.y, B.z + 1.9, 1.1, 0x7cf0ff);
   // the ramp up to it from the far end of the north quay -- swinging out and back, not straight
-  slDeck({ pts: [[-192, Q + 0.02, 6.6], [-185, Q + 0.75, 7.0], [-177.5, Q + 2.2, 6.2], [-169.6, B.y, 4.3]], w: 3.6, wallH: 0.85, rail: true, led: 0x40e8ff, side: 'concrete',
+  slDeck({ pts: [[-192, Q + 0.02, 6.6], [-185, Q + 0.75, 7.0], [-178, Q + 2.3, 6.3], [-172.2, B.y + 0.02, 5.0], [-169.6, B.y + 0.02, 4.3]], w: 3.6, wallH: 0.85, rail: true, led: 0x40e8ff, side: 'concrete',
     skirt: Q, wallL: [[0.1, 1]], wallR: [[0.12, 1]], tags: [[0.35, 1, 'cat', 1.0], [0.6, 1, 'smile', 0.8], [0.8, -1, 'alien', 0.9]] });
   // and down to it off the terrace, out over the quay on a pier -- you can skate the quay under it
   slDeck({ pts: [[-155.6, TER + 0.02, 14.6], [-156.1, TER + 0.01, 12.0], [-157.2, TER - 0.2, 9.4], [-160.4, TER - 1.6, 7.0], [-164.0, B.y, 5.7]], w: 3.4, wallH: 0.85, rail: true, led: 0xff6fd0, side: 'concrete',
@@ -4632,6 +4653,59 @@ function sliceLayers() {
 }
 
 // ---- the street ------------------------------------------------------------------------------------------------
+// ---- r55: THE DETAIL PASS, EVERYWHERE -----------------------------------------------------------------------------
+// *"The part you textured extra looks really good -- keep running that detail pass around the whole thing."* The
+// slice's surfaces are its generated concrete and plaster with their normal maps; the park, Orbital and Neon Shores
+// were flat vertex colour. They have no UVs and no material ids -- one vertex-coloured material each -- so the
+// detail goes on IN THE SHADER, projected in WORLD METRES the way the slice's UVs are: floors and ramps take the
+// concrete (with its trowel arcs and pits), walls take the plaster on whichever side they face, and the vertex
+// colour keeps its hue -- the texture is taken as LUMINANCE divided by its own mean, so a lavender plaza stays
+// lavender and only gains a surface. The normal maps go on with it, so the sun picks the relief out.
+// Three colour and three normal fetches a fragment; `DETAIL.k` 0 on the panel turns the colour half off, `nrm` 0 the
+// relief. Built once at load and shared by every material it patches.
+const DETAIL = { on: 1, k: 0.75, nrm: 0.6, floorT: 4.0, wallT: 3.0, paveT: 5.0 };
+const DETAIL_U = new THREE.Vector4(DETAIL.k, DETAIL.nrm, 1 / DETAIL.floorT, 1 / DETAIL.wallT), DETAIL_P = { value: 1 / DETAIL.paveT };
+let DETAILTEX = null;
+function texMeanLum(t) {        // the mean LINEAR luminance of an sRGB DataTexture, so the shader can normalise by it
+  const d = t.image.data, lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  let s = 0, n = 0; for (let i = 0; i < d.length; i += 4 * 7) { s += 0.2126 * lin(d[i]) + 0.7152 * lin(d[i + 1]) + 0.0722 * lin(d[i + 2]); n++; }
+  return s / Math.max(1, n);
+}
+function detailTex() {
+  if (!DETAILTEX) { const f = slConcTex(false), w = slPlasterTex(), p = slPaveTex(); DETAILTEX = { f, w, p, m: new THREE.Vector3(1 / texMeanLum(f.map), 1 / texMeanLum(w.map), 1 / texMeanLum(p.map)) }; }
+  return DETAILTEX;
+}
+function detailPatch(mat) {
+  if (!DETAIL.on || !mat || mat.userData.detail) return mat;
+  const T = detailTex(), prev = mat.onBeforeCompile;
+  mat.userData.detail = 1;
+  mat.onBeforeCompile = (sh, r) => {
+    if (prev) prev.call(mat, sh, r);
+    Object.assign(sh.uniforms, { dF: { value: T.f.map }, dFN: { value: T.f.nrm }, dW: { value: T.w.map }, dWN: { value: T.w.nrm }, dP: { value: T.p.map }, dPN: { value: T.p.nrm }, dK: { value: DETAIL_U }, dPT: DETAIL_P, dM: { value: T.m } });
+    sh.vertexShader = 'varying vec3 vDW;\nvarying vec3 vDN;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n  vDW = (modelMatrix * vec4(transformed, 1.0)).xyz; vDN = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = 'uniform sampler2D dF, dFN, dW, dWN, dP, dPN;\nuniform vec4 dK;\nuniform float dPT;\nuniform vec3 dM;\nvarying vec3 vDW;\nvarying vec3 vDN;\n' + sh.fragmentShader
+      .replace('#include <map_fragment>', `#include <map_fragment>
+  vec3 dn_ = normalize(vDN), aw_ = abs(dn_);
+  float fl_ = smoothstep(0.5, 0.72, aw_.y), pv_ = smoothstep(0.965, 0.99, aw_.y), wx_ = aw_.x * aw_.x / max(aw_.x * aw_.x + aw_.z * aw_.z, 1e-4);
+  vec2 uF_ = vDW.xz * dK.z, uP_ = vDW.xz * dPT, uX_ = vDW.zy * dK.w, uZ_ = vDW.xy * dK.w;
+  {
+    vec3 cF = texture2D(dF, uF_).rgb, cP = texture2D(dP, uP_).rgb, cW = mix(texture2D(dW, uZ_).rgb, texture2D(dW, uX_).rgb, wx_);
+    const vec3 L = vec3(0.2126, 0.7152, 0.0722);
+    float lum = mix(dot(cW, L) * dM.y, mix(dot(cF, L) * dM.x, dot(cP, L) * dM.z, pv_), fl_);
+    diffuseColor.rgb *= mix(1.0, clamp(lum, 0.4, 1.6), dK.x);
+  }`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+  if (dK.y > 0.001) {
+    vec3 nF = mix(texture2D(dFN, uF_).xyz, texture2D(dPN, uP_).xyz, pv_) * 2.0 - 1.0, nX = texture2D(dWN, uX_).xyz * 2.0 - 1.0, nZ = texture2D(dWN, uZ_).xyz * 2.0 - 1.0;
+    vec3 pw = vec3(nF.x, 0.0, -nF.y) * fl_ + (vec3(0.0, nX.y, nX.x) * wx_ + vec3(nZ.x, nZ.y, 0.0) * (1.0 - wx_)) * (1.0 - fl_);
+    normal = normalize((viewMatrix * vec4(normalize(dn_ + pw * dK.y), 0.0)).xyz);
+  }`);
+  };
+  const key = mat.customProgramCacheKey ? mat.customProgramCacheKey.bind(mat) : null;
+  mat.customProgramCacheKey = () => 'detail:' + (key ? key() : '');
+  return mat;
+}
 // ---- r54: THE NEXUS -- the arrival, from his second painting -------------------------------------------------
 // *"More layering in the foreground ... a sunken bowl, terraced plaza."* The head of the canal used to be one 47 m
 // ramp and a strip of paving, which is what the start view looked at. Now the entry ramp is down in the gate's own
@@ -4998,7 +5072,7 @@ function slAO(mat) {
 function sliceMeshes() {
   if (!SLC.built) return;
   const t0 = performance.now();
-  const st = slStoneTex('stone'), ms = slStoneTex('masonry'), pv = slPaveTex(), cc = slConcTex(false), dk = slConcTex(true), pl = slPlasterTex(), wd = slWoodTex();
+  const DT = detailTex(), st = slStoneTex('stone'), ms = slStoneTex('masonry'), pv = DT.p, cc = DT.f, dk = slConcTex(true), pl = DT.w, wd = slWoodTex();     // r55: the three it shares with the detail pass, built once
   const win = slWindowTex(), A = orbAtlas();
   const std = (t, o) => slAO(new THREE.MeshStandardMaterial(Object.assign({ map: t.map, normalMap: t.nrm, vertexColors: true, roughness: 0.9, metalness: 0 }, o)));
   const M = {
@@ -5560,7 +5634,7 @@ const MOVES = {
   // tap, so a grab is never also a tap) she holds one of his style skates as her air pose -- over a flip or
   // a spin too, because the rotation is the physics' and the pose is the clip's. Which one is picked from
   // the thumb's direction when the hold starts; a hold pushed hard DOWN is still the settle.
-  grab: 1, grabAt: 0.3,
+  grab: 1, grabAt: 0.3, grabMin: 0.12, grabPush: 0.35,
   grabs: { centre: 'pose_duck_R', up: 'daffy', left: 'onefootfront_L', right: 'onefootfront_R', down: 'pose_swan_L' },
   // HER STYLE SKATES ON THEIR OWN (r42). *"Eventually she'll just run through her different special kinds of
   // skating on her own -- going forward she'll go through different ones naturally, a fun stylized thing."*
@@ -6897,14 +6971,43 @@ function stepAir(dt) {
   // r47: right pad held UP during a locked vert air: it becomes a transfer
   if (p.vertLock && VERT.holdXferOn > 0.5 && stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y) vertRelease();
   const hold = p.vertLock && VERT.holdTilt > 0.5 && p.vertQ;
-  p.heading -= sk * AIR.spin * dt;
-  if (hold) p.vertSpin -= sk * AIR.spin * dt;
+  // r55: SHE POINTS WHERE THE STICK POINTS. *"Her direction -- she points in whatever direction the stick is turned,
+  // so you can rotate your thumb round in a circle to actually rotate her."* The stick is a HEADING in the air, read
+  // through the camera exactly as on the ground (`stickWorld`), and she turns onto it at up to `aimRate` -- so a thumb
+  // circling the pad is a spin at the thumb's own speed, and a thumb held still is a direction she holds.
+  // It only TAKES OVER once the thumb has moved: a thumb still held from the run-up (forward, up a pipe) would
+  // otherwise pin her nose and cancel the vert air's automatic 180. Released and pressed again counts as moved.
+  let thrust = 0;
+  if (AIR.aim > 0.5) {
+    const w = stickWorld(), held = w.mag > 0, a = held ? Math.atan2(w.x, w.z) : 0;
+    // a thumb pushed for a while already is the run-up's; one pushed just now is meant for the air
+    if (p.airT <= dt + 1e-9) { p.aimA0 = held && p.lHold > AIR.aimFresh ? a : null; p.aimOn = 0; p.aimW = 0; p.aimPrev = held ? a : null; }
+    if (!held) { p.aimA0 = null; p.aimPrev = null; }        // let go: the next push takes over at once
+    else {
+      if (!p.aimOn && (p.aimA0 == null || Math.abs(wrapAngle(a - p.aimA0)) > AIR.aimArm)) p.aimOn = 1;
+      // how fast the thumb itself is going round: a circling thumb is a spin, not a direction to fly in
+      p.aimW = damp(p.aimW || 0, p.aimPrev == null ? 0 : wrapAngle(a - p.aimPrev) / Math.max(dt, 1e-4), 0.08, dt); p.aimPrev = a;
+      if (!p.aimOn) thrust = Math.max(0, -sy);   // still the run-up's thumb: it carries her as before
+      else {
+        if (p.autoTurn) p.autoTurn.left = 0;                  // she is being turned by hand now
+        const err = wrapAngle(a - p.heading), want = clamp(err * AIR.aimK, -AIR.aimRate, AIR.aimRate) * dt;
+        const d = Math.abs(want) > Math.abs(err) ? err : want;
+        p.heading += d; if (hold) p.vertSpin += d;
+        thrust = w.mag * Math.max(0, Math.cos(err)) * clamp(1 - Math.abs(p.aimW) / AIR.aimSteady, 0, 1);
+      }
+    }
+  } else {
+    p.heading -= sk * AIR.spin * dt;
+    if (hold) p.vertSpin -= sk * AIR.spin * dt;
+    thrust = Math.max(0, -sy);
+  }
   const AT = p.autoTurn;
   if (AT && AT.left > 0) { const d = Math.min(AT.left, AT.rate * dt); p.heading += AT.side * d; AT.left -= d; if (hold) p.vertSpin += AT.side * d; }
   // *"In the air you'll hold forward"* -- which is how you get over the back of one ramp and
   // reach the next. Capped by how much it has already added, so a long flight is not a free one.
-  if (sy < 0 && p.drift < AIR.driftMax && !p.kickRail) {      // a kick solved onto a rail flies its own line
-    const add = Math.min(-sy * AIR.drift * dt, AIR.driftMax - p.drift);
+  // r55: with the stick as a heading, the push is along where she points, while the thumb is held steady there.
+  if (thrust > 0.01 && p.drift < AIR.driftMax && !p.kickRail) {      // a kick solved onto a rail flies its own line
+    const add = Math.min(thrust * AIR.drift * dt, AIR.driftMax - p.drift);
     let ax = Math.sin(p.heading) * add, az = Math.cos(p.heading) * add;
     // A TAPPED VERT AIR STAYS IN THE PIPE (r25): *"if you tap, no matter what, you come back down."*
     // The thumb can still carry her ALONG the coping, never out over it -- the swipe is the way out.
@@ -6946,7 +7049,7 @@ function stepAir(dt) {
   //              the face so she arrives already matching it and the landing has nothing left to
   //              snap. Further out she rights to plumb as before.
   // Not mid-flip: the flip owns her rotation until it is round.
-  const settle = !p.flip && ((stick.R.down && stick.R.y > AIR.settleAt && Math.abs(stick.R.x) < stick.R.y) || keys.f);
+  const settle = !p.flip && ((AIR.settlePad > 0.5 && stick.R.down && stick.R.y > AIR.settleAt && Math.abs(stick.R.x) < stick.R.y) || keys.f);
   p.settling = !!settle;
   swingOf(_q, _qb);
   let rate = AIR.ease;
@@ -7218,8 +7321,18 @@ function grabStep() {
   const air = !p.grounded && !p.grind && p.bailT <= 0;
   if (p.xferHold) { if (!R.down) p.xferHold = 0; p.grab = null; return; }     // r47: that hold was a transfer
   if (!air || !R.down || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
-  if (p.grab || p.rHold < MOVES.grabAt) return;
-  const k = Math.hypot(R.x, R.y) < 0.35 ? 'centre' : Math.abs(R.x) > Math.abs(R.y) ? (R.x > 0 ? 'right' : 'left') : (R.y < 0 ? 'up' : 'down');
+  // r55: *"The grabs don't really work."* Two reasons, both fixed. The direction was decided ONCE, at `grabAt` after
+  // the press -- and the stick floats, so the thumb lands as the centre and at 0.3 s it had often not moved yet:
+  // every grab came out as the centre one, and pushing the thumb over afterwards changed nothing. And held DOWN it was
+  // the settle, never a grab. Now a thumb pushed out past `grabPush` grabs after `grabMin`, the centre one still
+  // needs the full `grabAt`, and the grab FOLLOWS the thumb -- swing it round and she changes grab.
+  const mag = Math.hypot(R.x, R.y), dirK = Math.abs(R.x) > Math.abs(R.y) ? (R.x > 0 ? 'right' : 'left') : (R.y < 0 ? 'up' : 'down');
+  let k = null;
+  if (mag > MOVES.grabPush && p.rHold >= MOVES.grabMin) k = dirK;
+  else if (p.grab && mag > MOVES.grabPush * 0.6) k = p.grab.k;           // a little hysteresis between directions
+  else if (p.rHold >= MOVES.grabAt) k = 'centre';
+  if (!k) { p.grab = null; return; }
+  if (p.grab && p.grab.k === k) return;
   const pair = m && m.grabs ? (m.grabs[k] || m.grabs.centre) : null;
   const nm = pair ? ((p.stance < 0 && MOVES.useBack > 0.5 && pair[1]) || pair[0] || pair[1]) : null;
   p.grab = { k, nm };
@@ -7241,6 +7354,7 @@ function rightFlick(dx, dy) {
 function stepPlayer(dt) {
   const p = player;
   p.rHold = stick.R.down ? p.rHold + dt : 0;
+  p.lHold = stickWorld().mag > 0 ? (p.lHold || 0) + dt : 0;     // r55: how long the left thumb has been pushed (the air aim asks)
   // `jump` 1 is a TAP (constrained on vert), 2 is the right pad's SWIPE UP (the transfer)
   if (p.jump) { const xfer = p.jump === 2; p.jump = 0;
     // r41: a TAP near a rail -- on the ground or in the air -- is a hop onto it; the swipe (transfer) never is
@@ -7533,7 +7647,9 @@ function stepCam(dt) {
   // THE RIGHT PAD ORBITS IN A CIRCLE AND NOTHING ELSE. `cam.el` is a constant: there is no
   // pitch on this stick, by design -- a skating camera that can be pointed at the sky is a
   // camera you spend the whole session putting back.
-  const rx = stick.R.x;
+  // r55: in the air the right pad is the GRABS, so it does not also orbit -- held left it was swinging the lens round
+  // her for the whole flight while she held the grab
+  const rx = (!p.grounded && !p.grind && MOVES.grab) ? 0 : stick.R.x;
   const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
   if (yaw) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
   if (!stick.L.down) { cam.steerAz = cam.az; cam.thA = null; }   // no left thumb: the frames agree (see stickWorld)
@@ -7680,6 +7796,7 @@ function frame() {
   if (LOOK.at === undefined) LOOK.at = LOOK.style;
   if (LOOK.style !== LOOK.at) { LOOK.at = LOOK.style; try { localStorage.setItem('rg.style', String(Math.round(LOOK.style))); } catch (e) {} }
   if (LOOK.bright) { renderer.toneMappingExposure = LOOK.exposure; scene.environmentIntensity = LOOK.envI; scene.backgroundIntensity = LOOK.bgI; }
+  DETAIL_U.set(DETAIL.k, DETAIL.nrm, 1 / DETAIL.floorT, 1 / DETAIL.wallT); DETAIL_P.value = 1 / DETAIL.paveT;
   if (window.__shotCam) window.__shotCam(camera);     // tools/shot.mjs: a fixed lens for a screenshot
   renderer.render(scene, camera);
 }
@@ -7856,6 +7973,18 @@ const TAILUI = [
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
   ['AIR.driftMax',   'Transfer push',  0,   16,  0.5,  ''],
   ['AIR.spin',       'Air spin speed', 1,   16,  0.25, ''],
+  ['Surfaces (r55)', ''],
+  ['DETAIL.k',       'Surface texture', 0, 1.2, 0.05, ''],
+  ['DETAIL.nrm',     'Surface relief',  0, 1.5, 0.05, ''],
+  ['DETAIL.floorT',  'Ramp texture size', 1, 12, 0.25, 'm'],
+  ['DETAIL.paveT',   'Paving size (a slab is a quarter)', 1, 12, 0.25, 'm'],
+  ['DETAIL.wallT',   'Wall texture size', 1, 12, 0.25, 'm'],
+  ['Air turning (r55)', ''],
+  ['AIR.aim',        'Stick points her (0 = spin rate)', 0, 1, 1, ''],
+  ['AIR.aimRate',    'Fastest air turn', 3, 30, 0.5, ''],
+  ['AIR.aimK',       'Air turn snap',  2,   40,  1,    ''],
+  ['AIR.aimArm',     'Thumb move to take over', 0, 90, 5, '', 'deg'],
+  ['AIR.settlePad',  'Hold down = settle (else a grab)', 0, 1, 1, ''],
   ['LAND.flipMax',   'Longest flip',   0.4, 2.5, 0.05, 's'],
   ['City (r45)', ''],
   ['SOLID.bounce',   'Wall bounce',    0,   0.8, 0.02, ''],
@@ -7885,7 +8014,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
