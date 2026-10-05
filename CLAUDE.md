@@ -307,6 +307,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE LOOP TURNED HER UPSIDE DOWN IN THE PHYSICS AND NEVER ON SCREEN (r48, `bodyAlign`).** *"Her head just
+  always points up."* A grind counts as grounded with `p.n` straight up, and `poseGirl`'s grounded block rebuilt
+  `p.bq` upright from that every frame -- throwing away the tangent-and-up body `stepGrind` builds from an `ups`
+  rail. r45's sim read `p.bq` straight after `stepPlayer`, before that overwrite, so it passed on a bug the phone
+  showed every time. The block is `bodyAlign(dt)` now (callable without a skin), skips an `ups` rail, and sets
+  `wasGr` false there so the landing after the loop eases from the body she left it with. `npm run sim city` calls it
+  every frame and requires her up within 12 deg of the loop's centre all the way round (4.1 measured).
+  Revert-tested: with the skip removed it reads 24 deg and fails.
+  **A HARNESS THAT READS STATE BEFORE THE LAST WRITER HAS RUN IS MEASURING A FRAME NOBODY SEES.**
+- **THE STREET RAILS ARE UP IN THE AIR (r48, `CITY.railK`).** *"The new grind rails are very low -- they want to be up
+  in the air cause she jumps really high."* r45 typed them 0.4-1 m over what was under them. Every city rail now
+  starts `CITY.railK` (.85) of her apex (3.3 m) over its surface, the park rails' rule: B -> C over the roofs, the
+  loop's lead-in and exit, the spiral's foot. The low bench rail is gone; the bench is just a box now (moved to
+  x -16.5) and a high STREET RAIL beside it runs on OVER the hydrant, whose grind check takes anything up to
+  `HYD.grindOver` (4.8 m) above it, so grinding over it still knocks the cap off. `npm run sim city`: lowest
+  rail start 3.32 m over its surface, and a tap under the street rail grinds it and breaks the hydrant.
 - **A HELD LEFT THUMB IS A FIXED DIRECTION (r47, `CAM.steerLatch`, `CAM.steerRe`, `cam.thA`).** *"I'm pushing
   this direction and she's not going that direction -- I'll be holding left and she's still going right."* The
   follow camera dragged the steering frame round with it (`cam.steerAz += d`, since r28), so a thumb held STILL

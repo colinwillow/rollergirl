@@ -1696,11 +1696,29 @@ CASES.city = async () => {
     const onRoof = P.grounded && Math.abs(P.pos.y - 30) < 0.3 && P.pos.x > -57.5 && P.pos.x < -42.5 && P.pos.z > 202.5 && P.pos.z < 217.5;
     say('the spiral, street to roof', onRoof, `${fix(t, 1)} s on it, slowest ${fix(low, 1)} m/s, ended at ${fix(P.pos.x, 1)}, ${fix(P.pos.y, 1)}, ${fix(P.pos.z, 1)}`); }
   // 7. THE LOOP: all the way round, upside down at the top, out the far end
+  // r48: her up is read AFTER `bodyAlign`, the step `poseGirl` runs on the phone -- r45 read it straight after
+  // `stepPlayer`, so it passed while `poseGirl` stood her back upright on every frame of the loop. And her up has to
+  // point at the loop's CENTRE all the way round, not merely go negative somewhere.
   { const lp = path('loop'); place(30, 1, 227, 0, 0);
     rg.enterGrind({ rail: lp.segs[0], t: 0.1, dir: 1, s: 12, side: 'left' });
-    let minUp = 1, done = false, slow = 99;
-    run(8, () => { if (P.grind) { const u = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq); minUp = Math.min(minUp, u.y); slow = Math.min(slow, P.grind.s); } else done = true; });
-    say('the loop, round and out', done && minUp < -0.9 && P.pos.z > 254, `her up reached y ${fix(minUp)}, slowest ${fix(slow, 1)} m/s, out at z ${fix(P.pos.z, 1)}`); }
+    let minUp = 1, done = false, slow = 99, worstC = 0, loopF = 0; const cy = lp.segs[0].a.y + 6, u = new THREE.Vector3();
+    run(8, () => { rg.bodyAlign(DT); if (P.grind) { u.set(0, 1, 0).applyQuaternion(P.bq); minUp = Math.min(minUp, u.y); slow = Math.min(slow, P.grind.s);
+      const dy = cy - P.pos.y, dz = 241 - P.pos.z, d = Math.hypot(dy, dz);
+      if (P.pos.y > lp.segs[0].a.y + 0.5 && d > 4) { loopF++; worstC = Math.max(worstC, Math.acos(Math.max(-1, Math.min(1, (u.y * dy + u.z * dz) / d))) * 180 / Math.PI); } } else done = true; });
+    say('the loop, round and out (as drawn)', done && minUp < -0.9 && P.pos.z > 254 && loopF > 10 && worstC < 12,
+      `her up reached y ${fix(minUp)}, ${fix(worstC, 1)} deg worst off the loop's centre over ${loopF} frames, slowest ${fix(slow, 1)} m/s, out at z ${fix(P.pos.z, 1)}`); }
+  // r48: THE RAILS ARE UP IN THE AIR. Every street rail he built for her stands at least 2.5 m over what is under it
+  // (the bar's own posts measure down the same way), and the street rail beside the bench knocks the hydrant's cap
+  // off as she grinds over it.
+  { const apex = rg.AIR.jump * rg.AIR.jump / (2 * rg.SK.g); let low = null;
+    for (const nm of ['B to C', 'street rail', 'loop', 'spiral']) {
+      const q = path(nm).segs[0].a, g = rg.groundAt(q.x, q.z, q.y - 0.3, 0), top = g.hit ? g.floor : 0;
+      const h = q.y - top; if (!low || h < low.h) low = { nm, h }; }
+    say('the street rails are up in the air', low.h > 2.5, `lowest start: ${low.nm} ${fix(low.h, 2)} m over what is under it (apex ${fix(apex, 2)})`);
+    const st = path('street rail'), H = rg.HYD.list.find(h => Math.abs(h.x + 20) < 0.1 && Math.abs(h.z - 250.4) < 0.1);
+    place(-20, 0, 233, 0, 7); P.jump = 1; let on = false;
+    run(5, () => { rg.stepCity(DT); if (P.grind && P.grind.rail.path === st) on = true; });
+    say('a tap under the street rail, over the hydrant', on && !!H && H.broken, `${on ? 'grinded it' : 'never caught'}, hydrant ${H ? (H.broken ? 'cap off' : 'intact') : 'missing'}`); }
   // 8. THE TOWER RAIL (r45's zip line, a grind rail since r47): a tap at the gap in the tower's parapet; and rolling
   // off the gap with no tap
   { const zp = path('tower rail');

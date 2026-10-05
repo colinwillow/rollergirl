@@ -164,7 +164,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r47</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r48</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
@@ -184,7 +184,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r47';
+const BUILD = 'r48';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1532,7 +1532,7 @@ function grindLeave(pop) {
 //   PATHS    rails as chains of segments (above): spirals, loops, zip lines, boosters.
 // The district sits NORTH of the park, through the gate in the north bank.
 // =====================================================================================================
-const CITY = { on: 1, bay: 3, floor: 3 };
+const CITY = { on: 1, bay: 3, floor: 3, railK: 0.85 };   // railK (r48): the street rails' height, a fraction of her apex like the park's
 // ---- SOLIDS ----------------------------------------------------------------------------------------
 // An ORIENTED box: centre, half sizes, a yaw, a bottom and a top. Its top is added to the floor collider
 // (so a roof is ridden exactly like the plaza), and its sides push her out along the face she is least
@@ -1909,7 +1909,7 @@ function levelIngest(vis, col, place, name) {
 // (`prop_hydrant.glb`, `on_break: water_geyser`). Hit it hard enough -- skate into it, strike it, or
 // grind past it -- and the cap comes off and a column of water goes up. AND THE WATER LIFTS HER: ride into
 // the column and it carries her up, which is what turns a broken hydrant into a way onto a roof.
-const HYD = { file: 'models/props/prop_hydrant.glb', breakV: 6, seam: 0.62, reach: 1.7, grindReach: 2.2, list: [], parts: null };
+const HYD = { file: 'models/props/prop_hydrant.glb', breakV: 6, seam: 0.62, reach: 1.7, grindReach: 2.2, grindOver: 4.8, list: [], parts: null };
 const GEY = { life: 18, rate: 140, v: 12.5, spread: 1.4, n: 700, plife: 1.5, g: 14, h: 7.5, r: 0.95, acc: 60, vmax: 13 };
 function hydrant(x, z) {
   const g = groundAt(x, z, 2, 4), y = g.hit ? g.floor : 0;
@@ -1997,7 +1997,7 @@ function stepHydrants(dt) {
       // a strike, or a grind going past, knocks the top off too
       const d = Math.hypot(p.pos.x - H.x, p.pos.z - H.z);
       if (p.mel && p.mel.kind !== 'kick' && d < HYD.reach && Math.abs(p.pos.y - H.y) < 1.5) hydBreak(H);
-      else if (p.grind && d < HYD.grindReach && Math.abs(p.pos.y - H.y) < 1.8) hydBreak(H);
+      else if (p.grind && d < HYD.grindReach && p.pos.y - H.y > -0.5 && p.pos.y - H.y < HYD.grindOver) hydBreak(H);   // r48: the rails are up in the air, so OVER it counts
       continue;
     }
     H.t += dt;
@@ -2082,7 +2082,7 @@ function gemStep(dt) {
 //                 keep her up there, and a gap in the parapet where the ZIP LINE leaves for the far end
 //   THE LOOP      a booster rail that goes all the way round a vertical loop, with gems round it
 //   HIS BUILDINGS BKG0-3 from his generator, imported as they are, with a bank onto the low one
-//   STREET STUFF  a bench rail that ends at a hydrant, more hydrants, one at the foot of C's wall
+//   STREET STUFF  a high street rail beside a bench that runs on over a hydrant, more hydrants, one at the foot of C's wall
 CITY.benches = [];
 CITY.spots = {};
 function buildCity() {
@@ -2104,7 +2104,7 @@ function buildCity() {
   kicker(46, 156, Math.PI / 2, 5, 4, 30 * Math.PI / 180, 12);
   // onto HIS low building: to the top of its parapet (4.02 m), so she rolls over it and drops onto the roof
   bank(-85.5, 143, 0, 6, 0, 4.06, 9);
-  bench(-20, 236, -20, 248);
+  bench(-16.5, 236, -16.5, 248);   // r48: a bench to ollie onto; the RAIL is the high one beside it, over the hydrant
   for (const b of CITY.benches) {
     const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), sx = Math.cos(b.yaw), sz = -Math.sin(b.yaw);
     // drawn as a slab on two feet (scenery: the box above is what she hits)
@@ -2119,7 +2119,7 @@ function buildCity() {
       quad(A, B, C, D, 0x55505c, false); quad(B, A, D, C, 0x55505c, false); }
   }
   hydrant(58.6, 195);       // at the foot of C's wall: its geyser is a lift onto C's roof
-  hydrant(-20, 250.4);      // at the end of the bench rail: grind off the end into it
+  hydrant(-20, 250.4);      // under the end of the street rail: grind over it and the cap comes off
   hydrant(12, 132); hydrant(-12, 141); hydrant(40, 214);
   CITY.spots = { park: [0, 0.2, -6, 0], street: [0, 0.2, 128, 0], steps: [0, 0.2, 156, Math.PI / 2],
     top: [42, 12.2, 156, Math.PI / 2], tower: [-50, 0.2, 192, Math.PI / 2], roof: [-50, 30.2, 208, 0],
@@ -2129,13 +2129,20 @@ function buildCity() {
 function cityRails() {
   if (!CITY.on) return;
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
-  // B -> C: off B's north edge, down three metres onto C
-  const bc = railPath(railLine(V(69, 9.4, 162.5), V(69, 6.4, 188.5), 2), { name: 'B to C' });
-  railDraw(bc, { postMax: 10 }); gemsAlong(bc, 6, 0.9);
-  for (const b of CITY.benches) { const P = railPath(railLine(b.a, b.b, 2), { name: 'bench' }); railDraw(P, { posts: false }); }
+  // r48: *"The grinding rails need to be higher up -- the new ones you built are very low and they want to be up in
+  // the air, cause she jumps really high."* r45 typed them 0.4-1 m off whatever was under them, a kerb to someone
+  // who tops out near 3.9 m. Every street rail is now `CITY.railK` of her apex over the surface it stands on --
+  // the park rails' rule (r33) -- so retuning the jump moves them too.
+  const hi = AIR.jump * AIR.jump / (2 * SK.g) * CITY.railK;
+  // B -> C: up over B's north edge, down three metres to over C
+  const bc = railPath(railLine(V(69, 9 + hi, 162.5), V(69, 6 + hi, 188.5), 2), { name: 'B to C' });
+  railDraw(bc, { postMax: 14 }); gemsAlong(bc, 6, 0.9);
+  // the STREET RAIL: beside the bench, high, and on over the hydrant at its far end -- grind it and the cap flies
+  const st = railPath(railLine(V(-20, hi, 236), V(-20, hi, 252), 2), { name: 'street rail' });
+  railDraw(st, { every: 8 }); gemsAlong(st, 3, 0.9, 3);
   // THE SPIRAL: two and three quarter turns round the tower at 12.5 m, 0.9 m off the street to 31.4 m,
-  // then curling in over the roof -- heading for the EAST parapet, never for the gap the zip leaves by. A BOOSTER, because 30 m of climb is 24 m/s of speed she does not have.
-  const cx = -50, cz = 210, R = 12.5, turns = 2.75, y0 = 0.9, y1 = 31.4, a0 = -Math.PI / 2, sp = [];   // y1 clears the parapet (31.02)
+  // then curling in over the roof (r48: it starts `hi` off the street like every other rail) -- heading for the EAST parapet, never for the gap the zip leaves by. A BOOSTER, because 30 m of climb is 24 m/s of speed she does not have.
+  const cx = -50, cz = 210, R = 12.5, turns = 2.75, y0 = hi, y1 = 31.4, a0 = -Math.PI / 2, sp = [];   // y1 clears the parapet (31.02)
   const N = Math.ceil(turns * 2 * Math.PI * R / 1.5);
   for (let i = 0; i <= N; i++) { const u = i / N, a = a0 + u * turns * 2 * Math.PI; sp.push(V(cx + R * Math.cos(a), y0 + (y1 - y0) * u, cz + R * Math.sin(a))); }
   const aE = a0 + turns * 2 * Math.PI;
@@ -2155,10 +2162,10 @@ function cityRails() {
   // THE LOOP: in along Z, all the way round a 6 m vertical loop (shifting 2.5 m sideways so it clears
   // itself), out along Z. Her "up" points at the loop's centre all the way round, so at the top she is
   // upside down -- the rail is the frame.
-  const lp = [], ups = [], LR = 6, LN = 44;
-  for (let z = 226; z < 240.9; z += 1.5) { lp.push(V(30, 1, z)); ups.push(V(0, 1, 0)); }
-  for (let i = 0; i <= LN; i++) { const ph = i / LN * Math.PI * 2; lp.push(V(30 + 2.5 * i / LN, 1 + LR - LR * Math.cos(ph), 241 + LR * Math.sin(ph))); ups.push(V(0, Math.cos(ph), -Math.sin(ph))); }
-  for (let z = 242.5; z <= 257.1; z += 1.5) { lp.push(V(32.5, 1, z)); ups.push(V(0, 1, 0)); }
+  const lp = [], ups = [], LR = 6, LN = 44, ly = hi;
+  for (let z = 226; z < 240.9; z += 1.5) { lp.push(V(30, ly, z)); ups.push(V(0, 1, 0)); }
+  for (let i = 0; i <= LN; i++) { const ph = i / LN * Math.PI * 2; lp.push(V(30 + 2.5 * i / LN, ly + LR - LR * Math.cos(ph), 241 + LR * Math.sin(ph))); ups.push(V(0, Math.cos(ph), -Math.sin(ph))); }
+  for (let z = 242.5; z <= 257.1; z += 1.5) { lp.push(V(32.5, ly, z)); ups.push(V(0, 1, 0)); }
   const loop = railPath(lp, { boost: 16, boostK: 12, ups, name: 'loop' });
   railDraw(loop, {});
   gemsAlong({ segs: loop.segs.filter(S => S.ua.y < 0.97 || S.ub.y < 0.97) }, 4, 0.9, 2);
@@ -4459,6 +4466,24 @@ function hipLeanApply() {
   worldRot(H, _hl.setFromAxisAngle(_hv, a));
 }
 function hipLeanUndo() { if (girl.leanSave && girl.hipsB) { girl.hipsB.quaternion.copy(girl.leanSave); girl.leanSave = null; } }
+// THE GROUNDED BODY, rebuilt from the surface every frame -- EXCEPT ON A RAIL THAT CARRIES ITS OWN UP (r48).
+// *"Her head should point towards the centre of the loop -- right now her head just always points up."* A grind
+// counts as grounded with `p.n` straight up, so this block rebuilt her upright on every frame of the loop and threw
+// away the tangent-and-up body `stepGrind` had just built from the rail: the loop turned her upside down in the
+// physics (r45's sim checked `p.bq` straight after `stepPlayer`, and passed) and never on screen. On an `ups` rail
+// the rail IS the frame, so it is left alone -- and `wasGr` goes false there, so the first frame back on the ground
+// eases from the body she actually came off the loop holding. Split out of `poseGirl` (which returns early without
+// a skin) so `npm run sim city` runs the path the phone runs.
+function bodyAlign(dt) {
+  const p = player, onUps = !!(p.grind && p.grind.rail && p.grind.rail.ua);
+  if (p.grounded && !onUps) {
+    if (!girl.alignQ) girl.alignQ = new THREE.Quaternion();
+    if (!girl.wasGr) girl.alignQ.copy(swingOf(p.bq, _q2));       // from whatever she landed holding
+    girl.alignQ.slerp(_q.setFromUnitVectors(UP, p.n), Math.min(1, (p.bailT > 0 ? AIR.right : RIG.tiltRate) * dt));
+    p.bq.copy(girl.alignQ).multiply(_qa.setFromAxisAngle(UP, p.faceH)).multiply(_q.setFromAxisAngle(ZAX, p.lean * (1 - RIG.hipLean)));
+  }
+  girl.wasGr = p.grounded && !onUps;
+}
 function poseGirl(dt) {
   if (!girl.ready) return;
   const p = player;
@@ -4476,13 +4501,7 @@ function poseGirl(dt) {
   // r27: ONLY THE TILT IS EASED. Slerping the whole pose eased the YAW too, on top of `faceH`'s own
   // ease -- a turn smoothed twice, which is half of what read as a boat. The tilt (`alignQ`, her
   // up onto the surface) is eased; the yaw and the lean are taken as they are.
-  if (p.grounded) {
-    if (!girl.alignQ) girl.alignQ = new THREE.Quaternion();
-    if (!girl.wasGr) girl.alignQ.copy(swingOf(p.bq, _q2));       // from whatever she landed holding
-    girl.alignQ.slerp(_q.setFromUnitVectors(UP, p.n), Math.min(1, (p.bailT > 0 ? AIR.right : RIG.tiltRate) * dt));
-    p.bq.copy(girl.alignQ).multiply(_qa.setFromAxisAngle(UP, p.faceH)).multiply(_q.setFromAxisAngle(ZAX, p.lean * (1 - RIG.hipLean)));
-  }
-  girl.wasGr = p.grounded;
+  bodyAlign(dt);
   bodyG.quaternion.copy(p.bq);
   // THE PROCEDURAL FLIP rides on top of the body quaternion, about the air pivot. Landed before
   // it got round (bails are off), the unfinished turn UNWINDS the short way rather than snapping,
@@ -5003,7 +5022,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
