@@ -11,7 +11,8 @@
     "sim": "node tools/sim.mjs",
     "clips": "node tools/clips.mjs",
     "icons": "node tools/icons.mjs",
-    "borrow": "node tools/borrow.mjs"
+    "borrow": "node tools/borrow.mjs",
+    "shot": "node tools/shot.mjs"
   },
   "type": "module",
   "devDependencies": {

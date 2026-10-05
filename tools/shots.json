@@ -1,0 +1,7 @@
+[
+ {"name":"s_play","spot":"slice","wait":3500},
+ {"name":"s_hero","spot":"slice","pos":[-109,6.8,9],"look":[-150,3.5,-6],"fov":60,"wait":1500},
+ {"name":"s_bridge","spot":"slice","pos":[-128,5.2,-21],"look":[-152,3.5,-4],"fov":60,"wait":1500},
+ {"name":"s_terrace","spot":"slice terrace","pos":[-138,12.5,15],"look":[-178,4,-12],"fov":60,"wait":2500},
+ {"name":"s_mural","spot":"slice","pos":[-108,5,4],"look":[-118,6,21.5],"fov":60,"wait":1500}
+]

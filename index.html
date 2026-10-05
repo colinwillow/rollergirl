@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r51</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r52</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r51';
+const BUILD = 'r52';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1235,7 +1235,7 @@ function perimeter(S, r, sweep, back, apron) {
     // r49: AND THE SOUTH EDGE HAS ONE TOO, out to the canal quarter -- the same two pieces, mirrored
     // r50: AND THE EAST EDGE, out to Neon Shores. The two pieces sit either side of the edge's middle, offset along
     // the edge itself -- which is x for north and south and z for east.
-    if ((i === 0 || i === 1 || i === 2) && PARK.gate > 0) {
+    if (PARK.gate > 0) {     // r52: and the WEST edge, out to the slice -- all four now
       const g = PARK.gate, hw = (S - g) / 2, ex = Math.sin(yaw) * S, ez = Math.cos(yaw) * S, ux = Math.cos(yaw), uz = -Math.sin(yaw);
       for (const sx of [-1, 1]) extrude(ex + ux * sx * (g + hw), ez + uz * sx * (g + hw), yaw, hw, prof, true);
       extrude(ex, ez, yaw, g, prof.slice(i0), false);           // the outer bank runs across the gate too
@@ -1246,7 +1246,8 @@ function perimeter(S, r, sweep, back, apron) {
   if (PARK.gate > 0) { const g = PARK.gate, L = u0;
     quad([-g, 0, S], [-g, 0, S + L], [g, 0, S + L], [g, 0, S], CONC);
     quad([-g, 0, -S], [g, 0, -S], [g, 0, -S - L], [-g, 0, -S - L], CONC);
-    quad([S, 0, -g], [S, 0, g], [S + L, 0, g], [S + L, 0, -g], CONC); }
+    quad([S, 0, -g], [S, 0, g], [S + L, 0, g], [S + L, 0, -g], CONC);
+    quad([-S, 0, g], [-S, 0, -g], [-S - L, 0, -g], [-S - L, 0, g], CONC); }
   // the wall on the edge deck: four straight runs and a ring of chords round each corner -- invisible,
   // and no floor on top, so nothing can stand on it and nothing gets past it
   const E = PARK.edge, D = S + E.u, wy0 = E.y - 0.5, wy1 = E.y + 40;
@@ -1286,13 +1287,16 @@ function buildPark() {
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
+  buildSlice();      // r52: the slice -- one street of the painting built to a look, west through the west gate
   triBuild();
   solidBuild();
   buildRails();      // AFTER the collider: each post is measured down to the ground under it
   orbitalRails();    // before cityRails, whose gemBuild has to see this district's gems too
+  sliceRails();
   cityRails();
   hydDraw(); geyMake();
   orbMeshes();
+  sliceMeshes();
   const geo = (...rs) => { const g = new THREE.BufferGeometry(), cat = (A) => rs.flatMap(([a, b]) => A.slice(a, b));
     g.setAttribute('position', new THREE.Float32BufferAttribute(cat(MESH.pos), 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(cat(MESH.nrm), 3));
@@ -3262,6 +3266,7 @@ function orbMeshes() {
     add(new THREE.Mesh(g, mat), 'signs').renderOrder = 2; }
   // the water: the canal glows, the fountain is clear. A texture scrolled every frame is the whole effect.
   for (const W of ORB.water) {
+    if (W.draw === false) continue;      // r52: the slice draws its own water
     const tex = streakTex(256, 256, '#' + W.col.toString(16).padStart(6, '0'), '#' + W.col2.toString(16).padStart(6, '0'), true);
     tex.repeat.set((W.x1 - W.x0) / 10, (W.z1 - W.z0) / 10);
     const m = add(new THREE.Mesh(new THREE.PlaneGeometry(W.x1 - W.x0, W.z1 - W.z0).rotateX(-Math.PI / 2),
@@ -3875,6 +3880,921 @@ function buildShores() {
     canals: [200, Y + 0.2, -62.5, -Math.PI / 2], overflow: [216, Y + 0.2, -70, Math.PI], bowls: [278, Y + 0.2, -30, Math.PI] });
   SH.built = 1;
 }
+
+// ================================================================================================================
+// THE SLICE (r52): one street of his concept painting, built to a LOOK rather than to a layout.
+// *"Why don't you build the slice -- I just wanted to compare it, to see if it even makes sense to go the Blender
+// route."* Everything else in this file is flat vertex colour; this block is the opposite experiment, and it is
+// self-contained so it can be thrown away or copied whole. West of the park, through a fourth gate.
+// WHAT IS DIFFERENT FROM ORBITAL/SHORES, and each one is a technique rather than a model:
+//   TEXTURES      every surface carries a real material -- sandstone ashlar, rough canal masonry, paving slabs,
+//                 trowelled concrete, plaster -- generated at load into typed arrays (no canvas, no files), each
+//                 with a NORMAL MAP derived from its own height field, UVs projected in WORLD METRES so the
+//                 texel density is the same on a kerb and a tower
+//   GEOMETRY      chamfered boxes (the 45-degree bevel is what catches the light on an edge), arches cut out of
+//                 extruded shapes, lathed lamp posts, tubes for rails and the pipe
+//   GROUNDING     a per-vertex HEIGHT-ABOVE-ITS-BASE attribute darkens every wall into the floor it stands on --
+//                 contact AO without a second pass; the gradient is evaluated per FRAGMENT so a 9 m wall with
+//                 vertices only at top and bottom still gets a tight dark foot
+//   WATER         a shader: two scrolling normal layers, fresnel to the sky, a sun glint, caustic shimmer and
+//                 foam along the walls -- the canal glows the way the painting's does
+//   LIGHT         lamps and neon carry additive glow cards, so they read as lit in daylight without a bloom pass
+//   LIFE          hanging ivy, planters, crates, cones, a vending machine, boats bobbing, a slime pipe pouring
+// It rides the existing machinery for everything that PLAYS: floors into the triangle collider, walls as solids,
+// rails as rail paths, the canal as an ORB water rect (splash and put back).
+const SLC = { on: 1, Q: 3, WY: 0.7, TER: 9, built: 0, glows: [], anim: [], meshes: [],
+  canal: { x0: -204, x1: -117, z0: -14, z1: 0 },
+  br: { x: -150, hw: 4, z0: -17, z1: 3, zc: -7, rise: 1.8 },
+  tex: 512 };
+const SLB = {};
+const SLV = (x, y, z) => new THREE.Vector3(x, y, z);
+let _slseed = 9101;
+const slr = () => { _slseed = (_slseed * 16807) % 2147483647; return (_slseed - 1) / 2147483646; };
+const slpick = a => a[Math.floor(slr() * a.length)];
+
+// ---- tileable noise into shared fields -------------------------------------------------------------------------
+function slHash(i, j, s) { let n = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(s, 1442695041)) | 0;
+  n = Math.imul(n ^ (n >>> 13), 1274126177); n ^= n >>> 16; return (n >>> 0) / 4294967296; }
+function slVN(x, y, P, s) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const w = i => ((i % P) + P) % P, x0 = w(xi), x1 = w(xi + 1), y0 = w(yi), y1 = w(yi + 1);
+  const a = slHash(x0, y0, s), b = slHash(x1, y0, s), c = slHash(x0, y1, s), d = slHash(x1, y1, s);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+// a 256-square fbm field that tiles; textures sample it at integer multiples, so they tile too
+function slField(seed, base, oct) {
+  const N = 256, F = new Float32Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let t = 0, a = 0.5, f = base, n = 0;
+    for (let o = 0; o < oct; o++) { t += a * slVN(x / N * f, y / N * f, f, seed + o * 31); n += a; a *= 0.5; f *= 2; }
+    F[y * N + x] = t / n;
+  }
+  return F;
+}
+let SLF = null;
+function slFields() { if (!SLF) SLF = { a: slField(11, 4, 5), b: slField(23, 8, 4), c: slField(37, 16, 3) }; return SLF; }
+const slS = (F, x, y, k) => F[(((y * k) | 0) & 255) * 256 + (((x * k) | 0) & 255)];
+// bilinear sample of a field at a fractional position (in field pixels), wrapping
+function slSB(F, x, y) { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+  const g = (i, j) => F[((j & 255) * 256) + (i & 255)];
+  return (g(xi, yi) * (1 - fx) + g(xi + 1, yi) * fx) * (1 - fy) + (g(xi, yi + 1) * (1 - fx) + g(xi + 1, yi + 1) * fx) * fy; }
+
+// ---- texture factory: colour (sRGB bytes) + height -> map + normal map ------------------------------------------
+function slTexOut(N, col, hgt, ns, alpha) {
+  const map = new THREE.DataTexture(col, N, N, THREE.RGBAFormat);
+  map.colorSpace = THREE.SRGBColorSpace; map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  map.generateMipmaps = true; map.minFilter = THREE.LinearMipmapLinearFilter; map.magFilter = THREE.LinearFilter;
+  map.anisotropy = 4; map.needsUpdate = true;
+  let nrm = null;
+  if (hgt) {
+    const nb = new Uint8Array(N * N * 4);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const h = (i, j) => hgt[(((j + N) % N) * N) + ((i + N) % N)];
+      const dx = (h(x + 1, y) - h(x - 1, y)) * ns, dy = (h(x, y + 1) - h(x, y - 1)) * ns;
+      const l = Math.hypot(dx, dy, 1), o = (y * N + x) * 4;
+      nb[o] = (-dx / l * 0.5 + 0.5) * 255; nb[o + 1] = (dy / l * 0.5 + 0.5) * 255; nb[o + 2] = (1 / l * 0.5 + 0.5) * 255; nb[o + 3] = 255;
+    }
+    nrm = new THREE.DataTexture(nb, N, N, THREE.RGBAFormat);
+    nrm.wrapS = nrm.wrapT = THREE.RepeatWrapping; nrm.generateMipmaps = true; nrm.minFilter = THREE.LinearMipmapLinearFilter;
+    nrm.anisotropy = 4; nrm.needsUpdate = true;
+  }
+  return { map, nrm };
+}
+const slC = (hex) => [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
+function slPut(col, o, r, g, b, a) { col[o] = Math.max(0, Math.min(255, r)); col[o + 1] = Math.max(0, Math.min(255, g)); col[o + 2] = Math.max(0, Math.min(255, b)); col[o + 3] = a === undefined ? 255 : a; }
+// rows of blocks that tile: each row's joints are random but sum to the tile width exactly
+function slRows(N, rowHs, wmin, wmax, seed) {
+  _slseed = seed; const rows = []; let y = 0;
+  for (const rh of rowHs) {
+    const ws = []; let s = 0; while (s < N) { const w = wmin + slr() * (wmax - wmin); ws.push(w); s += w; }
+    const k = N / s, off = slr() * N; let x = off; const j = [];
+    for (const w of ws) { j.push(x); x += w * k; }
+    rows.push({ y0: y, y1: y + rh, j: j.map(v => v % N).sort((a, b) => a - b), seed: Math.floor(slr() * 1e6) });
+    y += rh;
+  }
+  return rows;
+}
+// for a pixel, which block of the row it is in and how far from that block's edges (wrapping)
+function slBlock(row, x, N) {
+  const j = row.j; let k = j.length - 1;
+  for (let i = 0; i < j.length; i++) if (j[i] > x) { k = i - 1; break; }
+  const a = k < 0 ? j[j.length - 1] - N : j[k], b = k + 1 < j.length ? j[k + 1] : j[0] + N;
+  return { id: (k + j.length) % j.length, dx: Math.min(x - a, b - x), w: b - a };
+}
+function slStoneTex(kind) {
+  const N = SLC.tex, F = slFields(), col = new Uint8Array(N * N * 4), hgt = new Float32Array(N * N);
+  let rows, pal, mort, edge, rough, moss;
+  if (kind === 'stone') { rows = slRows(N, Array(8).fill(N / 8), N / 6, N / 3, 71); pal = [0xcdb391, 0xc4a784, 0xd6bf9c, 0xbf9f7c, 0xd2b897]; mort = 0x9c8a74; edge = 5; rough = 0.2; moss = 0; }
+  else { // masonry: rougher, cooler, irregular rows
+    const rh = []; _slseed = 5; let s = 0; while (s < N) { const h = N / 7 + slr() * N / 7; rh.push(h); s += h; } const k = N / s;
+    rows = slRows(N, rh.map(h => h * k), N / 6, N / 2.6, 913); pal = [0x8e8a96, 0x9a94a0, 0x847f8c, 0xa39b97, 0x8a8f96, 0x968a86]; mort = 0x5d5862; edge = 7; rough = 0.42; moss = 1;
+  }
+  const mc = slC(mort);
+  for (let y = 0; y < N; y++) {
+    const row = rows.find(r => y >= r.y0 && y < r.y1) || rows[rows.length - 1];
+    for (let x = 0; x < N; x++) {
+      const o = y * N + x;
+      const jig = (slS(F.b, x, y, 1) - 0.5) * (kind === 'stone' ? 3 : 9);
+      const bl = slBlock(row, (x + jig + N) % N, N), dy = Math.min(y - row.y0, row.y1 - y) + jig * 0.6;
+      const d = Math.min(bl.dx, dy), nA = slS(F.a, x, y, 2), nC = slS(F.c, x, y, 2);
+      const hsh = slHash(row.seed, bl.id, 3), c0 = slC(pal[Math.floor(hsh * pal.length)]);
+      const lum = 0.86 + hsh * 0.2 + (nA - 0.5) * 0.35 + (nC - 0.5) * 0.18;
+      const grime = Math.pow(slS(F.a, x * 4 % N, y, 1), 1.6) * 0.18;     // vertical-ish streaks
+      if (d < 2.2) { const k = 0.82 + nC * 0.25; slPut(col, o * 4, mc[0] * k, mc[1] * k, mc[2] * k); hgt[o] = 0.05 + nC * 0.05; continue; }
+      const e = Math.min(1, (d - 2.2) / edge), bev = e * e * (3 - 2 * e);
+      let r = c0[0] * lum, g = c0[1] * lum, b = c0[2] * lum;
+      if (moss) { const m = Math.max(0, 1 - (row.y1 - y) / (row.y1 - row.y0) * 2.2) * Math.max(0, slS(F.b, x, y, 2) - 0.45) * 2.4; r = r * (1 - m * 0.5) + 70 * m * 0.5; g = g * (1 - m * 0.3) + 110 * m * 0.3; b = b * (1 - m * 0.6) + 60 * m * 0.6; }
+      const ed = (1 - bev) * 0.18; r *= 1 - ed - grime; g *= 1 - ed - grime; b *= 1 - ed - grime;
+      slPut(col, o * 4, r, g, b);
+      hgt[o] = 0.35 + bev * 0.45 + (nA - 0.5) * rough + (nC - 0.5) * rough * 0.7 + (hsh - 0.5) * 0.08;
+    }
+  }
+  return slTexOut(N, col, hgt, kind === 'stone' ? 3.2 : 4.5);
+}
+function slPaveTex() {
+  const N = SLC.tex, F = slFields(), col = new Uint8Array(N * N * 4), hgt = new Float32Array(N * N), S = N / 4;
+  // a few cracks: random walks drawn into a mask
+  const crack = new Float32Array(N * N); _slseed = 404;
+  for (let c = 0; c < 7; c++) { let x = slr() * N, y = slr() * N, a = slr() * 6.28;
+    for (let s = 0; s < 120; s++) { a += (slr() - 0.5) * 0.9; x = (x + Math.cos(a) * 1.4 + N) % N; y = (y + Math.sin(a) * 1.4 + N) % N; crack[(y | 0) * N + (x | 0)] = 1; } }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const o = y * N + x, sx = x % S, sy = y % S, d = Math.min(sx, S - sx, sy, S - sy), id = Math.floor(x / S) + Math.floor(y / S) * 7;
+    const nA = slS(F.a, x, y, 1), nB = slS(F.b, x, y, 2), nC = slS(F.c, x, y, 4), hsh = slHash(id, 1, 9);
+    const base = [214, 200, 182].map((v, i) => v * (0.92 + hsh * 0.12) + [6, 2, -4][i] * (hsh - 0.5) * 4);
+    let k = 0.86 + (nA - 0.5) * 0.4 + (nB - 0.5) * 0.12 + (nC > 0.78 ? -0.12 : 0) + (nC < 0.2 ? 0.06 : 0);
+    const stain = Math.max(0, slS(F.a, x, y, 2) - 0.62) * 0.9; k -= stain * 0.25;
+    if (d < 1.4) { k *= 0.62; hgt[o] = 0.1; }
+    else { const e = Math.min(1, (d - 1.4) / 4); k *= 0.88 + e * 0.12; hgt[o] = 0.4 + e * 0.25 + (nC - 0.5) * 0.12 + (nB - 0.5) * 0.08; }
+    if (crack[o]) { k *= 0.6; hgt[o] -= 0.12; }
+    slPut(col, o * 4, base[0] * k, base[1] * k, base[2] * k);
+  }
+  return slTexOut(N, col, hgt, 2.4);
+}
+function slConcTex(dark) {
+  const N = SLC.tex, F = slFields(), col = new Uint8Array(N * N * 4), hgt = new Float32Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const o = y * N + x, nA = slS(F.a, x, y, 1), nB = slS(F.b, x, y, 1), nC = slS(F.c, x, y, 4);
+    // trowel arcs: a faint banded swirl
+    const sw = Math.sin((x * 0.045 + Math.sin(y * 0.03) * 3 + nA * 6)) * 0.5 + 0.5;
+    let k = 0.88 + (nA - 0.5) * 0.16 + (nB - 0.5) * 0.1 + (sw - 0.5) * 0.05 - (nC > 0.82 ? 0.12 : 0);
+    const b = dark ? [118, 120, 132] : [196, 189, 178];
+    slPut(col, o * 4, b[0] * k, b[1] * k, b[2] * k);
+    hgt[o] = nA * 0.2 + nC * 0.12 + (nC > 0.82 ? -0.2 : 0);
+  }
+  return slTexOut(N, col, hgt, 1.6);
+}
+function slPlasterTex() {
+  const N = SLC.tex, F = slFields(), col = new Uint8Array(N * N * 4), hgt = new Float32Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const o = y * N + x, nA = slS(F.a, x, y, 1), nB = slS(F.b, x, y, 2), nC = slS(F.c, x, y, 4);
+    const streak = Math.pow(slS(F.b, x * 3 % N, y, 1), 3) * 0.22;
+    const k = 0.93 + (nA - 0.5) * 0.16 + (nB - 0.5) * 0.08 - streak - (nC > 0.85 ? 0.05 : 0);
+    slPut(col, o * 4, 246 * k, 240 * k, 232 * k);
+    hgt[o] = nB * 0.3 + nC * 0.25;
+  }
+  return slTexOut(N, col, hgt, 1.2);
+}
+function slWoodTex() {
+  const N = 256, F = slFields(), col = new Uint8Array(N * N * 4), hgt = new Float32Array(N * N), P = N / 6;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const o = y * N + x, pl = Math.floor(y / P), dy = Math.min(y % P, P - y % P), hsh = slHash(pl, 2, 5);
+    const grain = Math.sin(x * 0.11 + slS(F.a, x, y * 6 % N, 1) * 14 + pl * 7) * 0.5 + 0.5;
+    let k = 0.78 + hsh * 0.3 + grain * 0.12; if (dy < 1.5) k *= 0.45;
+    slPut(col, o * 4, 168 * k, 116 * k, 72 * k); hgt[o] = dy < 1.5 ? 0 : 0.5 + grain * 0.1;
+  }
+  return slTexOut(N, col, hgt, 2);
+}
+// leaves: a hanging strand (vines) and a dense clump (bushes) -- alpha cut-outs drawn leaf by leaf
+function slLeafTex(kind) {
+  const W = kind === 'vine' ? 128 : 256, H = kind === 'vine' ? 256 : 256, col = new Uint8Array(W * H * 4);
+  _slseed = kind === 'vine' ? 77 : 99;
+  const greens = [[60, 128, 52], [82, 152, 60], [46, 104, 48], [104, 170, 72], [70, 140, 80]];
+  const leaf = (cx, cy, r, a, c) => {
+    const ca = Math.cos(a), sa = Math.sin(a), R = Math.ceil(r * 1.2);
+    for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) {
+      const u = (x * ca + y * sa) / r, v = (-x * sa + y * ca) / (r * 0.55);
+      if (u * u + v * v > 1) continue;
+      let px = Math.round(cx + x), py = Math.round(cy + y);
+      if (kind === 'vine') { if (px < 0 || px >= W) continue; py = (py + H) % H; } else { if (px < 0 || px >= W || py < 0 || py >= H) continue; }
+      const o = (py * W + px) * 4, sh = 0.75 + (u * 0.5 + 0.5) * 0.35 - Math.abs(v) * 0.15 + (Math.abs(v) < 0.08 ? 0.15 : 0);
+      col[o] = c[0] * sh; col[o + 1] = c[1] * sh; col[o + 2] = c[2] * sh; col[o + 3] = 255;
+    }
+  };
+  if (kind === 'vine') {
+    for (let s = 0; s < 3; s++) { const sx = 22 + s * 42;
+      for (let y = 0; y < H; y += 7) { const x = sx + Math.sin(y * 0.06 + s * 2) * 8;
+        for (let w = -1; w <= 1; w++) { const o = ((y * W) + Math.round(x + w)) * 4; col[o] = 70; col[o + 1] = 90; col[o + 2] = 40; col[o + 3] = 255; }
+        leaf(x + (slr() - 0.5) * 14, y + slr() * 6, 7 + slr() * 6, slr() * 6.28, slpick(greens)); } }
+  } else {
+    for (let i = 0; i < 260; i++) { const a = slr() * 6.28, rr = Math.sqrt(slr()) * W * 0.44;
+      leaf(W / 2 + Math.cos(a) * rr, H * 0.56 + Math.sin(a) * rr * 0.8, 9 + slr() * 9, slr() * 6.28, slpick(greens)); }
+    for (let i = 0; i < 26; i++) { const a = slr() * 6.28, rr = Math.sqrt(slr()) * W * 0.4;   // flowers
+      leaf(W / 2 + Math.cos(a) * rr, H * 0.5 + Math.sin(a) * rr * 0.8, 4, 0, slpick([[255, 120, 190], [255, 220, 110], [190, 140, 255]])); }
+  }
+  const t = new THREE.DataTexture(col, W, H, THREE.RGBAFormat); t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = kind === 'vine' ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+  t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.needsUpdate = true; return t;
+}
+// windows: a 2x2 atlas of variants -- frame, mullions, sky reflection, and a warm or dim interior in EMISSIVE
+function slWindowTex() {
+  const N = 256, C = N / 2, col = new Uint8Array(N * N * 4), em = new Uint8Array(N * N * 4), F = slFields();
+  const ints = [[255, 196, 120], [120, 200, 255], [255, 150, 200], [60, 60, 80]];
+  for (let v = 0; v < 4; v++) { const ox = (v % 2) * C, oy = Math.floor(v / 2) * C;
+    for (let y = 0; y < C; y++) for (let x = 0; x < C; x++) {
+      const o = ((oy + y) * N + ox + x) * 4, fr = 7, mul = Math.abs(x - C / 2) < 2.5 || Math.abs(y - C * 0.38) < 2.5;
+      if (x < fr || y < fr || x >= C - fr || y >= C - fr || mul) { const k = (x < 2 || y < 2 || x > C - 3 || y > C - 3) ? 0.6 : 1; slPut(col, o, 236 * k, 232 * k, 222 * k); slPut(em, o, 0, 0, 0); continue; }
+      const t = y / C, refl = Math.max(0, Math.sin((x + y * 0.6) * 0.05) - 0.55) * 1.6;
+      const sky = [150 + 70 * (1 - t), 180 + 50 * (1 - t), 220], ic = ints[v], n = slS(F.b, x, y, 2);
+      const lit = v < 3 ? 0.55 + n * 0.35 : 0.2;
+      slPut(col, o, sky[0] * 0.35 + 255 * refl * 0.5, sky[1] * 0.35 + 255 * refl * 0.5, sky[2] * 0.4 + 255 * refl * 0.5);
+      slPut(em, o, ic[0] * lit * (0.6 + t * 0.4), ic[1] * lit * (0.6 + t * 0.4), ic[2] * lit * (0.6 + t * 0.4));
+    } }
+  const mk = (d, srgb) => { const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.needsUpdate = true; return t; };
+  return { map: mk(col, true), em: mk(em, true) };
+}
+// a vending machine front / shop screen: rows of little lit products
+function slScreenTex() {
+  const W = 128, H = 256, col = new Uint8Array(W * H * 4);
+  const cs = [[255, 90, 140], [90, 220, 255], [255, 210, 80], [140, 255, 150], [190, 130, 255]]; _slseed = 3;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const o = (y * W + x) * 4;
+    let c = [20, 24, 40];
+    if (y > 20 && y < 200 && x > 10 && x < W - 10) { const cx = Math.floor((x - 10) / 18), cy = Math.floor((y - 20) / 30), lx = (x - 10) % 18, ly = (y - 20) % 30;
+      c = [235, 240, 255]; if (lx > 3 && lx < 15 && ly > 6 && ly < 26) c = cs[(cx * 3 + cy * 7) % cs.length]; else if (ly > 27) c = [150, 160, 190]; }
+    else if (y < 18) c = [255, 80, 140];
+    else if (y > 210 && y < 240 && x > 20 && x < 70) c = [10, 10, 14];
+    slPut(col, o, c[0], c[1], c[2]); }
+  const t = new THREE.DataTexture(col, W, H, THREE.RGBAFormat); t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.needsUpdate = true; return t;
+}
+function slAwningTex() {
+  const N = 128, col = new Uint8Array(N * N * 4), F = slFields();
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const o = (y * N + x) * 4, st = Math.floor(x / 16) % 2, k = (st ? 1 : 0.6) * (0.9 + slS(F.c, x, y, 1) * 0.15) * (y > N - 10 ? 0.85 : 1);
+    slPut(col, o, 255 * k, 255 * k, 255 * k); }
+  const t = new THREE.DataTexture(col, N, N, THREE.RGBAFormat); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.needsUpdate = true; return t;
+}
+function slWaterTex() {
+  const N = 256, d = new Uint8Array(N * N * 4), A = slField(53, 8, 4), B = slField(59, 4, 3);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const h = (i, j) => A[(((j + N) % N) * N) + ((i + N) % N)] * 0.7 + B[(((j + N) % N) * N) + ((i + N) % N)] * 0.3;
+    const dx = (h(x + 1, y) - h(x - 1, y)) * 7, dy = (h(x, y + 1) - h(x, y - 1)) * 7, l = Math.hypot(dx, dy, 1), o = (y * N + x) * 4;
+    const ca = Math.pow(1 - Math.abs(A[y * N + x] - 0.5) * 2, 8);       // a bright line where the field crosses its middle: caustic
+    d[o] = (-dx / l * 0.5 + 0.5) * 255; d[o + 1] = (-dy / l * 0.5 + 0.5) * 255; d[o + 2] = (1 / l * 0.5 + 0.5) * 255; d[o + 3] = ca * 255;
+  }
+  const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.needsUpdate = true; return t;
+}
+function slGlowTex() {
+  const N = 64, d = new Uint8Array(N * N * 4);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const r = Math.hypot(x - N / 2 + 0.5, y - N / 2 + 0.5) / (N / 2), a = Math.pow(Math.max(0, 1 - r), 2.2), o = (y * N + x) * 4;
+    d[o] = d[o + 1] = d[o + 2] = 255; d[o + 3] = a * 255; }
+  const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); t.needsUpdate = true; return t;
+}
+
+// ---- the geometry buckets: position, normal, uv (world metres unless given), tint, height-above-base ----------
+function slb(k) { return SLB[k] || (SLB[k] = { p: [], n: [], u: [], c: [], h: [] }); }
+const SLT_T = { stone: 2.4, masonry: 3.2, paving: 4.8, concrete: 4.0, dark: 3.0, plaster: 3.0, trim: 1.6, wood: 1.2, metal: 1, orange: 1, paint: 1, slime: 1 };
+const _slc = new THREE.Color();
+function slTri(k, a, b, c, o) {
+  o = o || {};
+  if (!Number.isFinite(a[0] + a[1] + a[2] + b[0] + b[1] + b[2] + c[0] + c[1] + c[2])) return;
+  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+  let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const nl = Math.hypot(nx, ny, nz); if (nl < 1e-12) return;
+  nx /= nl; ny /= nl; nz /= nl;
+  if (o.solid) triAdd(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+  if (o.noDraw) return;
+  const B = slb(k), T = o.T || SLT_T[k] || 1, ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+  _slc.setHex(o.tint === undefined ? 0xffffff : o.tint).convertSRGBToLinear();
+  const vs = [a, b, c];
+  for (let i = 0; i < 3; i++) {
+    const v = vs[i]; B.p.push(v[0], v[1], v[2]);
+    if (o.nrm3) B.n.push(o.nrm3[i][0], o.nrm3[i][1], o.nrm3[i][2]); else B.n.push(nx, ny, nz);
+    if (o.uv3) B.u.push(o.uv3[i][0], o.uv3[i][1]);
+    else if (ay >= ax && ay >= az) B.u.push(v[0] / T, v[2] / T);
+    else if (ax >= az) B.u.push(v[2] / T * (nx > 0 ? -1 : 1), v[1] / T);
+    else B.u.push(v[0] / T * (nz > 0 ? 1 : -1), v[1] / T);
+    B.c.push(_slc.r, _slc.g, _slc.b);
+    const base = o.baseF ? o.baseF(v[0], v[2]) : o.base;
+    B.h.push(base === undefined || (ay > 0.8 && ny > 0 && !o.aoFloor) ? 99 : v[1] - base);
+  }
+}
+// a quad facing where it is told (`n`); winding fixed here so no generator ever gets one wrong
+function slQuad(k, a, b, c, d, n, o) {
+  o = o || {};
+  if (n) { const cr = [(b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]), (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]), (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])];
+    if (cr[0] * n[0] + cr[1] * n[1] + cr[2] * n[2] < 0) { const t = b; b = d; d = t; if (o.uv4) o = Object.assign({}, o, { uv4: [o.uv4[0], o.uv4[3], o.uv4[2], o.uv4[1]] }); } }
+  const U = o.uv4;
+  slTri(k, a, b, c, U ? Object.assign({}, o, { uv3: [U[0], U[1], U[2]] }) : o);
+  slTri(k, a, c, d, U ? Object.assign({}, o, { uv3: [U[0], U[2], U[3]] }) : o);
+}
+// A CHAMFERED BOX. The 45-degree strip on every edge is what catches the light -- a sharp box reads as CG, a
+// bevelled one reads as cut stone. `skip` drops faces nobody can see ('y' is the bottom), `top` gives the top face
+// its own material (paving on a stone quay), `solid` puts the box in the collider (its top a floor unless top:false).
+function slBox(k, x0, y0, z0, x1, y1, z1, o) {
+  o = o || {};
+  if (x0 > x1) [x0, x1] = [x1, x0]; if (y0 > y1) [y0, y1] = [y1, y0]; if (z0 > z1) [z0, z1] = [z1, z0];
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = (z0 + z1) / 2, h = [(x1 - x0) / 2, (y1 - y0) / 2, (z1 - z0) / 2];
+  const b = Math.min(o.bev === undefined ? 0.05 : o.bev, h[0] * 0.45, h[1] * 0.45, h[2] * 0.45), i = [h[0] - b, h[1] - b, h[2] - b];
+  const skip = o.skip || 'y', base = o.base === undefined ? y0 : o.base;
+  const P = (v) => [cx + v[0], cy + v[1], cz + v[2]];
+  const fk = (ax, s) => (ax === 1 && s > 0 && o.top) ? o.top : k;
+  const sk = (ax, s) => skip.indexOf(['x', 'y', 'z'][ax][s > 0 ? 'toUpperCase' : 'toLowerCase']()) >= 0;
+  const oo = Object.assign({}, o, { base, solid: false });
+  for (let ax = 0; ax < 3; ax++) for (const s of [-1, 1]) {
+    if (sk(ax, s)) continue;
+    const a1 = (ax + 1) % 3, a2 = (ax + 2) % 3, pt = (p, q) => { const v = [0, 0, 0]; v[ax] = s * h[ax]; v[a1] = p * i[a1]; v[a2] = q * i[a2]; return P(v); };
+    const n = [0, 0, 0]; n[ax] = s;
+    slQuad(fk(ax, s), pt(-1, -1), pt(1, -1), pt(1, 1), pt(-1, 1), n, Object.assign({}, oo, { T: ax === 1 && s > 0 && o.topT ? o.topT : o.T }));
+  }
+  if (b > 0.001) {
+    for (let a = 0; a < 3; a++) for (let c = a + 1; c < 3; c++) for (const sa of [-1, 1]) for (const sc of [-1, 1]) {
+      if (sk(a, sa) || sk(c, sc)) continue;
+      const t = 3 - a - c, pt = (fa, q) => { const v = [0, 0, 0]; v[a] = sa * (fa ? h[a] : i[a]); v[c] = sc * (fa ? i[c] : h[c]); v[t] = q * i[t]; return P(v); };
+      const n = [0, 0, 0]; n[a] = sa; n[c] = sc;
+      slQuad(k, pt(1, -1), pt(1, 1), pt(0, 1), pt(0, -1), n, oo);
+    }
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+      if (sk(0, sx) || sk(1, sy) || sk(2, sz)) continue;
+      const s = [sx, sy, sz], q = ax => { const v = [s[0] * i[0], s[1] * i[1], s[2] * i[2]]; v[ax] = s[ax] * h[ax]; return P(v); };
+      const A = q(0), B = q(1), C = q(2), cr = [(B[1] - A[1]) * (C[2] - A[2]) - (B[2] - A[2]) * (C[1] - A[1]), (B[2] - A[2]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[2] - A[2]), (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0])];
+      if (cr[0] * sx + cr[1] * sy + cr[2] * sz < 0) slTri(k, A, C, B, oo); else slTri(k, A, B, C, oo);
+    }
+  }
+  if (o.solid) solidAdd(cx, cz, h[0], h[2], y0, y1, 0, { top: o.floor !== false, tag: o.tag || 'slice' });
+}
+// any three.js geometry, baked into a bucket through a matrix -- flat or smooth, world uv unless kept
+const _slm = new THREE.Matrix4(), _sln = new THREE.Matrix3();
+function slGeo(k, geo, m4, o) {
+  o = o || {};
+  const g = geo.index ? geo.toNonIndexed() : geo; g.applyMatrix4(m4);
+  if (o.smooth && !g.attributes.normal) g.computeVertexNormals();
+  const P = g.attributes.position.array, N = o.smooth ? g.attributes.normal.array : null, U = o.keepUV && g.attributes.uv ? g.attributes.uv.array : null;
+  for (let t = 0; t < P.length / 9; t++) {
+    const v = j => [P[t * 9 + j * 3], P[t * 9 + j * 3 + 1], P[t * 9 + j * 3 + 2]];
+    const oo = Object.assign({}, o);
+    if (N) oo.nrm3 = [0, 1, 2].map(j => [N[t * 9 + j * 3], N[t * 9 + j * 3 + 1], N[t * 9 + j * 3 + 2]]);
+    if (U) oo.uv3 = [0, 1, 2].map(j => [U[t * 6 + j * 2] * (o.uvS || 1), U[t * 6 + j * 2 + 1] * (o.uvS || 1)]);
+    slTri(k, v(0), v(1), v(2), oo);
+  }
+  g.dispose && g.dispose();
+}
+const slMat = (x, y, z, ry, sx, sy, sz, rx, rz) => _slm.compose(SLV(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz || 0, 'YXZ')), SLV(sx || 1, sy || 1, sz || 1)).clone();
+// a vertical wall along z or x whose top follows a profile -- the side of a ramp or a flight of stairs
+function slProfileWall(k, pts, z, nz, base, o) {   // pts: [x, ytop] along x; face at z, looking nz
+  for (let i = 0; i < pts.length - 1; i++) { const [xa, ya] = pts[i], [xb, yb] = pts[i + 1];
+    slQuad(k, [xa, base, z], [xb, base, z], [xb, yb, z], [xa, ya, z], [0, 0, nz], Object.assign({ base }, o)); }
+}
+// a lit or unlit atlas decal on any plane: centre, the plane's right and up unit vectors, size
+function slDecal(k, key, c, r, u, w, h, nOff) {
+  const A = orbAtlas(), R = A.rects[key]; if (!R) return;
+  h = h || w * R.h / R.w; nOff = nOff === undefined ? 0.03 : nOff;
+  const n = [r[1] * u[2] - r[2] * u[1], r[2] * u[0] - r[0] * u[2], r[0] * u[1] - r[1] * u[0]];
+  const P = (s, t) => [c[0] + r[0] * s * w / 2 + u[0] * t * h / 2 + n[0] * nOff, c[1] + r[1] * s * w / 2 + u[1] * t * h / 2 + n[1] * nOff, c[2] + r[2] * s * w / 2 + u[2] * t * h / 2 + n[2] * nOff];
+  const u0 = R.x / A.W, u1 = (R.x + R.w) / A.W, v1 = 1 - R.y / A.H, v0 = 1 - (R.y + R.h) / A.H;
+  slQuad(k, P(-1, -1), P(1, -1), P(1, 1), P(-1, 1), n, { uv4: [[u0, v0], [u1, v0], [u1, v1], [u0, v1]] });
+  return { c, w, h };
+}
+const slGlow = (x, y, z, s, col, a) => SLC.glows.push({ x, y, z, s, col, a: a === undefined ? 0.85 : a });
+// a tube along points, into a bucket (smooth)
+function slTube(k, pts, r, o) {
+  const curve = new THREE.CatmullRomCurve3(pts.map(p => SLV(p[0], p[1], p[2])), false, 'centripetal', 0.1);
+  slGeo(k, new THREE.TubeGeometry(curve, Math.max(8, pts.length * 4), r, 8, false), new THREE.Matrix4(), Object.assign({ smooth: true }, o));
+}
+
+// ---- props ----------------------------------------------------------------------------------------------------
+function slLamp(x, y, z) {
+  const prof = [[0.26, 0], [0.26, 0.08], [0.18, 0.12], [0.16, 0.5], [0.12, 0.58], [0.075, 0.7], [0.07, 3.0], [0.11, 3.08], [0.11, 3.16], [0, 3.16]].map(([a, b]) => new THREE.Vector2(a, b));
+  slGeo('metal', new THREE.LatheGeometry(prof, 12), slMat(x, y, z), { smooth: true });
+  // the lantern: a cage, four lit panes, a cap and a finial
+  const ly = y + 3.16;
+  slBox('metal', x - 0.26, ly, z - 0.26, x + 0.26, ly + 0.06, z + 0.26, { bev: 0.01, skip: '' });
+  for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) slBox('metal', x + dx * 0.22 - 0.025, ly, z + dz * 0.22 - 0.025, x + dx * 0.22 + 0.025, ly + 0.62, z + dz * 0.22 + 0.025, { bev: 0 });
+  slBox('lampglass', x - 0.2, ly + 0.05, z - 0.2, x + 0.2, ly + 0.6, z + 0.2, { bev: 0, skip: 'y' });
+  slGeo('metal', new THREE.ConeGeometry(0.36, 0.3, 4, 1).rotateY(Math.PI / 4), slMat(x, ly + 0.77, z));
+  slGeo('metal', new THREE.SphereGeometry(0.06, 8, 6), slMat(x, ly + 0.97, z), { smooth: true });
+  slGlow(x, ly + 0.34, z, 2.6, 0xffc777, 0.75);
+  solidAdd(x, z, 0.12, 0.12, y, y + 3.0, 0, { top: false, tag: 'slice prop' });
+}
+function slBollard(x, y, z) {
+  const prof = [[0.18, 0], [0.18, 0.05], [0.13, 0.1], [0.12, 0.55], [0.16, 0.62], [0.16, 0.7], [0.1, 0.78], [0, 0.82]].map(([a, b]) => new THREE.Vector2(a, b));
+  slGeo('metal', new THREE.LatheGeometry(prof, 10), slMat(x, y, z), { smooth: true });
+}
+function slCrate(x, y, z, s, ry) {
+  const m = slMat(x, y + s / 2, z, ry, s, s, s);
+  slGeo('wood', new THREE.BoxGeometry(1, 1, 1), m, { base: y });
+  for (const e of [-0.5, 0.5]) { slGeo('wood', new THREE.BoxGeometry(1.04, 0.12, 0.12).translate(0, e * 0.88, 0.47), m); slGeo('wood', new THREE.BoxGeometry(1.04, 0.12, 0.12).translate(0, e * 0.88, -0.47), m);
+    slGeo('wood', new THREE.BoxGeometry(0.12, 0.12, 1.04).translate(0.47, e * 0.88, 0), m); slGeo('wood', new THREE.BoxGeometry(0.12, 0.12, 1.04).translate(-0.47, e * 0.88, 0), m); }
+}
+function slCone(x, y, z) {
+  const prof = [[0.24, 0], [0.24, 0.04], [0.15, 0.06], [0.03, 0.72], [0, 0.74]].map(([a, b]) => new THREE.Vector2(a, b));
+  slGeo('paint', new THREE.LatheGeometry(prof, 14), slMat(x, y, z), { smooth: true, tint: 0xff6a1f });
+  slGeo('paint', new THREE.CylinderGeometry(0.105, 0.125, 0.12, 14, 1, true), slMat(x, y + 0.36, z), { smooth: true, tint: 0xf4f4f0 });
+  slBox('paint', x - 0.25, y, z - 0.25, x + 0.25, y + 0.05, z + 0.25, { tint: 0x2a2a30, bev: 0.01 });
+}
+function slVending(x, y, z, ry) {
+  // body faces +Z in its own frame, turned by ry
+  const m = slMat(x, y, z, ry);
+  slGeo('paint', new THREE.BoxGeometry(1.1, 2.0, 0.8).translate(0, 1.0, 0), m, { tint: 0x2d3a72, base: y });
+  slGeo('paint', new THREE.BoxGeometry(1.16, 0.12, 0.86).translate(0, 2.03, 0), m, { tint: 0x1d244a });
+  const g = new THREE.PlaneGeometry(0.86, 1.72).translate(0, 1.05, 0.405); slGeo('screen', g, m, { keepUV: true });
+  slGlow(x + Math.sin(ry) * 0.6, y + 1.1, z + Math.cos(ry) * 0.6, 2.2, 0x8fd8ff, 0.4);
+  solidAdd(x, z, 0.6, 0.6, y, y + 2.05, 0, { top: true, tag: 'slice prop' });
+}
+function slPlanter(x, y, z, w, d, hgt) {
+  slBox('stone', x - w / 2, y, z - d / 2, x + w / 2, y + hgt, z + d / 2, { bev: 0.06, top: 'dark', base: y });
+  slBox('dark', x - w / 2 + 0.12, y + hgt, z - d / 2 + 0.12, x + w / 2 - 0.12, y + hgt + 0.02, z + d / 2 - 0.12, { bev: 0, skip: 'xXyzZ' });
+  const n = Math.max(1, Math.round(w * d / 1.4));
+  for (let i = 0; i < n; i++) slBush(x + (slr() - 0.5) * (w - 0.6), y + hgt, z + (slr() - 0.5) * (d - 0.6), 0.7 + slr() * 0.5);
+  solidAdd(x, z, w / 2, d / 2, y, y + hgt, 0, { top: true, tag: 'slice prop' });
+}
+// a bush: three crossed cards of the clump texture
+function slBush(x, y, z, s) {
+  const tint = slpick([0xffffff, 0xe8ffe0, 0xd8f0c8, 0xf0ffe8]);
+  for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI + slr() * 0.4, rx = Math.cos(a) * s, rz = Math.sin(a) * s;
+    slQuad('bush', [x - rx, y - 0.05, z - rz], [x + rx, y - 0.05, z + rz], [x + rx, y + s * 1.6, z + rz], [x - rx, y + s * 1.6, z - rz], null, { uv4: [[0, 0], [1, 0], [1, 1], [0, 1]], tint }); }
+}
+// a little tree in a planter: a lathed trunk and a crown of crossed leaf cards
+function slTree(x, y, z, h) {
+  const prof = [[0.2, 0], [0.13, 0.3], [0.1, h * 0.6], [0.06, h * 0.8], [0, h * 0.82]].map(([a, b]) => new THREE.Vector2(a, b));
+  slGeo('wood', new THREE.LatheGeometry(prof, 8), slMat(x, y, z), { smooth: true, tint: 0x8a6a52 });
+  for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28 + slr(), r = k ? 0.7 + slr() * 0.4 : 0, s = 1.0 + slr() * 0.5;
+    slBush(x + Math.cos(a) * r, y + h * 0.55 + slr() * h * 0.25, z + Math.sin(a) * r, s); }
+}
+// a blade sign standing out from a facade: a dark slab, the drawing on both faces, a glow
+function slBlade(x, y, z, nz, key, w, glow) {
+  const A = orbAtlas(), R = A.rects[key]; if (!R) return; const h = w * R.h / R.w, d = w + 0.3;
+  slBox('paint', x - 0.08, y - h / 2 - 0.15, Math.min(z, z + nz * d), x + 0.08, y + h / 2 + 0.15, Math.max(z, z + nz * d), { bev: 0.02, tint: 0x1c1f30, skip: '' });
+  slBox('neon', x - 0.1, y - h / 2 - 0.2, Math.min(z, z + nz * d), x + 0.1, y - h / 2 - 0.15, Math.max(z, z + nz * d), { bev: 0, tint: glow, skip: '' });
+  for (const s of [-1, 1]) slDecal('sign', key, [x + s * 0.09, y, z + nz * (d / 2 + 0.05)], [0, 0, -s], [0, 1, 0], w, null, 0.01);
+  slGlow(x, y, z + nz * d / 2, w * 1.8, glow, 0.35);
+  for (const t of [0.15, 0.85]) slBox('metal', x - 0.03, y + h / 2 + 0.15, z + nz * d * t - 0.03, x + 0.03, y + h / 2 + 0.6, z + nz * d * t + 0.03, { bev: 0 });
+}
+// ivy hanging off an edge: a strand every so often, along a run from a to b at height y, facing n
+function slIvy(xa, za, xb, zb, y, nx, nz, dens, lmin, lmax) {
+  const L = Math.hypot(xb - xa, zb - za), n = Math.floor(L * dens);
+  for (let i = 0; i < n; i++) { if (slr() < 0.25) continue;
+    const t = (i + slr()) / n, x = xa + (xb - xa) * t + nx * 0.06, z = za + (zb - za) * t + nz * 0.06, len = lmin + slr() * (lmax - lmin), w = 0.7 + slr() * 0.5;
+    const rx = (zb - za) / L * w / 2, rz = -(xb - xa) / L * w / 2, v = len / 2.2, tint = slpick([0xffffff, 0xdcf5d0, 0xf2ffe6, 0xc8e8b8]);
+    slQuad('vine', [x - rx, y - len, z - rz], [x + rx, y - len, z + rz], [x + rx, y + 0.15, z + rz], [x - rx, y + 0.15, z - rz], [nx, 0, nz], { uv4: [[0, 0], [1, 0], [1, v], [0, v]], tint }); }
+}
+function slBench(x, y, z, ry) {
+  const m = slMat(x, y, z, ry);
+  for (const s of [-0.75, 0.75]) slGeo('metal', new THREE.BoxGeometry(0.08, 0.45, 0.5).translate(s, 0.22, 0), m);
+  for (let i = 0; i < 3; i++) slGeo('wood', new THREE.BoxGeometry(1.8, 0.05, 0.13).translate(0, 0.47, -0.17 + i * 0.17), m);
+  for (let i = 0; i < 2; i++) slGeo('wood', new THREE.BoxGeometry(1.8, 0.12, 0.04).translate(0, 0.62 + i * 0.16, -0.27).rotateX(-0.12), m);
+  solidAdd(x, z, 0.95, 0.35, y, y + 0.5, 0, { top: true, tag: 'slice prop' });
+}
+// a run of railing: an orange tube on black posts, optionally with a lower bar; returns the top line for a rail path
+function slRailing(pts, hgt, o) {
+  o = o || {};
+  const top = pts.map(p => [p[0], p[1] + hgt, p[2]]);
+  slTube('orange', top, 0.05);
+  if (o.lower) slTube('metal', pts.map(p => [p[0], p[1] + hgt * 0.45, p[2]]), 0.025);
+  let acc = 0; const step = o.step || 1.8;
+  for (let i = 0; i < pts.length; i++) {
+    if (i > 0) acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][2] - pts[i - 1][2]);
+    if (i === 0 || i === pts.length - 1 || acc >= step) { acc = 0; const [x, y, z] = pts[i];
+      slGeo('metal', new THREE.CylinderGeometry(0.032, 0.04, hgt, 8), slMat(x, y + hgt / 2, z), { smooth: true });
+      slGeo('metal', new THREE.CylinderGeometry(0.08, 0.09, 0.04, 10), slMat(x, y + 0.02, z), { smooth: true }); }
+  }
+  return top;
+}
+function slWindowGrid(x0, x1, z, nz, y0, y1, o) {   // windows along a facade at z looking +/-z (or along x if o.alongZ)
+  o = o || {};
+  const cw = o.cw || 2.8, fh = o.fh || 3.3, ww = o.ww || 1.25, wh = o.wh || 1.75;
+  const nC = Math.max(1, Math.floor(Math.abs(x1 - x0) / cw)), nF = Math.max(1, Math.floor((y1 - y0) / fh));
+  const pad = (Math.abs(x1 - x0) - nC * cw) / 2, sx = Math.sign(x1 - x0);
+  for (let f = 0; f < nF; f++) for (let c = 0; c < nC; c++) {
+    if (o.skip && o.skip(f, c)) continue;
+    const u = x0 + sx * (pad + (c + 0.5) * cw), y = y0 + f * fh + (fh - wh) * 0.55, v = Math.floor(slr() * 4) + (slr() < 0.3 ? 0 : 0);
+    const uo = (v % 2) * 0.5, vo = Math.floor(v / 2) * 0.5;
+    const P = (du, dy, dn) => o.alongZ ? [z + nz * dn, y + dy, u + du] : [u + du, y + dy, z + nz * dn];
+    const nrm = o.alongZ ? [nz, 0, 0] : [0, 0, nz];
+    slQuad('window', P(-ww / 2, 0, 0.03), P(ww / 2, 0, 0.03), P(ww / 2, wh, 0.03), P(-ww / 2, wh, 0.03), nrm, { uv4: [[uo, vo], [uo + 0.5, vo], [uo + 0.5, vo + 0.5], [uo, vo + 0.5]] });
+    // a frame proud of the wall: sill, lintel, jambs -- the shadow they throw is what makes a window read as set in
+    const T = (a, b) => { const p = P(...a), q = P(...b); return [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.min(p[2], q[2]), Math.max(p[0], q[0]), Math.max(p[1], q[1]), Math.max(p[2], q[2])]; };
+    const tt = o.trim || 0xf6f0e4;
+    slBox('trim', ...T([-ww / 2 - 0.2, -0.16, 0], [ww / 2 + 0.2, 0.0, 0.2]), { bev: 0.025, tint: tt });
+    slBox('trim', ...T([-ww / 2 - 0.16, wh, 0], [ww / 2 + 0.16, wh + 0.2, 0.14]), { bev: 0.025, tint: tt });
+    for (const s of [-1, 1]) slBox('trim', ...T([s * ww / 2 - 0.08, 0, 0], [s * ww / 2 + 0.08, wh, 0.1]), { bev: 0.02, tint: tt });
+    if (o.shut) for (const s of [-1, 1]) slBox('paint', ...T([s * (ww / 2 + 0.12), 0.02, 0], [s * (ww / 2 + 0.12 + ww * 0.42), wh - 0.02, 0.07]), { bev: 0.015, tint: o.shut });
+    if (o.flowers && slr() < o.flowers) { const p = P(0, -0.1, 0.25);
+      slBox('wood', ...T([-ww / 2, -0.38, 0.05], [ww / 2, -0.1, 0.38]), { bev: 0.02, tint: 0xb07850 }); slBush(p[0], p[1] - 0.05, p[2], 0.32); }
+    if (o.ivy && slr() < o.ivy) { const p = P(0, wh + 0.2, 0.1); slIvy(p[0] - (o.alongZ ? 0 : 0.8), p[2] - (o.alongZ ? 0.8 : 0), p[0] + (o.alongZ ? 0 : 0.8), p[2] + (o.alongZ ? 0.8 : 0), p[1], o.alongZ ? nz : 0, o.alongZ ? 0 : nz, 2, 0.8, 2.4); }
+  }
+}
+// a building: a plaster block with a cornice, windows on its face toward the street, a shopfront at the street
+function slBuilding(x0, x1, z0, z1, top, face, o) {   // face: 'z' (looks +z, front at z1) or 'Z' (looks -z, front at z0)
+  o = o || {};
+  const tint = o.tint || 0xf2d2b6, fz = face === 'z' ? z1 : z0, nz = face === 'z' ? 1 : -1, sy = o.street === undefined ? SLC.Q : o.street;
+  slBox('plaster', x0, 0, z0, x1, top, z1, { bev: 0.08, tint, base: sy, skip: 'y', solid: true, tag: 'slice bld' });
+  // cornice and a parapet coping, a base course at the street
+  slBox('trim', x0 - 0.25, top - 0.7, fz - nz * 0.05, x1 + 0.25, top - 0.3, fz + nz * 0.35, { bev: 0.06, tint: o.trimT || 0xf8f2e6, skip: '' });
+  slBox('stone', x0 - 0.1, sy, fz, x1 + 0.1, sy + 0.6, fz + nz * 0.18, { bev: 0.04, base: sy });
+  if (o.bands) for (const by of o.bands) slBox('trim', x0 - 0.05, by - 0.12, Math.min(fz, fz + nz * 0.16), x1 + 0.05, by + 0.12, Math.max(fz, fz + nz * 0.16), { bev: 0.03, tint: o.trimT || 0xf8f2e6, skip: '' });
+  const wy0 = sy + (o.shop ? 4.0 : 1.2);
+  slWindowGrid(x0 + 0.6, x1 - 0.6, fz + nz * 0.01, nz, wy0, top - 1.2, { cw: o.cw, trim: o.trimT, shut: o.shut, flowers: o.flowers === undefined ? 0.35 : o.flowers, ivy: o.ivy === undefined ? 0.15 : o.ivy });
+  // relief: pilasters at the corners, a string course per floor, brackets under the cornice, a parapet
+  const zl = Math.min(fz, fz + nz * 0.14), zh = Math.max(fz, fz + nz * 0.14);
+  for (const px of [x0 + 0.3, x1 - 0.3]) slBox('trim', px - 0.3, sy + 0.6, zl, px + 0.3, top - 0.7, zh, { bev: 0.04, tint: o.trimT || 0xf8f2e6, base: sy });
+  for (let fy = wy0 - 0.45 + 3.3; fy < top - 1.6; fy += 3.3) slBox('trim', x0 + 0.6, fy, Math.min(fz, fz + nz * 0.08), x1 - 0.6, fy + 0.14, Math.max(fz, fz + nz * 0.08), { bev: 0.02, tint: o.trimT || 0xf8f2e6 });
+  for (let bx = x0 + 1.2; bx < x1 - 0.8; bx += 1.3) slBox('trim', bx - 0.12, top - 1.0, Math.min(fz, fz + nz * 0.3), bx + 0.12, top - 0.7, Math.max(fz, fz + nz * 0.3), { bev: 0.02, tint: o.trimT || 0xf8f2e6 });
+  slBox('plaster', x0, top, Math.min(fz, fz - nz * 0.35), x1, top + 0.8, Math.max(fz, fz - nz * 0.35), { bev: 0.05, tint, skip: 'y' });
+  if (o.balc) for (const f of o.balc) { const by = wy0 - 0.25 + f * 3.3, bw = Math.min(4.2, (x1 - x0) * 0.4), bc = (x0 + x1) / 2 + (o.balcX || 0);
+    slBox('trim', bc - bw / 2, by - 0.18, Math.min(fz, fz + nz * 1.1), bc + bw / 2, by, Math.max(fz, fz + nz * 1.1), { bev: 0.03, tint: o.trimT || 0xf8f2e6, skip: '' });
+    const ez = fz + nz * 1.05, rail = [[bc - bw / 2 + 0.05, by, fz], [bc - bw / 2 + 0.05, by, ez], [bc + bw / 2 - 0.05, by, ez], [bc + bw / 2 - 0.05, by, fz]];
+    slTube('metal', rail.map(p => [p[0], p[1] + 0.95, p[2]]), 0.03);
+    for (let t = 0; t <= 1.0001; t += 1 / 14) { const x = bc - bw / 2 + 0.05 + (bw - 0.1) * t; slBox('metal', x - 0.015, by, ez - 0.015, x + 0.015, by + 0.95, ez + 0.015, { bev: 0 }); }
+    for (let k = 0; k < 3; k++) slBush(bc - bw / 2 + 0.5 + k * (bw - 1) / 2, by, fz + nz * 0.5, 0.35 + slr() * 0.2);
+    if (o.ivy !== 0) slIvy(bc - bw / 2, ez + nz * 0.03, bc + bw / 2, ez + nz * 0.03, by + 0.9, 0, nz, 1.2, 0.6, 2.2); }
+  if (o.shop) slShop(x0, x1, fz, nz, sy, o.shop);
+  // the clutter that makes a wall lived in: a drainpipe down one corner, an AC unit or two, a poster at the street
+  { const dx = o.pipeX || x1 - 0.9; slGeo('metal', new THREE.CylinderGeometry(0.09, 0.09, top - sy, 8), slMat(dx, (top + sy) / 2, fz + nz * 0.22), { smooth: true, tint: 0x8a8f9a });
+    for (let y = sy + 1.5; y < top; y += 2.6) slBox('metal', dx - 0.13, y, Math.min(fz, fz + nz * 0.3), dx + 0.13, y + 0.08, Math.max(fz, fz + nz * 0.3), { bev: 0 }); }
+  for (let k = 0; k < (o.ac || 1); k++) { const ax = x0 + 1.4 + slr() * (x1 - x0 - 2.8), ay = sy + 4.5 + Math.floor(slr() * 2) * 3.3 + 2.2;
+    slBox('paint', ax - 0.45, ay, Math.min(fz, fz + nz * 0.55), ax + 0.45, ay + 0.6, Math.max(fz, fz + nz * 0.55), { bev: 0.03, tint: 0xd6d8dc });
+    slDecal('decal', 'saturn', [ax, ay + 0.3, fz + nz * 0.56], [nz, 0, 0], [0, 1, 0], 0.45, 0.45, 0.005); }
+  if (o.poster) slDecal('decal', o.poster, [x0 + 1.6, sy + 1.6, fz + nz * 0.02], [nz, 0, 0], [0, 1, 0], 1.2);
+  // rooftop bits seen from far away: a water tank, a vent
+  if (o.roof !== false) { const rx = x0 + (x1 - x0) * (0.25 + slr() * 0.5), rz = (z0 + z1) / 2;
+    slGeo('metal', new THREE.CylinderGeometry(1.0, 1.0, 1.8, 12), slMat(rx, top + 1.3, rz), { smooth: true });
+    for (const s of [-1, 1]) for (const t of [-1, 1]) slGeo('metal', new THREE.BoxGeometry(0.1, 0.5, 0.1), slMat(rx + s * 0.7, top + 0.25, rz + t * 0.7));
+    slBox('metal', rx - 1.1, top + 2.2, rz - 1.1, rx + 1.1, top + 2.35, rz + 1.1, { bev: 0.02 }); }
+}
+function slShop(x0, x1, fz, nz, sy, s) {
+  const w = x1 - x0, cx = (x0 + x1) / 2, gw = Math.min(w - 2, s.w || 7);
+  // the shop glass: one wide pane in the window material, a dark door beside it, an awning over both
+  const P = (x, y, d) => [x, y, fz + nz * d];
+  slQuad('window', P(cx - gw / 2, sy + 0.6, -0.08), P(cx + gw / 2, sy + 0.6, -0.08), P(cx + gw / 2, sy + 3.0, -0.08), P(cx - gw / 2, sy + 3.0, -0.08), [0, 0, nz], { uv4: [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]] });
+  slBox('trim', Math.min(cx - gw / 2 - 0.2, cx + gw / 2 + 0.2), sy + 3.0, Math.min(fz, fz + nz * 0.15), Math.max(cx - gw / 2 - 0.2, cx + gw / 2 + 0.2), sy + 3.25, Math.max(fz, fz + nz * 0.15), { bev: 0.03, tint: 0x2a2a34, skip: '' });
+  // awning: a sloped striped sheet
+  const aw = gw + 0.6, ad = 1.6, ay = sy + 3.55;
+  slQuad('awning', P(cx - aw / 2, ay, 0.05), P(cx + aw / 2, ay, 0.05), P(cx + aw / 2, ay - 0.65, ad), P(cx - aw / 2, ay - 0.65, ad), [0, 0.9, nz * 0.4], { uv4: [[0, 0], [aw / 2, 0], [aw / 2, 1], [0, 1]], tint: s.col || 0x3fd2c7 });
+  slQuad('awning', P(cx - aw / 2, ay - 0.65, ad), P(cx + aw / 2, ay - 0.65, ad), P(cx + aw / 2, ay - 1.0, ad), P(cx - aw / 2, ay - 1.0, ad), [0, 0, nz], { uv4: [[0, 0.85], [aw / 2, 0.85], [aw / 2, 1], [0, 1]], tint: s.col || 0x3fd2c7 });
+  if (s.sign) { const sz = s.signW || 4; slDecal('sign', s.sign, [cx, sy + 4.6 + (s.signY || 0), fz + nz * 0.12], [nz, 0, 0], [0, 1, 0], sz); slGlow(cx, sy + 4.6 + (s.signY || 0), fz + nz * 0.6, sz * 1.1, s.glow || 0xff6fb8, 0.5); }
+  if (s.neon) slBox('neon', x0 + 0.2, sy + 3.35, Math.min(fz, fz + nz * 0.1), x1 - 0.2, sy + 3.45, Math.max(fz, fz + nz * 0.1), { bev: 0, tint: s.neon, skip: '' });
+}
+function slBoat(x, z, ry, col) {
+  // a little canal launch: a hull from an extruded outline, a cabin, a canopy -- its own group so it can bob
+  const sh = new THREE.Shape(); sh.moveTo(-0.95, -2.3); sh.lineTo(0.95, -2.3); sh.quadraticCurveTo(1.05, 0.6, 0, 2.6); sh.quadraticCurveTo(-1.05, 0.6, -0.95, -2.3);
+  const hull = new THREE.ExtrudeGeometry(sh, { depth: 0.9, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.12, bevelSegments: 2, curveSegments: 10 }).rotateX(-Math.PI / 2).translate(0, -0.35, 0);
+  const g = new THREE.Group();
+  const add = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; g.add(m); };
+  const M = SLC.boatMats || (SLC.boatMats = { hull: new THREE.MeshStandardMaterial({ color: 0xf6f3ee, roughness: 0.45 }), deck: null, stripe: {}, cab: new THREE.MeshStandardMaterial({ color: 0x29324a, roughness: 0.3, metalness: 0.3 }) });
+  const stripe = M.stripe[col] || (M.stripe[col] = new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 }));
+  add(hull, M.hull);
+  add(new THREE.BoxGeometry(2.0, 0.16, 4.3).translate(0, 0.42, 0.05), stripe);
+  add(new THREE.BoxGeometry(1.3, 0.75, 1.5).translate(0, 0.9, -0.6), M.cab);
+  add(new THREE.BoxGeometry(1.6, 0.08, 2.2).translate(0, 1.55, -0.5), stripe);
+  for (const s of [-1, 1]) add(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6).translate(s * 0.7, 1.1, 0.4), M.cab);
+  g.position.set(x, SLC.WY, z); g.rotation.y = ry; scene.add(g); SLC.meshes.push(g);
+  const ph = slr() * 6;
+  SLC.anim.push((dt, t) => { g.position.y = SLC.WY + Math.sin(t * 1.3 + ph) * 0.05; g.rotation.z = Math.sin(t * 0.9 + ph) * 0.025; g.rotation.x = Math.sin(t * 1.1 + ph * 2) * 0.015; });
+}
+
+// ---- the street ------------------------------------------------------------------------------------------------
+function buildSlice() {
+  if (!SLC.on || !ORB.on) return;
+  _slseed = 4242;
+  const Q = SLC.Q, WY = SLC.WY, TER = SLC.TER, C = SLC.canal, BR = SLC.br;
+  // THE ENTRY: from the west gate's street level up a broad ramp onto the head of the canal
+  { const x0 = -96, x1 = -110, z0 = -26, z1 = 21.5;
+    slQuad('concrete', [x0, 0.02, z0], [x0, 0.02, z1], [x1, Q, z1], [x1, Q, z0], [0, 1, 0], { solid: true });
+    for (let i = 0; i < 6; i++) { const z = z0 + 3 + i * 7.6; slDecal('decal', 'chevron', [(x0 + x1) / 2, Q / 2 + 0.03, z], [0, 0, -1], [-Math.cos(Math.atan2(Q, 14)), Math.sin(Math.atan2(Q, 14)), 0], 2.6, null, 0.03); } }
+  slBox('stone', -117, 0, -26, -110, Q, 21.5, { top: 'paving', bev: 0, solid: true, skip: 'yXx' });
+  // THE QUAYS: stone boxes with paving tops, rough masonry where they meet the canal
+  const quay = (x0, x1, z0, z1, canalSide) => {
+    slBox('stone', x0, 0, z0, x1, Q, z1, { top: 'paving', bev: 0, solid: true, skip: 'yxX' + (canalSide > 0 ? 'Z' : 'z') });
+    const zf = canalSide > 0 ? z1 : z0;
+    slQuad('masonry', [x0, 0, zf], [x1, 0, zf], [x1, Q - 0.25, zf], [x0, Q - 0.25, zf], [0, 0, canalSide], { base: WY });
+    // the coping: a lighter cap stone that overhangs the water, every couple of metres a joint
+    for (let x = x0; x < x1 - 0.01; x += 2.4) { const xe = Math.min(x1, x + 2.4);
+      slBox('stone', x + 0.01, Q - 0.28, Math.min(zf, zf + canalSide * 0.22), xe - 0.01, Q + 0.02, Math.max(zf, zf + canalSide * 0.22), { bev: 0.05, tint: 0xf4ecdf, skip: 'y' }); }
+  };
+  quay(-204, -117, 0, 10, -1);       // north quay: its canal face looks -z
+  quay(-204, -117, -26, -14, 1);     // south quay: looks +z
+  slBox('stone', -204, 0, 10, -188, Q, 21.5, { top: 'paving', bev: 0, solid: true });
+  // the canal head wall, seen from the water
+  slQuad('masonry', [-117, 0, C.z0], [-117, 0, C.z1], [-117, Q, C.z1], [-117, Q, C.z0], [-1, 0, 0], { base: WY });
+  ORB.water.push({ x0: C.x0, x1: C.x1, z0: C.z0, z1: C.z1, y: WY, col: 0x2fe3b4, col2: 0x9dffd8, splash: true, draw: false });
+
+  // THE STAIRS AND THE RAMP, side by side up to the terrace, like the painting's left side
+  const yR = x => Q + (TER - Q) * Math.min(1, Math.max(0, (-117 - x) / 20));    // the ramp, x -117 -> -137
+  const yS = x => x > -125 ? Q : Q + (TER - Q) * Math.min(1, (-125 - x) / 12);  // the stairs' line
+  { // ramp surface, with a concave bank up against the mural wall so you can carve along it
+    const prof = [[15.3, 0], [20.0, 0]]; for (let i = 1; i <= 6; i++) { const a = i / 6 * 1.2; prof.push([20.0 + Math.sin(a) * 1.4, (1 - Math.cos(a)) * 1.4]); }
+    for (let s = 0; s < 10; s++) { const xa = -117 - s * 2, xb = xa - 2;
+      for (let j = 0; j < prof.length - 1; j++) { const [za, ha] = prof[j], [zb, hb] = prof[j + 1];
+        slQuad('concrete', [xa, yR(xa) + ha, za], [xb, yR(xb) + ha, za], [xb, yR(xb) + hb, zb], [xa, yR(xa) + hb, zb], [0, 1, -0.2], { solid: true }); } }
+    for (let i = 0; i < 4; i++) { const x = -120 - i * 4.6, th = Math.atan2(TER - Q, 20);
+      slDecal('decal', 'chevron', [x, yR(x) + 0.04, 17.6], [0, 0, -1], [-Math.cos(th), Math.sin(th), 0], 2.4, null, 0.02); }
+  }
+  { // stairs: a flat run, then twenty steps -- the collider is the slope under their noses (rolling up steps on
+    // blades would be a stammer), the picture is the steps
+    slQuad('paving', [-117, Q, 10], [-125, Q, 10], [-125, Q, 15.3], [-117, Q, 15.3], [0, 1, 0], { solid: true });
+    slQuad('concrete', [-125, Q, 10], [-137, TER, 10], [-137, TER, 15.3], [-125, Q, 15.3], [0, 1, 0], { solid: true, noDraw: true });
+    const n = 20, run = 12 / n, rise = (TER - Q) / n;
+    for (let i = 0; i < n; i++) { const xa = -125 - i * run, y = Q + rise * (i + 1);
+      slBox('concrete', xa - run - 0.03, y - rise - 0.3, 10.0, xa + 0.04, y, 15.3, { bev: 0.035, skip: 'yzZx', base: y - rise - 0.25, T: 3 }); }
+    // the stair block's side toward the quay: an exact stepped profile
+    const pf = [[-117, Q], [-125, Q]]; for (let i = 0; i < n; i++) { const xa = -125 - i * run; pf.push([xa, Q + rise * (i + 1)], [xa - run, Q + rise * (i + 1)]); }
+    slProfileWall('stone', pf, 10.0, -1, Q, {});
+  }
+  // the low wall between the stairs and the ramp
+  { const pts = []; for (let x = -117; x >= -137; x -= 1) pts.push([x, Math.max(yR(x), yS(x)) + 0.5]);
+    slProfileWall('stone', pts, 15.3, 1, Q, {}); slProfileWall('stone', pts, 15.0, -1, Q, {});
+    for (let i = 0; i < pts.length - 1; i++) slQuad('stone', [pts[i][0], pts[i][1], 15.0], [pts[i + 1][0], pts[i + 1][1], 15.0], [pts[i + 1][0], pts[i + 1][1], 15.3], [pts[i][0], pts[i][1], 15.3], [0, 1, 0], { tint: 0xf4ecdf }); }
+
+  // THE MURAL WALL along the left, from the street to the terrace -- dark render covered in graffiti
+  slBox('dark', -137, 0, 21.5, -96, 10.5, 22.6, { bev: 0.06, baseF: (x) => x > -110 ? Q * (-96 - x) / 14 : (x > -117 ? Q : yR(x)), skip: 'yZx' });
+  slBox('stone', -137.2, 10.4, 21.35, -95.8, 10.75, 22.75, { bev: 0.05, tint: 0xeee4d4, skip: '' });
+  slDecal('decal', 'further', [-103.6, 6.4, 21.5], [-1, 0, 0], [0, 1, 0], 9.2);
+  slDecal('decal', 'cat', [-116.2, 6.6, 21.5], [-1, 0, 0], [0, 1, 0], 6.2);
+  slDecal('decal', 'tag', [-126, 9.0, 21.5], [-1, 0, 0], [0, 1, 0], 4.2);
+  slDecal('decal', 'smile', [-132.5, 11.6 - 0.1, 21.5], [-1, 0, 0], [0, 1, 0], 2.4);
+  slIvy(-96, 21.45, -137, 21.45, 10.4, 0, -1, 1.1, 0.8, 3.2);
+  // behind it, a taller block so the wall reads as a retaining wall with the town above
+  slBuilding(-137, -96, 22.6, 40, 17, 'Z', { tint: 0xe9dcef, street: 10.5, flowers: 0.3, ivy: 0.2, shut: 0x5aa89a });
+
+  // THE TERRACE above the quay: its front an arcade of blind arches, ivy pouring over the parapet
+  slBox('masonry', -188, 0, 10, -137, TER, 21.5, { top: 'paving', bev: 0, solid: true, skip: 'yX', base: Q, topT: 4.8 });
+  for (let i = 0; i < 8; i++) { const x = -140.5 - i * 6.0;
+    // a recessed arch: a dark panel, an arch ring of voussoirs, a warm sconce
+    const sh = new THREE.Shape(); sh.moveTo(-2.0, 0); sh.lineTo(2.0, 0); sh.lineTo(2.0, 2.6); sh.absarc(0, 2.6, 2.0, 0, Math.PI, false); sh.lineTo(-2.0, 0);
+    slGeo('dark', new THREE.ShapeGeometry(sh, 12), slMat(x, Q, 9.94, Math.PI), { tint: 0x5a5466, base: Q });
+    for (let k = 0; k <= 8; k++) { const a = k / 8 * Math.PI, r = 2.25;
+      slGeo('stone', new THREE.BoxGeometry(0.55, 0.42, 0.2), slMat(x + Math.cos(a) * r, Q + 2.6 + Math.sin(a) * r, 9.92, 0, 1, 1, 1, 0, a - Math.PI / 2), { tint: 0xf0e4d0 }); }
+    slBox('metal', x - 0.12, Q + 2.0, 9.6, x + 0.12, Q + 2.5, 9.95, { bev: 0.02 }); slBox('lampglass', x - 0.1, Q + 2.05, 9.55, x + 0.1, Q + 2.42, 9.62, { bev: 0 }); slGlow(x, Q + 2.25, 9.4, 1.6, 0xffc777, 0.6);
+  }
+  slBox('stone', -188.2, TER - 0.1, 9.75, -137, TER + 0.15, 10.3, { bev: 0.04, tint: 0xf4ecdf, skip: 'y' });
+  slIvy(-188, 9.92, -137, 9.92, TER - 0.05, 0, -1, 1.4, 1.0, 4.6);
+  // the terrace's own row of buildings, and its furniture
+  slBuilding(-155, -137, 21.5, 38, 22, 'Z', { tint: 0xf4e6c8, street: TER, shop: { sign: 'roll', signW: 2.0, col: 0xff8a5c, neon: 0xffa040, glow: 0xffffff }, balc: [1, 3], shut: 0x6b8fd0 });
+  slBuilding(-172, -155, 21.5, 36, 19, 'Z', { tint: 0xd4eae2, street: TER, balc: [2] });
+  slBuilding(-204, -172, 21.5, 38, 25, 'Z', { tint: 0xf4d4c8, street: Q, flowers: 0.5, balc: [2, 4], shut: 0x3f9e8c });
+  slVending(-150, TER, 20.5, Math.PI); slPlanter(-160, TER, 19.5, 3.4, 1.4, 0.7); slPlanter(-176, TER, 19.5, 3.4, 1.4, 0.7);
+  slBench(-145, TER, 19.8, Math.PI); slLamp(-147, TER, 11.2); slLamp(-170, TER, 11.2);
+
+  // THE NORTH QUAY's furniture, where the shot starts
+  for (const x of [-122, -141, -161, -181, -199]) slLamp(x, Q, 1.5);
+  for (const z of [-11, -3]) slBollard(-115.6, Q, z);
+  slCrate(-129, Q, 8.4, 1.0, 0.2); slCrate(-130.2, Q, 8.6, 0.9, -0.3); slCrate(-129.6, Q + 1.0, 8.5, 0.8, 0.5);
+  solidAdd(-129.6, 8.5, 1.2, 0.8, Q, Q + 1.8, 0, { top: true, tag: 'slice prop' });
+  slCone(-121, Q, 7.8); slCone(-121.8, Q, 8.6);
+  slPlanter(-134, Q, 7.8, 3.0, 1.6, 0.75); slBench(-170, Q, 8.8, Math.PI); slPlanter(-195, Q, 8, 3.0, 1.6, 0.75);
+
+  // THE BRIDGE: an extruded arch in rough masonry, a voussoir ring on each face, a humped deck with curbs
+  const yB = z => Q + BR.rise * Math.max(0, 1 - Math.pow((z - BR.zc) / 10, 2));
+  { const sh = new THREE.Shape(); sh.moveTo(BR.z0, 0);
+    for (let z = BR.z0; z <= BR.z1 + 1e-6; z += 1) sh.lineTo(z, yB(z) - 0.06);
+    sh.lineTo(BR.z1, 0); sh.lineTo(BR.z0, 0);
+    const hole = new THREE.Path(); hole.moveTo(BR.zc - 5.3, -0.5); hole.lineTo(BR.zc - 5.3, 1.2);
+    hole.absellipse(BR.zc, 1.2, 5.3, 2.5, Math.PI, 0, true); hole.lineTo(BR.zc + 5.3, -0.5); hole.lineTo(BR.zc - 5.3, -0.5); sh.holes.push(hole);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: BR.hw * 2 - 0.2, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 1, curveSegments: 18 });
+    // shape x -> world z, shape y -> world y, extrusion -> world x
+    const m = new THREE.Matrix4().makeBasis(SLV(0, 0, 1), SLV(0, 1, 0), SLV(-1, 0, 0)).setPosition(BR.x + BR.hw - 0.1, 0, 0);
+    slGeo('masonry', g, m, { base: WY });
+    for (const xs of [-1, 1]) { const fx = BR.x + xs * (BR.hw - 0.02);
+      for (let k = 0; k <= 12; k++) { const a = Math.PI - k / 12 * Math.PI, ex = BR.zc + Math.cos(a) * 5.7, ey = 1.2 + Math.sin(a) * 2.9;
+        slGeo('stone', new THREE.BoxGeometry(0.3, 0.75, 0.55), slMat(fx, ey, ex, 0, 1, 1, 1, -(a - Math.PI / 2)), { tint: 0xf0e2cc, base: WY }); }
+      slDecal('decal', 'goodlines', [fx + xs * 0.06, 2.0, BR.zc + 7.6], [0, 0, -xs], [0, 1, 0], 3.0);
+    }
+    // the deck: paving on top, a stone curb either side, orange railings along the curbs
+    for (let z = BR.z0; z < BR.z1 - 1e-6; z += 1) { const za = z, zb = z + 1;
+      slQuad('paving', [BR.x - BR.hw, yB(za), za], [BR.x + BR.hw, yB(za), za], [BR.x + BR.hw, yB(zb), zb], [BR.x - BR.hw, yB(zb), zb], [0, 1, 0], { solid: true });
+      for (const xs of [-1, 1]) { const xo = BR.x + xs * BR.hw, xi = xo - xs * 0.45;
+        slQuad('stone', [xi, yB(za) + 0.35, za], [xo, yB(za) + 0.35, za], [xo, yB(zb) + 0.35, zb], [xi, yB(zb) + 0.35, zb], [0, 1, 0], { tint: 0xf4ecdf });
+        slQuad('stone', [xi, yB(za), za], [xi, yB(zb), zb], [xi, yB(zb) + 0.35, zb], [xi, yB(za) + 0.35, za], [-xs, 0, 0], { base: yB(za) });
+        slQuad('stone', [xo, yB(za) - 0.4, za], [xo, yB(zb) - 0.4, zb], [xo, yB(zb) + 0.35, zb], [xo, yB(za) + 0.35, za], [xs, 0, 0], {}); } }
+    for (const xs of [-1, 1]) { const pts = []; for (let z = BR.z0; z <= BR.z1 + 1e-6; z += 1) pts.push([BR.x + xs * (BR.hw - 0.22), yB(z) + 0.35, z]);
+      SLC.brRails = SLC.brRails || []; SLC.brRails.push(slRailing(pts, 0.75, { step: 2 })); }
+    slIvy(BR.x - BR.hw - 0.05, BR.z0 + 4, BR.x - BR.hw - 0.05, BR.z1 - 4, Q + 0.6, -1, 0, 0.9, 0.6, 2.0);
+  }
+
+  // THE SOUTH SIDE: shopfronts on the quay, the slime pipe, the Nimbus tower
+  slBuilding(-117, -96, -42, -26, 15, 'z', { tint: 0xf3dcc8, street: 0, roof: true, shut: 0x5a7fc0 });
+  slBuilding(-133, -117, -42, -26, 16, 'z', { tint: 0xf6e4cc, shop: { sign: 'ramen', signW: 3.0, col: 0xff5f8f, neon: 0xff4fa0, glow: 0xff5f8f }, balc: [1], shut: 0x3f9e8c });
+  slBuilding(-147, -133, -40, -26, 13, 'z', { tint: 0xdcd4ee, shop: { col: 0x3fd2c7, neon: 0x40e8ff }, shut: 0xd07a5a, poster: 'humans', ac: 2 });
+  slBuilding(-162, -147, -42, -26, 19, 'z', { tint: 0xf3ecdc, shop: { col: 0xffc23f, neon: 0xffd15c }, balc: [1, 3] });
+  slBuilding(-204, -178, -42, -26, 14, 'z', { tint: 0xd4e4f0, shop: { col: 0xff7a4a, neon: 0xb98bff }, balc: [1], shut: 0xe08a5a, poster: 'curiosity' });
+  { // the tower: a drum of plaster wrapped in his alien mural, a NIMBUS sign, neon rings, a dome
+    const T = { x: -170, z: -33.5, r: 8, h: 32 };
+    slGeo('plaster', new THREE.CylinderGeometry(T.r, T.r, T.h, 40, 1, true), slMat(T.x, T.h / 2, T.z), { smooth: true, tint: 0xece4f4, base: Q });
+    slGeo('trim', new THREE.CylinderGeometry(T.r + 0.35, T.r + 0.35, 0.6, 40), slMat(T.x, T.h - 0.3, T.z), { smooth: true, tint: 0xf8f2e6 });
+    slGeo('paint', new THREE.SphereGeometry(T.r * 0.92, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), slMat(T.x, T.h, T.z), { smooth: true, tint: 0x6e5ec8 });
+    for (const y of [Q + 3.9, 18.5, 25.5]) slGeo('neon', new THREE.TorusGeometry(T.r + 0.12, 0.07, 6, 48).rotateX(Math.PI / 2), slMat(T.x, y, T.z), { tint: y < 10 ? 0xff6fd0 : 0x7cf0ff });
+    // the mural is a wrap of the atlas drawing on the half facing the canal
+    { const A = orbAtlas(), R = A.rects['mural']; if (R) { const a0 = 0.35 * Math.PI, a1 = 0.65 * Math.PI, y0 = 7.5, y1 = 24, seg = 16, rr = T.r + 0.04;
+      const u0 = R.x / A.W, u1 = (R.x + R.w) / A.W, v1 = 1 - R.y / A.H, v0 = 1 - (R.y + R.h) / A.H;
+      for (let s = 0; s < seg; s++) { const aa = a0 + (a1 - a0) * s / seg, ab = a0 + (a1 - a0) * (s + 1) / seg, ua = u1 - (u1 - u0) * s / seg, ub = u1 - (u1 - u0) * (s + 1) / seg;
+        const pa = [T.x + Math.cos(aa) * rr, 0, T.z + Math.sin(aa) * rr], pb = [T.x + Math.cos(ab) * rr, 0, T.z + Math.sin(ab) * rr];
+        slQuad('decal', [pa[0], y0, pa[2]], [pb[0], y0, pb[2]], [pb[0], y1, pb[2]], [pa[0], y1, pa[2]], [Math.cos((aa + ab) / 2), 0, Math.sin((aa + ab) / 2)], { uv4: [[ua, v0], [ub, v0], [ub, v1], [ua, v1]] }); } } }
+    slDecal('sign', 'nimbus', [T.x + 6.2, 13, T.z + 5.2], [Math.sin(0.7), 0, -Math.cos(0.7)], [0, 1, 0], 2.6); slGlow(T.x + 6.6, 13, T.z + 5.8, 4, 0x6fb8ff, 0.45);
+    solidAdd(T.x, T.z, T.r, T.r - 0.5, 0, T.h, 0, { top: true, tag: 'slice bld' });
+  }
+  { // THE SLIME PIPE: out of the wall, over the quay, an elbow, and down into the canal in a glowing column
+    const px = -140, pts = [[px, 9.2, -26.3], [px, 9.2, -21], [px, 9.15, -16.2], [px, 8.6, -13.4], [px, 7.6, -12.6]];
+    slTube('slime', pts, 0.48);
+    for (const [i, t] of [[0, 0.4], [1, 0], [2, 0]]) { const p = pts[i]; slGeo('metal', new THREE.CylinderGeometry(0.62, 0.62, 0.22, 16).rotateX(Math.PI / 2), slMat(p[0], p[1], p[2] + t), { smooth: true }); }
+    slGeo('metal', new THREE.TorusGeometry(0.56, 0.09, 6, 18).rotateX(Math.PI / 2), slMat(px, 7.62, -12.62, 0, 1, 1, 1, -0.95), { smooth: true });
+    for (const z of [-24, -19]) slBox('metal', px - 0.12, 9.2, z - 0.12, px + 0.12, 13, z + 0.12, { bev: 0.02 });
+    SLC.pour = { x: px, z: -12.4, y0: 7.4, y1: WY };
+    slGlow(px, 7.2, -12.4, 3.5, 0x6dff7a, 0.6); slGlow(px, WY + 0.4, -12.4, 5.5, 0x6dff7a, 0.55);
+  }
+  // south quay furniture
+  for (const x of [-124, -144, -165, -186]) slLamp(x, Q, -15.4);
+  slVending(-121, Q, -25.0, 0); slVending(-122.4, Q, -25.0, 0);
+  slPlanter(-152, Q, -24.6, 3.0, 1.4, 0.75); slPlanter(-192, Q, -24.6, 3.0, 1.4, 0.75);
+  slCrate(-136, Q, -23.5, 1.0, 0.3); slCrate(-137.1, Q, -24.1, 0.9, -0.2); solidAdd(-136.5, -23.8, 1.1, 0.8, Q, Q + 1.0, 0, { top: true, tag: 'slice prop' });
+  slCone(-158, Q, -16.4);
+  { // banners on poles along the south quay
+    for (const x of [-131, -175]) { slGeo('metal', new THREE.CylinderGeometry(0.06, 0.07, 6.5, 8), slMat(x, Q + 3.25, -16.5), { smooth: true });
+      slBox('paint', x + 0.05, Q + 3.4, -16.53, x + 1.35, Q + 6.1, -16.47, { bev: 0, tint: 0x2fb8b0, skip: '' });
+      slDecal('decal', 'alien', [x + 0.7, Q + 4.9, -16.45], [1, 0, 0], [0, 1, 0], 1.0); slDecal('decal', 'alien', [x + 0.7, Q + 4.9, -16.55], [-1, 0, 0], [0, 1, 0], 1.0); } }
+  slDecal('decal', 'sameplanet', [-178, 1.95, -13.97], [1, 0, 0], [0, 1, 0], 2.4);
+  slDecal('decal', 'push', [-131, 1.95, -0.03], [-1, 0, 0], [0, 1, 0], 2.2);
+
+  // THE FAR END: a big block the canal disappears into, under a lit arch -- FLOW THROUGH TOGETHER
+  { const fx = -204;
+    const sh = new THREE.Shape(); sh.moveTo(-42, 0); sh.lineTo(38, 0); sh.lineTo(38, 18); sh.lineTo(-42, 18); sh.lineTo(-42, 0);
+    const hole = new THREE.Path(); hole.moveTo(-13.2, 0); hole.lineTo(-0.8, 0); hole.lineTo(-0.8, 3.4); hole.absarc(-7, 3.4, 6.2, 0, Math.PI, false); hole.lineTo(-13.2, 0); sh.holes.push(hole);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: 1.2, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 1, curveSegments: 20 });
+    slGeo('stone', g, new THREE.Matrix4().makeBasis(SLV(0, 0, 1), SLV(0, 1, 0), SLV(-1, 0, 0)).setPosition(fx, 0, 0), { base: Q });
+    { // the tunnel's throat, faces looking INWARD so they are seen from the mouth
+      const xa = fx - 1.1, xb = fx - 26, za = -13.4, zb = -0.6, yt = 9.6, tn = { tint: 0x3a3450, base: SLC.WY };
+      slQuad('dark', [xb, 0, za], [xb, 0, zb], [xb, yt, zb], [xb, yt, za], [1, 0, 0], tn);
+      slQuad('dark', [xa, 0, za], [xb, 0, za], [xb, yt, za], [xa, yt, za], [0, 0, 1], tn);
+      slQuad('dark', [xa, 0, zb], [xb, 0, zb], [xb, yt, zb], [xa, yt, zb], [0, 0, -1], tn);
+      slQuad('dark', [xa, yt, za], [xb, yt, za], [xb, yt, zb], [xa, yt, zb], [0, -1, 0], { tint: 0x2a2640 });
+      for (let k = 0; k < 4; k++) { const x = xa - 3 - k * 5.5; slBox('lampglass', x - 0.3, yt - 0.25, -7.2, x + 0.3, yt - 0.05, -6.8, { bev: 0, skip: 'Y' }); slGlow(x, yt - 0.5, -7, 2.4, 0x9fe8ff, 0.5); } }
+    slBox('trim', fx - 0.4, 17.4, -42, fx + 0.4, 18.4, 38, { bev: 0.06, tint: 0xf8f2e6, skip: '' });
+    slBox('plaster', fx - 22, 0, -42, fx - 1.21, 23, 38, { bev: 0.1, tint: 0xe6deef, skip: 'y' });
+    slBox('trim', fx - 1.6, 22.4, -42, fx - 0.9, 23.2, 38, { bev: 0.05, tint: 0xf8f2e6, skip: '' });
+    slWindowGrid(25, 1.5, fx + 0.07, 1, 11.6, 17.4, { alongZ: true, cw: 3.2, flowers: 0.4 }); slWindowGrid(-15, -40, fx + 0.07, 1, 11.6, 17.4, { alongZ: true, cw: 3.2, flowers: 0.4 });
+    slWindowGrid(25, 1.5, fx + 0.07, 1, 4.6, 9.4, { alongZ: true, cw: 3.2, flowers: 0.2 }); slWindowGrid(-15, -40, fx + 0.07, 1, 4.6, 9.4, { alongZ: true, cw: 3.2, flowers: 0.2 });
+    slWindowGrid(25, -40, fx - 1.2, 1, 18.6, 22.4, { alongZ: true, cw: 3.2, flowers: 0.4, shut: 0x5aa89a });
+    slDecal('sign', 'flow', [fx + 0.1, 11.2, -7], [0, 0, -1], [0, 1, 0], 6.4); slGlow(fx + 1, 11.2, -7, 7, 0x40f0d0, 0.45);
+    for (const z of [-13.6, -0.4]) slBox('neon', fx - 0.1, 0.2, z - 0.06, fx + 0.06, 9.0, z + 0.06, { bev: 0, tint: 0xb98bff, skip: '' });
+    solidAdd(fx - 12, -2, 12, 40, 0, 26, 0, { top: false, tag: 'slice bld' });
+    ORB.water.push({ x0: fx - 26, x1: fx, z0: -13.6, z1: -0.4, y: WY, splash: true, draw: false });
+  }
+  // boats
+  slBoat(-128, -4, 0.15, 0xff6a3d); slBoat(-171, -10, Math.PI - 0.1, 0x2fb8b0); slBoat(-192, -3.2, 0.05, 0xb98bff);
+
+  slBench(-113.6, Q, 13.5, -Math.PI / 2); slPlanter(-113.5, Q, -20.5, 2.6, 2.6, 0.7);
+  // festoon lights strung over the south quay, from the lamp heads to the shop fronts: catenaries of warm bulbs
+  for (const [lx, bx] of [[-124, -128], [-144, -140], [-165, -170], [-186, -190]]) {
+    const A = [lx, Q + 3.6, -15.4], B = [bx, Q + 6.4, -25.8], pts = [];
+    for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t - Math.sin(t * Math.PI) * 0.9, A[2] + (B[2] - A[2]) * t]); }
+    slTube('metal', pts, 0.012);
+    for (let i = 1; i < 12; i += 1) { const p = pts[i]; slGeo('lampglass', new THREE.SphereGeometry(0.07, 6, 4), slMat(p[0], p[1] - 0.1, p[2]), { smooth: true }); if (i % 2) slGlow(p[0], p[1] - 0.1, p[2], 0.9, 0xffd08a, 0.7); } }
+  slBlade(-119.2, 9.6, -26, 1, 'saturn', 1.6, 0xb98bff); slBlade(-181.5, 8.6, -26, 1, 'alien', 1.5, 0x40f0d0); slBlade(-153, 14.5, 21.5, -1, 'saturn', 1.6, 0xff6fb8);
+  slTree(-158, TER + 0.7, 19.5, 4.2); slTree(-176, TER + 0.7, 19.5, 3.8); slTree(-195, Q + 0.75, 8, 4.4); slTree(-152, Q + 0.75, -24.6, 4.0); slTree(-192, Q + 0.75, -24.6, 3.6);
+  // greenery: the terrace parapet pours ivy, the mural wall's coping grows bushes, the canal copings trail it into the water
+  slIvy(-188, 9.92, -137, 9.92, TER - 0.05, 0, -1, 1.6, 1.4, 5.6);
+  for (let x = -99; x > -136; x -= 2.2 + slr() * 2) if (slr() < 0.6) slBush(x, 10.75, 22.0, 0.55 + slr() * 0.4);
+  slIvy(-117, -0.24, -204, -0.24, Q - 0.02, 0, -1, 0.5, 0.6, 1.8); slIvy(-117, -13.76, -204, -13.76, Q - 0.02, 0, 1, 0.5, 0.6, 1.8);
+  slIvy(-203.9, 38, -203.9, -42, 17.4, 1, 0, 0.6, 1.2, 3.4);
+  Object.assign(CITY.spots, { slice: [-116.5, Q, 5, -Math.PI / 2], 'slice bridge': [BR.x, yB(BR.zc), BR.zc + 6, Math.PI], 'slice terrace': [-140, TER, 15, -Math.PI / 2] });
+  SLC.built = 1;
+}
+// the slice's rails: the quay edges, the bridge, the stair rail and the ramp's down rail -- all on posts, all grindable
+function sliceRails() {
+  if (!SLC.built) return;
+  const Q = SLC.Q, BR = SLC.br, V = (p) => SLV(p[0], p[1], p[2]), H = 1.05;
+  const run = (x0, x1, z, y) => { const top = slRailing([[x0, y, z], [x1, y, z]], H, {});
+    railPath(railLine(V(top[0]), V(top[1]), 2), { name: 'slice' }); };
+  run(-117.5, BR.x + BR.hw + 0.4, 0.45, Q); run(BR.x - BR.hw - 0.4, -203.5, 0.45, Q);
+  run(-117.5, BR.x + BR.hw + 0.4, -14.45, Q); run(BR.x - BR.hw - 0.4, -203.5, -14.45, Q);
+  { const top = slRailing([[-116.55, Q, -14.4], [-116.55, Q, 0.4]], H, { lower: true }); railPath(railLine(V(top[0]), V(top[1]), 2), { name: 'slice' }); }
+  for (const top of SLC.brRails || []) railPath(top.map(V), { name: 'slice' });
+  // the stair rail, on the drop side: level, then down the flight
+  { const pts = [[-117.5, Q, 10.25], [-125, Q, 10.25]]; for (let i = 1; i <= 6; i++) pts.push([-125 - i * 2, Q + (SLC.TER - Q) * i / 6, 10.25]);
+    const top = slRailing(pts, H, { step: 2 }); railPath(top.map(V), { name: 'slice' }); }
+  // the ramp's down rail, on the low wall between stairs and ramp
+  { const pts = []; for (let i = 0; i <= 10; i++) { const x = -118 - i * 1.9, y = Q + (SLC.TER - Q) * Math.min(1, (-117 - x) / 20); pts.push([x, Math.max(y, x > -125 ? Q : Q + (SLC.TER - Q) * Math.min(1, (-125 - x) / 12)) + 0.5, 15.15]); }
+    const top = slRailing(pts, 0.6, { step: 2.2 }); railPath(top.map(V), { name: 'slice' }); }
+  // the terrace edge
+  { const top = slRailing([[-137.5, SLC.TER, 10.1], [-187.5, SLC.TER, 10.1]], H, { lower: true }); railPath(railLine(V(top[0]), V(top[1]), 2), { name: 'slice' }); }
+}
+
+// ---- turning the buckets into meshes -----------------------------------------------------------------------------
+function slAO(mat) {
+  mat.onBeforeCompile = sh => {
+    sh.vertexShader = 'attribute float aH;\nvarying float vH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vH = aH;');
+    sh.fragmentShader = 'varying float vH;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+      '#include <map_fragment>\n  diffuseColor.rgb *= mix(0.36, 1.0, smoothstep(0.0, 1.6, vH)) * mix(0.88, 1.0, smoothstep(1.6, 7.0, vH));');
+  };
+  mat.customProgramCacheKey = () => 'slao';
+  return mat;
+}
+function sliceMeshes() {
+  if (!SLC.built) return;
+  const t0 = performance.now();
+  const st = slStoneTex('stone'), ms = slStoneTex('masonry'), pv = slPaveTex(), cc = slConcTex(false), dk = slConcTex(true), pl = slPlasterTex(), wd = slWoodTex();
+  const win = slWindowTex(), A = orbAtlas();
+  const std = (t, o) => slAO(new THREE.MeshStandardMaterial(Object.assign({ map: t.map, normalMap: t.nrm, vertexColors: true, roughness: 0.9, metalness: 0 }, o)));
+  const M = {
+    stone: std(st, { normalScale: new THREE.Vector2(1, 1) }), masonry: std(ms, { normalScale: new THREE.Vector2(1.2, 1.2) }), paving: std(pv, { roughness: 0.85 }),
+    concrete: std(cc, { roughness: 0.8, normalScale: new THREE.Vector2(0.6, 0.6) }), dark: std(dk, { roughness: 0.85 }), plaster: std(pl, { roughness: 0.95, normalScale: new THREE.Vector2(0.5, 0.5) }),
+    trim: std(pl, { roughness: 0.75, normalScale: new THREE.Vector2(0.3, 0.3) }), wood: std(wd, { roughness: 0.8 }),
+    metal: slAO(new THREE.MeshStandardMaterial({ color: 0x2b303d, metalness: 0.55, roughness: 0.42, vertexColors: true })),
+    orange: new THREE.MeshStandardMaterial({ color: 0xff7426, metalness: 0.2, roughness: 0.32, emissive: 0x5a1800, emissiveIntensity: 0.25 }),
+    paint: slAO(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, vertexColors: true })),
+    window: new THREE.MeshStandardMaterial({ map: win.map, emissiveMap: win.em, emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.15, metalness: 0.2 }),
+    lampglass: new THREE.MeshBasicMaterial({ color: 0xffe0a0, toneMapped: false }),
+    neon: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+    slime: new THREE.MeshStandardMaterial({ color: 0x5cff6e, emissive: 0x2ee856, emissiveIntensity: 0.9, roughness: 0.12, metalness: 0.0, transparent: true, opacity: 0.88 }),
+    awning: new THREE.MeshStandardMaterial({ map: slAwningTex(), vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }),
+    vine: new THREE.MeshStandardMaterial({ map: slLeafTex('vine'), vertexColors: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9 }),
+    bush: new THREE.MeshStandardMaterial({ map: slLeafTex('bush'), vertexColors: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9 }),
+    screen: new THREE.MeshBasicMaterial({ map: slScreenTex(), toneMapped: false }),
+    decal: new THREE.MeshStandardMaterial({ map: A.tex, transparent: true, alphaTest: 0.05, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, depthWrite: false }),
+    neonS: null,
+  };
+  M.neonS = new THREE.MeshBasicMaterial({ map: A.tex, transparent: true, alphaTest: 0.04, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, depthWrite: false });
+  for (const k in SLB) {
+    const B = SLB[k]; if (!B.p.length) continue;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(B.p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(B.n, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(B.u, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(B.c, 3));
+    g.setAttribute('aH', new THREE.Float32BufferAttribute(B.h, 1)); g.computeBoundingSphere();
+    const mat = k === 'sign' ? M.neonS : (M[k] || M.paint);
+    const m = new THREE.Mesh(g, mat); m.name = 'slice:' + k;
+    if (['decal', 'sign', 'neon', 'lampglass', 'screen'].indexOf(k) < 0) { m.castShadow = k !== 'vine' && k !== 'bush' && k !== 'window'; m.receiveShadow = true; }
+    if (k === 'decal' || k === 'sign') m.renderOrder = 2;
+    scene.add(m); SLC.meshes.push(m);
+  }
+  // THE WATER
+  { const N = slWaterTex(), C = SLC.canal;
+    const mat = new THREE.ShaderMaterial({ fog: true, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
+        uT: { value: 0 }, uN: { value: null }, uDeep: { value: new THREE.Color(0x03413f) }, uGlow: { value: new THREE.Color(0x27f0c0) },
+        uSky: { value: new THREE.Color(0x9cc8f0) }, uHor: { value: new THREE.Color(0xe6d4c4) }, uSunDir: { value: LIGHT.dir.clone() }, uRect: { value: new THREE.Vector4(C.x0, C.x1, C.z0, C.z1) } }]),
+      vertexShader: `varying vec3 vW;
+        #include <fog_pars_vertex>
+        void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+        }`,
+      fragmentShader: `uniform float uT; uniform sampler2D uN; uniform vec3 uDeep, uGlow, uSky, uHor, uSunDir; uniform vec4 uRect; varying vec3 vW;
+        #include <fog_pars_fragment>
+        void main(){
+          vec2 p = vW.xz;
+          vec4 a = texture2D(uN, p * 0.075 + vec2(uT * 0.020, uT * 0.009));
+          vec4 b = texture2D(uN, p * 0.19 + vec2(-uT * 0.014, uT * 0.026));
+          vec4 c = texture2D(uN, p * 0.53 + vec2(uT * 0.05, -uT * 0.04));
+          vec3 n = normalize(vec3((a.x + b.x - 1.0) * 0.9 + (c.x - 0.5) * 0.7, 2.6, (a.y + b.y - 1.0) * 0.9 + (c.y - 0.5) * 0.7));
+          vec3 V = normalize(cameraPosition - vW);
+          float fr = 0.04 + 0.96 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
+          float e = min(min(vW.x - uRect.x, uRect.y - vW.x), min(vW.z - uRect.z, uRect.w - vW.z));
+          float edge = 1.0 - smoothstep(0.0, 3.2, e);
+          vec3 col = mix(uDeep, uGlow, 0.10 + 0.5 * edge * edge + 0.2 * b.a + 0.1 * a.a);
+          col += uGlow * pow(texture2D(uN, p * 0.11 + n.xz * 0.05 + vec2(uT * 0.03, 0.0)).a, 2.0) * 0.45;    // caustic shimmer
+          vec3 R = reflect(-V, n); vec3 sky = mix(uHor, uSky, clamp(R.y * 1.4, 0.0, 1.0)) * 1.15;
+          col = mix(col, sky, clamp(fr * 0.75, 0.0, 0.5));
+          col += vec3(1.0, 0.95, 0.85) * pow(max(dot(R, normalize(uSunDir)), 0.0), 300.0) * 6.0;
+          col += vec3(0.9, 1.0, 0.95) * smoothstep(0.93, 0.99, c.a * b.a * 1.6) * 0.8;       // glints
+          float foam = (1.0 - smoothstep(0.0, 0.9, e)) * (0.55 + 0.45 * a.a) + smoothstep(0.62, 0.9, b.a) * 0.12;
+          col = mix(col, vec3(0.92, 1.0, 0.97), clamp(foam, 0.0, 1.0) * 0.75);
+          gl_FragColor = vec4(col, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+          #include <fog_fragment>
+        }` });
+    mat.uniforms.uN.value = N;
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(C.x1 - C.x0 + 26, C.z1 - C.z0, 1, 1).rotateX(-Math.PI / 2), mat);
+    w.position.set((C.x0 - 26 + C.x1) / 2, SLC.WY, (C.z0 + C.z1) / 2); w.name = 'slice water'; w.receiveShadow = false;
+    scene.add(w); SLC.meshes.push(w);
+    SLC.anim.push((dt, t) => { mat.uniforms.uT.value = t; });
+  }
+  // THE POUR: a column of slime falling out of the pipe, streaks running down it, foam where it lands
+  if (SLC.pour) { const P = SLC.pour, h = P.y0 - P.y1;
+    const g = new THREE.CylinderGeometry(0.42, 0.62, h, 16, 1, true);
+    const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, uniforms: { uT: { value: 0 }, uN: { value: slWaterTex() } },
+      vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform float uT; uniform sampler2D uN; varying vec2 vU;
+        void main(){ float s = texture2D(uN, vec2(vU.x * 2.0, vU.y * 0.6 + uT * 1.4)).a; float s2 = texture2D(uN, vec2(vU.x * 3.0 + 0.3, vU.y * 1.1 + uT * 2.1)).a;
+          vec3 c = mix(vec3(0.20, 1.0, 0.35), vec3(0.85, 1.0, 0.8), clamp(s * 0.9 + s2 * 0.6, 0.0, 1.0));
+          float a = 0.78 + 0.22 * s;
+          gl_FragColor = vec4(c * 1.15, a); }` });
+    const m = new THREE.Mesh(g, mat); m.position.set(P.x, (P.y0 + P.y1) / 2, P.z); m.renderOrder = 3; scene.add(m); SLC.meshes.push(m);
+    SLC.anim.push((dt, t) => { mat.uniforms.uT.value = t; });
+    // foam: a ring of points thrown up where it hits the water
+    const n = 90, pos = new Float32Array(n * 3), vel = new Float32Array(n * 3), age = new Float32Array(n).map(() => Math.random());
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xcfffe0, size: 0.32, transparent: true, opacity: 0.85, depthWrite: false, map: slGlowTex(), blending: THREE.AdditiveBlending }));
+    pts.frustumCulled = false; scene.add(pts); SLC.meshes.push(pts);
+    SLC.anim.push(dt => { for (let i = 0; i < n; i++) { age[i] += dt * 1.6;
+      if (age[i] >= 1) { age[i] = 0; const a = Math.random() * 6.28, s = 0.6 + Math.random() * 1.6; pos[i * 3] = P.x + Math.cos(a) * 0.5; pos[i * 3 + 1] = P.y1 + 0.05; pos[i * 3 + 2] = P.z + Math.sin(a) * 0.5; vel[i * 3] = Math.cos(a) * s; vel[i * 3 + 1] = 1.5 + Math.random() * 2.2; vel[i * 3 + 2] = Math.sin(a) * s; }
+      vel[i * 3 + 1] -= 9 * dt; pos[i * 3] += vel[i * 3] * dt; pos[i * 3 + 1] = Math.max(P.y1, pos[i * 3 + 1] + vel[i * 3 + 1] * dt); pos[i * 3 + 2] += vel[i * 3 + 2] * dt; }
+      pg.attributes.position.needsUpdate = true; });
+  }
+  // GLOW CARDS: lamps, neon, the slime -- additive, so they read as lit in daylight with no bloom pass
+  { const tex = slGlowTex();
+    for (const G of SLC.glows) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: G.col, transparent: true, opacity: G.a, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+      s.position.set(G.x, G.y, G.z); s.scale.set(G.s, G.s, 1); scene.add(s); SLC.meshes.push(s); } }
+  SLC.ms = Math.round(performance.now() - t0);
+  SLC.tris = SLC.meshes.reduce((n, m) => n + (m.geometry && m.geometry.attributes.position ? m.geometry.attributes.position.count / 3 : 0), 0);
+  ORB.anim.push((dt, t) => { for (const f of SLC.anim) f(dt, t); });
+}
+
 
 
 // ---------- sparks ----------
@@ -5346,7 +6266,7 @@ document.getElementById('resetB').addEventListener('click', respawn);
 // r45: THE CITY IS BIG AND HE TESTS ON A PHONE WITH NO CONSOLE, so a key walks round the places worth
 // looking at: the street, the Steps, the top of the Steps, the tower's spiral, its roof, the loop, his
 // buildings, the hydrant by C. The chip names where she went.
-const GO = ['shores', 'alley', 'nova', 'transit', 'transit deck', 'spire', 'gardens', 'canals', 'overflow', 'bowls', 'gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
+const GO = ['slice', 'slice bridge', 'slice terrace', 'shores', 'alley', 'nova', 'transit', 'transit deck', 'spire', 'gardens', 'canals', 'overflow', 'bowls', 'gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
 let goI = -1;
 function goSpot(name) {
   const s = CITY.spots[name]; if (!s) return false;
@@ -6410,6 +7330,7 @@ function frame() {
   if (LOOK.at === undefined) LOOK.at = LOOK.style;
   if (LOOK.style !== LOOK.at) { LOOK.at = LOOK.style; try { localStorage.setItem('rg.style', String(Math.round(LOOK.style))); } catch (e) {} }
   if (LOOK.bright) { renderer.toneMappingExposure = LOOK.exposure; scene.environmentIntensity = LOOK.envI; scene.backgroundIntensity = LOOK.bgI; }
+  if (window.__shotCam) window.__shotCam(camera);     // tools/shot.mjs: a fixed lens for a screenshot
   renderer.render(scene, camera);
 }
 
@@ -6734,7 +7655,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, SLC, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

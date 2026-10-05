@@ -2273,6 +2273,32 @@ CASES.orbital = () => {
 // ring rail, the alley's launcher and roof run onto the transit spiral, the spiral to the deck, the track to the
 // Spire, the secret route down, the gardens (launcher, ramp, rail back), the lighthouse, the Overflow, the snake
 // run into the bowls, the market skyway. `follow` steers at a point a few metres along a path, as a thumb would.
+// r52: THE SLICE -- one street of the painting, built to a look. It still has to PLAY: the west gate, the ramp and the
+// stairs up to the terrace, the bridge, the canal, a tap onto a quay rail.
+CASES.slice = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const L = rg.SLC, O = rg.ORB, Q = L.Q, TER = L.TER, city = () => rg.stepCity(DT);
+  const fwd = h => { rg.cam.az = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  console.log(`  built ${L.built}, ${L.meshes.length} meshes, ${Math.round(L.tris / 1000)}k tris, textures + meshes in ${L.ms} ms`);
+  if (!L.built) return false;
+  { const sp0 = O.splashes; place(-40, 0, 0, -Math.PI / 2, 12); let at = null; run(8, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -112 && P.grounded) at = P.pos.clone(); });
+    say('west gate, up the entry ramp, onto the canal head', !!at && Math.abs(at.y - Q) < 0.15 && O.splashes === sp0, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+  { place(-115, Q, 18, -Math.PI / 2, 8); let at = null; run(6, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -139 && P.grounded) at = P.pos.clone(); });
+    say('up the ramp onto the terrace', !!at && Math.abs(at.y - TER) < 0.2, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+  { place(-118, Q, 12.6, -Math.PI / 2, 8); let at = null; run(6, () => { fwd(-Math.PI / 2); city(); if (!at && P.pos.x < -139 && P.grounded) at = P.pos.clone(); });
+    say('up the stairs onto the terrace', !!at && Math.abs(at.y - TER) < 0.2, at ? `on at x ${fix(at.x, 1)} y ${fix(at.y)}` : `got to x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+  { const sp0 = O.splashes; place(-150, Q, -22, 0, 7); let top = 0, at = null; run(5, () => { fwd(0); city(); top = Math.max(top, P.pos.y); if (!at && P.pos.z > 5 && P.grounded) at = P.pos.clone(); });
+    say('over the arch bridge', !!at && top > Q + 1.5 && O.splashes === sp0 && Math.abs(at.y - Q) < 0.15, at ? `across, crest ${fix(top, 2)}` : `got to z ${fix(P.pos.z, 1)}, splashes ${O.splashes - sp0}`); }
+  { const sp0 = O.splashes; place(-172, Q, 3, Math.PI, 0); run(0.5, () => city()); P.vel.set(0, 0, -8); P.heading = P.faceH = Math.PI;
+    let wet = false; run(3, () => { city(); if (O.splashes > sp0) wet = true; });
+    say('over the quay rail into the canal: put back', wet && Math.abs(P.pos.y - Q) < 0.2, `splashes ${O.splashes - sp0}, back at y ${fix(P.pos.y)}`); }
+  { place(-128, Q, 2.2, -Math.PI / 2, 8); run(0.2, () => city()); P.jump = 1; let on = null; run(2.5, () => { city(); if (P.grind && !on) on = P.grind.rail.path.name; });
+    say('a tap beside the quay rail onto it', on === 'slice', on ? `grinding '${on}'` : 'missed'); }
+  { place(-120, Q, 11.6, -Math.PI / 2, 9); run(0.2, () => city()); P.jump = 1; let on = null, top = 0; run(3, () => { city(); if (P.grind && !on) on = P.grind.rail.path.name; top = Math.max(top, P.pos.y); });
+    say('a tap onto the stair rail, grind it up', on === 'slice', on ? `grinding, highest ${fix(top, 1)}` : 'missed'); }
+  return ok;
+};
 CASES.shores = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };

@@ -307,6 +307,38 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE SLICE: ONE STREET OF HIS PAINTING BUILT TO A LOOK, AS A TEST OF WHETHER CODE CAN GET THERE (r52, `SLC`,
+  `buildSlice`, `sliceRails`, `sliceMeshes`).** *"Why don't you build the slice -- I just wanted to compare it, to see if
+  it even makes sense to go the Blender route."* West of the park through a FOURTH gate (`perimeter` gates all four
+  edges now): an entry ramp up onto a canal quay, a grand stair and a skate ramp side by side up to a terrace (a
+  concave bank along the mural wall to carve), the SKATE FURTHER TOGETHER cat wall, a glowing canal, a stone arch
+  bridge with orange rails, shopfronts with awnings and neon, the NIMBUS drum with the alien mural, a slime pipe
+  pouring into the canal, festoon lights, boats, a tunnel at the far end under FLOW THROUGH TOGETHER. ➤ stops `slice`,
+  `slice bridge`, `slice terrace` are first in the list. Self-contained: delete the block and its four call sites and
+  it is gone.
+  **WHAT MAKES IT LOOK DIFFERENT, ALL TECHNIQUE AND NO FILES:** materials generated into typed arrays at load
+  (sandstone ashlar, canal masonry, paving, concrete, plaster, wood, leaves, windows) each with a NORMAL MAP from its own
+  height field (`slTexOut`); UVs projected in WORLD METRES (`slTri`) so texel density is constant; CHAMFERED boxes
+  (`slBox`, the bevel is what catches light on an edge); an `aH` attribute (height above the surface the face stands on)
+  that darkens every wall into its floor per FRAGMENT (`slAO`) -- contact AO with no extra pass; a water SHADER (two
+  scrolling normal layers + a fine one, fresnel to the sky, sun glint, caustics, foam at the walls); additive glow
+  cards on lamps and neon so they read as lit in daylight with no bloom pass. 78k triangles in ~86 meshes; the textures
+  and meshes take ~0.55 s in node, so expect 1-2 s more load on a phone.
+  **IT STILL PLAYS THROUGH THE EXISTING MACHINERY:** quays/terrace/buildings are `solidAdd` boxes, the ramps, stairs (a
+  slope under the step noses) and bridge deck are collider triangles, the railings are `railPath`s, the canal is an
+  `ORB.water` rect with `draw: false` (orbMeshes skips it; the slice draws its own shader water). `npm run sim slice`:
+  the gate, ramp and stairs to the terrace, the bridge, a splash and put back, taps onto the quay and stair rails.
+  **WINDOWS SIT IN FRONT OF THE WALL, NEVER BEHIND IT.** The first pass recessed the glass 6 cm into a wall with no hole
+  in it, so every window in the street was inside the plaster and the facades read as blank. **And a chamfer on a face
+  you skipped leaves a slot**: skipping a box's face also skips its edge strips, so two bevelled platforms butted
+  together showed the park floor through an 8 cm groove (a rainbow line across the plaza). Platforms that butt are
+  `bev: 0`. **ExtrudeGeometry's bevel grows the caps outward** too, so anything placed flush on an extruded face needs
+  the bevel thickness added or it is behind it. **A basis matrix with determinant -1 mirrors the winding** and every
+  face of the bridge points inward -- extrude toward -x with a right-handed basis.
+  **`npm run shot` (tools/shot.mjs + tools/shots.json) RENDERS THE REAL PAGE IN HEADLESS CHROMIUM (swiftshader)** -- a
+  spot to stand her at and an optional fixed lens (`window.__shotCam`, one line before `renderer.render`). ~40 s for a
+  handful. It exists because art cannot be made blind: every fix above was found by LOOKING. For art passes only, and
+  only when he has asked for one; `shots/` is not committed.
 - **THE TRANSFER IS A FLICK UP AGAIN, AND THE HOLD IS THE GRAB AGAIN (r51, `VERT.flickXfer`, `rightFlick`).** *"I'm
   intuitively going off it and flicking forward instead of just jumping up ... which means we can restore the hold up
   on the right stick in the air to do some grab."* During a LOCKED vert air the right pad's FLICK UP calls
