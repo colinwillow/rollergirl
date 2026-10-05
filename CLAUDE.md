@@ -307,6 +307,25 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **THE TRANSFER IS A SWIPE UP ON THE GROUND, ARMED FOR THE LIP, AND EVERY GROUND SWIPE UP IS A BOOST (r56, `swipeBoost`,
+  `p.xferArm`, `VERT.armT/boostV/boostCap/boostCool`).** *"I'm saying if you're on the ground and about to hit the end
+  of the vert and you swipe, she launches off it instead of going up and coming down."* r51's air flick was a misreading:
+  it is off (`VERT.airFlickXfer`, a NEW key so a saved `flickXfer` 1 cannot keep it on) and the air flick up is a strike
+  again. A swipe UP on the ground arms the transfer for `armT` (1.6 s) and adds `boostV` (3.2 m/s, never past
+  `boostCap`, once per `boostCool`) along her travel -- so a swipe on the run-in is a faster, higher air AND a transfer.
+  When she next leaves off a face steeper than `VERT.at` NATURALLY (`leaveGround` called with `xfer` undefined -- a tap's
+  pop passes `false` and stays a vert air) while armed, she goes OUT with the old swipe's kick and lands on the deck.
+  **On flat ground a swipe up used to be a melee strike (r39); sideways and down still are.** The swipe up from a rail
+  or in the coyote moment off a lip is still the immediate transfer (`jump` 2). `npm run sim vertair`: run-in swipe and
+  wall swipe both land on the deck forward, +3.2 m/s; the flat boost and its cooldown; the air flick back in.
+  **The sim's `place()` resets `xferArm`/`boostCool`/`settleLatch`** -- an arm left over from the row before transferred
+  a hold row onto the deck.
+- **THE SETTLE ONLY HAPPENS OVER A RAMP (r56, `AIR.settleRamp`, `settleN`, `p.settleLatch`).** *"If you're not over a ramp
+  it just slows you down in the air -- I only want it if you're about to transfer into vert."* The right pad held DOWN
+  in the air settles only when the face straight below (`groundAt`) is steeper than `settleN`; over flat ground it is
+  the down grab and her momentum is untouched. Once it starts over a ramp it LATCHES while the thumb stays down -- a vert
+  face is a fraction of a second of flight wide, and she would otherwise get her speed back the moment she drifted past
+  it. Key F settles anywhere. (r55's `settlePad` row is gone.)
 - **IN THE AIR THE LEFT STICK IS A HEADING NOW (r55, `AIR.aim`, `aimRate`/`aimK`/`aimArm`/`aimFresh`/`aimSteady`).**
   *"She points in whatever direction the stick is turned, so you can rotate your thumb round in a circle to rotate
   her."* The stick is read through the camera exactly as on the ground (`stickWorld`) and she turns onto it at up to

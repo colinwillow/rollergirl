@@ -64,7 +64,7 @@ function place(x, y, z, heading, speed) {
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
   P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1; P.grind = null; P.grindCool = 0; P.grindLast = null;
   P.autoTurn = null; P.vertLock = 0; P.xferKick = null; P.stanceWhy = null; P.stanceAt = 0;
-  P.mel = null; P.melQ = null; P.kickRail = null; P.kicked = 0;
+  P.mel = null; P.melQ = null; P.kickRail = null; P.kicked = 0; P.xferArm = 0; P.boostCool = 0; P.settleLatch = 0;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
   rg.groundQ(P.bq);        // standing on whatever she was just placed on
@@ -442,20 +442,21 @@ CASES.tap = async () => {
       real(pad, ev('pointerdown', 150, 150)); await wait(16);
       real(pad, ev('pointermove', 150 + dx, 150 + dy)); await wait(30);
       real(pad, ev('pointerup', 150 + dx, 150 + dy)); await wait(140); };   // past FLICK.gap
-    const what = () => P.jump === 2 ? 'TRANSFER jump' : P.jump === 1 ? 'a tap jump' : P.mel ? P.mel.kind + ' ' + P.mel.nm : 'nothing';
+    const what = () => P.jump === 2 ? 'TRANSFER jump' : P.jump === 1 ? 'a tap jump' : P.mel ? P.mel.kind + ' ' + P.mel.nm : P.xferArm > 0 ? `BOOST, transfer armed (${fix(P.vel.length(), 1)} m/s)` : 'nothing';
+    // r56: a swipe UP on the ground is the boost, arming the transfer for the lip
     place(60, 1, -60, 0, 6); await swipe(0, -52);
-    let good = P.jump === 0 && P.mel && P.mel.kind === 'strike';
+    let good = P.jump === 0 && !P.mel && P.xferArm > 0 && P.vel.length() > 8.5;
     console.log(`  swipe UP on flat ground       -> ${what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     place(60, 1, -60, 0, 6); await swipe(52, 0);
     good = P.jump === 0 && P.mel && P.mel.kind === 'strike';
     console.log(`  swipe SIDEWAYS on the ground  -> ${what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
-    // up the half pipe's wall, on a steep face: the swipe up is still the way OUT
+    // up the half pipe's wall, on a steep face: the swipe up arms the way OUT (it fires as she leaves the lip)
     place(0, 3, 29, 0, 13); rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
     { let st = false; for (let i = 0; i < 180 && !st; i++) { rg.stepPlayer(DT); st = P.grounded && P.n.y < 0.6; }
       await swipe(0, -52);
-      good = st && P.jump === 2;
+      good = st && P.xferArm > 0;
       console.log(`  swipe UP on the pipe's wall   -> ${st ? what() : 'never reached a steep face'}${good ? '' : '   <- WRONG'}`); }
     if (!good) ok = false;
     // r29: THE FLIPS ARE THE LEFT PAD'S. In the air the right swipe does nothing; the left one flips.
@@ -1630,8 +1631,10 @@ CASES.r42 = () => {
       Object.assign(rg.stick.R, { x: 0, y: -0.8 }); run(0.1, () => {}); const g2 = P.grab && P.grab.k;
       Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
       check('r55: the grab follows the thumb', g0 === 'centre' && g1 === 'right' && g2 === 'up', `${g0} -> ${g1} -> ${g2}`); }
-    { const keepS = rg.AIR.settlePad; rg.AIR.settlePad = 1; const d2 = air(0, 0.9, 0.6); rg.AIR.settlePad = keepS;
-      check('...and with "hold down = settle" on, down settles', !d2, d2 ? d2.nm : 'settle'); }
+    // r56: held down over the FLAT it is the grab and her speed is untouched; over a ramp it settles (the feel case)
+    { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 8; P.vel.set(0, 2, 6); P.grab = null; P.rHold = 0; P.airT = 0.3;
+      Object.assign(rg.stick.R, { down: 1, x: 0, y: 0.9 }); run(0.6, () => { rg.stick.L.x = rg.stick.L.y = 0; }); const hs = Math.hypot(P.vel.x, P.vel.z), g = P.grab; Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
+      check('r56: hold DOWN over flat ground: a grab, no braking', g && !P.settling && hs > 5.9, `${g && g.nm}, ${fix(hs, 2)} m/s across (was 6)`); }
     { const az0 = rg.cam.az; place(60, 1, -60, 0, 6); P.grounded = false; P.pos.y += 8; Object.assign(rg.stick.R, { down: 1, x: 1, y: 0 });
       for (let i = 0; i < 30; i++) rg.stepCam(DT); Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
       check('r55: a grab held sideways does not orbit the camera', Math.abs(wrap(rg.cam.az - az0)) < 0.05, `${fix(wrap(rg.cam.az - az0) * 57.3, 1)} deg`); }
@@ -1871,30 +1874,40 @@ CASES.vertair = () => {
   let ok = true; const D = 180 / Math.PI;
   const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep) + rg.PARK.cope;
   const ride = (opt) => {
-    const keep = { t: rg.VERT.holdTilt, x: rg.VERT.holdXferOn, f: rg.VERT.flickXfer };
-    rg.VERT.holdTilt = opt.tilt; rg.VERT.holdXferOn = opt.xfer || 0; rg.VERT.flickXfer = opt.fx == null ? 1 : opt.fx;
-    place(0, 3, 29, 0, 17); let air = false, t0 = 0, worst = 0, mid = 0, land = null, grab = false, flicked = null;
+    const keep = { t: rg.VERT.holdTilt, x: rg.VERT.holdXferOn, f: rg.VERT.airFlickXfer };
+    rg.VERT.holdTilt = opt.tilt; rg.VERT.holdXferOn = opt.xfer || 0; rg.VERT.airFlickXfer = opt.fx || 0;
+    place(0, 3, 29, 0, 17); let swiped = null, v0 = 0; let air = false, t0 = 0, worst = 0, mid = 0, land = null, grab = false, flicked = null;
     run(5, (t) => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
       if (!P.grounded && !air) { air = true; t0 = t; }
       const hold = opt.hold && air && !land && t - t0 > 0.25;
       rg.stick.R.down = hold ? 1 : 0; rg.stick.R.y = hold ? -1 : 0; rg.stick.R.x = 0; P.rHold = hold ? P.rHold : 0;
       if (hold) rg.grabStep(); if (P.grab) grab = true;
       if (opt.flick && air && !land && flicked === null && t - t0 > 0.25) flicked = rg.rightFlick(0, -52);
+      // r56: the GROUND swipe -- on the run-in (`run`) or once she is on the wall's face (`face`)
+      if (opt.swipe && swiped === null && P.grounded && (opt.swipe === 'run' || P.n.y < 0.7)) { v0 = P.vel.length(); swiped = rg.rightFlick(0, -52); swiped += ` +${fix(P.vel.length() - v0, 1)} m/s`; }
       if (air && !P.grounded && !land && P.vertN) { const u = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq);
         const a = Math.acos(Math.max(-1, Math.min(1, u.dot(P.vertN)))) * D; if (P.vel.y > -2) worst = Math.max(worst, a); if (t - t0 > 0.6 && !mid) mid = a; }
       if (air && P.grounded && !land) land = { z: P.pos.z, off: P.landOff * D, stance: P.stance }; });
-    rg.stick.R.down = 0; rg.stick.R.y = 0; Object.assign(rg.VERT, { holdTilt: keep.t, holdXferOn: keep.x, flickXfer: keep.f });
-    return { worst, mid, land, grab, flicked };
+    rg.stick.R.down = 0; rg.stick.R.y = 0; Object.assign(rg.VERT, { holdTilt: keep.t, holdXferOn: keep.x, airFlickXfer: keep.f });
+    return { worst, mid, land, grab, flicked, swiped };
   };
   const a = ride({ tilt: 1, xfer: 1 }), b = ride({ tilt: 0, xfer: 1 });
   console.log(`  vert air, tilt held:   her up off the wall normal, up and over the top, worst ${fix(a.worst, 1)} deg; down at z ${fix(a.land.z, 2)} (deck ${fix(lip, 2)}), landing ${fix(a.land.off, 1)} deg out, ${a.land.stance > 0 ? 'forward' : 'FAKIE'}`);
   console.log(`  ...the old plumb air:  her up ${fix(b.mid, 0)} deg off the wall normal 0.6 s in`);
   if (!(a.worst < 3 && a.land.z < lip && a.land.off < 12 && a.land.stance > 0 && b.mid > 45)) ok = false;
-  // r51: the FLICK up is the transfer; the HOLD is the grab again
-  const c = ride({ tilt: 1, flick: 1 }), d = ride({ tilt: 1, flick: 1, fx: 0 });
-  console.log(`  flick right stick UP:  ${c.flicked}, down at z ${fix(c.land.z, 2)} -- ${c.land.z > lip ? 'ON THE DECK' : 'back in'}, ${c.land.stance > 0 ? 'forward' : 'FAKIE'}`);
-  console.log(`  ...with the switch off: ${d.flicked}, down at z ${fix(d.land.z, 2)} -- ${d.land.z > lip ? 'on the deck' : 'back in the pipe'}`);
-  if (!(c.flicked === 'transfer' && c.land.z > lip + 1 && c.land.stance > 0 && d.land.z < lip)) ok = false;
+  // r56: THE TRANSFER IS A SWIPE UP ON THE GROUND, armed for the lip; the air flick up is a strike again (r51's switch kept)
+  const g = ride({ tilt: 1, swipe: 'run' }), k = ride({ tilt: 1, swipe: 'face' });
+  console.log(`  swipe UP on the run-in: ${g.swiped}, down at z ${fix(g.land.z, 2)} -- ${g.land.z > lip ? 'ON THE DECK' : 'back in'}, ${g.land.stance > 0 ? 'forward' : 'FAKIE'}`);
+  console.log(`  swipe UP on the wall:   ${k.swiped}, down at z ${fix(k.land.z, 2)} -- ${k.land.z > lip ? 'ON THE DECK' : 'back in'}, ${k.land.stance > 0 ? 'forward' : 'FAKIE'}`);
+  if (!(g.land.z > lip + 1 && g.land.stance > 0 && /boost \+3/.test(g.swiped) && k.land.z > lip + 1 && k.land.stance > 0)) ok = false;
+  const c = ride({ tilt: 1, flick: 1, fx: 1 }), d = ride({ tilt: 1, flick: 1 });
+  console.log(`  flick UP in the air, old switch on: ${c.flicked}, down at z ${fix(c.land.z, 2)} -- ${c.land.z > lip ? 'ON THE DECK' : 'back in'}`);
+  console.log(`  ...default (off):        ${d.flicked}, down at z ${fix(d.land.z, 2)} -- ${d.land.z > lip ? 'on the deck' : 'back in the pipe'}`);
+  if (!(c.flicked === 'transfer' && c.land.z > lip + 1 && d.flicked !== 'transfer' && d.land.z < lip)) ok = false;
+  // the boost on the flat, and its cooldown
+  { place(60, 1, -60, 0, 8); run(0.1, () => { rg.stick.L.x = rg.stick.L.y = 0; }); const v0 = P.vel.length(); const r1 = rg.rightFlick(0, -52); const v1 = P.vel.length(); const r2 = rg.rightFlick(0, -52); const v2 = P.vel.length();
+    const good = r1 === 'boost' && v1 - v0 > 3 && r2 === 'armed' && Math.abs(v2 - v1) < 1e-6;
+    console.log(`  swipe UP on the flat:   ${r1} ${fix(v0, 1)} -> ${fix(v1, 1)} m/s, again at once: ${r2} (${fix(v2, 1)})${good ? '' : '   <- WRONG'}`); if (!good) ok = false; }
   const e = ride({ tilt: 1, hold: 1 }), f = ride({ tilt: 1, hold: 1, xfer: 1 });
   console.log(`  held right stick UP:   grab ${e.grab ? 'FIRED' : 'none'}, down at z ${fix(e.land.z, 2)} -- ${e.land.z > lip ? 'on the deck' : 'back in the pipe'}`);
   console.log(`  ...old hold transfer on: down at z ${fix(f.land.z, 2)} -- ${f.land.z > lip ? 'ON THE DECK' : 'back in'}, grab ${f.grab ? 'FIRED' : 'none'}`);
@@ -2204,12 +2217,12 @@ CASES.feel = () => {
     chk('pre-align: lands already matching a ramp', on !== null && on < 12 && off !== null && off > face * 0.6,
         `${fix(on, 1)} deg out at touchdown, against ${fix(off, 1)} without it (the face is ${fix(face, 0)} deg)`);
     // the settle: high over it, moving, right pad held DOWN -- speed bleeds off, body squares to the face
-    const keepSP = rg.AIR.settlePad; rg.AIR.settlePad = 1;     // r55: the pad's settle is a switch now (key F always)
+    const keepSP = rg.AIR.settleRamp; rg.AIR.settleRamp = 1;     // r56: the pad settles only with a ramp below (this is one)
     place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
     Object.assign(rg.stick.R, { down: 1, x: 0, y: 1 });
     run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
     const hs = Math.hypot(P.vel.x, P.vel.z), so = upOff(), high = P.pos.y - n0.floor;
-    Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); rg.AIR.settlePad = keepSP;
+    Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); rg.AIR.settleRamp = keepSP;
     chk('settle: right pad held down, high over a ramp', hs < 1.5 && so < 10 && high > 3,
         `8 m/s -> ${fix(hs, 2)} m/s across, body ${fix(so, 1)} deg off the face, still ${fix(high, 1)} m up`);
     // and the same without it is still upright up there

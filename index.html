@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r55</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r56</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r55';
+const BUILD = 'r56';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -628,7 +628,8 @@ const AIR = {
   // comes upright over `ease`, which reads as straightening out rather than as a snap.
   ease: 4.5,
   // r33: the SETTLE (right pad held down in the air) and the PRE-ALIGN -- see `stepAir`
-  settlePad: 0,        // r55: 0 -- the right pad held DOWN is a grab now, like every other direction; key F still settles
+  settleRamp: 1,       // r56: the right pad held DOWN settles -- but ONLY with a ramp below her (`settleN`); over the flat it is the down grab
+  settleN: 0.94,       // the face straight below must be at least this steep (its normal's y under this) to count as a ramp
   settleAt: 0.55,      // how far DOWN the right pad has to be held
   settleDrag: 4,       // per second: how fast her horizontal speed bleeds off while settling
   settleEase: 9,       // per second: how fast her body turns onto the face below
@@ -6631,12 +6632,22 @@ function groundQ(out) {
 // r51: *"I'm intuitively going off it and flicking forward instead"* -- the right pad's FLICK UP in a locked air is
 // the transfer now (`flickXfer`), and the HOLD goes back to being the 'up' grab. The hold transfer survives as
 // `holdXferOn` (off), renamed so a phone that saved the old `holdXfer` 1 on the panel does not keep it.
-const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6, holdTilt: 1, holdXferOn: 0, flickXfer: 1, xferAt: 0.5 };
+const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6, holdTilt: 1, holdXferOn: 0, airFlickXfer: 0, xferAt: 0.5,
+  // r56: THE TRANSFER IS A SWIPE UP ON THE GROUND, ARMED, AND IT FIRES AT THE LIP. *"I'm saying if you're on the ground and
+  // you're about to hit the end of the vert and you swipe, she launches off it instead of going up and coming down."*
+  // A swipe up on the ground arms it for `armT`; if she leaves off a steep face (past `at`) while it is armed she goes
+  // OUT over the coping -- the same kick the old swipe-on-the-wall gave -- and lands on the deck. And every ground
+  // swipe up is a BOOST (`boostV`, never past `boostCap`, one per `boostCool`), so a swipe on the run-in also takes
+  // her higher. The air flick (r51) was a misreading and is off: `airFlickXfer` (a NEW key, so a phone that saved the
+  // old `flickXfer` 1 does not keep it).
+  armT: 1.6, boostV: 3.2, boostCap: 26, boostCool: 0.5 };
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
   p.vertLock = 0; p.xferKick = null; p.autoTurn = null;
   const h = Math.hypot(n.x, n.z);
+  // r56: a NATURAL leave (off the lip, not a pop) with the ground swipe armed is the transfer
+  if (xfer === undefined && p.xferArm > 0 && n.y < Math.cos(VERT.at)) { xfer = true; p.xferArm = 0; p.xferGo = 1; }
   if (n.y < Math.cos(VERT.at) && h > 1e-4) {
     const ix = n.x / h, iz = n.z / h;                   // INTO the pipe, horizontally
     const out = -(p.vel.x * ix + p.vel.z * iz);         // her speed out over the coping
@@ -7049,11 +7060,19 @@ function stepAir(dt) {
   //              the face so she arrives already matching it and the landing has nothing left to
   //              snap. Further out she rights to plumb as before.
   // Not mid-flip: the flip owns her rotation until it is round.
-  const settle = !p.flip && ((AIR.settlePad > 0.5 && stick.R.down && stick.R.y > AIR.settleAt && Math.abs(stick.R.x) < stick.R.y) || keys.f);
+  // r56: *"If you're not over a ramp it just slows you down in the air -- I only want it to work if you're about to transfer
+  // into vert."* So the pad's settle asks what is straight below her first: a ramp face, it settles; flat ground (or
+  // nothing), it does nothing to her momentum and the hold is the down grab instead. Key F still settles anywhere.
+  const below = groundAt(p.pos.x, p.pos.z, p.pos.y, 0.05);
+  const overRamp = below.hit && below.ny < AIR.settleN;
+  // ONCE IT HAS STARTED OVER A RAMP IT HOLDS for as long as the thumb does: a narrow vert face is a fraction of a second
+  // of flight wide in plan, and letting go of it the moment she drifts past would hand her straight back her speed.
+  const padDown = AIR.settleRamp > 0.5 && stick.R.down && stick.R.y > AIR.settleAt && Math.abs(stick.R.x) < stick.R.y;
+  if (!padDown) p.settleLatch = 0; else if (overRamp) p.settleLatch = 1;
+  const settle = !p.flip && ((padDown && p.settleLatch) || keys.f);
   p.settling = !!settle;
   swingOf(_q, _qb);
   let rate = AIR.ease;
-  const below = groundAt(p.pos.x, p.pos.z, p.pos.y, 0.05);
   if (below.hit) {
     let w = 0;
     if (settle) { w = 1; rate = AIR.settleEase; }
@@ -7337,17 +7356,31 @@ function grabStep() {
   const nm = pair ? ((p.stance < 0 && MOVES.useBack > 0.5 && pair[1]) || pair[0] || pair[1]) : null;
   p.grab = { k, nm };
 }
+// r56: THE GROUND SWIPE UP -- a shove of speed along her travel, and the transfer armed for when she leaves a lip
+function swipeBoost() {
+  const p = player;
+  p.xferArm = VERT.armT;
+  if (p.boostCool > 0) return 'armed';
+  const v = p.vel, s = v.length(), add = Math.min(VERT.boostV, Math.max(0, VERT.boostCap - s));
+  if (add > 0) {
+    if (s > 0.5) v.addScaledVector(v, add / s);
+    else { const d = p.stance < 0 ? -1 : 1; v.x += Math.sin(p.heading) * add * d; v.z += Math.cos(p.heading) * add * d; }
+    sparkBurst(8);
+  }
+  p.boostCool = VERT.boostCool;
+  return 'boost';
+}
 // THE RIGHT PAD'S FLICK, AS A RULE (the binding below calls this; `npm run sim melee` calls it too).
 function rightFlick(dx, dy) {
   const p = player, dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
   const w = flickWorld(dx, dy);
   if (p.grind || (!p.grounded && p.coyote > 0)) { if (dir === 'up') { p.jump = 2; return 'transfer'; } return null; }
   if (p.grounded) {
-    if (dir === 'up' && p.n.y < MELEE.xferN) { p.jump = 2; return 'transfer'; }
+    if (dir === 'up') return swipeBoost();     // r56: a boost, and the transfer armed for the lip
     return meleeStrike(w.x, w.z) ? 'strike' : null;
   }
-  // r51: a flick UP during a locked vert air is the transfer out over the coping
-  if (dir === 'up' && p.vertLock && VERT.flickXfer > 0.5 && vertRelease(true)) return 'transfer';
+  // r51 (off by default since r56): a flick UP during a locked vert air is the transfer out over the coping
+  if (dir === 'up' && p.vertLock && VERT.airFlickXfer > 0.5 && vertRelease(true)) return 'transfer';
   return meleeStrike(w.x, w.z) ? 'strike' : null;      // r44: in the air it is the same chain
 }
 
@@ -7362,6 +7395,7 @@ function stepPlayer(dt) {
     else if (!xfer && railHome()) {}
     else if (p.grounded || p.coyote > 0) doJump(xfer); }
   p.grindCool = Math.max(0, p.grindCool - dt);
+  p.xferArm = Math.max(0, (p.xferArm || 0) - dt); p.boostCool = Math.max(0, (p.boostCool || 0) - dt);
   stepMelee(dt);
   grabStep();
   // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
@@ -7967,7 +8001,9 @@ const TAILUI = [
   ['RIG.tiltRate',   'Ground tilt ease', 2, 20,  0.5,  ''],
   ['VERT.autoTurn',  'Auto-turn on vert airs', 0, 1, 1, ''],
   ['VERT.holdTilt',  'Vert air keeps its tilt (Tony Hawk)', 0, 1, 1, ''],
-  ['VERT.flickXfer', 'Flick right stick up = transfer', 0, 1, 1, ''],
+  ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
+  ['VERT.boostV',   'Ground swipe-up boost', 0, 8, 0.25, ''],
+  ['VERT.armT',     'Swipe arms the transfer for', 0.3, 4, 0.1, 's'],
   ['VERT.holdXferOn', 'Hold right stick up = transfer', 0, 1, 1, ''],
   ['FLIPP.camRel',   'Flips relative to camera', 0, 1, 1, ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],
@@ -7984,7 +8020,7 @@ const TAILUI = [
   ['AIR.aimRate',    'Fastest air turn', 3, 30, 0.5, ''],
   ['AIR.aimK',       'Air turn snap',  2,   40,  1,    ''],
   ['AIR.aimArm',     'Thumb move to take over', 0, 90, 5, '', 'deg'],
-  ['AIR.settlePad',  'Hold down = settle (else a grab)', 0, 1, 1, ''],
+  ['AIR.settleRamp', 'Hold down over a ramp = settle', 0, 1, 1, ''],
   ['LAND.flipMax',   'Longest flip',   0.4, 2.5, 0.05, 's'],
   ['City (r45)', ''],
   ['SOLID.bounce',   'Wall bounce',    0,   0.8, 0.02, ''],
