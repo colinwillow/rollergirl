@@ -176,7 +176,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r65</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r66</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -199,7 +199,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r65';
+const BUILD = 'r66';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -798,13 +798,13 @@ try {
 LOOK.bright = LOOK.style > 0 ? 1 : 0;
 // r64: WHICH WORLD. His Blender skate world (`LEVEL.zones`: floating islands, every one in world coordinates,
 // imported at the origin) and the world this file builds (the park and its districts) stand on the SAME ground,
-// so it is one or the other, chosen at load: `zones` 1 is his, 0 is the built-in park. Remembered under its own
-// key; `?world=park` / `?world=zones` in the URL overrides it for one load.
+// so it is one or the other, chosen at load: `zones` 1 is his, 0 is the built-in park, 2 (r66) the RAMP KIT gallery.
+// Remembered under its own key; `?world=park|zones|kit` in the URL overrides it for one load.
 const WORLD = { zones: 0, fallY: -40, at: undefined };   // r65: the built-in park is the default again; his zones are one ⚙ switch away
 try {
-  const v = localStorage.getItem('rg.world'); if (v === '0' || v === '1') WORLD.zones = +v;
+  const v = localStorage.getItem('rg.world'); if (v === '0' || v === '1' || v === '2') WORLD.zones = +v;
   const q = new URLSearchParams(location.search || '').get('world');
-  if (q === 'park') WORLD.zones = 0; else if (q === 'zones') WORLD.zones = 1;
+  if (q === 'park') WORLD.zones = 0; else if (q === 'zones') WORLD.zones = 1; else if (q === 'kit') WORLD.zones = 2;
 } catch (e) {}
 if (LOOK.style === 2) {
   // weirdport's measured numbers: imgK 1.35 for the sky, envInt .35 of that for the bounce
@@ -1313,6 +1313,402 @@ function perimeter(S, r, sweep, back, apron) {
     revolve(cx, cz, prof, 10, a0, a0 + Q);
 }
 
+// =====================================================================================================
+// THE RAMP KIT (r66, `KITW`, `kitPiece`, `KIT_KINDS`) -- every modular piece a park is made of, built by ONE set
+// of functions in a piece's own frame and placed by a transform, so the same code builds the gallery, rebuilds a
+// piece from an `fn_` marker in his Blender files (`levelIngest`), and writes the kit out for him (`npm run export
+// kit`). *"Build a set of modular ramp designs -- the corner piece of a half pipe, the straight piece, a junction
+// where another tube meets it at 90, a bowl, a half bowl for an end, ramps in and out, taller things you run down to
+// get speed, quarter pipes, all the jumps, loops ... different sizes of each, labelled, and make sure all of them
+// function correctly."*
+// A PIECE'S FRAME: origin on the ground at the middle of its FRONT edge (where the rider meets it), +u is the way she
+// rides up it (world (sin yaw, cos yaw), the game's forward), +w across it (world (cos yaw, -sin yaw)), y up. In a
+// GLB the piece's local +Z is u and local +X is w, so a node turned by `yaw` about +Y places it.
+// SIZES ARE HEIGHTS, AND A SIZE IS WHAT GOES WITH WHAT: every M piece is 2.4 m tall, so an M bank reaches an M
+// platform, an M quarter pipe backs onto it, and M corners close an M bowl. The transition radius is derived from the
+// height and the sweep -- `r = H / (1 - cos sweep)` -- never typed.
+// THE JUNCTIONS ARE NOT EXTRA PIECES. A pipe end, a round bowl, an L and a T are all straights plus the two corners:
+// concave (`qpIn`, a quarter bowl) and convex (`qpOut`, the wall wrapping round the outside). They are offered as
+// named assemblies too, because one object is easier to place than six.
+// =====================================================================================================
+const KITW = { W: 4, deck: 1.5, cope: 0.3, seg: 28, rseg: 16, rc: 1.5, floorS: 10, built: 0, pieces: [], go: [], labels: [], keep: !!globalThis.__kitKeep,
+  x0: -130, x1: 130, z0: -60, z1: 420 };
+const D2R = Math.PI / 180;
+const KSZ = {
+  S:  { H: 1.2, sweep: 70 * D2R, tint: 0xdff5ec },
+  M:  { H: 2.4, sweep: 80 * D2R, tint: 0xdcecfb },
+  L:  { H: 3.6, sweep: 85 * D2R, tint: 0xe9e0fa },
+  XL: { H: 4.8, sweep: 88 * D2R, tint: 0xfbe6dc },
+};
+for (const k in KSZ) { const s = KSZ[k]; s.r = s.H / (1 - Math.cos(s.sweep)); s.lip = s.r * Math.sin(s.sweep); }
+const KCOL = { cope: 0x6fcfff, side: 0xc9cbd6, deck: 0xeceef4, floorA: 0xf7f7fa, floorB: 0xeeeef3, line: 0xd6d7e0 };
+// world point of a piece-local (u, y, w)
+function kP(T, u, y, w) {
+  const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
+  return [T.x + fx * u + fz * w, T.y + y, T.z + fz * u - fx * w];
+}
+// A FLOOR TRIANGLE, WOUND UP WHATEVER ORDER IT WAS HANDED IN. Every surface here faces up, so the winding is decided
+// by the normal rather than by bookkeeping -- the park paid three separate times for a face wound the wrong way
+// (`revolve`'s profile direction, the ramp skirts, the mirrored city meshes), and a downward floor is thrown out of
+// the collider and drawn facing the ground.
+function kTri(A, B, C, col, solid) {
+  const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+  const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  if (nx * nx + ny * ny + nz * nz < 1e-10) return;
+  if (ny < 0) pushTri(A[0], A[1], A[2], C[0], C[1], C[2], B[0], B[1], B[2], col, solid);
+  else pushTri(A[0], A[1], A[2], B[0], B[1], B[2], C[0], C[1], C[2], col, solid);
+}
+const kQuad = (A, B, C, D, col, solid) => { kTri(A, B, C, col, solid); kTri(A, C, D, col, solid); };
+// A WALL, wound to face `out` (a world direction) -- drawn, never collided: a vertical face is not a floor
+function kWall(A, B, C, D, out, col) {
+  const ux = B[0] - A[0], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2], uy = B[1] - A[1];
+  const nx = uy * vz - uz * vy, nz = ux * vy - uy * vx;
+  if (nx * out[0] + nz * out[1] < 0) { quad(A, D, C, B, col, false); } else quad(A, B, C, D, col, false);
+}
+// a profile [{u, y, c}] (u increasing) extruded from w0 to w1, with a side skirt at each end down to y0
+function kStrip(T, prof, w0, w1, y0, skirts) {
+  y0 = y0 || 0;
+  const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), sx = fz, sz = -fx;
+  for (let i = 0; i < prof.length - 1; i++) {
+    const a = prof[i], b = prof[i + 1];
+    if (Math.abs(a.u - b.u) < 1e-6 && Math.abs(a.y - b.y) < 1e-6) continue;
+    if (Math.abs(a.u - b.u) < 1e-6) {    // a vertical step in the profile: a wall facing back along -u or +u
+      const out = b.y > a.y ? [-fx, -fz] : [fx, fz];
+      kWall(kP(T, a.u, a.y, w0), kP(T, a.u, a.y, w1), kP(T, b.u, b.y, w1), kP(T, b.u, b.y, w0), out, KCOL.side); continue;
+    }
+    kQuad(kP(T, a.u, a.y, w0), kP(T, b.u, b.y, w0), kP(T, b.u, b.y, w1), kP(T, a.u, a.y, w1), a.c);
+    if (skirts !== false && (a.y > y0 + 0.01 || b.y > y0 + 0.01)) {
+      kWall(kP(T, a.u, a.y, w1), kP(T, b.u, b.y, w1), kP(T, b.u, y0, w1), kP(T, a.u, y0, w1), [sx, sz], KCOL.side);
+      kWall(kP(T, a.u, y0, w0), kP(T, b.u, y0, w0), kP(T, b.u, b.y, w0), kP(T, a.u, a.y, w0), [-sx, -sz], KCOL.side);
+    }
+  }
+}
+// a profile [{u: radius, y, c}] revolved about the piece-local point (cu, cw) from angle a0 to a1, angle 0 along +u
+// and 90 degrees along +w
+function kRev(T, cu, cw, prof, a0, a1, seg) {
+  const at = (rho, y, a) => kP(T, cu + rho * Math.cos(a), y, cw + rho * Math.sin(a));
+  for (let s = 0; s < seg; s++) {
+    const A0 = a0 + (a1 - a0) * s / seg, A1 = a0 + (a1 - a0) * (s + 1) / seg;
+    for (let i = 0; i < prof.length - 1; i++) {
+      const p = prof[i], q = prof[i + 1];
+      kQuad(at(p.u, p.y, A0), at(q.u, q.y, A0), at(q.u, q.y, A1), at(p.u, p.y, A1), p.c);
+    }
+  }
+}
+const kArc = (out, u0, y0, r, from, to, seg, col) => { for (let i = 1; i <= seg; i++) { const a = from + (to - from) * i / seg;
+  out.push({ u: u0 + r * Math.sin(a), y: y0 + r * (1 - Math.cos(a)), c: col }); } };
+// the cross-section of a quarter pipe: toe at u0, up the transition, the coping, the deck
+function qpProf(S, tint, u0, deck) {
+  const p = [{ u: u0, y: 0, c: tint }];
+  kArc(p, u0, 0, S.r, 0, S.sweep, S.H < 1.5 ? 20 : KITW.seg, tint);
+  p[p.length - 1].c = KCOL.cope;
+  p.push({ u: u0 + S.lip + KITW.cope, y: S.H, c: KCOL.deck });
+  p.push({ u: u0 + S.lip + deck, y: S.H, c: KCOL.deck });
+  return p;
+}
+// ---- THE PIECES. Each takes the transform, the size and its options, builds, and returns what it is -----------------
+const KIT_KINDS = {
+  // QUARTER PIPE, STRAIGHT: transition, coping, deck, back wall. The deck behind the coping is a solid box, so coming at
+  // it from behind is a wall and not a walk into its insides -- set back from the lip by the coping, so a rider going
+  // straight up the face never brushes it.
+  qp(T, S, o) {
+    const w = (o.w || KITW.W) / 2, dk = o.deck || KITW.deck, p = qpProf(S, S.tint, 0, dk);
+    p.push({ u: S.lip + dk, y: 0, c: KCOL.side });
+    kStrip(T, p, -w, w);
+    const c = (S.lip + KITW.cope + S.lip + dk) / 2, P = kP(T, c, 0, 0);
+    if (dk > KITW.cope + 0.2) solidAdd(P[0], P[2], w, (dk - KITW.cope) / 2, T.y, T.y + S.H, T.yaw, { tag: 'kit deck' });
+    return { len: S.lip + dk, wid: 2 * w, h: S.H };
+  },
+  // QUARTER PIPE, INSIDE CORNER (concave -- a quarter of a bowl). Revolved about the origin from +u (0) to +w (90):
+  // the straight that continues it at the +u edge has its toe at u = rc and runs toward -w; at the +w edge, toe at
+  // w = rc, running toward -u. Its deck is filled out to the square, so it backs onto straights' decks with no gap.
+  qpIn(T, S, o) {
+    const rc = o.rc != null ? o.rc : KITW.rc, dk = o.deck || KITW.deck, a0 = o.a0 || 0, a1 = o.a1 != null ? o.a1 : Math.PI / 2;
+    const p = qpProf(S, S.tint, rc, dk), R = rc + S.lip + dk, seg = Math.max(4, Math.round(KITW.rseg * (a1 - a0) / (Math.PI / 2)));
+    kRev(T, 0, 0, p, a0, a1, seg);
+    // the deck out to the square corner, as a fan from that corner to the arc
+    for (let q = Math.floor(a0 / (Math.PI / 2) + 1e-9); q * Math.PI / 2 < a1 - 1e-9; q++) { const qa = q * Math.PI / 2, qb = qa + Math.PI / 2;
+      const lo = Math.max(a0, qa), hi = Math.min(a1, qb); if (hi - lo < 1e-6) continue;
+      const cx = Math.cos(qa + Math.PI / 4) * Math.SQRT2 * R, cw = Math.sin(qa + Math.PI / 4) * Math.SQRT2 * R, Cn = kP(T, cx, S.H, cw);
+      const n = Math.max(2, Math.round(seg * (hi - lo) / (a1 - a0)));
+      for (let i = 0; i < n; i++) { const A = lo + (hi - lo) * i / n, B = lo + (hi - lo) * (i + 1) / n;
+        kTri(Cn, kP(T, R * Math.cos(A), S.H, R * Math.sin(A)), kP(T, R * Math.cos(B), S.H, R * Math.sin(B)), KCOL.deck); } }
+    return { len: R, wid: R, h: S.H };
+  },
+  // QUARTER PIPE, OUTSIDE CORNER (convex -- the wall wrapping round). Revolved about the corner where two straights'
+  // BACK edges meet: deck, coping, then the transition falling AWAY from the centre to the toe at deck + lip.
+  qpOut(T, S, o) {
+    const dk = o.deck || KITW.deck, a0 = o.a0 != null ? o.a0 : Math.PI, a1 = o.a1 != null ? o.a1 : Math.PI * 1.5;
+    const p = [{ u: 0, y: S.H, c: KCOL.deck }, { u: dk - KITW.cope, y: S.H, c: KCOL.cope }, { u: dk, y: S.H, c: S.tint }];
+    const seg = S.H < 1.5 ? 20 : KITW.seg;
+    for (let i = seg - 1; i >= 0; i--) { const a = S.sweep * i / seg; p.push({ u: dk + S.lip - S.r * Math.sin(a), y: S.r * (1 - Math.cos(a)), c: S.tint }); }
+    kRev(T, 0, 0, p, a0, a1, KITW.rseg);
+    return { len: dk + S.lip, wid: dk + S.lip, h: S.H };
+  },
+  // BANK: a straight slope from the ground up to H -- the way onto a platform or a deck, or (turned round) a landing
+  bank(T, S, o) {
+    const w = (o.w || KITW.W) / 2, ang = (o.angle || 25) * D2R, L = S.H / Math.tan(ang);
+    kStrip(T, [{ u: 0, y: 0, c: S.tint }, { u: L, y: S.H, c: KCOL.side }, { u: L, y: 0, c: KCOL.side }], -w, w);
+    return { len: L, wid: 2 * w, h: S.H };
+  },
+  // PLATFORM: a solid block, top a floor, sides walls
+  platform(T, S, o) {
+    const w = (o.w || KITW.W) / 2, d = o.d || KITW.W;
+    kStrip(T, [{ u: 0, y: 0, c: KCOL.side }, { u: 0, y: S.H, c: KCOL.deck }, { u: d, y: S.H, c: KCOL.side }, { u: d, y: 0, c: KCOL.side }], -w, w);
+    const P = kP(T, d / 2, 0, 0); solidAdd(P[0], P[2], w, d / 2, T.y, T.y + S.H, T.yaw, { tag: 'kit platform' });
+    return { len: d, wid: 2 * w, h: S.H };
+  },
+  // FRUSTUM: a flat top and, on each side, either a bank down to the ground or a wall -- a funbox (banks front and back),
+  // a pyramid (all four), a hip (two adjacent). The creases where two banks meet ARE the hips.
+  frustum(T, S, o) {
+    const len = o.len || 6, w = (o.w || 6) / 2, L = S.H / Math.tan((o.angle || 25) * D2R), b = o.banks || [1, 1, 0, 0];   // -u, +u, -w, +w
+    const t = { u0: 0, u1: len, w0: -w, w1: w }, B = { u0: -b[0] * L, u1: len + b[1] * L, w0: -w - b[2] * L, w1: w + b[3] * L };
+    const H = S.H, top = (u, w) => kP(T, u, H, w), bot = (u, w) => kP(T, u, 0, w);
+    kQuad(top(t.u0, t.w0), top(t.u1, t.w0), top(t.u1, t.w1), top(t.u0, t.w1), KCOL.deck);
+    const sides = [[t.u0, t.w1, t.u0, t.w0, B.u0, B.w1, B.u0, B.w0, b[0], [-1, 0]], [t.u1, t.w0, t.u1, t.w1, B.u1, B.w0, B.u1, B.w1, b[1], [1, 0]],
+                   [t.u0, t.w0, t.u1, t.w0, B.u0, B.w0, B.u1, B.w0, b[2], [0, -1]], [t.u1, t.w1, t.u0, t.w1, B.u1, B.w1, B.u0, B.w1, b[3], [0, 1]]];
+    const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
+    for (const [ua, wa, ub, wb, ua2, wa2, ub2, wb2, on, dir] of sides) {
+      const out = [fx * dir[0] + fz * dir[1], fz * dir[0] - fx * dir[1]];
+      if (on) kQuad(top(ua, wa), top(ub, wb), bot(ub2, wb2), bot(ua2, wa2), S.tint);
+      else kWall(top(ua, wa), top(ub, wb), bot(ub2, wb2), bot(ua2, wa2), out, KCOL.side);
+    }
+    const P = kP(T, len / 2, 0, 0); solidAdd(P[0], P[2], w, len / 2, T.y, T.y + H, T.yaw, { tag: 'kit block' });
+    return { len: B.u1 - B.u0, wid: B.w1 - B.w0, h: H };
+  },
+  // ROLL-IN: the tall one you drop down to get speed -- a deck at H, a steep straight face, a concave transition at the
+  // bottom into the flat, and a long bank up the back so it can be climbed. `u` runs up the face, from the toe.
+  rollin(T, S, o) {
+    const w = (o.w || KITW.W) / 2, ang = (o.angle || 42) * D2R, rb = o.r || 4, H = S.H;
+    const p = [{ u: 0, y: 0, c: S.tint }]; kArc(p, 0, 0, rb, 0, ang, 14, S.tint);
+    const e = p[p.length - 1], run = (H - e.y) / Math.tan(ang);
+    p.push({ u: e.u + run, y: H, c: KCOL.cope }); p.push({ u: e.u + run + KITW.cope, y: H, c: KCOL.deck });
+    const dEnd = e.u + run + (o.deck || 3); p.push({ u: dEnd, y: H, c: S.tint });
+    const back = H / Math.tan((o.back || 20) * D2R); p.push({ u: dEnd + back, y: 0, c: KCOL.side });
+    kStrip(T, p, -w, w);
+    return { len: dEnd + back, wid: 2 * w, h: H, top: e.u + run };
+  },
+  // KICKER: an arc up that ENDS -- the lip is the end of the arc, never a flat (a flat on a lip is a landing pad)
+  kicker(T, S, o) {
+    const w = (o.w || 3) / 2, sw = (o.angle || 38) * D2R, H = o.h || S.H * 0.5, r = H / (1 - Math.cos(sw)), p = [{ u: 0, y: 0, c: S.tint }];
+    kArc(p, 0, 0, r, 0, sw, 12, S.tint); p[p.length - 2].c = KCOL.cope;
+    const e = p[p.length - 1]; p.push({ u: e.u, y: 0, c: KCOL.side });
+    kStrip(T, p, -w, w);
+    return { len: e.u, wid: 2 * w, h: H };
+  },
+  // LAUNCH: a straight plank that ends -- a bank with no top
+  launch(T, S, o) { return KIT_KINDS.bank(T, S, { w: o.w || 3, angle: o.angle || 30, ...o }); },
+  // TABLE-TOP: a kicker, a flat table, a long landing down the far side
+  table(T, S, o) {
+    const w = (o.w || 4) / 2, sw = (o.angle || 32) * D2R, H = S.H * 0.5, r = H / (1 - Math.cos(sw)), p = [{ u: 0, y: 0, c: S.tint }];
+    kArc(p, 0, 0, r, 0, sw, 12, S.tint); p[p.length - 1].c = KCOL.deck;
+    const e = p[p.length - 1], t1 = e.u + (o.table || 6), land = H / Math.tan((o.land || 22) * D2R);
+    p.push({ u: t1, y: H, c: S.tint }); p.push({ u: t1 + land, y: 0, c: KCOL.side });
+    kStrip(T, p, -w, w);
+    return { len: t1 + land, wid: 2 * w, h: H };
+  },
+  // GAP: a kicker, a gap of `gap` metres, and a landing that starts at the kicker's height
+  gap(T, S, o) {
+    const k = KIT_KINDS.kicker(T, S, { w: 4, h: S.H * 0.6, angle: 36 });
+    // the landing: a 3 m deck at the kicker's height and a long 18-degree run off it, so a range of speeds lands
+    const u0 = k.len + (o.gap || 5), H = k.h, land = H / Math.tan(18 * D2R), w = 2.5;
+    kStrip(T, [{ u: u0, y: 0, c: KCOL.side }, { u: u0, y: H, c: KCOL.deck }, { u: u0 + 3, y: H, c: S.tint }, { u: u0 + 3 + land, y: 0, c: KCOL.side }], -w, w);
+    const P = kP(T, u0 + 1.5, 0, 0); solidAdd(P[0], P[2], w, 1.5, T.y, T.y + H, T.yaw, { tag: 'kit block' });
+    return { len: u0 + 3 + land, wid: 5, h: H };
+  },
+  // SPINE: two transitions back to back, the coping on the ridge. A small one rolls over; a tall one is a transfer.
+  spine(T, S0, o) {
+    // a SMALL spine rolls over (its sweep is under `VERT.at`, so nothing locks her in); M and up are vert, a transfer
+    const sw = (o.sweep || (S0.H < 1.5 ? 55 : 0)) * D2R, S = sw ? { ...S0, sweep: sw, r: S0.H / (1 - Math.cos(sw)), lip: S0.H / (1 - Math.cos(sw)) * Math.sin(sw) } : S0;
+    const w = (o.w || KITW.W) / 2, p = [{ u: 0, y: 0, c: S.tint }];
+    kArc(p, 0, 0, S.r, 0, S.sweep, S.H < 1.5 ? 20 : KITW.seg, S.tint); p[p.length - 1].c = KCOL.cope;
+    const L = S.lip, q = [];
+    for (let i = KITW.seg - 1; i >= 0; i--) { const a = S.sweep * i / KITW.seg; q.push({ u: 2 * L + 0.2 - S.r * Math.sin(a), y: S.r * (1 - Math.cos(a)), c: S.tint }); }
+    p.push({ u: L + 0.2, y: S.H, c: S.tint }); p.push(...q);
+    kStrip(T, p, -w, w);
+    return { len: 2 * L + 0.2, wid: 2 * w, h: S.H };
+  },
+  // ---- ASSEMBLIES: one object, built from the pieces above ---------------------------------------------------------
+  // HALF PIPE along w: two straights facing each other across `flat`
+  halfpipe(T, S, o) {
+    const F = o.flat || 6, len = o.len || 8;
+    KIT_KINDS.qp(kT(T, F / 2, 0, 0), S, { w: len });
+    KIT_KINDS.qp(kT(T, -F / 2, 0, Math.PI), S, { w: len });
+    return { len: F + 2 * (S.lip + KITW.deck), wid: len, h: S.H };
+  },
+  // POOL: a half pipe with both ends capped by pairs of inside corners -- the "half bowl for an end", twice
+  pool(T, S, o) {
+    const F = o.flat || 6, len = o.len || 8;
+    KIT_KINDS.halfpipe(T, S, { flat: F, len });
+    KIT_KINDS.qpIn(kT(T, 0, len / 2, 0), S, { rc: F / 2, a0: 0, a1: Math.PI });
+    KIT_KINDS.qpIn(kT(T, 0, -len / 2, 0), S, { rc: F / 2, a0: Math.PI, a1: Math.PI * 2 });
+    return { len: F + 2 * (S.lip + KITW.deck), wid: len + F + 2 * (S.lip + KITW.deck), h: S.H };
+  },
+  // ROUND BOWL: four inside corners on one centre
+  bowl(T, S, o) {
+    const rc = o.rc || 4; KIT_KINDS.qpIn(T, S, { rc, a0: 0, a1: Math.PI * 2 });
+    const R = rc + S.lip + KITW.deck; return { len: 2 * R, wid: 2 * R, h: S.H };
+  },
+  // L: a pipe turning 90 degrees. Outer wall a concave corner, inner wall a convex one, on the same centre, so the flat
+  // keeps its width round the bend; straights carry both legs on.
+  pipeL(T, S, o) {
+    const F = o.flat || 6, leg = o.leg || 8, dk = KITW.deck, rIn = dk + S.lip, rOut = rIn + F;
+    KIT_KINDS.qpOut(T, S, { a0: 0, a1: Math.PI / 2 });                       // inner wall, round the centre
+    KIT_KINDS.qpIn(T, S, { rc: rOut, a0: 0, a1: Math.PI / 2 });             // outer wall
+    // the legs: one runs from the +u edge toward -w, the other from the +w edge toward -u
+    KIT_KINDS.qp(kT(T, rOut, -leg / 2, 0), S, { w: leg });
+    KIT_KINDS.qp(kT(T, rIn, -leg / 2, Math.PI), S, { w: leg, deck: dk });
+    KIT_KINDS.qp(kT(T, -leg / 2, rOut, Math.PI / 2), S, { w: leg });
+    KIT_KINDS.qp(kT(T, -leg / 2, rIn, -Math.PI / 2), S, { w: leg, deck: dk });
+    return { len: rOut + S.lip + dk + leg, wid: rOut + S.lip + dk + leg, h: S.H };
+  },
+  // T: a pipe along w with a second one leaving it along +u. The opening's two edges are convex corners.
+  pipeT(T, S, o) {
+    const F = o.flat || 6, len = o.len || 28, leg = o.leg || 10, dk = KITW.deck, c = F / 2 + S.lip + dk;
+    KIT_KINDS.qp(kT(T, -F / 2, 0, Math.PI), S, { w: len });                 // the far wall, whole
+    for (const sd of [1, -1]) {
+      const wl = len / 2 - c;
+      KIT_KINDS.qp(kT(T, F / 2, sd * (c + wl / 2), 0), S, { w: wl });       // the near wall, either side of the opening
+      KIT_KINDS.qpOut(kT(T, c, sd * c, 0), S, sd > 0 ? { a0: Math.PI, a1: Math.PI * 1.5 } : { a0: Math.PI / 2, a1: Math.PI });
+      KIT_KINDS.qp(kT(T, c + leg / 2, sd * F / 2, sd > 0 ? Math.PI / 2 : -Math.PI / 2), S, { w: leg });   // the branch's walls
+    }
+    return { len: c + leg + F / 2 + S.lip + dk, wid: len, h: S.H };
+  },
+};
+// a transform offset within another's frame: (du, dw) along its axes, turned by dyaw
+function kT(T, du, dw, dyaw) { const P = kP(T, du, 0, dw); return { x: P[0], y: T.y, z: P[2], yaw: T.yaw + (dyaw || 0) }; }
+// THE LOOPS ARE RAILS, because the collider is "the floor under this x,z" and a surface you ride upside down has no
+// floor under it. In along +u at `hy`, round a vertical loop (shifting sideways so it clears itself), and out --
+// her up points at the loop's centre all the way round (the city loop's rule), and a booster carries her over.
+// A 180 goes up the half loop to the top, rolls her upright going back the way she came, and runs out onto a deck.
+function kitLoop(T, S, o) {
+  const R = o.R || S.H * 1.25, hy = o.hy || 1.0, half = o.half, V = (u, y, w) => new THREE.Vector3(...kP(T, u, y, w));
+  const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), up = (cu, cy) => new THREE.Vector3(fx * cu, cy, fz * cu);
+  const pts = [], ups = [], N = 40, lead = 8;
+  for (let u = 0; u < lead; u += 1.5) { pts.push(V(u, hy, 0)); ups.push(up(0, 1)); }
+  if (!half) {
+    for (let i = 0; i <= N; i++) { const ph = i / N * Math.PI * 2; pts.push(V(lead + R * Math.sin(ph), hy + R - R * Math.cos(ph), 1.6 * i / N)); ups.push(up(-Math.sin(ph), Math.cos(ph))); }
+    for (let u = lead + 1.5; u <= lead + 10; u += 1.5) { pts.push(V(u, hy, 1.6)); ups.push(up(0, 1)); }
+  } else {
+    // up the half loop, shifting `ws` sideways so the run back over the top clears the lead-in under it
+    const ws = 4;
+    for (let i = 0; i <= N / 2; i++) { const ph = i / N * Math.PI * 2; pts.push(V(lead + R * Math.sin(ph), hy + R - R * Math.cos(ph), ws * i / (N / 2))); ups.push(up(-Math.sin(ph), Math.cos(ph))); }
+    // upside down at the top going -u; a half roll about her travel over the next metres puts her upright
+    const yTop = hy + 2 * R, roll = 8;
+    for (let k = 1; k <= 10; k++) { const t = k / 10, a = Math.PI * t; pts.push(V(lead - roll * t, yTop, ws)); ups.push(new THREE.Vector3(Math.cos(T.yaw) * Math.sin(a), -Math.cos(a), -Math.sin(T.yaw) * Math.sin(a))); }
+    for (let u = lead - roll - 1.5; u >= lead - roll - 4.5; u -= 1.5) { pts.push(V(u, yTop, ws)); ups.push(up(0, 1)); }
+    // and the deck it runs out onto, with a bank back down to the ground
+    const u1 = lead - roll - 4.5, H = yTop - 0.9, Sd = { ...KSZ.M, H, tint: S.tint }, Lb = H / Math.tan(18 * D2R);
+    // LONG: she comes off the rail at the booster's speed, and an 8 m deck is crossed in half a second
+    KIT_KINDS.platform(kT(T, u1 - 1, ws, Math.PI), Sd, { w: 4, d: 16 });
+    KIT_KINDS.bank(kT(T, u1 - 17 - Lb, ws, 0), Sd, { w: 4, angle: 18 });
+  }
+  const P = railPath(pts, { boost: o.boost || 16, boostK: 12, ups, maxV: 24, name: 'kit ' + (half ? 'loop180' : 'loop360') });
+  P.kit = 1; KITW.loops = (KITW.loops || []).concat(P);
+  return P;
+}
+// ONE ENTRY POINT. A size name or an object; options as the kinds take them. The record is what the export writes out
+// and what an `fn_` marker in a GLB carries back in.
+function kitPiece(kind, size, T, o) {
+  o = o || {};
+  const S = typeof size === 'object' ? size : KSZ[size] || KSZ.M;
+  const t0 = MESH.pos.length;
+  if (kind === 'loop360' || kind === 'loop180') {
+    const P = kitLoop(T, S, { ...o, half: kind === 'loop180' });
+    const rec = { kind, size: typeof size === 'string' ? size : 'M', T: { ...T }, o, rail: P, m0: t0, m1: MESH.pos.length, len: 20, wid: 4, h: S.H * 2.5 + 1 };
+    KITW.pieces.push(rec); return rec;
+  }
+  const f = KIT_KINDS[kind]; if (!f) { console.warn('[kit] no such piece ' + kind); return null; }
+  const r = f(T, S, o) || {};
+  const rec = { kind, size: typeof size === 'string' ? size : 'M', T: { ...T }, o, m0: t0, m1: MESH.pos.length, ...r };
+  if (KITW.keep) rec.pos = MESH.pos.slice(t0), rec.col = MESH.col.slice(t0);
+  KITW.pieces.push(rec); return rec;
+}
+// THE GALLERY: a white floor and every piece in rows by kind, columns by size, each labelled with its name, its size and
+// what it fits. Riders come in from -z; every piece faces them.
+function kitLabel(text, sub, x, y, z) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+  const g = c.getContext && c.getContext('2d');
+  if (g && g.fillText) {
+    g.fillStyle = 'rgba(30,26,52,0.82)'; g.fillRect(0, 0, 512, 128);
+    g.fillStyle = '#ffffff'; g.font = 'bold 54px sans-serif'; g.textAlign = 'center'; g.fillText(text, 256, 60);
+    g.fillStyle = '#9fe3ff'; g.font = '30px sans-serif'; g.fillText(sub, 256, 106);
+  }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, fog: false }));
+  sp.scale.set(6.4, 1.6, 1); sp.position.set(x, y, z); sp.userData.noHole = 1; scene.add(sp); KITW.labels.push(sp);
+  return sp;
+}
+const KIT_ROWS = [
+  // [row title, z, [ [kind, size, opts, label], ... ] ]
+  ['quarter pipes', 0, ['S', 'M', 'L', 'XL'].map(s => ['qp', s, {}, 'QP ' + s])],
+  ['inside corners', 34, ['S', 'M', 'L', 'XL'].map(s => ['qpIn', s, {}, 'QP ' + s + ' inside corner'])],
+  ['outside corners', 66, ['S', 'M', 'L', 'XL'].map(s => ['qpOut', s, {}, 'QP ' + s + ' outside corner'])],
+  ['pipes', 100, [['halfpipe', 'M', { flat: 6, len: 12 }, 'half pipe M'], ['pool', 'M', { flat: 6, len: 8 }, 'pool M (capped ends)'], ['bowl', 'M', { rc: 4 }, 'round bowl M'], ['bowl', 'L', { rc: 5 }, 'round bowl L']]],
+  ['junctions', 150, [['pipeL', 'M', { flat: 6, leg: 8 }, 'L-pipe M'], ['pipeT', 'M', { flat: 6, len: 30, leg: 10 }, 'T-pipe M'], ['halfpipe', 'L', { flat: 7, len: 12 }, 'half pipe L'], ['halfpipe', 'XL', { flat: 8, len: 12 }, 'half pipe XL']]],
+  ['banks + platforms', 200, ['S', 'M', 'L', 'XL'].map(s => ['bankDeck', s, {}, 'bank ' + s + ' + platform ' + s])],
+  ['roll-ins + spines', 236, [['rollin', 'L', {}, 'roll-in L'], ['rollin', 'XL', { r: 5 }, 'roll-in XL'], ['spine', 'S', {}, 'spine S'], ['spine', 'M', {}, 'spine M'], ['spine', 'L', {}, 'spine L']]],
+  ['jumps', 276, [['kicker', 'S', {}, 'kicker S'], ['kicker', 'M', {}, 'kicker M'], ['kicker', 'L', {}, 'kicker L'], ['launch', 'S', {}, 'launch S'], ['table', 'M', {}, 'table-top M'], ['gap', 'M', { gap: 5 }, 'gap M (5 m)']]],
+  ['boxes + loops', 312, [['frustum', 'S', { len: 6, w: 4, banks: [1, 1, 0, 0] }, 'funbox S'], ['frustum', 'M', { len: 4, w: 4, banks: [1, 1, 1, 1] }, 'pyramid M'], ['frustum', 'M', { len: 4, w: 4, banks: [1, 0, 1, 0] }, 'hip M'], ['loop360', 'M', {}, 'loop 360'], ['loop180', 'M', { yaw: Math.PI }, 'loop 180 (Immelmann)']]],
+];
+// a bank with its platform behind it -- the pair a size is defined by
+KIT_KINDS.bankDeck = (T, S, o) => {
+  const b = KIT_KINDS.bank(T, S, { w: 4, angle: o.angle || 25 });
+  KIT_KINDS.platform(kT(T, b.len, 0, 0), S, { w: 4, d: 4 });
+  return { len: b.len + 4, wid: 4, h: S.H };
+};
+const KIT_FITS = { S: 'H 1.2 m', M: 'H 2.4 m', L: 'H 3.6 m', XL: 'H 4.8 m' };
+function kitFloor() {
+  const s = KITW.floorS;
+  for (let x = KITW.x0; x < KITW.x1; x += s) for (let z = KITW.z0; z < KITW.z1; z += s) {
+    const odd = ((Math.round(x / s) + Math.round(z / s)) & 1);
+    quad([x, 0, z], [x, 0, z + s], [x + s, 0, z + s], [x + s, 0, z], odd ? KCOL.floorA : KCOL.floorB);
+  }
+}
+function kitGallery() {
+  const xs = n => { const out = []; for (let i = 0; i < n; i++) out.push((i - (n - 1) / 2) * 44); return out; };
+  for (const [title, z, row] of KIT_ROWS) {
+    const X = xs(row.length);
+    row.forEach(([kind, size, o, label], i) => {
+      const T = { x: X[i], y: 0, z, yaw: o.yaw || 0 }, rec = kitPiece(kind, size, T, o);
+      if (!rec) return; rec.label = label;
+      kitLabel(label, size + ' · ' + KIT_FITS[size] + (KSZ[size] && /qp|pipe|pool|bowl|spine/.test(kind) ? ' · r ' + KSZ[size].r.toFixed(1) : ''), X[i], (rec.h || 2) + 3.2, z - 3);
+    });
+    const name = 'kit ' + title; CITY.spots[name] = [X[0] - 8, 0, z - 14, 0]; KITW.go.push(name);
+  }
+  CITY.spots['kit start'] = [0, 0, -40, 0]; KITW.go.unshift('kit start');
+  SPAWN.set(0, 0.2, -40); SPAWN.h = 0;
+}
+
+// THE PICTURE: everything pushed since `from` into one mesh -- plain, near-white, NOT the detail pass; this is a kit to
+// read shapes off, and texture would only hide them. `offset` pushes a floor back in depth the way the plaza is.
+function kitFlush(from, name, offset) {
+  if (MESH.pos.length <= from) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(MESH.pos.slice(from), 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(MESH.nrm.slice(from), 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(MESH.col.slice(from), 3));
+  g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.0 }));
+  if (offset) Object.assign(m.material, { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 });
+  m.receiveShadow = true; m.castShadow = !offset; m.name = name; scene.add(m);
+  MESH.pos.length = MESH.nrm.length = MESH.col.length = from;
+  return m;
+}
+function kitRailsDraw() { for (const P of KITW.loops || []) if (!P.drawn) { P.drawn = 1; railDraw(P, { mat: 'boost' }); } }
+// THE KIT WORLD (`WORLD.zones` 2): the floor, every piece, and nothing else
+function kitWorld() {
+  CITY.on = 0;
+  kitFloor(); const nF = MESH.pos.length;
+  kitGallery();
+  triBuild(); solidBuild();
+  kitRailsDraw(); railLink();
+  ORB.built = 1; splashMake(m => scene.add(m));
+  kitFlush(nF, 'kit pieces'); kitFlush(0, 'kit floor', true);
+  KITW.built = 1;
+  console.log(`[kit] ${KITW.pieces.length} pieces, ${KITW.labels.length} labels`);
+}
+
 const SPAWN = new THREE.Vector3(0, 0.2, -6);
 SPAWN.h = 0;          // r64: the heading she spawns facing (a zone's spawn marker sets it)
 const BOWL = { x: -28, z: -26, r: 9 };
@@ -1320,6 +1716,7 @@ let parkMesh = null;
 function buildPark() {
   // r64: HIS ZONES ARE THE WORLD -- nothing built here, the collider waits for them (`LEVEL.zones`). Water,
   // launchers and the put-back-where-she-stood are Orbital's machinery, so that is switched on with no district.
+  if (WORLD.zones === 2) { kitWorld(); return; }
   if (WORLD.zones) { CITY.on = 0; triBuild(); solidBuild(); ORB.built = 1; splashMake(m => scene.add(m)); return; }
   plaza(PARK.S, PARK.cell, BOWL);
   const nPlaza = MESH.pos.length;     // the plaza is drawn as its own mesh, pushed back in depth (below)
@@ -2135,6 +2532,27 @@ function levelStair(B) {
   }
   return 2;
 }
+// r66: AN `fn_` MARKER IS A KIT PIECE TO BUILD, not geometry to read. *"Those could just be placeholders ... a spec for
+// where everything goes, so you can rebuild it on top of the art level."* The node's name (`fn_<kind>_<size>`, as the
+// kit export writes them) or its extras (`fn`, `size`, and the piece's options) say what; its transform says where --
+// position, and the turn about +Y (the piece's +u is the node's local +Z). Built by the same `kitPiece` the gallery
+// uses, so a piece placed in Blender plays exactly like the one in the kit world. `draw: false` in its extras builds
+// the collider and leaves the picture to his art. Each node is built once whichever file it is found in.
+const FN_RE = /^fn_([a-zA-Z0-9]+?)_(S|M|L|XL)(?:[_.]|$)/;
+function levelFn(o, place, name, st) {
+  const u = o.userData || {}, m = (o.name || '').match(FN_RE), kind = u.fn || (m && m[1]), size = u.size || (m && m[2]) || 'M';
+  if (!kind || !(KIT_KINDS[kind] || /^loop(360|180)$/.test(kind))) return false;
+  const key = name + '/' + o.name; LEVEL.fnSeen = LEVEL.fnSeen || {}; if (LEVEL.fnSeen[key]) return true; LEVEL.fnSeen[key] = 1;
+  const M = new THREE.Matrix4().multiplyMatrices(place, o.matrixWorld), e = M.elements;
+  const T = { x: e[12], y: e[13], z: e[14], yaw: Math.atan2(e[8], e[10]) };
+  // `name` is GLTFLoader's own (it keeps the unsanitised node name in userData); `info` and any other object is reference
+  // only -- but an ARRAY is an option (a frustum's `banks`), and dropping it rebuilt a hip as a different shape
+  const opts = {}; for (const k in u) if (!/^(fn|size|kind|draw|label|footprint|name|info)$/.test(k) && (typeof u[k] !== 'object' || Array.isArray(u[k]))) opts[k] = u[k];
+  const m0 = MESH.pos.length, rec = kitPiece(kind, size, T, opts);
+  if (!rec) return false;
+  if (u.draw === false) MESH.pos.length = MESH.nrm.length = MESH.col.length = m0; else kitFlush(m0, 'fn:' + o.name);
+  st.fn = (st.fn || 0) + 1; return true;
+}
 function levelIngest(vis, col, place, name) {
   const st = { meshes: 0, mats: 0, floors: 0, boxes: 0, cells: 0, rails: 0 };
   const _p = new THREE.Vector3();
@@ -2145,6 +2563,7 @@ function levelIngest(vis, col, place, name) {
     // exactly that) -- so each is cut down to position/normal/uv/colour and the missing ones filled in.
     const buckets = new Map();
     vis.traverse(o => {
+      if (/^fn_/.test(o.name)) { levelFn(o, place, name, st); return; }
       if (!o.isMesh || /^col_/.test(o.name)) return;
       // r64: KEPT INDEXED. `toNonIndexed` tripled every vertex, and a zone is half a million triangles -- 70 MB of
       // floats for nothing. Every member gets an index (a plain 0..n one if it had none) so a bucket can merge.
@@ -2202,6 +2621,7 @@ function levelIngest(vis, col, place, name) {
     const at = a => new THREE.Vector3().fromArray(a).applyMatrix4(place);     // a `*_gltf` extra is in the FILE's frame
     col.traverse(o => {
       const nm = o.name || '', u = o.userData || {};
+      if (/^fn_/.test(nm)) { levelFn(o, place, name, st); return; }
       const M = new THREE.Matrix4().multiplyMatrices(place, o.matrixWorld);
       const pos = o.geometry && o.geometry.attributes.position, idx = o.geometry && o.geometry.index;
       const W = i => new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(M);
@@ -2231,7 +2651,7 @@ function levelIngest(vis, col, place, name) {
           // `heading` is DEGREES, in this game's sense (forward is (sin h, cos h))
           const h = (+u.heading || 0) * Math.PI / 180, sp = String(u.spot || nm.replace(/^marker_(spot|spawn)_/, ''));
           CITY.spots[name + ' ' + sp] = [P.x, P.y, P.z, h]; if (!LEVEL.go.includes(name + ' ' + sp)) LEVEL.go.unshift(name + ' ' + sp);
-          if ((u.kind === 'spawn' || /^marker_spawn_/.test(nm)) && WORLD.zones && !LEVEL.spawned) { LEVEL.spawned = name; SPAWN.copy(P); SPAWN.h = h; }
+          if ((u.kind === 'spawn' || /^marker_spawn_/.test(nm)) && WORLD.zones === 1 && !LEVEL.spawned) { LEVEL.spawned = name; SPAWN.copy(P); SPAWN.h = h; }
           st.spots = (st.spots || 0) + 1;
         }
         return;
@@ -2323,8 +2743,9 @@ function levelIngest(vis, col, place, name) {
       if (mine.some(P => { const na = railNear(P, a), nb = railNear(P, b); return na && nb && na.d < LEVEL.dedupe && nb.d < LEVEL.dedupe; })) { st.dupes = (st.dupes || 0) + 1; continue; }
       railPath(railLine(a, b, 2), { name: name + ' rail' }); st.rails++;
     }
-    if (st.rails) railLink();
+    if (st.rails || st.fn) { kitRailsDraw(); railLink(); }
   }
+  if (st.fn && !col) { kitRailsDraw(); railLink(); }
   triBuild(); solidBuild();
   return st;
 }
@@ -7402,7 +7823,7 @@ function goSpot(name) {
   return true;
 }
 // r64: in his zones the stops are the ones his files carry (spawns, spots, a stop at every launch pad)
-document.getElementById('goB').addEventListener('click', () => { const L = WORLD.zones ? LEVEL.go : GO; if (!L.length) return; goI = (goI + 1) % L.length; goSpot(L[goI]); });
+document.getElementById('goB').addEventListener('click', () => { const L = WORLD.zones === 2 ? KITW.go : WORLD.zones ? LEVEL.go : GO; if (!L.length) return; goI = (goI + 1) % L.length; goSpot(L[goI]); });
 
 // THE SURFACE IS THE FRAME, NOT THE WORLD. Her velocity is decomposed against the face she is
 // standing on -- forward along the wheels, sideways across them, and nothing into the surface.
@@ -7868,7 +8289,7 @@ function stepAir(dt) {
   }
   // r64: in his zones the islands float over open sky, so the floor of the world is far down and falling to it
   // puts her back where she last stood; the built-in park keeps its old catch, a moment under the plaza
-  if (WORLD.zones ? p.pos.y < WORLD.fallY : p.pos.y < -8) { if (WORLD.zones) { ORB.falls = (ORB.falls || 0) + 1; putBack('FELL', '#9a7bff'); } else respawn(); }
+  if (WORLD.zones === 1 ? p.pos.y < WORLD.fallY : p.pos.y < -8) { if (WORLD.zones) { ORB.falls = (ORB.falls || 0) + 1; putBack('FELL', '#9a7bff'); } else respawn(); }
 }
 
 // WHICH WAY ROUND SHE CAME DOWN. `fwd` is her body's forward already flattened onto the surface;
@@ -8569,7 +8990,7 @@ function hud(dt) {
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
-      (WORLD.zones ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
+      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
       (HYD.failed ? ' · NO HYDRANT GLB' : '') + (performance.now() - (CITY.goAt || -1e9) < 3000 ? ' · → ' + CITY.goMsg : '') + (player.grind && player.grind.rail && player.grind.rail.path.name !== 'park' ? ' ' + player.grind.rail.path.name : '');
     if (gemsB) { gemsB.textContent = GEM.got; gemsN.textContent = GEM.list.length; } }
 }
@@ -8753,7 +9174,7 @@ const TAILUI = [
   ['TRAIL.alpha',    'Trail strength', 0, 1, 0.05, ''],
   ['Look (r34)', ''],
   ['LOOK.style',     'Look 0 dusk 1 robits 2 weirdport (reload)', 0, 2, 1, ''],
-  ['WORLD.zones',    'World 1 his zones 0 built-in park (reload)', 0, 1, 1, ''],
+  ['WORLD.zones',    'World 0 park 1 his zones 2 ramp kit (reload)', 0, 2, 1, ''],
   ['WORLD.fallY',    'Zones: fall back below (m)', -120, -5, 1, ''],
   ['LEVEL.slopeFix', 'Zones: rebuild sloped decks (reload)', 0, 1, 1, ''],
   ['LOOK.exposure',  'Exposure',       0.5, 2,   0.05, ''],
@@ -8934,10 +9355,10 @@ tailLoad();
 // to take the card down with it and leave a game that is unreachable over a feature it does
 // not need to be playable. The CITY and the GIRL are the two there is no game without.
 async function init() {
-  setBoot(WORLD.zones ? 'loading the zones' : 'building the park', 0.05);
+  setBoot(WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : 'building the park', 0.05);
   buildPark();
   // r64: HIS ZONES' COLLIDERS ARE STARTED NOW AND WAITED FOR BEFORE SHE DROPS IN -- there is no floor without them
-  const zonesCol = WORLD.zones ? levelImports(LEVEL.zones) : null;
+  const zonesCol = WORLD.zones === 1 ? levelImports(LEVEL.zones) : null;
   // HIS PICK FIRST, THEN ANY OF THEM. A missing or half-downloaded file is one character, not
   // an empty street -- which matters most here, where one of the two is a test export that
   // may well be replaced in place while he is looking at it.
@@ -8969,7 +9390,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  WORLD, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
+  WORLD, KITW, KSZ, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
   vertRelease, bodyAlign, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },

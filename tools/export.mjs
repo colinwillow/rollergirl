@@ -50,7 +50,10 @@ export { FakePMREM as PMREMGenerator };
 const boot = fs.readFileSync('tools/boot.mjs', 'utf8');
 const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:END'));
 (0, eval)(stubs);
-globalThis.localStorage.setItem('rg.world', '0');   // r64: the export is of the world this file builds, not of his zones
+// r64: the export is of the world this file builds, not of his zones. r66: `npm run export kit` is the ramp kit instead.
+const KITMODE = process.argv[2] === 'kit';
+globalThis.localStorage.setItem('rg.world', KITMODE ? '2' : '0');
+if (KITMODE) globalThis.__kitKeep = 1;     // each piece keeps a copy of its own triangles to be written out
 
 const html = fs.readFileSync('index.html', 'utf8');
 let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
@@ -98,11 +101,54 @@ function glbWriter() {
       fs.writeFileSync(file, Buffer.concat([head, jh, js, bh, B])); return 12 + 16 + js.length + B.length; } };
 }
 
+// ---------------------------------------------------------------- r66: THE RAMP KIT
+// One object per piece, named `fn_<kind>_<size>_<n>`, its mesh in its OWN frame (origin on the ground at the middle of
+// the front edge, local +Z the way the rider goes up it, +X across) and the node placed where the gallery has it --
+// so in Blender each one is a placeholder he can duplicate, move and turn, and a GLB of them coming back is rebuilt by
+// `levelIngest` into the real pieces. The extras carry the kind, the size and every option the piece was built with.
+if (KITMODE) {
+  const K = rg.KITW, W = glbWriter(), spec = [];
+  W.J.materials.push({ name: 'kit', pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.85 } });
+  const root = W.node('ramp_kit', null), cnt = {};
+  for (const pc of K.pieces) {
+    const T = pc.T, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
+    const toLocal = (X, Y, Z) => { const dx = X - T.x, dz = Z - T.z; return [dx * fz - dz * fx, Y - T.y, dx * fx + dz * fz]; };
+    const n = cnt[pc.kind + pc.size] = (cnt[pc.kind + pc.size] || 0) + 1, name = `fn_${pc.kind}_${pc.size}_${n}`;
+    const S = rg.KSZ[pc.size] || {}, o = { ...pc.o }; delete o.yaw;
+    // TOP LEVEL = what rebuilds it (kind, size, the options it was built with); `info` = reference numbers only, and it
+    // is an object so `levelFn` never reads it back as an option (a roll-in reads `o.r` and `o.deck` -- the size's
+    // radius handed back as one would build a different piece)
+    const extras = { fn: pc.kind, size: pc.size, ...o, label: pc.label || '', info: { H: S.H, r: S.r && +S.r.toFixed(3), lip: S.lip && +S.lip.toFixed(3),
+      sweep_deg: S.sweep && Math.round(S.sweep * 180 / Math.PI), deck: K.deck, footprint_w_by_u: [+(pc.wid || 0).toFixed(2), +(pc.len || 0).toFixed(2)], top: pc.h != null ? +(+pc.h).toFixed(2) : undefined } };
+    const node = { translation: [T.x, T.y, T.z], rotation: [0, Math.sin(T.yaw / 2), 0, Math.cos(T.yaw / 2)], extras };
+    if (pc.pos && pc.pos.length) {
+      const pos = new Float32Array(pc.pos.length), col = new Float32Array(pc.col);
+      for (let i = 0; i < pc.pos.length; i += 3) pos.set(toLocal(pc.pos[i], pc.pos[i + 1], pc.pos[i + 2]), i);
+      const nrm = new Float32Array(pos.length);
+      for (let t = 0; t < pos.length; t += 9) { const ax = pos[t], ay = pos[t + 1], az = pos[t + 2], ux = pos[t + 3] - ax, uy = pos[t + 4] - ay, uz = pos[t + 5] - az, vx = pos[t + 6] - ax, vy = pos[t + 7] - ay, vz = pos[t + 8] - az;
+        let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+        for (let k = 0; k < 3; k++) nrm.set([nx, ny, nz], t + k * 3); }
+      W.J.meshes.push({ name, primitives: [prim({ pos, nrm, col, uv: null }, 0, W)] }); node.mesh = W.J.meshes.length - 1;
+    }
+    const ni = W.node(name, root, node);
+    if (pc.rail) { const pts = [pc.rail.segs[0].a, ...pc.rail.segs.map(q => q.b)], pos = new Float32Array(pts.length * 3);
+      pts.forEach((q, i) => pos.set(toLocal(q.x, q.y, q.z), i * 3));
+      W.J.meshes.push({ name: 'guide_' + name, primitives: [{ attributes: { POSITION: W.acc(pos, 'VEC3', 5126, true) }, mode: 3 }] });
+      W.node('guide_' + name, ni, { mesh: W.J.meshes.length - 1, extras: { part_of: name, info: { boost: pc.rail.boost } } }); }
+    spec.push({ name, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI) });
+  }
+  const sz = W.write(`${OUT}/rollergirl_kit.glb`);
+  fs.writeFileSync(`${OUT}/rollergirl_kit.json`, JSON.stringify({ sizes: Object.fromEntries(Object.entries(rg.KSZ).map(([k, v]) => [k, { H: v.H, r: +v.r.toFixed(3), lip: +v.lip.toFixed(3), sweep_deg: Math.round(v.sweep * 180 / Math.PI) }])),
+    width: K.W, deck: K.deck, coping: K.cope, pieces: spec }, null, 1));
+  console.log(`kit: ${K.pieces.length} pieces -> ${OUT}/rollergirl_kit.glb (${(sz / 1e6).toFixed(2)} MB) + ${OUT}/rollergirl_kit.json`);
+  process.exit(0);
+}
+
 // which district a thing belongs to, by where it is -- the gates are at the plaza's edges, |x| or |z| ~ 100
 const district = (x, z) => Math.hypot(x, z) > 380 ? 'backdrop' : Math.abs(x) < 100 && Math.abs(z) < 100 ? 'hub' : Math.abs(x) >= Math.abs(z) ? (x < 0 ? 'slice' : 'shores') : (z < 0 ? 'orbital' : 'city');
 
 // ---------------------------------------------------------------- the picture
-const W = glbWriter(), groups = {}, grp = name => groups[name] != null ? groups[name] : (groups[name] = W.node(name, null));
+const W = glbWriter(), WW = W, groups = {}, grp = name => groups[name] != null ? groups[name] : (groups[name] = W.node(name, null));
 const matIx = new Map(), texIx = new Map();
 async function texOf(t) {
   if (!t || !t.image || !t.image.data || !t.image.width) return null;
@@ -157,7 +203,7 @@ function weld(b) {
   const pick = (A, w) => { if (!A) return null; const o = new Float32Array(keep.length * w); keep.forEach((i, j) => { for (let c = 0; c < w; c++) o[j * w + c] = A[i * w + c]; }); return o; };
   return { pos: pick(b.pos, 3), nrm: pick(b.nrm, 3), uv: pick(b.uv, 2), col: pick(b.col, 3), idx };
 }
-function prim(b0, mat) {
+function prim(b0, mat, W = WW) {
   const b = weld(b0), at = { POSITION: W.acc(b.pos, 'VEC3', 5126, true) };
   if (b.nrm) at.NORMAL = W.acc(b.nrm, 'VEC3', 5126); if (b.uv) at.TEXCOORD_0 = W.acc(b.uv, 'VEC2', 5126); if (b.col) at.COLOR_0 = W.acc(b.col, 'VEC3', 5126);
   return { attributes: at, indices: W.acc(b.idx, 'SCALAR', 5125), material: mat, mode: 4 };

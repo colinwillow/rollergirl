@@ -73,7 +73,7 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   whole. No draco (custom attributes), WebP textures. `models/props/prop_hydrant.glb` is his hydrant.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
-- `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`, `export.mjs` (`npm run export`, the world as GLB for Blender).
+- `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`, `export.mjs` (`npm run export`, the world as GLB for Blender; `npm run export:kit`, the ramp kit -- see `docs/RAMP_KIT.md`).
 - `icons/` — `npm run icons [art.png]` (`tools/icons.mjs`, City's tool, needs the `sharp` dev dependency)
   turns one square artwork (`icons/source.png`, his alien-on-skates art since r31) into the 180/167/152
   apple-touch icons, 192/512 for the manifest and the 32 favicon. **THE VERSION IS IN THE FILENAME
@@ -91,6 +91,37 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE RAMP KIT IS A THIRD WORLD, AND IT IS THE SPEC FOR HIS BLENDER LEVELS (r66, `KITW`, `KSZ`, `KIT_KINDS`, `kitPiece`,
+  `kitWorld`, `levelFn`, `docs/RAMP_KIT.md`).** *"Build a set of modular ramp designs ... the corner piece of a half pipe,
+  the straight, a junction where another tube meets it at 90, a bowl, a half bowl for an end, ramps in and out, taller
+  things you run down to get speed, quarter pipes, all the jumps, loops 180 and 360, different sizes labelled ... make sure
+  all of them function correctly, and then that kit we can export ... placeholders, a spec for where everything goes."*
+  `WORLD.zones` is 0 park / 1 his zones / **2 the kit** (⚙ or `?world=kit`): a white gallery of 40 pieces in nine rows,
+  each labelled, ➤ walks the rows. **A SIZE IS A HEIGHT** (S 1.2 / M 2.4 / L 3.6 / XL 4.8 m, radius from the sweep) so
+  pieces of one size meet at one deck. Every piece is built in its OWN frame (origin on the ground at the middle of the
+  toe, +u up it = world `(sin yaw, cos yaw)`, +w across = `(cos yaw, -sin yaw)`); corners and bowls are revolves, pipes,
+  pools, L and T junctions are ASSEMBLIES of `qp` / `qpIn` / `qpOut` on one centre. Walls are drawn and not collided
+  (a ramp is a floor); decks behind a coping, platforms and box tops are `solidAdd` boxes -- **its yaw is `T.yaw` with hx
+  along w and hz along u**, which I got wrong first and which put every deck sideways. The loops are booster rails with
+  `ups`, the city loop's mechanism.
+  **`npm run sim kit` RIDES EVERY ONE**: crack scan over every pipe and corner, every QP size gets air over its coping,
+  both corners, three half pipes and the pool swing, both bowls, the L and T routes, banks onto platforms, roll-ins
+  (exit speed near free fall), spine S over / M back, kickers, launch, table, the gap clears at 15 m/s, the frustums, the
+  360 inverts her, the 180 lands on its deck, a platform side is a wall.
+  **`npm run export:kit` WRITES THE SPEC**: `exports/rollergirl_kit.glb` (one node per piece, `fn_<kind>_<size>_<n>`,
+  mesh in the piece's own frame, local +Z = u, +X = w, turned about Y by the yaw; extras = kind, size and the options it
+  was built with, plus an `info` object of reference numbers) and `rollergirl_kit.json`. **`levelIngest` rebuilds any
+  `fn_` node** (by name, or by `fn`/`size` extras; `draw: false` = collider only) from either the visual or the collision
+  file, once per node -- so a placeholder he moves in Blender comes back as the tested piece and his art goes on top.
+  **THE ROUND TRIP IS TESTED THROUGH THE REAL LOADER, AND IT FOUND TWO BUGS THE FABRICATED-SCENE TEST COULD NOT:**
+  GLTFLoader puts the original node name into `userData.name` (it arrived as a build option), and the option filter
+  dropped every object -- including ARRAYS, so a hip came back as a funbox. The sim now exports, parses the GLB back,
+  ingests it turned 180 and moved, and compares 8417 raised-floor points against the gallery: 0 off.
+  **REFERENCE NUMBERS GO UNDER `info`, NEVER AT THE TOP OF THE EXTRAS**: a roll-in reads `o.r` and `o.deck`, so the size's
+  radius written beside them would build a different piece on the way back in. And the loop's guide line is `guide_`,
+  not `rail_`, or the import adds a second, plain rail on top of the booster.
+  **`groundAt` HANDS BACK ONE SHARED OBJECT** -- three calls in a row and all three read the last answer. Copy it.
+  **`export.mjs`'s `prim` closed over the world writer `W`**, declared after the kit block (TDZ); it takes the writer.
 - **HIS ZONES ARE THE WORLD NOW, AND THE BUILT-IN PARK IS THE OTHER ONE (r64, `WORLD`, `LEVEL.zones`, `levelIngest`).**
   *"Import zone_skyline via LEVEL.imports at [0,0,0] ... rail_ edge polylines, launchers, spots, water and lava, fall
   below -40 -> respawn at the last spot, spawn me at the spawn marker."* His zones are in world coordinates and
