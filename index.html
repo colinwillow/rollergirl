@@ -167,7 +167,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r56</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r57</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div id="toast"></div>
@@ -188,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r56';
+const BUILD = 'r57';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -285,6 +285,8 @@ const MELEE = {
   useWeap: 0,          // 1 deals his blaster melees into the pool too
   rate: 1.75, beatMin: 0.55, beatMax: 1.30,     // weirdport's: the clip compressed to a readable beat
   lunge: 2.5,          // m/s shoved along the strike on the ground
+  boost: 2.5,          // r57: m/s added along her TRAVEL by every ground strike -- *"the melee shoots you forward"*
+  boostCap: 26,        // ...never past this
   xferN: 0.8,          // a face steeper than this (normal's y under it) makes a swipe UP the transfer
   slide: 'slide_kick', slideDur: 0.95, slideV: 4, slideFlip: 1,   // r46: slideFlip -- a slide out of fakie comes up forward
   air: 'flying_kick', airDur: 0.85, airV: 10, airUp: 2.5,
@@ -6633,21 +6635,18 @@ function groundQ(out) {
 // the transfer now (`flickXfer`), and the HOLD goes back to being the 'up' grab. The hold transfer survives as
 // `holdXferOn` (off), renamed so a phone that saved the old `holdXfer` 1 on the panel does not keep it.
 const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turnFrac: 0.6, holdTilt: 1, holdXferOn: 0, airFlickXfer: 0, xferAt: 0.5,
-  // r56: THE TRANSFER IS A SWIPE UP ON THE GROUND, ARMED, AND IT FIRES AT THE LIP. *"I'm saying if you're on the ground and
-  // you're about to hit the end of the vert and you swipe, she launches off it instead of going up and coming down."*
-  // A swipe up on the ground arms it for `armT`; if she leaves off a steep face (past `at`) while it is armed she goes
-  // OUT over the coping -- the same kick the old swipe-on-the-wall gave -- and lands on the deck. And every ground
-  // swipe up is a BOOST (`boostV`, never past `boostCap`, one per `boostCool`), so a swipe on the run-in also takes
-  // her higher. The air flick (r51) was a misreading and is off: `airFlickXfer` (a NEW key, so a phone that saved the
-  // old `flickXfer` 1 does not keep it).
-  armT: 1.6, boostV: 3.2, boostCap: 26, boostCool: 0.5 };
+  // r56: the air flick transfer (r51) was a misreading and is off -- `airFlickXfer` is a NEW key, so a phone that saved
+  // the old `flickXfer` 1 does not keep it. r57: the transfer is a swipe up ON THE STEEP FACE, instead of the ollie,
+  // exactly as she goes off (`rightFlick`, `MELEE.xferN`) -- never armed from the flat.
+  faceArm: 0.6 };
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
   p.vertLock = 0; p.xferKick = null; p.autoTurn = null;
   const h = Math.hypot(n.x, n.z);
-  // r56: a NATURAL leave (off the lip, not a pop) with the ground swipe armed is the transfer
-  if (xfer === undefined && p.xferArm > 0 && n.y < Math.cos(VERT.at)) { xfer = true; p.xferArm = 0; p.xferGo = 1; }
+  // r57: a NATURAL leave off the lip (not a pop) while a swipe on the face has armed it is the transfer
+  if (xfer === undefined && p.xferArm > 0 && n.y < Math.cos(VERT.at)) xfer = true;
+  p.xferArm = 0;
   if (n.y < Math.cos(VERT.at) && h > 1e-4) {
     const ix = n.x / h, iz = n.z / h;                   // INTO the pipe, horizontally
     const out = -(p.vel.x * ix + p.vel.z * iz);         // her speed out over the coping
@@ -7261,7 +7260,13 @@ function meleeStrike(wx, wz) {
   if (!nm) return false;
   const air = !p.grounded, win = air ? (MELEE.airWin[nm] || MELEE.airDef) : [0, 1];
   p.mel = { kind: 'strike', nm, t: 0, dur: Math.max(0.3, meleeBeat(nm) * (win[1] - win[0])), h: Math.atan2(wx, wz), air, win };
-  if (!air) { p.vel.x += wx * MELEE.lunge; p.vel.z += wz * MELEE.lunge; return true; }
+  if (!air) {
+    p.vel.x += wx * MELEE.lunge; p.vel.z += wz * MELEE.lunge;
+    // r57: AND A BOOST ALONG HER TRAVEL, so a string of strikes is also a way to gain speed (along the flick if she is still)
+    const s = Math.hypot(p.vel.x, p.vel.z), add = Math.min(MELEE.boost, Math.max(0, MELEE.boostCap - s));
+    if (add > 0) { const ux = s > 0.5 ? p.vel.x / s : wx, uz = s > 0.5 ? p.vel.z / s : wz; p.vel.x += ux * add; p.vel.z += uz * add; }
+    return true;
+  }
   // IN THE AIR: toward a rail that way it is SOLVED onto the bar (the old flying kick's aim, kept); otherwise
   // a shove toward the flick, and the first strike of the airtime props her up a little
   const tg = MELEE.airAim > 0.5 && RAILS.length ? kickTarget(wx, wz) : null;
@@ -7356,27 +7361,17 @@ function grabStep() {
   const nm = pair ? ((p.stance < 0 && MOVES.useBack > 0.5 && pair[1]) || pair[0] || pair[1]) : null;
   p.grab = { k, nm };
 }
-// r56: THE GROUND SWIPE UP -- a shove of speed along her travel, and the transfer armed for when she leaves a lip
-function swipeBoost() {
-  const p = player;
-  p.xferArm = VERT.armT;
-  if (p.boostCool > 0) return 'armed';
-  const v = p.vel, s = v.length(), add = Math.min(VERT.boostV, Math.max(0, VERT.boostCap - s));
-  if (add > 0) {
-    if (s > 0.5) v.addScaledVector(v, add / s);
-    else { const d = p.stance < 0 ? -1 : 1; v.x += Math.sin(p.heading) * add * d; v.z += Math.cos(p.heading) * add * d; }
-    sparkBurst(8);
-  }
-  p.boostCool = VERT.boostCool;
-  return 'boost';
-}
 // THE RIGHT PAD'S FLICK, AS A RULE (the binding below calls this; `npm run sim melee` calls it too).
 function rightFlick(dx, dy) {
   const p = player, dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
   const w = flickWorld(dx, dy);
   if (p.grind || (!p.grounded && p.coyote > 0)) { if (dir === 'up') { p.jump = 2; return 'transfer'; } return null; }
   if (p.grounded) {
-    if (dir === 'up') return swipeBoost();     // r56: a boost, and the transfer armed for the lip
+    // r57: a swipe UP is the transfer ONLY on the steep face itself -- swiped instead of the ollie as she goes off the
+    // vert. Anywhere else it is a strike like every other direction (and every ground strike carries a boost now).
+    // On the face it is ARMED for `VERT.faceArm` and fires as she goes off the lip, so a swipe a beat early still counts --
+    // and it is never armed from the flat, so a strike on the run-in can never send her out by accident.
+    if (dir === 'up' && p.n.y < MELEE.xferN) { p.xferArm = VERT.faceArm; return 'transfer'; }
     return meleeStrike(w.x, w.z) ? 'strike' : null;
   }
   // r51 (off by default since r56): a flick UP during a locked vert air is the transfer out over the coping
@@ -7395,7 +7390,7 @@ function stepPlayer(dt) {
     else if (!xfer && railHome()) {}
     else if (p.grounded || p.coyote > 0) doJump(xfer); }
   p.grindCool = Math.max(0, p.grindCool - dt);
-  p.xferArm = Math.max(0, (p.xferArm || 0) - dt); p.boostCool = Math.max(0, (p.boostCool || 0) - dt);
+  p.xferArm = p.grounded && p.n.y > 0.97 ? 0 : Math.max(0, (p.xferArm || 0) - dt);     // r57: back on the flat, it is gone
   stepMelee(dt);
   grabStep();
   // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
@@ -8002,8 +7997,8 @@ const TAILUI = [
   ['VERT.autoTurn',  'Auto-turn on vert airs', 0, 1, 1, ''],
   ['VERT.holdTilt',  'Vert air keeps its tilt (Tony Hawk)', 0, 1, 1, ''],
   ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
-  ['VERT.boostV',   'Ground swipe-up boost', 0, 8, 0.25, ''],
-  ['VERT.armT',     'Swipe arms the transfer for', 0.3, 4, 0.1, 's'],
+  ['MELEE.boost',    'Ground strike speed boost', 0, 8, 0.25, ''],
+  ['VERT.faceArm',   'Swipe on the wall counts for', 0.1, 1.5, 0.05, 's'],
   ['VERT.holdXferOn', 'Hold right stick up = transfer', 0, 1, 1, ''],
   ['FLIPP.camRel',   'Flips relative to camera', 0, 1, 1, ''],
   ['VERT.at',        'Vert lock from', 40,  89,  1,    '', 'deg'],

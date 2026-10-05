@@ -64,7 +64,7 @@ function place(x, y, z, heading, speed) {
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
   P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1; P.grind = null; P.grindCool = 0; P.grindLast = null;
   P.autoTurn = null; P.vertLock = 0; P.xferKick = null; P.stanceWhy = null; P.stanceAt = 0;
-  P.mel = null; P.melQ = null; P.kickRail = null; P.kicked = 0; P.xferArm = 0; P.boostCool = 0; P.settleLatch = 0;
+  P.mel = null; P.melQ = null; P.kickRail = null; P.kicked = 0; P.settleLatch = 0; P.xferArm = 0;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
   rg.groundQ(P.bq);        // standing on whatever she was just placed on
@@ -442,17 +442,17 @@ CASES.tap = async () => {
       real(pad, ev('pointerdown', 150, 150)); await wait(16);
       real(pad, ev('pointermove', 150 + dx, 150 + dy)); await wait(30);
       real(pad, ev('pointerup', 150 + dx, 150 + dy)); await wait(140); };   // past FLICK.gap
-    const what = () => P.jump === 2 ? 'TRANSFER jump' : P.jump === 1 ? 'a tap jump' : P.mel ? P.mel.kind + ' ' + P.mel.nm : P.xferArm > 0 ? `BOOST, transfer armed (${fix(P.vel.length(), 1)} m/s)` : 'nothing';
-    // r56: a swipe UP on the ground is the boost, arming the transfer for the lip
+    const what = () => P.jump === 2 ? 'TRANSFER jump' : P.jump === 1 ? 'a tap jump' : P.mel ? `${P.mel.kind} ${P.mel.nm} (${fix(P.vel.length(), 1)} m/s)` : P.xferArm > 0 ? 'TRANSFER armed for the lip' : 'nothing';
+    // r57: a swipe UP on flat ground is a strike again -- and every ground strike carries a boost
     place(60, 1, -60, 0, 6); await swipe(0, -52);
-    let good = P.jump === 0 && !P.mel && P.xferArm > 0 && P.vel.length() > 8.5;
+    let good = P.jump === 0 && P.mel && P.mel.kind === 'strike' && P.vel.length() > 6 + rg.MELEE.boost;
     console.log(`  swipe UP on flat ground       -> ${what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     place(60, 1, -60, 0, 6); await swipe(52, 0);
     good = P.jump === 0 && P.mel && P.mel.kind === 'strike';
     console.log(`  swipe SIDEWAYS on the ground  -> ${what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
-    // up the half pipe's wall, on a steep face: the swipe up arms the way OUT (it fires as she leaves the lip)
+    // up the half pipe's wall, on a steep face: the swipe up IS the way out, at once (instead of the ollie)
     place(0, 3, 29, 0, 13); rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
     { let st = false; for (let i = 0; i < 180 && !st; i++) { rg.stepPlayer(DT); st = P.grounded && P.n.y < 0.6; }
       await swipe(0, -52);
@@ -1876,6 +1876,7 @@ CASES.vertair = () => {
   const ride = (opt) => {
     const keep = { t: rg.VERT.holdTilt, x: rg.VERT.holdXferOn, f: rg.VERT.airFlickXfer };
     rg.VERT.holdTilt = opt.tilt; rg.VERT.holdXferOn = opt.xfer || 0; rg.VERT.airFlickXfer = opt.fx || 0;
+    const keepRd = rg.girl.ready; rg.girl.ready = false;     // headless: strikes run without clips (`melOk`)
     place(0, 3, 29, 0, 17); let swiped = null, v0 = 0; let air = false, t0 = 0, worst = 0, mid = 0, land = null, grab = false, flicked = null;
     run(5, (t) => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
       if (!P.grounded && !air) { air = true; t0 = t; }
@@ -1888,26 +1889,30 @@ CASES.vertair = () => {
       if (air && !P.grounded && !land && P.vertN) { const u = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq);
         const a = Math.acos(Math.max(-1, Math.min(1, u.dot(P.vertN)))) * D; if (P.vel.y > -2) worst = Math.max(worst, a); if (t - t0 > 0.6 && !mid) mid = a; }
       if (air && P.grounded && !land) land = { z: P.pos.z, off: P.landOff * D, stance: P.stance }; });
-    rg.stick.R.down = 0; rg.stick.R.y = 0; Object.assign(rg.VERT, { holdTilt: keep.t, holdXferOn: keep.x, airFlickXfer: keep.f });
+    rg.stick.R.down = 0; rg.stick.R.y = 0; Object.assign(rg.VERT, { holdTilt: keep.t, holdXferOn: keep.x, airFlickXfer: keep.f }); rg.girl.ready = keepRd;
     return { worst, mid, land, grab, flicked, swiped };
   };
   const a = ride({ tilt: 1, xfer: 1 }), b = ride({ tilt: 0, xfer: 1 });
   console.log(`  vert air, tilt held:   her up off the wall normal, up and over the top, worst ${fix(a.worst, 1)} deg; down at z ${fix(a.land.z, 2)} (deck ${fix(lip, 2)}), landing ${fix(a.land.off, 1)} deg out, ${a.land.stance > 0 ? 'forward' : 'FAKIE'}`);
   console.log(`  ...the old plumb air:  her up ${fix(b.mid, 0)} deg off the wall normal 0.6 s in`);
   if (!(a.worst < 3 && a.land.z < lip && a.land.off < 12 && a.land.stance > 0 && b.mid > 45)) ok = false;
-  // r56: THE TRANSFER IS A SWIPE UP ON THE GROUND, armed for the lip; the air flick up is a strike again (r51's switch kept)
+  // r57: THE TRANSFER IS A SWIPE UP ON THE WALL'S FACE, instead of the ollie. On the run-in it is a strike (with its
+  // boost), and she still comes back into the pipe -- it must never transfer her by accident. The air flick up is a strike.
   const g = ride({ tilt: 1, swipe: 'run' }), k = ride({ tilt: 1, swipe: 'face' });
   console.log(`  swipe UP on the run-in: ${g.swiped}, down at z ${fix(g.land.z, 2)} -- ${g.land.z > lip ? 'ON THE DECK' : 'back in'}, ${g.land.stance > 0 ? 'forward' : 'FAKIE'}`);
   console.log(`  swipe UP on the wall:   ${k.swiped}, down at z ${fix(k.land.z, 2)} -- ${k.land.z > lip ? 'ON THE DECK' : 'back in'}, ${k.land.stance > 0 ? 'forward' : 'FAKIE'}`);
-  if (!(g.land.z > lip + 1 && g.land.stance > 0 && /boost \+3/.test(g.swiped) && k.land.z > lip + 1 && k.land.stance > 0)) ok = false;
+  if (!(g.land.z < lip && /strike/.test(g.swiped) && /transfer/.test(k.swiped) && k.land.z > lip + 1 && k.land.stance > 0)) ok = false;
   const c = ride({ tilt: 1, flick: 1, fx: 1 }), d = ride({ tilt: 1, flick: 1 });
   console.log(`  flick UP in the air, old switch on: ${c.flicked}, down at z ${fix(c.land.z, 2)} -- ${c.land.z > lip ? 'ON THE DECK' : 'back in'}`);
   console.log(`  ...default (off):        ${d.flicked}, down at z ${fix(d.land.z, 2)} -- ${d.land.z > lip ? 'on the deck' : 'back in the pipe'}`);
   if (!(c.flicked === 'transfer' && c.land.z > lip + 1 && d.flicked !== 'transfer' && d.land.z < lip)) ok = false;
   // the boost on the flat, and its cooldown
-  { place(60, 1, -60, 0, 8); run(0.1, () => { rg.stick.L.x = rg.stick.L.y = 0; }); const v0 = P.vel.length(); const r1 = rg.rightFlick(0, -52); const v1 = P.vel.length(); const r2 = rg.rightFlick(0, -52); const v2 = P.vel.length();
-    const good = r1 === 'boost' && v1 - v0 > 3 && r2 === 'armed' && Math.abs(v2 - v1) < 1e-6;
-    console.log(`  swipe UP on the flat:   ${r1} ${fix(v0, 1)} -> ${fix(v1, 1)} m/s, again at once: ${r2} (${fix(v2, 1)})${good ? '' : '   <- WRONG'}`); if (!good) ok = false; }
+  // r57: a ground strike in ANY direction shoots her forward along her travel; a flick queued mid-strike adds nothing yet
+  { const keepR = rg.girl.ready; rg.girl.ready = false; place(60, 1, -60, 0, 8); P.mel = null; P.melQ = null; run(0.1, () => { rg.stick.L.x = rg.stick.L.y = 0; }); rg.cam.az = 0; const v0 = P.vel.length();
+    const r1 = rg.rightFlick(52, 0); const v1 = P.vel.length(); const r2 = rg.rightFlick(52, 0); const v2 = P.vel.length();
+    const fwd = P.vel.z;
+    const good = r1 === 'strike' && fwd > v0 + rg.MELEE.boost * 0.9 && Math.abs(v2 - v1) < 1e-6;
+    console.log(`  a sideways strike, rolling at 8: forward ${fix(v0, 1)} -> ${fix(fwd, 1)} m/s; a second flick queues (${fix(v2, 1)})${good ? '' : '   <- WRONG'}`); if (!good) ok = false; P.mel = null; P.melQ = null; rg.girl.ready = keepR; }
   const e = ride({ tilt: 1, hold: 1 }), f = ride({ tilt: 1, hold: 1, xfer: 1 });
   console.log(`  held right stick UP:   grab ${e.grab ? 'FIRED' : 'none'}, down at z ${fix(e.land.z, 2)} -- ${e.land.z > lip ? 'on the deck' : 'back in the pipe'}`);
   console.log(`  ...old hold transfer on: down at z ${fix(f.land.z, 2)} -- ${f.land.z > lip ? 'ON THE DECK' : 'back in'}, grab ${f.grab ? 'FIRED' : 'none'}`);

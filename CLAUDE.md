@@ -307,19 +307,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
-- **THE TRANSFER IS A SWIPE UP ON THE GROUND, ARMED FOR THE LIP, AND EVERY GROUND SWIPE UP IS A BOOST (r56, `swipeBoost`,
-  `p.xferArm`, `VERT.armT/boostV/boostCap/boostCool`).** *"I'm saying if you're on the ground and about to hit the end
-  of the vert and you swipe, she launches off it instead of going up and coming down."* r51's air flick was a misreading:
-  it is off (`VERT.airFlickXfer`, a NEW key so a saved `flickXfer` 1 cannot keep it on) and the air flick up is a strike
-  again. A swipe UP on the ground arms the transfer for `armT` (1.6 s) and adds `boostV` (3.2 m/s, never past
-  `boostCap`, once per `boostCool`) along her travel -- so a swipe on the run-in is a faster, higher air AND a transfer.
-  When she next leaves off a face steeper than `VERT.at` NATURALLY (`leaveGround` called with `xfer` undefined -- a tap's
-  pop passes `false` and stays a vert air) while armed, she goes OUT with the old swipe's kick and lands on the deck.
-  **On flat ground a swipe up used to be a melee strike (r39); sideways and down still are.** The swipe up from a rail
-  or in the coyote moment off a lip is still the immediate transfer (`jump` 2). `npm run sim vertair`: run-in swipe and
-  wall swipe both land on the deck forward, +3.2 m/s; the flat boost and its cooldown; the air flick back in.
-  **The sim's `place()` resets `xferArm`/`boostCool`/`settleLatch`** -- an arm left over from the row before transferred
-  a hold row onto the deck.
+- **THE TRANSFER IS A SWIPE UP ON THE WALL'S FACE, AND THE MELEE IS THE BOOST (r57, corrects r56; `MELEE.boost`,
+  `p.xferArm`, `VERT.faceArm`).** r56 made every ground swipe up a boost that ARMED the transfer from the flat. Wrong
+  twice: *"I still wanted the melee to happen -- I just meant the melee shoots you forward"*, and *"it only makes you
+  transfer if you literally swipe as you're going off the jump, instead of the ollie -- very intentional. I don't want to
+  gain speed with a melee on the ground and then launch off the end if I didn't mean to."* So:
+      on the flat, any direction   a melee strike, and every GROUND strike adds `MELEE.boost` (2.5 m/s) along her
+                                   travel (along the flick if she is still), never past `boostCap`
+      up, on a steep face          (`n.y < MELEE.xferN`) the transfer, ARMED for `faceArm` (0.6 s) and fired when she
+                                   leaves the lip NATURALLY (`leaveGround` with `xfer` undefined; a tap's pop passes
+                                   false). Armed rather than popped at once because a pop mid-face just hops her back
+                                   onto the wall. Back on the flat (`n.y > 0.97`) it is cleared; every leave clears it.
+      in the coyote moment / rail  still the immediate transfer (`jump` 2)
+      in the air                   a strike; r51's air-flick transfer is off (`VERT.airFlickXfer`, a new key)
+  `npm run sim vertair`: a strike on the run-in still comes back into the pipe; the wall swipe lands on the deck forward;
+  a sideways strike at 8 m/s takes her forward speed to 10.4. **The harness sets `girl.ready` false around strikes** --
+  headless, `melOk` refuses every clip once an earlier case has marked her ready, and the row then measured nothing.
 - **THE SETTLE ONLY HAPPENS OVER A RAMP (r56, `AIR.settleRamp`, `settleN`, `p.settleLatch`).** *"If you're not over a ramp
   it just slows you down in the air -- I only want it if you're about to transfer into vert."* The right pad held DOWN
   in the air settles only when the face straight below (`groundAt`) is steeper than `settleN`; over flat ground it is
