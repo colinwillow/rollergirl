@@ -307,6 +307,66 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **ORBITAL: THE DISTRICT FROM HIS CONCEPT PAINTINGS (r49, `ORB`, `buildOrbital`, `orbitalRails`, `orbMeshes`,
+  `stepOrbital`).** *"I'm just gonna give you these concept images ... first and foremost a giant skate park world ...
+  jump from one building to another, but don't fall between the buildings ... get up to the highest peak ... loop grind
+  rails ... an open world."* South of the park through a NEW GATE in the south bank (`perimeter`, edges 0 and 2), one
+  connected line from the street to a floating island 60 m up, all of it measured in `npm run sim orbital`:
+      THE CANAL QUARTER  quays at 4 m (`ORB.nq`/`sq`) either side of a glowing slime canal (`ORB.canal`, water 1.4 m),
+                         grand stairs + bank + a curved launch up from the gate, three humped ARCH bridges with orange
+                         rails down both edges, the ORBITAL COMMONS gate, slime pipes pouring into the water, a fat
+                         glowing pipe arching over the canal whose top is a booster rail, canal-side rails on both quays
+      NEXUS PLAZA        stairs down, the statue on a rideable plinth with the HALO (a closed booster ring round the two
+                         figures, its low side over the plinth's ramp, `ORB.halo`), two RAISED bowls with the alien
+                         painted on the floor, SIX MUSHROOMS that are trampolines (`ORB.bounceV`), the fountain terrace
+                         (SOL TOGETHER), Nexus Hall, palms (some pink), planters, banners, a booster vertical loop
+      THE ROOFTOP RUN    `ORB.roofs`: 8 -> 10.5 -> 13 -> 15.5 m, a skyway up from the south quay, a boost lane and a lip
+                         to each edge; 8-10 m alleys between them are the "don't fall". The last roof is the station.
+      THE MONORAIL       a closed rounded-rectangle BEAM round the plaza at 17 m (`ORB.mono`), and the beam top is a
+                         booster grind rail -- with a TRAIN running on it that knocks you off (`stepOrbital`). Reached
+                         from the station roof or from two mushrooms under it.
+      NIMBUS             the mural tower (`ORB.tower`, 36 m): a boost-lane HELIX three times round it to the roof, a
+                         barrier up its outer edge (solid, with a booster rail on top), an end wall at the top; plus a
+                         rail off the Market's roof onto the helix
+      THE SKY            a booster rail off Nimbus's roof to island 1 (44 m), a runway (boost lane to 24 m/s) and a
+                         kicker across a 16 m gap to island 2, a spiral rail round its crystal spire to island 3 -- THE
+                         PEAK (60 m), with a turning crown and a pillar of light you can see from the whole city. Each
+                         island has a RIM on its far side so a fast landing bonks rather than falls.
+  **THE WATER IS THE "DON'T FALL".** `ORB.water` rects with `splash`: under the surface she is put back where she last
+  stood (`ORB.safe`, saved every `safeEvery` s while grounded -- but never within 1.5 m of the canal's edge), with a
+  splash and a SPLASH! toast. Falling between roofs is not punished beyond the climb back.
+  **EVERYTHING IS A FLOOR, A WALL OR A RAIL THE PHYSICS ALREADY HAD.** Nothing needed new collision: slabs and blocks are
+  `solidAdd` boxes (tops are floors), a round tower or plinth is a RING of boxes (`cylSolid`) with a disc on top, stairs
+  are a SLOPE in the collider with the steps drawn on it (rolling up steps on blades would be a stammer), a ribbon
+  (`obRibbon`, the helix, the skyways) is triangles, a bowl is built UP (`obBowl`) because the city floor is one plane.
+  **A RING OF BOXES NEEDS FLOOR TOPS or a ramp onto it meets a 10 cm lip it cannot climb**: a lidless box has no
+  `SK.step` allowance, and the plinth's bank arrived 9 cm under the box top. `cylSolid` boxes are floors now.
+  **NEW GENERATORS, ALL INTO BUFFERS (`OB`)**: `obQuad` takes the direction a face should LOOK and fixes the winding
+  itself (the bug the park's skirts and corners each cost a round over), `obGeo` bakes any three.js geometry flat into a
+  buffer (palms, pylons, statues, spires are one draw call with their buffer), `obRev`/`obExtrude`/`obRibbon`/`obStairs`/
+  `obBlock`/`obSlab`/`obBowl`/`obShroom`/`obIsland`. The lit buffer is CHUNKED by position (`ORB.chunk`, 96 m) so what
+  is behind the camera is culled in both passes. **93k triangles, ~40 draw calls** for the whole district.
+  **EVERY SIGN, MURAL AND TAG IS PAINTED ON ONE CANVAS AT LOAD (`SIGNS`, `orbAtlas`)** -- neon as a blurred glow under a
+  white core, graffiti as a fat outline under a hot fill, the aliens, the cat, the bunny and the crown from a few curves.
+  One texture (2048x1728), one material, one draw call, no files. Add a sign = one entry in `SIGNS` + an `obSign`.
+  `obWrap` wraps one round a cylinder: **seen from OUTSIDE a growing angle runs to the viewer's LEFT**, so the u runs
+  the other way round or the mural reads mirrored.
+  **THE FAR CITY** (`obBackdrop`): 84 towers, mushroom towers and ring stations on a ring 400-550 m out, plus two arcs
+  of elevated road, in a LAMBERT material whose fog is CAPPED (`fogCap`, one line in the fog chunk) -- past the fog's far
+  plane by design, fully fogged it would be a wall of fog colour. The ringed PLANET rides with the camera at 600 m (so
+  it is at the same infinite distance from anywhere, and inside the far plane); a space whale and a flight of craft
+  circle the district; the stand-in sky dome draws first (`renderOrder` -100) so nothing is ever behind it.
+  **RAILS ARE MERGED BY MATERIAL** (`railDraw`'s `into`): thirty paths are four draw calls. `o.mat` picks
+  'orange' (the paintings' handrails), 'boost' or 'bar'. **A CLOSED PATH** links its last segment to its first
+  (`spec.closed`) -- the halo and the monorail -- and `stepGrind`'s walk across joints needed nothing.
+  **ON A RAIL THE DIRECTION IS HER HEADING AT THE TAP**: `npm run sim orbital`'s sky-rail row first faced away from
+  the island and duly rode the 2 m back to the rail's start. A player faces where they are going.
+  `npm run sim orbital`: the gate, the stairs, a bridge, the canal (and back), the plaza stairs, a mushroom (17.5 m),
+  the helix to the roof (15 s), the sky rail, the island gap with no pop, the spire to the PEAK, all three rooftop gaps
+  with a tap, the monorail from the station and the train knocking her off, the halo from the plinth, a bowl, a lane.
+  The ➤ key's first stops are the new district: gate, canal, nexus, rooftops, nimbus, nimbus top, sky, peak.
+  **NOT YET**: no interiors, no destructible anything here, the water is a flat scrolling texture, and the look of all
+  of it is unverified by any harness -- there is no GPU here. It is placeholder art for his own asset packs.
 - **THE LOOP TURNED HER UPSIDE DOWN IN THE PHYSICS AND NEVER ON SCREEN (r48, `bodyAlign`).** *"Her head just
   always points up."* A grind counts as grounded with `p.n` straight up, and `poseGirl`'s grounded block rebuilt
   `p.bq` upright from that every frame -- throwing away the tangent-and-up body `stepGrind` builds from an `ups`

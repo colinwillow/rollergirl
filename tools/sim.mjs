@@ -1661,10 +1661,10 @@ CASES.city = async () => {
   const inside = () => !!rg.solidAt(P.pos.x, P.pos.y + 0.5, P.pos.z, -0.05);
   // 0. NOTHING PLACED INSIDE ANYTHING ELSE: no gem in a wall, no rail through one, no hydrant in a building
   { const inGem = rg.GEM.list.filter(g => rg.solidAt(g.x, g.y, g.z, 0.3));
-    const inRail = rg.RAILS.filter(R => R.path.name !== 'park' && rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench'));
+    const inRail = rg.RAILS.filter(R => R.path.name !== 'park' && rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench' && b.tag !== 'helix wall'));
     const inHyd = rg.HYD.list.filter(H => rg.solidAt(H.x, 0.4, H.z, 0.3, b => b.tag !== 'hydrant'));
     say('nothing placed inside anything', !inGem.length && !inRail.length && !inHyd.length,
-      `${inGem.length} gems, ${inRail.length} rail segments, ${inHyd.length} hydrants inside a box` + (inRail.length ? ' -- ' + inRail.map(R => { const b = rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench'); return `${R.path.name} at ${fix(R.mx, 1)},${fix((R.a.y + R.b.y) / 2, 2)},${fix(R.mz, 1)} in ${b.tag} top ${fix(b.y1, 2)}`; }).join('; ') : '')); }
+      `${inGem.length} gems, ${inRail.length} rail segments, ${inHyd.length} hydrants inside a box` + (inGem.length ? ' -- gems at ' + inGem.map(g => `${fix(g.x, 1)},${fix(g.y, 1)},${fix(g.z, 1)} in ${rg.solidAt(g.x, g.y, g.z, 0.3).tag}`).join('; ') : '') + (inRail.length ? ' -- ' + inRail.map(R => { const b = rg.solidAt(R.mx, (R.a.y + R.b.y) / 2 - 0.1, R.mz, 0.05, b => b.tag !== 'bench' && b.tag !== 'helix wall'); return `${R.path.name} at ${fix(R.mx, 1)},${fix((R.a.y + R.b.y) / 2, 2)},${fix(R.mz, 1)} in ${b.tag} top ${fix(b.y1, 2)}`; }).join('; ') : '')); }
   // 1. a wall: straight into B's west face at 10 m/s
   { place(54, 0, 150.5, Math.PI / 2, 10); let worst = 0, inAny = false;
     run(1.5, () => { worst = Math.max(worst, P.pos.x); inAny = inAny || inside(); });
@@ -2174,6 +2174,93 @@ CASES.feel = () => {
 // ---------------------------------------------------------------- the rails
 // THE SHIPPED `railCatch` / `stepGrind` / `grindLeave` through the real `stepPlayer`, over the real
 // rails `buildPark` built. Each row puts her in the air near a rail and lets the physics decide.
+// r49: ORBITAL -- the canal quarter, the plaza, the rooftops, Nimbus and the sky. Every line of the district
+// driven through the shipped `stepPlayer` + `stepCity` over the real collider: in through the gate, up the
+// stairs, over a bridge, into the canal (and back out where she last stood), down to the plaza, off a mushroom,
+// up the helix to the roof, along the sky rail, across the island gap, up the spire to the PEAK -- and the
+// rooftop gaps, the halo, the train, a bowl.
+CASES.orbital = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(46)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const O = rg.ORB, T = O.tower, [I1, I2, I3] = O.isl, path = n => rg.PATHS.find(q => q.name === n);
+  const city = () => rg.stepCity(DT);
+  const fwd = h => { rg.cam.az = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  console.log(`  ${O.chunks} chunks, ${O.lanes.length} lanes, ${O.bounce.length} mushrooms, ${rg.PATHS.filter(q => /halo|monorail|nimbus|sky|spire|slime|loop|stair|bridge|canal|market|plaza/.test(q.name)).length} rail paths, ${rg.GEM.list.length} gems, ${O.bad} bad vertices`);
+  { let tri = 0, n = 0; for (const m of O.meshes) { n++; m.traverse(o => { if (o.geometry && o.geometry.attributes.position) tri += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1); }); } console.log(`  ${n} meshes, ${Math.round(tri / 1000)}k triangles`); }
+  say('the district built cleanly', O.built && O.bad === 0 && O.chunks > 4 && rg.SIGNS.every(s => rg.orbAtlas().rects[s[0]]), `${O.chunks} chunks, ${O.bad} NaN, atlas ${rg.orbAtlas().W}x${rg.orbAtlas().H}`);
+  // 1. OUT THROUGH THE SOUTH GATE
+  { place(0, 0, -50, Math.PI, 12); let low = 9, at = null; run(5, () => { fwd(Math.PI); city(); low = Math.min(low, P.pos.y); if (!at && P.pos.z < -99) at = P.pos.clone(); });
+    say('out of the park through the south gate', !!at && Math.abs(at.y) < 0.3 && low > -0.5, at ? `out at z ${fix(at.z, 1)} y ${fix(at.y)}, lowest ${fix(low)}` : `stuck at z ${fix(P.pos.z, 1)}`); }
+  // 2. UP THE GRAND STAIRS onto the north quay
+  { place(0, 0, -97, Math.PI, 9); let at = null; run(4, () => { fwd(Math.PI); city(); if (!at && P.pos.z < -124 && P.grounded) at = P.pos.clone(); });
+    say('up the grand stairs onto the quay', !!at && Math.abs(at.y - O.nq.y) < 0.15, at ? `on the quay at z ${fix(at.z, 1)} y ${fix(at.y)}` : `got to z ${fix(P.pos.z, 1)} y ${fix(P.pos.y)}`); }
+  // 3. OVER THE MIDDLE BRIDGE
+  { const s0 = O.splashes; place(0, 4, -128, Math.PI, 10); let top = 0, at = null; run(3, () => { fwd(Math.PI); city(); top = Math.max(top, P.pos.y); if (!at && P.pos.z < -156 && P.grounded) at = P.pos.clone(); });
+    say('over the middle bridge', !!at && Math.abs(at.y - O.sq.y) < 0.15 && O.splashes === s0 && top > 6, at ? `on the far quay at z ${fix(at.z, 1)} y ${fix(at.y)}, crest ${fix(top)}, splashes ${O.splashes - s0}` : `got to z ${fix(P.pos.z, 1)}`); }
+  // 4. INTO THE CANAL -- and back where she last stood
+  { const s0 = O.splashes; place(30, 4, -131, Math.PI, 8); let wet = false; run(3, () => { city(); if (O.splashes > s0) wet = true; });
+    say('off the quay into the canal: put back', wet && Math.abs(P.pos.y - O.nq.y) < 0.2 && P.pos.z > O.nq.z0, `splashes ${O.splashes - s0}, back at z ${fix(P.pos.z, 1)} y ${fix(P.pos.y)}`); }
+  // 5. DOWN THE PLAZA STAIRS
+  { place(0, 4, -160, Math.PI, 8); run(3, () => { fwd(Math.PI); city(); });
+    say('down the stairs into the plaza', P.pos.z < -183 && Math.abs(P.pos.y) < 0.15, `at z ${fix(P.pos.z, 1)} y ${fix(P.pos.y)}`); }
+  // 6. A MUSHROOM throws her up
+  { const M = O.bounce[0]; place(M.x + 0.5, M.y + 3, M.z, 0, 0); const y0 = P.pos.y; let top = y0;
+    run(2.5, () => { city(); top = Math.max(top, P.pos.y); });
+    say('a mushroom cap bounces her', y0 > M.y - 0.8 && top > y0 + 6, `stood at ${fix(y0)} (cap ${fix(M.y)}), thrown to ${fix(top)}`); }
+  // 7. UP THE NIMBUS HELIX, steering along it the way a thumb would, to the roof
+  { const s = rg.CITY.spots.nimbus; place(s[0], s[1], s[2], s[3], 6); let top = 0, t = 0, off = false;
+    run(45, (tt) => { const a = Math.atan2(P.pos.z - T.z, P.pos.x - T.x), r = Math.hypot(P.pos.x - T.x, P.pos.z - T.z);
+      if (P.pos.y > T.h - 0.3) fwd(Math.atan2(T.x - P.pos.x, T.z - P.pos.z));
+      else { const e = r - (T.r + T.lane / 2), tx = -Math.sin(a) - Math.cos(a) * e * 0.25, tz = Math.cos(a) - Math.sin(a) * e * 0.25; fwd(Math.atan2(tx, tz)); }
+      city(); if (P.pos.y > top) { top = P.pos.y; t = tt; } if (top > 4 && P.pos.y < top - 6) off = true; });
+    const onRoof = Math.abs(P.pos.y - T.h) < 0.2 && Math.hypot(P.pos.x - T.x, P.pos.z - T.z) < T.r;
+    say('up the helix to Nimbus\'s roof', onRoof && !off, `top ${fix(top, 1)} m at ${fix(t, 1)} s, ended ${fix(Math.hypot(P.pos.x - T.x, P.pos.z - T.z), 1)} m from the centre at y ${fix(P.pos.y, 1)}${off ? ', FELL OFF' : ''}`); }
+  // 8. THE SKY RAIL to the first island
+  { const sr = path('sky rail'); { const d = Math.hypot(I1.x - T.x, I1.z - T.z); place(T.x + (I1.x - T.x) / d * 3, T.h, T.z + (I1.z - T.z) / d * 3, Math.atan2(I1.x - T.x, I1.z - T.z), 0); } P.jump = 1;   // a tap on the roof near its start hops on
+    let on = false; run(14, () => { city(); if (P.grind && P.grind.rail.path === sr) on = true; });
+    const d = Math.hypot(P.pos.x - I1.x, P.pos.z - I1.z);
+    say('a tap on the roof, the sky rail, onto island 1', on && P.grounded && Math.abs(P.pos.y - I1.y) < 0.2 && d < I1.r, `${on ? 'rode it' : 'never caught it'}, ended ${fix(d, 1)} m from I1 at y ${fix(P.pos.y, 1)}`); }
+  // 9. THE RUNWAY AND THE KICKER, across the gap to island 2 -- no pop
+  { const s = rg.CITY.spots.sky; place(s[0], s[1], s[2], s[3], 0); let air = false, land = null;
+    run(7, () => { fwd(s[3]); city(); if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
+    const d = land ? Math.hypot(land.x - I2.x, land.z - I2.z) : 99;
+    say('runway + kicker: island 1 -> island 2', !!land && Math.abs(land.y - I2.y) < 0.25 && d < I2.r, land ? `landed ${fix(d, 1)} m from I2's centre at y ${fix(land.y, 1)}` : 'never landed'); }
+  // 10. THE SPIRE RAIL to the PEAK
+  { const sr = path('spire rail'); O.peakGot = 0; place(I2.x, I2.y, I2.z, 0, 0);
+    rg.enterGrind({ rail: sr.segs[0], t: 0.05, dir: 1, s: 8, side: 'left' });
+    run(25, () => city());
+    say('the spire rail onto the PEAK', O.peakGot === 1 && Math.abs(P.pos.y - I3.y) < 0.2, `peak ${O.peakGot ? 'REACHED' : 'not reached'}, ended y ${fix(P.pos.y, 1)}, ${fix(Math.hypot(P.pos.x - I3.x, P.pos.z - I3.z), 1)} m from I3`); }
+  // 11. THE ROOFTOP GAPS, a tap at the edge
+  for (const [label, x, z, h, nh, axis, edge, next] of [['W1 -> W2', -112, -175, Math.PI, 10.5, 'z', -192.5, O.roofs[1]], ['W2 -> W3', -112, -209, Math.PI, 13, 'z', -226.5, O.roofs[2]], ['W3 -> W4', -119, -250, Math.PI / 2, 15.5, 'x', -101.6, O.roofs[3]]]) {
+    const y = O.roofs.find(r => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1).h; place(x, y, z, h, 5); let tapped = false, air = false, land = null;
+    run(5, () => { fwd(h); city(); const past = axis === 'z' ? P.pos.z < edge : P.pos.x > edge;
+      if (past && !tapped && P.grounded) { P.jump = 1; tapped = true; }
+      if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
+    const inside = land && land.x > next.x0 && land.x < next.x1 && land.z > next.z0 && land.z < next.z1;
+    say(`rooftop gap ${label}, a tap at the edge`, !!land && inside && Math.abs(land.y - nh) < 0.25, land ? `landed at ${fix(land.x, 1)}, ${fix(land.y, 1)}, ${fix(land.z, 1)}` : 'never landed');
+  }
+  // 12. ON THE STATION ROOF, a tap hops onto the monorail; and the train knocks her off it
+  { const M = O.mono, mp = M.path, r4 = O.roofs[3]; place(r4.x1 - 1.5, r4.h, (r4.z0 + r4.z1) / 2, Math.PI / 2, 0); P.jump = 1;
+    O.train.s = 0; const v0 = M.v; M.v = 0;
+    let on = false; run(1.5, () => { city(); if (P.grind && P.grind.rail.path === mp) on = true; });
+    say('station roof: a tap hops onto the monorail', on, on ? `grinding at ${fix(P.grind ? P.grind.s : 0, 1)} m/s` : 'never caught it');
+    if (on && P.grind) { const her = P.grind.rail.s0 + P.grind.t * P.grind.rail.len; O.train.s = (her + P.grind.dir * 7 + mp.len) % mp.len + (P.grind.dir > 0 ? M.cars * (M.carL + M.gap) : 0);
+      let hit = false; run(2, () => { city(); if (rg.CITY.goMsg === 'TRAIN!' && !P.grind) hit = true; });
+      say('...and the train knocks her off it', hit, hit ? 'knocked off' : 'still grinding'); }
+    M.v = v0; }
+  // 13. THE HALO: a tap from the plinth catches it
+  { const st = O.statue, hp = path('halo'); place(st.x, st.h, st.z + 4.6, Math.PI, 0); P.jump = 1; let on = false;
+    run(2, () => { city(); if (P.grind && P.grind.rail.path === hp) on = true; });
+    say('a tap on the plinth catches the halo', on, on ? 'round the statue' : 'missed'); }
+  // 14. A BOWL: dropped in off the coping at 7 m/s, she rides it and stays out of the floor
+  { const b = O.bowls[0]; place(b.x + 8.4, 3, b.z, -Math.PI / 2, 7); let low = 9, inside = false;
+    run(4, () => { city(); low = Math.min(low, P.pos.y); if (Math.hypot(P.pos.x - b.x, P.pos.z - b.z) < 4) inside = true; });
+    say('dropped into a bowl', low > -0.1 && inside, `lowest ${fix(low)}, crossed the middle: ${inside}`); }
+  // 15. A LANE pushes: at the foot of the helix with no thumb
+  { const s = rg.CITY.spots.nimbus; place(s[0], s[1], s[2] - 13, s[3], 2); run(2, () => city());
+    say('a boost lane pushes her with no thumb', P.speed > 8, `${fix(P.speed, 1)} m/s after 2 s from 2`); }
+  return ok;
+};
 CASES.grind = () => {
   let ok = true;
   const R = parkRails();

@@ -89,6 +89,9 @@
   #speed b{font-size:17px;color:#ff6fa5}
   #gems{top:calc(76px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left))}
   #gems b{font-size:15px;color:#7ff3ff}
+  #toast{position:fixed;left:50%;top:28%;transform:translate(-50%,-50%) scale(.6);pointer-events:none;opacity:0;z-index:6;
+    font:900 42px "Arial Black",Impact,sans-serif;letter-spacing:2px;color:#fff;text-shadow:0 0 18px #ff4fb8,0 4px 0 #3a1a5a;transition:opacity .25s,transform .25s}
+  #toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
   .key{position:fixed;z-index:6;top:calc(12px + env(safe-area-inset-top));width:44px;height:38px;
     display:flex;align-items:center;justify-content:center;font-size:17px;border-radius:9px;
     border:0;border-bottom:3px solid #00000066;background:#ffffff1c;color:#e8e4f2;
@@ -164,9 +167,10 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r48</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r49</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
+<div id="toast"></div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
 <button class="key" id="tailB" aria-label="settings">&#9881;</button>
@@ -184,7 +188,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r48';
+const BUILD = 'r49';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1228,16 +1232,18 @@ function perimeter(S, r, sweep, back, apron) {
     const yaw = i * Math.PI / 2;
     // r45: THE NORTH EDGE IS TWO PIECES WITH A GATE BETWEEN THEM, each with its end wall drawn, and the
     // gap floored at street level all the way out -- a hole in the bank must not be a hole in the world.
-    if (i === 0 && PARK.gate > 0) {
-      const g = PARK.gate, hw = (S - g) / 2;
-      for (const sx of [-1, 1]) extrude(sx * (g + hw), S, 0, hw, prof, true);
-      extrude(0, S, 0, g, prof.slice(i0), false);           // the outer bank runs across the gate too
+    // r49: AND THE SOUTH EDGE HAS ONE TOO, out to the canal quarter -- the same two pieces, mirrored
+    if ((i === 0 || i === 2) && PARK.gate > 0) {
+      const g = PARK.gate, hw = (S - g) / 2, cz = Math.cos(yaw) * S;
+      for (const sx of [-1, 1]) extrude(sx * (g + hw), cz, yaw, hw, prof, true);
+      extrude(0, cz, yaw, g, prof.slice(i0), false);           // the outer bank runs across the gate too
       continue;
     }
     extrude(Math.sin(yaw) * S, Math.cos(yaw) * S, yaw, S, prof, false);
   }
   if (PARK.gate > 0) { const g = PARK.gate, L = u0;
-    quad([-g, 0, S], [-g, 0, S + L], [g, 0, S + L], [g, 0, S], CONC); }
+    quad([-g, 0, S], [-g, 0, S + L], [g, 0, S + L], [g, 0, S], CONC);
+    quad([-g, 0, -S], [g, 0, -S], [g, 0, -S - L], [-g, 0, -S - L], CONC); }
   // the wall on the edge deck: four straight runs and a ring of chords round each corner -- invisible,
   // and no floor on top, so nothing can stand on it and nothing gets past it
   const E = PARK.edge, D = S + E.u, wy0 = E.y - 0.5, wy1 = E.y + 40;
@@ -1275,11 +1281,14 @@ function buildPark() {
   funBox(14, -16, Math.PI / 2, 4.0, 8, 1.6, 4.5);
   bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
   buildCity();       // r45: the district -- its floors and walls go into the same collider
+  buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   triBuild();
   solidBuild();
   buildRails();      // AFTER the collider: each post is measured down to the ground under it
+  orbitalRails();    // before cityRails, whose gemBuild has to see this district's gems too
   cityRails();
   hydDraw(); geyMake();
+  orbMeshes();
   const geo = (...rs) => { const g = new THREE.BufferGeometry(), cat = (A) => rs.flatMap(([a, b]) => A.slice(a, b));
     g.setAttribute('position', new THREE.Float32BufferAttribute(cat(MESH.pos), 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(cat(MESH.nrm), 3));
@@ -1353,6 +1362,7 @@ function railMats() {
   RAILMAT.post = new THREE.MeshStandardMaterial({ color: 0x7c8190, metalness: 0.6, roughness: 0.5 });
   RAILMAT.boost = new THREE.MeshStandardMaterial({ color: 0xff6fa5, emissive: 0xff3d8a, emissiveIntensity: 0.9, metalness: 0.4, roughness: 0.3 });
   RAILMAT.cable = new THREE.MeshStandardMaterial({ color: 0x2a2633, metalness: 0.5, roughness: 0.5 });
+  RAILMAT.orange = new THREE.MeshStandardMaterial({ color: 0xff7a2f, emissive: 0x4a1400, metalness: 0.45, roughness: 0.35 });   // r49: the paintings' handrails
   return RAILMAT;
 }
 // DRAWING A PATH: a straight two-point rail is the old cylinder; anything else is a tube through its
@@ -1361,7 +1371,7 @@ function railMats() {
 function railDraw(P, o) {
   o = o || {};
   const M = railMats(), R0 = RAILX.tube, Y = new THREE.Vector3(0, 1, 0);
-  const mat = P.hang ? M.cable : P.boost ? M.boost : M.bar;
+  const mat = o.mat ? (M[o.mat] || M.bar) : P.hang ? M.cable : P.boost ? M.boost : M.bar;
   const r = P.hang ? 0.028 : R0;
   const pts = [P.segs[0].a, ...P.segs.map(s => s.b)];
   const up = i => (P.ups ? (i < P.segs.length ? P.segs[i].ua : P.segs[P.segs.length - 1].ub) : Y);
@@ -1376,7 +1386,9 @@ function railDraw(P, o) {
     const curve = new THREE.CatmullRomCurve3(cen, false, 'centripetal');
     mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(8, cen.length * 2), r, 10, false), mat);
   }
-  mesh.castShadow = true; scene.add(mesh);
+  // r49: `into` collects the geometry, world-baked, to be merged by material -- thirty rails are not thirty draw calls
+  if (o.into) { mesh.updateMatrix(); o.into.push({ geo: mesh.geometry.applyMatrix4(mesh.matrix), mat }); }
+  else { mesh.castShadow = true; scene.add(mesh); }
   if (o.posts === false) return mesh;
   // posts every ~3 m along the line, only where the bar is low enough over what is under it
   const maxH = o.postMax || 6, every = o.every || 3;
@@ -1387,6 +1399,7 @@ function railDraw(P, o) {
       if (P.ups && S.ua.y < 0.9) continue;
       const top = q.y - r * 2, g = groundAt(q.x, q.z, top, 40), floor = g.hit ? g.floor : 0, h = top - floor;
       if (h < 0.05 || h > maxH) continue;
+      if (o.into) { o.into.push({ geo: new THREE.CylinderGeometry(0.035, 0.035, h, 8).translate(q.x, floor + h / 2, q.z), mat: M.post }); continue; }
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, h, 8), M.post);
       post.position.set(q.x, floor + h / 2, q.z); post.castShadow = true; scene.add(post);
     }
@@ -2181,10 +2194,1239 @@ function cityRails() {
   gemBuild();
 }
 function stepCity(dt) {
+  stepOrbital(dt);
   if (!CITY.on) return;
   stepHydrants(dt);
   gemStep(dt);
 }
+
+// =====================================================================================================
+// ORBITAL (r49) -- THE CANAL QUARTER, NEXUS PLAZA AND THE CLIMB TO THE PEAK
+// *"I'm just gonna give you these concept images ... first and foremost a giant skate park world ... jump from
+// one building, which allows you to get to another building, but don't fall between the buildings, because
+// you're ultimately trying to go across a few buildings connected by ramps or jumps and get up to the highest
+// peak ... those loop grind rails ... an open world."* His three concept paintings, built SOUTH of the park
+// through a new gate in the south bank, as one connected line from the street to a floating island 60 m up:
+//   THE CANAL QUARTER  quays at 4 m either side of a glowing slime canal, three arched bridges with orange rails
+//                      along both edges, the grand stairs with handrails, slime pipes pouring into the water.
+//                      THE WATER IS THE "DON'T FALL" -- land in it and she is put back where she last stood.
+//   NEXUS PLAZA        the statue with its HALO (a booster ring you grind round the two figures), two raised
+//                      bowls, bounce mushrooms, the fountain terrace, palms, planters, banners, a vertical loop.
+//   THE ROOFTOP RUN    four buildings stepping up 8 -> 10.5 -> 13 -> 15.5 m with alleys between, boost lanes
+//                      to the edges; the last one is the MONORAIL STATION, and the monorail beam is a grind
+//                      rail round the whole plaza -- with a train on it that knocks you off.
+//   NIMBUS             the mural tower: a boost-lane HELIX three times round it to the roof at 36 m.
+//   THE SKY            a booster rail off Nimbus to the first floating island, a runway and a kicker across a
+//                      gap to the second, a spiral rail round its crystal spire to the PEAK, with the beacon.
+// Everything is built by construction from a handful of generators -- slab, block, ribbon, stairs, bowl,
+// revolve, the three generators of three.js baked flat -- into a few merged buffers, CHUNKED by position so
+// the parts off screen are culled. Signs, murals and graffiti are painted on ONE canvas atlas at load: one
+// texture, one draw call, no files. A placeholder until his own asset packs arrive, and every bit of it is a
+// floor, a wall or a rail the physics already understands -- nothing here needed a new kind of collision.
+// =====================================================================================================
+const ORB = {
+  on: 1, chunk: 96, safeEvery: 0.25,
+  nq: { x0: -130, x1: 130, z0: -136, z1: -120, y: 4 },        // north quay
+  canal: { x0: -130, x1: 130, z0: -152, z1: -136, y: 1.4 },   // the water, and its surface height
+  sq: { x0: -130, x1: 130, z0: -166, z1: -152, y: 4 },        // south quay
+  bridges: [{ x: -65, hw: 3.5, rise: 1.8 }, { x: 0, hw: 6, rise: 2.4 }, { x: 65, hw: 3.5, rise: 1.8 }],
+  statue: { x: 0, z: -235, r: 7, h: 2.2 },
+  halo: { y: 8, r: 8, tilt: -15 * Math.PI / 180, boost: 13 },   // its low side over the plinth's ramp
+  tower: { x: 100, z: -232, r: 11, h: 36, turns: 3, lane: 6.5 },
+  isl: [{ x: 68, z: -292, y: 44, r: 12 }, { x: 30, z: -306, y: 40.5, r: 14 }, { x: -18, z: -282, y: 60, r: 10 }],
+  mono: { cx: -10, cz: -234, hx: 64, hz: 56, cr: 22, y: 17, v: 11, cars: 3, carL: 9, gap: 0.6, boost: 16 },
+  roofs: [ { x0: -128, x1: -96, z0: -194, z1: -170, h: 8 }, { x0: -126, x1: -98, z0: -228, z1: -204, h: 10.5 },
+           { x0: -124, x1: -100, z0: -262, z1: -238, h: 13 }, { x0: -92, x1: -76, z0: -266, z1: -240, h: 15.5 } ],
+  bounceV: 19, bounceCool: 0.45,
+  laneHelix: { v: 15, acc: 9 }, laneRun: { v: 24, acc: 16 }, laneRoof: { v: 16, acc: 12 },
+  lanes: [], water: [], bounce: [], rails: [], gems: [], anim: [], shrooms: [],
+  splashes: 0, peakGot: 0, safe: null, safeT: 0, bad: 0, built: 0,
+};
+// ---- buffers: lit (vertex colour, the toon-lit world), glow (unlit, neon and lamps), back (the far city) ----
+const OB = { lit: { pos: [], nrm: [], col: [] }, glow: { pos: [], nrm: [], col: [] }, back: { pos: [], nrm: [], col: [] },
+  sign: { pos: [], uv: [] }, fall: { pos: [], uv: [], col: [] }, railGeo: [] };
+const _oc = new THREE.Color();
+// one triangle into a buffer, and into the collider if it is `solid` (triAdd keeps only the ones facing up)
+function obTri(B, a, b, c, hex, solid) {
+  if (!Number.isFinite(a[0] + a[1] + a[2] + b[0] + b[1] + b[2] + c[0] + c[1] + c[2])) { ORB.bad++; return; }
+  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+  let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+  const nl = Math.hypot(nx, ny, nz); if (nl < 1e-12) return;
+  if (B) {
+    nx /= nl; ny /= nl; nz /= nl;
+    B.pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+    B.nrm.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
+    _oc.setHex(hex).convertSRGBToLinear();
+    for (let i = 0; i < 3; i++) B.col.push(_oc.r, _oc.g, _oc.b);
+  }
+  if (solid) triAdd(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+}
+// A QUAD THAT FACES WHERE IT IS TOLD. Every face here is given the direction it should look (`n`), and the
+// winding is fixed to match -- the generators never have to get a winding right by hand, which is the bug the
+// park's skirts and the perimeter corners each cost a round over. `n` null keeps the order given.
+function obQuad(B, a, b, c, d, n, hex, solid) {
+  if (n) {
+    const ex = c[0] - a[0], ey = c[1] - a[1], ez = c[2] - a[2], fx = d[0] - b[0], fy = d[1] - b[1], fz = d[2] - b[2];
+    const cx = ey * fz - ez * fy, cy = ez * fx - ex * fz, cz = ex * fy - ey * fx;
+    if (cx * n[0] + cy * n[1] + cz * n[2] < 0) { const t = b; b = d; d = t; }
+  }
+  obTri(B, a, b, c, hex, solid); obTri(B, a, c, d, hex, solid);
+}
+const UPN = [0, 1, 0], DNN = [0, -1, 0];
+// a box, drawn (not collided): sides `hex`, top `top` (null = none), bottom only if asked
+function obBox(B, x0, x1, y0, y1, z0, z1, hex, top, bottom) {
+  obQuad(B, [x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], [1, 0, 0], hex);
+  obQuad(B, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], shade(hex, 0.92));
+  obQuad(B, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], shade(hex, 0.96));
+  obQuad(B, [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [0, 0, -1], shade(hex, 0.88));
+  if (top != null) obQuad(B, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], UPN, top);
+  if (bottom != null) obQuad(B, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], DNN, bottom);
+}
+// a colour a touch lighter or darker -- flat shading plus a little per-face variation is the painted look
+function shade(hex, k) {
+  const r = Math.min(255, ((hex >> 16) & 255) * k), g = Math.min(255, ((hex >> 8) & 255) * k), b = Math.min(255, (hex & 255) * k);
+  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
+}
+let _oseed = 12345;
+const orand = () => (_oseed = (_oseed * 16807) % 2147483647) / 2147483647;
+const opick = a => a[Math.floor(orand() * a.length) % a.length];
+// A THREE.JS GEOMETRY, BAKED FLAT INTO A BUFFER. Cylinders, cones, spheres, tori and lathes come from three's
+// own generators, transformed and pushed as triangles -- so a palm, a pylon and a distant spire are all one
+// draw call with the rest of their buffer.
+const _ogv = new THREE.Vector3(), _ogm = new THREE.Matrix4(), _ogq = new THREE.Quaternion(), _oge = new THREE.Euler(), _ogs = new THREE.Vector3();
+function obM(x, y, z, ry, sx, sy, sz, rx, rz) {
+  _oge.set(rx || 0, ry || 0, rz || 0, 'YXZ'); _ogq.setFromEuler(_oge);
+  return _ogm.clone().compose(_ogv.set(x, y, z), _ogq, _ogs.set(sx == null ? 1 : sx, sy == null ? (sx == null ? 1 : sx) : sy, sz == null ? (sx == null ? 1 : sx) : sz));
+}
+function obGeo(B, geo, m, hex) {
+  const g = geo.index ? geo.toNonIndexed() : geo, P = g.attributes.position, t = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i + 2 < P.count; i += 3) {
+    for (let k = 0; k < 3; k++) { _ogv.fromBufferAttribute(P, i + k).applyMatrix4(m); t[k] = [_ogv.x, _ogv.y, _ogv.z]; }
+    obTri(B, t[0], t[1], t[2], typeof hex === 'function' ? hex(t, i) : hex, false);
+  }
+  if (g !== geo) g.dispose();
+}
+// A PROFILE REVOLVED, into a buffer. `face` says which way the surface looks: 1 up, -1 down, 0 out, 2 in --
+// and the winding is fixed to match, so a dome, a bowl and an island's rock underside are one function.
+function obRev(B, ox, oz, prof, seg, face, solid, a0, a1) {
+  const A0 = a0 || 0, span = (a1 == null ? Math.PI * 2 : a1) - A0;
+  for (let s = 0; s < seg; s++) {
+    const t0 = A0 + s / seg * span, t1 = A0 + (s + 1) / seg * span, tm = (t0 + t1) / 2;
+    const c0 = Math.cos(t0), n0 = Math.sin(t0), c1 = Math.cos(t1), n1 = Math.sin(t1);
+    const n = face === 1 ? UPN : face === -1 ? DNN : face === 2 ? [-Math.cos(tm), 0, -Math.sin(tm)] : [Math.cos(tm), 0, Math.sin(tm)];
+    for (let i = 0; i < prof.length - 1; i++) {
+      const p = prof[i], q = prof[i + 1];
+      const A = [ox + p.u * c0, p.y, oz + p.u * n0], Bq = [ox + q.u * c0, q.y, oz + q.u * n0];
+      const C = [ox + q.u * c1, q.y, oz + q.u * n1], D = [ox + p.u * c1, p.y, oz + p.u * n1];
+      const col = typeof p.c === 'function' ? p.c(s, i) : (p.c == null ? 0xcccccc : p.c);
+      if (q.u < 1e-4) { const tri = [A, Bq, D]; orientTri(B, tri, n, col, solid); }
+      else if (p.u < 1e-4) { const tri = [A, Bq, C]; orientTri(B, tri, n, col, solid); }
+      else obQuad(B, A, Bq, C, D, n, col, solid);
+    }
+  }
+}
+function orientTri(B, t, n, col, solid) {
+  const ux = t[1][0] - t[0][0], uy = t[1][1] - t[0][1], uz = t[1][2] - t[0][2], vx = t[2][0] - t[0][0], vy = t[2][1] - t[0][1], vz = t[2][2] - t[0][2];
+  const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+  if (cx * n[0] + cy * n[1] + cz * n[2] < 0) obTri(B, t[0], t[2], t[1], col, solid); else obTri(B, t[0], t[1], t[2], col, solid);
+}
+function obDisk(B, cx, y, cz, r, seg, hex, solid) { obRev(B, cx, cz, [{ u: r, y, c: hex }, { u: 0, y }], seg, 1, solid); }
+// A PROFILE EXTRUDED ACROSS A WIDTH -- the park's `extrude`, into a buffer and with the facing fixed for it.
+function obExtrude(B, ox, oz, yaw, hw, prof, o) {
+  o = o || {};
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw);
+  const P = (u, y, w) => [ox + fx * u + sx * w, y, oz + fz * u + sz * w];
+  let yb = Infinity; for (const q of prof) yb = Math.min(yb, q.y);
+  if (o.base != null) yb = o.base;
+  for (let i = 0; i < prof.length - 1; i++) {
+    const a = prof[i], b = prof[i + 1];
+    if (Math.abs(a.u - b.u) < 1e-6 && Math.abs(a.y - b.y) < 1e-6) continue;
+    obQuad(B, P(a.u, a.y, -hw), P(b.u, b.y, -hw), P(b.u, b.y, hw), P(a.u, a.y, hw), UPN, a.c || RAMP, o.solid !== false);
+    if (o.skirt !== false && (a.y > yb + 0.02 || b.y > yb + 0.02)) {
+      obQuad(B, P(a.u, a.y, hw), P(b.u, b.y, hw), P(b.u, yb, hw), P(a.u, yb, hw), [sx, 0, sz], o.side || SIDE);
+      obQuad(B, P(a.u, a.y, -hw), P(b.u, b.y, -hw), P(b.u, yb, -hw), P(a.u, yb, -hw), [-sx, 0, -sz], shade(o.side || SIDE, 0.9));
+    }
+  }
+}
+function obKicker(B, ox, oz, yaw, hw, r, sweep, base, col) {
+  const p = [{ u: 0, y: base, c: col || RAMP }];
+  for (let i = 1; i <= 10; i++) { const a = sweep * i / 10; p.push({ u: r * Math.sin(a), y: base + r * (1 - Math.cos(a)), c: col || RAMP }); }
+  p[p.length - 2].c = COPE;
+  obExtrude(B, ox, oz, yaw, hw, p, { base });
+  return { lip: r * Math.sin(sweep), h: r * (1 - Math.cos(sweep)) };
+}
+// A SLAB: a solid box whose top is a floor, drawn as stone with a paved deck. The quays are slabs.
+function obSlab(x0, x1, z0, z1, y0, y1, o) {
+  o = o || {};
+  solidAdd((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, y0, y1, 0, { tag: o.tag || 'slab' });
+  const B = OB.lit, wall = o.wall || 0xcdbfa8;
+  obBox(B, x0, x1, y0, y1, z0, z1, wall, null);
+  // a coping band round the top edge, and the deck as tiles so a big flat reads as paving rather than plastic
+  const t = 0.22; obBox(B, x0 - 0.12, x1 + 0.12, y1 - t, y1 + 0.004, z0 - 0.12, z1 + 0.12, o.trim || 0xe9e0cf, null);
+  const T = o.tile || 4, ta = o.deckA || 0xc9bfd8, tb = o.deckB || 0xbfb4d0;
+  for (let x = x0; x < x1 - 1e-6; x += T) for (let z = z0; z < z1 - 1e-6; z += T) {
+    const xa = x, xb = Math.min(x1, x + T), za = z, zb = Math.min(z1, z + T), k = (Math.floor(x / T) + Math.floor(z / T)) & 1;
+    obQuad(B, [xa, y1 + 0.006, za], [xb, y1 + 0.006, za], [xb, y1 + 0.006, zb], [xa, y1 + 0.006, zb], UPN, k ? ta : tb);
+  }
+  if (o.moss) { // a dark wet band and a moss line where a canal wall meets its water
+    const yw = o.moss, ym = yw + 0.35;
+    for (const [n, f] of [[[0, 0, 1], z1], [[0, 0, -1], z0]]) if (o.mossSide === undefined || o.mossSide === n[2]) {
+      const zz = f + n[2] * 0.02;
+      obQuad(B, [x0, y0, zz], [x1, y0, zz], [x1, yw, zz], [x0, yw, zz], n, 0x5f6b62);
+      obQuad(B, [x0, yw, zz], [x1, yw, zz], [x1, ym, zz], [x0, ym, zz], n, 0x6f9a4a);
+    }
+  }
+}
+
+// A BLOCK: a building. Solid to its roof (which is a floor), drawn with a facade -- a wall per face, a window
+// grid floor by floor (some lit, in the GLOW buffer), ledges, a storefront with an awning on the faces asked
+// for, vines, and a roof with a trim. `o.clutter` puts plant on the roof (solid), which is only for roofs she
+// is not meant to run across.
+const FAC = { fh: 3.4, win: 1.5, winH: 1.7, pitch: 3.2 };
+function obBlock(x0, x1, z0, z1, h, o) {
+  o = o || {};
+  const y0 = o.y0 || 0, B = OB.lit, G = OB.glow, col = o.col || 0xd9cbb4, tag = o.tag || 'block';
+  solidAdd((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, y0, h, 0, { tag });
+  const faces = [
+    { a: [x0, z1], b: [x1, z1], n: [0, 0, 1], k: 'n' }, { a: [x1, z0], b: [x0, z0], n: [0, 0, -1], k: 's' },
+    { a: [x1, z1], b: [x1, z0], n: [1, 0, 0], k: 'e' }, { a: [x0, z0], b: [x0, z1], n: [-1, 0, 0], k: 'w' } ];
+  const lit = o.lit != null ? o.lit : 0.32;
+  for (const F of faces) {
+    const [ax, az] = F.a, [bx, bz] = F.b, L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L;
+    const off = 0.06, nx = F.n[0], nz = F.n[2];
+    const at = (u, y, d) => [ax + ux * u + nx * d, y, az + uz * u + nz * d];
+    obQuad(B, at(0, y0, 0), at(L, y0, 0), at(L, h, 0), at(0, h, 0), F.n, shade(col, F.k === 's' ? 0.86 : F.k === 'w' ? 0.93 : 1));
+    const shop = o.shop && o.shop.includes(F.k);
+    const nF = Math.max(1, Math.floor((h - y0) / FAC.fh));
+    for (let f = 0; f < nF; f++) {
+      const yb = y0 + f * FAC.fh;
+      if (f > 0) {   // a ledge at every floor line
+        obQuad(B, at(0, yb, 0.22), at(L, yb, 0.22), at(L, yb + 0.16, 0.22), at(0, yb + 0.16, 0.22), F.n, o.trim || 0xf0e6d6);
+        obQuad(B, at(0, yb + 0.16, 0), at(L, yb + 0.16, 0), at(L, yb + 0.16, 0.22), at(0, yb + 0.16, 0.22), UPN, o.trim || 0xf0e6d6);
+      }
+      if (f === 0 && shop) {
+        const sw = L - 1.6; if (sw < 2) continue;
+        obQuad(G, at(0.8, yb + 0.3, off), at(0.8 + sw, yb + 0.3, off), at(0.8 + sw, yb + 2.7, off), at(0.8, yb + 2.7, off), F.n, opick([0xffd9a0, 0xffc68a, 0xbff6ff, 0xffb8e8]));
+        // the awning, striped
+        const stripes = Math.max(2, Math.round(sw / 1.2)), ac = opick([[0xff5fa8, 0xfff0f6], [0x2fd8c8, 0xf2fffd], [0xffa23a, 0xfff6e6], [0x9b6bff, 0xf4efff]]);
+        for (let s = 0; s < stripes; s++) {
+          const u0 = 0.6 + s * (sw + 0.4) / stripes, u1 = 0.6 + (s + 1) * (sw + 0.4) / stripes;
+          obQuad(B, at(u0, yb + 3.05, 0.02), at(u1, yb + 3.05, 0.02), at(u1, yb + 2.65, 1.5), at(u0, yb + 2.65, 1.5), [nx, 1, nz], ac[s & 1]);
+        }
+        continue;
+      }
+      const nW = Math.max(1, Math.floor((L - 1.2) / FAC.pitch)), pad = (L - nW * FAC.pitch) / 2;
+      for (let w = 0; w < nW; w++) {
+        const u = pad + w * FAC.pitch + (FAC.pitch - FAC.win) / 2, yw = yb + 0.95;
+        const on = orand() < lit;
+        obQuad(on ? G : B, at(u, yw, off), at(u + FAC.win, yw, off), at(u + FAC.win, yw + FAC.winH, off), at(u, yw + FAC.winH, off), F.n,
+          on ? opick([0xffd9a0, 0xffe7b8, 0xa8f4ff, 0xffb3e6]) : opick([0x3b4a6e, 0x34405e, 0x41557a]));
+      }
+    }
+    // the roof trim: a low lip, drawn only (a lip she cannot see over is not a wall she should hit)
+    obQuad(B, at(0, h, 0.12), at(L, h, 0.12), at(L, h + 0.3, 0.12), at(0, h + 0.3, 0.12), F.n, o.trim || 0xf0e6d6);
+    // vines spilling off the roof
+    if (o.vines) for (let v = 0; v < Math.round(L / 6); v++) {
+      const u = orand() * (L - 1.5) + 0.5, len = 2 + orand() * 4.5, wv = 0.6 + orand() * 0.9;
+      obQuad(B, at(u, h + 0.1, 0.1), at(u + wv, h + 0.1, 0.1), at(u + wv * 0.7, h - len, 0.1), at(u + wv * 0.3, h - len * 1.1, 0.1), F.n, opick([0x4f9a3f, 0x5fae44, 0x3f8a4a]));
+    }
+  }
+  obQuad(B, [x0, h + 0.004, z0], [x1, h + 0.004, z0], [x1, h + 0.004, z1], [x0, h + 0.004, z1], UPN, o.roof || 0xb7aec9);
+  if (o.clutter) for (let c = 0; c < o.clutter; c++) {
+    const cx = x0 + 2.5 + orand() * (x1 - x0 - 5), cz = z0 + 2.5 + orand() * (z1 - z0 - 5);
+    if (orand() < 0.5) { solidAdd(cx, cz, 0.8, 0.6, h, h + 1.1, 0, { tag: tag + ':ac' }); obBox(B, cx - 0.8, cx + 0.8, h, h + 1.1, cz - 0.6, cz + 0.6, 0xa9b0bd, 0xc5cad4); }
+    else { solidAdd(cx, cz, 1.0, 1.0, h, h + 2.6, 0, { tag: tag + ':tank', top: false });
+      obGeo(B, new THREE.CylinderGeometry(1.0, 1.0, 2.2, 10), obM(cx, h + 1.5, cz), 0xb98a63);
+      obGeo(B, new THREE.ConeGeometry(1.1, 0.6, 10), obM(cx, h + 2.9, cz), 0x8f6a4c); }
+  }
+  return { x0, x1, z0, z1, h };
+}
+// STAIRS. The collider is the SLOPE -- rolling up steps on blades would be a stammer, and every skating game
+// rides a stair set as a ramp -- and the PICTURE is the steps, sat on the slope to within half a step. The
+// handrails are grind rails (built with the other rails, once the collider can measure their posts).
+function obStairs(ox, oz, yaw, hw, y0, rise, run, o) {
+  o = o || {};
+  const B = OB.lit, fx = Math.sin(yaw), fz = Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw);
+  const P = (u, y, w) => [ox + fx * u + sx * w, y, oz + fz * u + sz * w];
+  obQuad(null, P(0, y0, -hw), P(run, y0 + rise, -hw), P(run, y0 + rise, hw), P(0, y0, hw), UPN, 0, true);
+  const n = Math.max(2, Math.round(rise / 0.24)), h = rise / n, d = run / n, back = [-fx, 0, -fz];
+  for (let i = 0; i < n; i++) {
+    const yt = y0 + (i + 0.5) * h, yp = i ? y0 + (i - 0.5) * h : y0;
+    obQuad(B, P(i * d, yp, -hw), P(i * d, yp, hw), P(i * d, yt, hw), P(i * d, yt, -hw), back, o.riser || 0xbdb2a2);
+    obQuad(B, P(i * d, yt, -hw), P(i * d + 0.14, yt, -hw), P(i * d + 0.14, yt, hw), P(i * d, yt, hw), UPN, o.nose || 0xffc93c);
+    obQuad(B, P(i * d + 0.14, yt, -hw), P((i + 1) * d, yt, -hw), P((i + 1) * d, yt, hw), P(i * d + 0.14, yt, hw), UPN, o.tread || 0xe6dccb);
+  }
+  obQuad(B, P(run, y0 + rise - h / 2, -hw), P(run, y0 + rise - h / 2, hw), P(run, y0 + rise, hw), P(run, y0 + rise, -hw), back, o.riser || 0xbdb2a2);
+  for (const sgn of [-1, 1]) {   // the cheek walls, so the set reads as built into the slope
+    const w = sgn * (hw + 0.25), n2 = [sx * sgn, 0, sz * sgn];
+    obQuad(B, P(0, y0, sgn * hw), P(run, y0, sgn * hw), P(run, y0 + rise + 0.3, sgn * hw), P(0, y0 + 0.3, sgn * hw), n2, 0xc9bba6);
+    obQuad(B, P(0, y0, w), P(run, y0, w), P(run, y0 + rise + 0.3, w), P(0, y0 + 0.3, w), n2, 0xbcae98);
+    obQuad(B, P(0, y0 + 0.3, sgn * hw), P(run, y0 + rise + 0.3, sgn * hw), P(run, y0 + rise + 0.3, w), P(0, y0 + 0.3, w), UPN, 0xe9e0cf);
+  }
+  // HANDRAILS: down each cheek and, on a wide set, the middle. Extended a metre flat at each end.
+  const rH = o.railH || 1.15;
+  for (const w of (o.rails || [-hw - 0.25, hw + 0.25])) {
+    const pts = [P(-1.2, y0 + 0.3 + rH, w), P(0, y0 + 0.3 + rH, w), P(run, y0 + rise + 0.3 + rH, w), P(run + 1.2, y0 + rise + 0.3 + rH, w)].map(q => new THREE.Vector3(q[0], q[1], q[2]));
+    const pp = []; for (let i = 0; i < pts.length - 1; i++) { const seg = railLine(pts[i], pts[i + 1], 2); if (i) seg.shift(); pp.push(...seg); }
+    ORB.rails.push({ pts: pp, o: { name: o.name || 'stair rail' }, d: { mat: 'orange', every: 3, postMax: 3 } });
+  }
+}
+// A RIBBON: a deck that follows a path in 3D -- a curving ramp, a skyway between roofs, the helix round Nimbus.
+// The deck is a floor; the edges can carry a barrier (solid, so the helix cannot be fallen off) and a rail on
+// top of it; and a ribbon can be a BOOST LANE, chevrons and all.
+function obRibbon(pts, hw, o) {
+  o = o || {};
+  const B = OB.lit, n = pts.length, S = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    let fx = b.x - a.x, fz = b.z - a.z; const l = Math.hypot(fx, fz) || 1; fx /= l; fz /= l;
+    S.push([-fz, fx]);
+  }
+  const E = Math.min(0.55, hw * 0.25), deck = o.col || 0xd6cde4, edge = o.edge || 0x3fd3ff, th = o.thick || 0.9;
+  const at = (i, w, dy) => [pts[i].x + S[i][0] * w, pts[i].y + (dy || 0), pts[i].z + S[i][1] * w];
+  for (let i = 0; i < n - 1; i++) {
+    for (const [w0, w1, c] of [[-hw, -hw + E, edge], [-hw + E, hw - E, (i & 1) ? deck : shade(deck, 0.96)], [hw - E, hw, edge]])
+      obQuad(B, at(i, w0), at(i + 1, w0), at(i + 1, w1), at(i, w1), UPN, c, o.solid !== false);
+    for (const sg of [-1, 1]) {
+      const nn = [S[i][0] * sg, 0, S[i][1] * sg];
+      obQuad(B, at(i, sg * hw), at(i + 1, sg * hw), at(i + 1, sg * hw, -th), at(i, sg * hw, -th), nn, o.side || 0xa99fc4);
+    }
+    obQuad(B, at(i, -hw, -th), at(i + 1, -hw, -th), at(i + 1, hw, -th), at(i, hw, -th), DNN, 0x8e86a8);
+    // the barrier: a thin wall up the given edge, solid, its top a rail if asked
+    if (o.wall) {
+      const sg = o.wall, wh = o.wallH || 1.0, p = at(i, sg * (hw - 0.15)), q = at(i + 1, sg * (hw - 0.15));
+      const dx = q[0] - p[0], dz = q[2] - p[2], L = Math.hypot(dx, dz) || 1e-3;
+      solidAdd((p[0] + q[0]) / 2, (p[2] + q[2]) / 2, L / 2 + 0.06, 0.15, Math.min(p[1], q[1]) - 0.4, Math.max(p[1], q[1]) + wh, Math.atan2(-dz / L, dx / L), { top: false, tag: o.tag || 'barrier' });
+      const nn = [S[i][0] * sg, 0, S[i][1] * sg], ni = [-nn[0], 0, -nn[2]];
+      const pi = at(i, sg * (hw - 0.3)), qi = at(i + 1, sg * (hw - 0.3)), po = at(i, sg * hw), qo = at(i + 1, sg * hw);
+      obQuad(B, pi, qi, [qi[0], qi[1] + wh, qi[2]], [pi[0], pi[1] + wh, pi[2]], ni, o.wallCol || 0xece4f6);
+      obQuad(B, po, qo, [qo[0], qo[1] + wh, qo[2]], [po[0], po[1] + wh, po[2]], nn, shade(o.wallCol || 0xece4f6, 0.85));
+      obQuad(B, [pi[0], pi[1] + wh, pi[2]], [qi[0], qi[1] + wh, qi[2]], [qo[0], qo[1] + wh, qo[2]], [po[0], po[1] + wh, po[2]], UPN, edge);
+    }
+  }
+  if (o.lane) {
+    ORB.lanes.push({ pts: pts.map(q => q.clone()), hw, v: o.lane.v, acc: o.lane.acc, name: o.name || 'lane' });
+    // chevrons every few metres, pointing along the lane
+    let cum = 0, next = 2;
+    for (let i = 0; i < n - 1; i++) {
+      const L = pts[i].distanceTo(pts[i + 1]);
+      while (next <= cum + L) { const u = (next - cum) / L, q = pts[i].clone().lerp(pts[i + 1], u);
+        obDecal('chevron', q.x, q.y + 0.03, q.z, Math.atan2(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z), Math.min(2 * hw - 1, 3.2), pts[i + 1].y - pts[i].y > 0 ? Math.atan2(pts[i + 1].y - pts[i].y, Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z)) : 0);
+        next += o.lane.every || 5; }
+      cum += L;
+    }
+  }
+  if (o.rail) {   // a grind rail along the barrier top, or along an edge
+    const sg = o.wall || o.railSide || 1, wh = o.wall ? (o.wallH || 1.0) : (o.railH || 1.1);
+    ORB.rails.push({ pts: pts.map((q, i) => new THREE.Vector3(q.x + S[i][0] * sg * (hw - 0.15), q.y + wh + 0.03, q.z + S[i][1] * sg * (hw - 0.15))),
+      o: Object.assign({ name: (o.name || 'ribbon') + ' rail' }, o.rail), d: { mat: o.rail.boost ? 'boost' : 'orange', posts: false } });
+  }
+  return S;
+}
+// A LANE is a list of points with a half width; on it, grounded and going its way, she is pushed up to `v`
+function laneAt(x, y, z) {
+  for (const L of ORB.lanes) {
+    const P = L.pts;
+    for (let i = 0; i < P.length - 1; i++) {
+      const a = P[i], b = P[i + 1], dx = b.x - a.x, dz = b.z - a.z, l2 = dx * dx + dz * dz; if (l2 < 1e-6) continue;
+      const t = clamp(((x - a.x) * dx + (z - a.z) * dz) / l2, 0, 1), cx = a.x + dx * t, cz = a.z + dz * t, cy = a.y + (b.y - a.y) * t;
+      if (Math.abs(y - cy) > 0.9 || Math.hypot(x - cx, z - cz) > L.hw) continue;
+      const l = Math.sqrt(l2 + (b.y - a.y) ** 2);
+      return { L, dx: dx / l, dy: (b.y - a.y) / l, dz: dz / l };
+    }
+  }
+  return null;
+}
+// A RAISED BOWL: the floor of the city is a single plane, so a bowl is built UP rather than dug -- a bank up to
+// a coping ring, and the transition back down to the street, which is its floor. Painted on the floor.
+function obBowl(cx, cz, rim, r, sweep, back, art) {
+  const D = r * (1 - Math.cos(sweep)), run = r * Math.sin(sweep), inner = rim - run;
+  const p = [{ u: rim + 1.4 + back, y: 0, c: RAMP }, { u: rim + 1.4, y: D, c: DECK }, { u: rim, y: D, c: COPE }];
+  for (let i = 1; i <= 16; i++) { const a = sweep * (1 - i / 16); p.push({ u: inner + r * Math.sin(a), y: r * (1 - Math.cos(a)), c: (i & 1) ? 0xd9c8f0 : 0xd2c0ea }); }
+  obRev(OB.lit, cx, cz, p, 48, 1, true);
+  if (art) obDecal(art, cx, 0.03, cz, 0, inner * 1.8);
+  return { D, inner };
+}
+// A MUSHROOM TREE. The stem is solid; the cap is a FLOOR and a TRAMPOLINE -- land on it and it throws her up.
+function obShroom(x, z, capY, R, hue) {
+  const B = OB.lit, G = OB.glow, cap = hue || opick([0xff5fb0, 0xb06bff, 0x4fe0d0, 0xff8fd0]);
+  solidAdd(x, z, 0.75, 0.75, 0, capY - 0.6, 0, { tag: 'shroom', top: false });
+  const stem = new THREE.CylinderGeometry(0.55, 0.95, capY, 10, 4);
+  obGeo(B, stem, obM(x, capY / 2, z, orand() * 6, 1, 1, 1, (orand() - 0.5) * 0.06), 0xf2e6d8);
+  const top = capY + R * 0.42;
+  obRev(B, x, z, [{ u: 0, y: top, c: cap }, { u: R * 0.45, y: top - R * 0.06, c: cap }, { u: R * 0.8, y: top - R * 0.2, c: shade(cap, 0.95) },
+    { u: R, y: capY + 0.15, c: shade(cap, 0.88) }].reverse(), 24, 1, true);
+  obRev(G, x, z, [{ u: R, y: capY + 0.15, c: shade(cap, 1.15) }, { u: R * 0.25, y: capY - 0.25, c: 0xffe0f4 }, { u: 0, y: capY - 0.2 }], 24, -1, false);
+  for (let k = 0; k < 7; k++) {     // white spots
+    const a = orand() * Math.PI * 2, rr = R * (0.25 + orand() * 0.5), sy = top - (rr / R) ** 2 * R * 0.32 + 0.04;
+    obGeo(B, new THREE.CircleGeometry(0.28 + orand() * 0.2, 7).rotateX(-Math.PI / 2), obM(x + Math.cos(a) * rr, sy, z + Math.sin(a) * rr, 0, 1, 1, 1, -0.15 * Math.cos(a), 0.15 * Math.sin(a)), 0xfff6ee);
+  }
+  ORB.bounce.push({ x, z, y: top, r: R, cool: 0 });
+  ORB.shrooms.push({ x, z, top, R });
+}
+// A PALM: a bent trunk and a crown of drooping fronds, some of them pink, because the paintings' are
+function obPalm(x, z, y0, h, tint) {
+  const B = OB.lit, lean = (orand() - 0.5) * 0.5, la = orand() * Math.PI * 2, seg = 6;
+  let px = x, py = y0, pz = z;
+  for (let i = 0; i < seg; i++) {
+    const t = (i + 1) / seg, nx = x + Math.cos(la) * lean * h * t * t, nz = z + Math.sin(la) * lean * h * t * t, ny = y0 + h * t;
+    const mid = new THREE.Vector3((px + nx) / 2, (py + ny) / 2, (pz + nz) / 2), dir = new THREE.Vector3(nx - px, ny - py, nz - pz), L = dir.length();
+    const g = new THREE.CylinderGeometry(0.2 - 0.02 * i, 0.24 - 0.02 * i, L, 6);
+    const q = new THREE.Quaternion().setFromUnitVectors(UP, dir.normalize());
+    obGeo(B, g, new THREE.Matrix4().compose(mid, q, new THREE.Vector3(1, 1, 1)), i & 1 ? 0x8a6a4a : 0x7a5c40);
+    px = nx; py = ny; pz = nz;
+  }
+  solidAdd(x, z, 0.3, 0.3, y0, y0 + h * 0.7, 0, { tag: 'palm', top: false });
+  const cols = tint ? [0xc24fa8, 0xd968b9, 0xa83f95] : [0x3f9a4a, 0x58b85a, 0x2f8a4a];
+  for (let k = 0; k < 8; k++) {
+    const a = k / 8 * Math.PI * 2 + orand() * 0.3, L = 3.2 + orand() * 1.2, w = 0.75, c = cols[k % 3];
+    const dx = Math.cos(a), dz = Math.sin(a), sx = -dz, sz = dx;
+    const m1 = [px + dx * L * 0.5, py + 0.5, pz + dz * L * 0.5], tip = [px + dx * L, py - 1.4, pz + dz * L];
+    for (const f of [1, -1]) {
+      obTri(B, [px, py, pz], [m1[0] + sx * w * f, m1[1] - 0.05, m1[2] + sz * w * f], m1, c, false);
+      obTri(B, m1, [m1[0] + sx * w * f, m1[1] - 0.05, m1[2] + sz * w * f], tip, shade(c, 0.9), false);
+      obTri(B, [px, py, pz], m1, [m1[0] + sx * w * f, m1[1] - 0.05, m1[2] + sz * w * f], shade(c, 0.8), false);
+      obTri(B, m1, tip, [m1[0] + sx * w * f, m1[1] - 0.05, m1[2] + sz * w * f], shade(c, 0.75), false);
+    }
+  }
+}
+function obLamp(x, z, y0, col) {
+  obGeo(OB.lit, new THREE.CylinderGeometry(0.09, 0.13, 4.6, 6), obM(x, y0 + 2.3, z), 0x3a3550);
+  obGeo(OB.lit, new THREE.CylinderGeometry(0.32, 0.22, 0.25, 8), obM(x, y0 + 4.65, z), 0x3a3550);
+  obGeo(OB.glow, new THREE.IcosahedronGeometry(0.34, 0), obM(x, y0 + 4.95, z), col || opick([0xfff1c8, 0xffd8f0, 0xc8fbff]));
+}
+function obPlanter(x, z, w, d, y0) {
+  y0 = y0 || 0;
+  solidAdd(x, z, w / 2, d / 2, y0, y0 + 0.85, 0, { tag: 'planter' });
+  obBox(OB.lit, x - w / 2, x + w / 2, y0, y0 + 0.85, z - d / 2, z + d / 2, 0xd8cdbb, 0x6a4f3a);
+  for (let k = 0; k < Math.max(2, Math.round(w * d / 2.5)); k++) {
+    const bx = x + (orand() - 0.5) * (w - 0.6), bz = z + (orand() - 0.5) * (d - 0.6), r = 0.4 + orand() * 0.5;
+    obGeo(OB.lit, new THREE.IcosahedronGeometry(r, 0), obM(bx, y0 + 0.85 + r * 0.6, bz, orand() * 3, 1, 0.8 + orand() * 0.5, 1), opick([0x4f9a3f, 0x63b04a, 0x3f8a5a, 0xd25fae, 0x9b5cff]));
+  }
+}
+function obBanner(x, z, y0, yaw, key) {
+  obGeo(OB.lit, new THREE.CylinderGeometry(0.07, 0.09, 7, 6), obM(x, y0 + 3.5, z), 0x3a3550);
+  const sx = Math.cos(yaw), sz = -Math.sin(yaw);
+  obSign(key, x + sx * 0.75, y0 + 4.6, z + sz * 0.75, yaw, 1.3);
+}
+
+// ---- THE SIGN ATLAS -------------------------------------------------------------------------------------
+// Every sign, mural and tag in the paintings is PAINTED here, on one canvas, once, at load: neon by layering a
+// blurred glow under a white core, graffiti as a fat dark outline under a hot fill, the aliens and the cat and
+// the bunny from a handful of curves. One texture, one material, one draw call for every sign in the city --
+// and no files, so nothing to download and nothing to go stale. His own art drops in by replacing an entry.
+const NEON = { teal: '#3ff0e0', pink: '#ff4fb8', purple: '#a45cff', lime: '#8dff3a', gold: '#ffc93c', orange: '#ff8a2a', cyan: '#5fe8ff', blue: '#4f8bff' };
+const AF = (s, w) => `${w || 900} ${s}px "Arial Black", "Arial Rounded MT Bold", Impact, "Helvetica Neue", sans-serif`;
+function aPanel(g, x, y, w, h, r, fill, stroke, lw) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  if (fill) { g.fillStyle = fill; g.fill(); }
+  if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw || 6; g.stroke(); }
+}
+function aNeon(g, txt, x, y, size, col, font) {
+  g.save(); g.font = font || AF(size); g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = col; g.shadowBlur = size * 0.55; g.fillStyle = col;
+  g.fillText(txt, x, y); g.fillText(txt, x, y);
+  g.shadowBlur = size * 0.15; g.globalAlpha = 0.95; g.fillStyle = '#ffffff';
+  g.font = (font || AF(size)).replace(/(\d+)px/, (m, n) => Math.round(n * 0.94) + 'px');
+  g.fillText(txt, x, y); g.restore();
+}
+function aGraf(g, lines, x, y, size, fill, outline, rot, lead) {
+  g.save(); g.translate(x, y); g.rotate(rot || 0); g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  lines.forEach((t, i) => {
+    const yy = (i - (lines.length - 1) / 2) * size * (lead || 1.02), sz = size * (i % 2 ? 0.97 : 1.04);
+    g.font = AF(sz); g.save(); g.translate(0, yy); g.rotate((i % 2 ? -1 : 1) * 0.03);
+    g.strokeStyle = outline; g.lineWidth = size * 0.24; g.strokeText(t, 0, 0);
+    g.fillStyle = fill; g.fillText(t, 0, 0);
+    g.globalAlpha = 0.35; g.fillStyle = '#ffffff'; g.fillText(t, -size * 0.04, -size * 0.06); g.globalAlpha = 1;
+    // drips
+    g.fillStyle = fill; const w = g.measureText ? g.measureText(t).width : size * t.length * 0.6;
+    for (let d = 0; d < 3; d++) { const dx = (d / 2 - 0.5) * w * 0.7 + (d * 37 % 11), dl = size * (0.2 + (d * 13 % 7) / 14);
+      g.fillRect(dx, sz * 0.35, size * 0.06, dl); g.beginPath(); g.arc(dx + size * 0.03, sz * 0.35 + dl, size * 0.045, 0, Math.PI * 2); g.fill(); }
+    g.restore();
+  });
+  g.restore();
+}
+function aAlien(g, cx, cy, s, skin, outline) {
+  g.save(); g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(cx, cy - s);
+  g.bezierCurveTo(cx + s * 1.08, cy - s * 1.02, cx + s * 0.98, cy + s * 0.3, cx, cy + s * 0.98);
+  g.bezierCurveTo(cx - s * 0.98, cy + s * 0.3, cx - s * 1.08, cy - s * 1.02, cx, cy - s);
+  g.fillStyle = skin; g.fill(); if (outline) { g.strokeStyle = outline; g.lineWidth = s * 0.09; g.stroke(); }
+  for (const sg of [-1, 1]) {
+    g.save(); g.translate(cx + sg * s * 0.38, cy + s * 0.06); g.rotate(sg * 0.55);
+    g.beginPath(); g.ellipse(0, 0, s * 0.33, s * 0.18, 0, 0, Math.PI * 2); g.fillStyle = '#0d0b1a'; g.fill();
+    g.beginPath(); g.ellipse(-s * 0.08, -s * 0.05, s * 0.08, s * 0.05, 0, 0, Math.PI * 2); g.fillStyle = '#ffffff'; g.fill();
+    g.restore();
+  }
+  g.beginPath(); g.moveTo(cx - s * 0.12, cy + s * 0.55); g.quadraticCurveTo(cx, cy + s * 0.62, cx + s * 0.12, cy + s * 0.55);
+  g.strokeStyle = '#0d0b1a'; g.lineWidth = s * 0.05; g.stroke();
+  g.restore();
+}
+function aSaturn(g, cx, cy, r, col, ring) {
+  g.save();
+  g.beginPath(); g.ellipse(cx, cy, r * 1.85, r * 0.55, -0.35, Math.PI, Math.PI * 2); g.strokeStyle = ring || col; g.lineWidth = r * 0.16; g.stroke();
+  g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fillStyle = col; g.fill();
+  g.beginPath(); g.ellipse(cx, cy, r * 1.85, r * 0.55, -0.35, 0, Math.PI); g.strokeStyle = ring || col; g.lineWidth = r * 0.16; g.stroke();
+  g.restore();
+}
+function aCrown(g, cx, cy, s, col) {
+  g.save(); g.beginPath();
+  g.moveTo(cx - s, cy + s * 0.5); g.lineTo(cx - s, cy - s * 0.35); g.lineTo(cx - s * 0.5, cy + s * 0.05); g.lineTo(cx, cy - s * 0.7);
+  g.lineTo(cx + s * 0.5, cy + s * 0.05); g.lineTo(cx + s, cy - s * 0.35); g.lineTo(cx + s, cy + s * 0.5); g.closePath();
+  g.fillStyle = col; g.fill(); g.strokeStyle = '#2b1a08'; g.lineWidth = s * 0.1; g.lineJoin = 'round'; g.stroke();
+  for (const [dx, dy] of [[-1, -0.35], [0, -0.7], [1, -0.35]]) { g.beginPath(); g.arc(cx + dx * s, cy + dy * s, s * 0.14, 0, Math.PI * 2); g.fill(); g.stroke(); }
+  g.restore();
+}
+function aSplat(g, cx, cy, r, col) {
+  g.save(); g.fillStyle = col; g.beginPath();
+  for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI * 2, k = r * (0.75 + 0.25 * Math.sin(i * 2.7) + (i % 5 === 0 ? 0.35 : 0));
+    i ? g.lineTo(cx + Math.cos(a) * k, cy + Math.sin(a) * k) : g.moveTo(cx + Math.cos(a) * k, cy + Math.sin(a) * k); }
+  g.fill();
+  for (let i = 0; i < 9; i++) { const a = i * 2.39, d = r * (1.2 + (i % 3) * 0.25); g.beginPath(); g.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, r * 0.08, 0, Math.PI * 2); g.fill(); }
+  g.restore();
+}
+function aCat(g, cx, cy, s, fill, outline) {
+  g.save(); g.lineJoin = 'round'; g.lineWidth = s * 0.12; g.strokeStyle = outline; g.fillStyle = fill;
+  g.beginPath(); g.moveTo(cx - s * 0.85, cy - s * 0.1); g.lineTo(cx - s * 0.75, cy - s * 1.05); g.lineTo(cx - s * 0.25, cy - s * 0.62);
+  g.quadraticCurveTo(cx, cy - s * 0.72, cx + s * 0.25, cy - s * 0.62); g.lineTo(cx + s * 0.75, cy - s * 1.05); g.lineTo(cx + s * 0.85, cy - s * 0.1);
+  g.quadraticCurveTo(cx + s * 0.95, cy + s * 0.75, cx, cy + s * 0.8); g.quadraticCurveTo(cx - s * 0.95, cy + s * 0.75, cx - s * 0.85, cy - s * 0.1);
+  g.closePath(); g.fill(); g.stroke();
+  for (const sg of [-1, 1]) { g.beginPath(); g.arc(cx + sg * s * 0.36, cy - s * 0.08, s * 0.2, 0, Math.PI * 2); g.fillStyle = '#ffffff'; g.fill(); g.stroke();
+    g.beginPath(); g.arc(cx + sg * s * 0.32, cy - s * 0.05, s * 0.09, 0, Math.PI * 2); g.fillStyle = '#111'; g.fill(); }
+  g.beginPath(); g.moveTo(cx - s * 0.45, cy + s * 0.3); g.quadraticCurveTo(cx, cy + s * 0.7, cx + s * 0.45, cy + s * 0.3); g.closePath(); g.fillStyle = '#ffffff'; g.fill(); g.stroke();
+  for (let t = -2; t <= 2; t++) { g.beginPath(); g.moveTo(cx + t * s * 0.16, cy + s * 0.32); g.lineTo(cx + t * s * 0.16, cy + s * 0.48); g.stroke(); }
+  g.restore();
+}
+function aBunny(g, cx, cy, s, fill, outline) {
+  g.save(); g.lineJoin = 'round'; g.lineWidth = s * 0.1; g.strokeStyle = outline; g.fillStyle = fill;
+  for (const sg of [-1, 1]) { g.beginPath(); g.ellipse(cx + sg * s * 0.32, cy - s * 0.95, s * 0.2, s * 0.62, sg * 0.18, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.beginPath(); g.ellipse(cx + sg * s * 0.32, cy - s * 0.95, s * 0.08, s * 0.42, sg * 0.18, 0, Math.PI * 2); g.fillStyle = '#ff9fd0'; g.fill(); g.fillStyle = fill; }
+  g.beginPath(); g.ellipse(cx, cy, s * 0.72, s * 0.62, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+  for (const sg of [-1, 1]) { g.beginPath(); g.ellipse(cx + sg * s * 0.27, cy - s * 0.05, s * 0.16, s * 0.21, 0, 0, Math.PI * 2); g.fillStyle = '#1a1030'; g.fill();
+    g.beginPath(); g.arc(cx + sg * s * 0.24, cy - s * 0.12, s * 0.06, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); }
+  g.beginPath(); g.arc(cx - s * 0.4, cy + s * 0.22, s * 0.1, 0, Math.PI * 2); g.arc(cx + s * 0.4, cy + s * 0.22, s * 0.1, 0, Math.PI * 2); g.fillStyle = '#ff7fbf'; g.fill();
+  g.restore();
+}
+const SIGNS = [
+  ['commons', 640, 192, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 22, '#111a3a', NEON.teal, 8);
+    aSaturn(g, 90, h / 2, 34, NEON.teal, '#bffff8'); aNeon(g, 'ORBITAL', w / 2 + 50, h * 0.33, 62, '#ffffff'); aNeon(g, 'COMMONS', w / 2 + 50, h * 0.7, 62, NEON.teal); }],
+  ['nimbus', 256, 512, (g, w, h) => { aPanel(g, 8, 8, w - 16, h - 16, 18, '#0d1430', NEON.blue, 8);
+    aSaturn(g, w / 2, 86, 34, '#bcd2ff', NEON.cyan); aNeon(g, 'NIMBUS', w / 2, 190, 50, '#ffffff');
+    ['BLADES', 'PEOPLE', 'PLACES', 'PROGRESS'].forEach((t, i) => aNeon(g, t, w / 2, 270 + i * 54, 34, NEON.cyan)); }],
+  ['nexus', 512, 160, (g, w, h) => { g.save(); g.beginPath(); g.ellipse(w / 2, h / 2, w * 0.46, h * 0.36, -0.08, 0, Math.PI * 2); g.strokeStyle = '#dfe6ff'; g.lineWidth = 7; g.stroke(); g.restore();
+    g.save(); g.font = AF(92); g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 10; g.strokeStyle = '#2a2f4a'; g.strokeText('NEXUS', w / 2, h / 2 + 4);
+    const gr = g.createLinearGradient(0, 30, 0, 130); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#a9b6d9'); g.fillStyle = gr; g.fillText('NEXUS', w / 2, h / 2 + 4); g.restore(); }],
+  ['market', 640, 160, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 24, '#0f1d2c', NEON.teal, 6); aSaturn(g, 80, h / 2, 30, NEON.teal);
+    aNeon(g, 'ORBITAL', 330, h * 0.32, 56, NEON.teal); aNeon(g, 'MARKET', 330, h * 0.7, 56, '#ffffff'); }],
+  ['blades', 512, 192, (g, w, h) => { aNeon(g, 'Orbital', w * 0.42, h * 0.32, 80, NEON.cyan, `italic 900 80px "Brush Script MT", "Snell Roundhand", cursive`);
+    aNeon(g, 'BLADES', w * 0.58, h * 0.72, 66, NEON.cyan, `italic 900 66px "Arial Black", sans-serif`); aNeon(g, '✦', w * 0.9, h * 0.8, 40, '#ffffff'); }],
+  ['further', 512, 384, (g, w, h) => aGraf(g, ['SKATE', 'FURTHER', 'TOGETHER'], w / 2, h / 2, 96, '#f4f2ff', '#3a2a6a', -0.06)],
+  ['goodlines', 384, 256, (g, w, h) => { aGraf(g, ['GOOD LINES', 'BETTER', 'WORLDS'], w / 2, h / 2, 62, '#ffffff', '#2a3350', 0, 1.05); aCrown(g, 46, 40, 22, NEON.gold); }],
+  ['sameplanet', 384, 384, (g, w, h) => aGraf(g, ['+SAME', 'PLANET', 'DIFFERENT', 'SKATES'], w / 2, h / 2, 72, NEON.pink, '#3a0f2e', -0.1)],
+  ['roll', 256, 320, (g, w, h) => { aPanel(g, 10, 10, w - 20, h - 20, 8, '#f4f0e6', '#1a1a1a', 4);
+    ['ROLL', 'EXPLORE', 'RESPECT'].forEach((t, i) => { g.font = AF(40); g.fillStyle = '#151515'; g.textAlign = 'center'; g.fillText(t, w / 2, 70 + i * 52); });
+    aAlien(g, w / 2, 250, 36, '#151515'); }],
+  ['flow', 512, 192, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 20, '#14284a', null); aNeon(g, 'FLOW', 170, 50, 50, NEON.teal); aNeon(g, 'THROUGH', 190, 100, 50, NEON.teal); aNeon(g, 'TOGETHER', 210, 150, 50, NEON.teal);
+    g.save(); g.strokeStyle = NEON.teal; g.lineWidth = 14; g.shadowColor = NEON.teal; g.shadowBlur = 20; g.beginPath(); g.moveTo(370, 96); g.lineTo(470, 96); g.moveTo(440, 60); g.lineTo(476, 96); g.lineTo(440, 132); g.stroke(); g.restore(); }],
+  ['nextstop', 512, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 14, '#07070c', '#333', 4); aNeon(g, 'NEXT STOP', w * 0.45, h * 0.32, 40, NEON.orange); aNeon(g, 'HIGHER GROUND', w * 0.45, h * 0.7, 40, NEON.orange); aCrown(g, w - 56, h / 2, 26, NEON.gold); }],
+  ['push', 384, 384, (g, w, h) => aGraf(g, ['PUSH', 'FURTHER', 'TOGETHER'], w / 2, h / 2, 78, '#ffffff', '#5a3a8a', 0.05)],
+  ['sol', 512, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 10, '#9aa0b8', '#6a7088', 6);
+    g.save(); g.font = AF(64); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#4a4f66'; g.fillText('SOL TOGETHER', w / 2 - 20 + 3, h / 2 + 3); g.fillStyle = '#f2f4ff'; g.fillText('SOL TOGETHER', w / 2 - 20, h / 2); g.restore();
+    aSaturn(g, w - 46, h / 2, 16, NEON.gold); }],
+  ['curiosity', 192, 512, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 12, '#3d1a6e', NEON.purple, 6);
+    ['CURIOSITY', 'FUELS', 'A KINDER', 'TOMORROW'].forEach((t, i) => aNeon(g, t, w / 2, 80 + i * 92, t.length > 7 ? 26 : 36, '#e9d8ff')); aNeon(g, '♥', w / 2, 450, 44, NEON.pink); }],
+  ['humans', 192, 512, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 12, '#0b1638', NEON.blue, 6); aAlien(g, w / 2, 80, 44, '#9fd8ff');
+    ['HUMANS', 'ALIENS', 'BETTER', 'TOGETHER'].forEach((t, i) => aNeon(g, t, w / 2, 190 + i * 76, t.length > 6 ? 28 : 36, NEON.cyan)); }],
+  ['mural', 384, 512, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#5d3fb8'); gr.addColorStop(0.55, '#3a5fc8'); gr.addColorStop(1, '#2b2a7a'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 14; i++) aSplat(g, (i * 97) % w, (i * 151) % h, 18 + (i % 4) * 8, ['#ffd23f', '#7cf5c8', '#ff7ac8', '#9a7bff'][i % 4]);
+    g.save(); g.strokeStyle = '#1b6b55'; g.lineCap = 'round';
+    for (let t = 0; t < 6; t++) { g.lineWidth = 34 - t * 3; g.beginPath(); const sx = w / 2 + (t - 2.5) * 30; g.moveTo(sx, 300);
+      g.bezierCurveTo(sx + (t - 2.5) * 40, 380, sx - (t - 2.5) * 60, 430, sx + (t - 2.5) * 70, 500); g.stroke(); }
+    g.strokeStyle = '#5ff0b0'; for (let t = 0; t < 6; t++) { g.lineWidth = 22 - t * 2; g.beginPath(); const sx = w / 2 + (t - 2.5) * 30; g.moveTo(sx, 300);
+      g.bezierCurveTo(sx + (t - 2.5) * 40, 380, sx - (t - 2.5) * 60, 430, sx + (t - 2.5) * 70, 500); g.stroke(); }
+    g.restore(); aAlien(g, w / 2, 200, 130, '#7ff0a8', '#1b4f3a'); aCrown(g, w / 2, 48, 46, NEON.gold);
+    for (let i = 0; i < 8; i++) { g.fillStyle = '#ffffff'; g.font = AF(28); g.fillText('✦', 30 + (i * 71) % (w - 40), 30 + (i * 113) % (h - 60)); } }],
+  ['alien', 256, 256, (g, w, h) => { aAlien(g, w / 2, h / 2, 100, '#5fe8d8', '#163a3a'); }],
+  ['cat', 256, 256, (g, w, h) => { aCat(g, w / 2, h / 2 + 20, 92, '#3fd8c8', '#ff4fb8'); aCrown(g, w / 2, 40, 34, '#ff4fb8'); }],
+  ['bunny', 256, 320, (g, w, h) => aBunny(g, w / 2, h / 2 + 50, 92, '#f4f0ff', '#d23f8f')],
+  ['saturn', 192, 192, (g, w, h) => { g.save(); g.shadowColor = NEON.purple; g.shadowBlur = 24; aSaturn(g, w / 2, h / 2, 44, NEON.purple, NEON.pink); g.restore(); }],
+  ['ramen', 192, 256, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 14, '#1a0a18', NEON.pink, 6);
+    g.save(); g.strokeStyle = NEON.pink; g.shadowColor = NEON.pink; g.shadowBlur = 18; g.lineWidth = 8;
+    g.beginPath(); g.arc(w / 2, 110, 56, 0, Math.PI); g.closePath(); g.stroke();
+    for (const dx of [-20, 0, 20]) { g.beginPath(); g.moveTo(w / 2 + dx, 90); g.bezierCurveTo(w / 2 + dx + 14, 70, w / 2 + dx - 14, 50, w / 2 + dx, 30); g.stroke(); }
+    g.restore(); aNeon(g, 'ラーメン', w / 2, 210, 34, NEON.pink); }],
+  ['bannerA', 128, 384, (g, w, h) => { g.fillStyle = '#6a2fc8'; g.fillRect(0, 0, w, h - 30); g.beginPath(); g.moveTo(0, h - 30); g.lineTo(w / 2, h); g.lineTo(w, h - 30); g.fill(); aAlien(g, w / 2, 140, 44, '#7ff0e0'); aNeon(g, '✦', w / 2, 270, 30, '#fff'); }],
+  ['bannerB', 128, 384, (g, w, h) => { g.fillStyle = '#e8459c'; g.fillRect(0, 0, w, h - 30); g.beginPath(); g.moveTo(0, h - 30); g.lineTo(w / 2, h); g.lineTo(w, h - 30); g.fill(); aSaturn(g, w / 2, 150, 30, '#ffe7f4', '#ffffff'); }],
+  ['bannerC', 128, 384, (g, w, h) => { g.fillStyle = '#2fb8a0'; g.fillRect(0, 0, w, h - 30); g.beginPath(); g.moveTo(0, h - 30); g.lineTo(w / 2, h); g.lineTo(w, h - 30); g.fill(); aBunny(g, w / 2, 190, 40, '#ffffff', '#1a5f55'); }],
+  ['bowlart', 512, 512, (g, w, h) => { aSplat(g, w / 2, h / 2, 170, '#b06bff'); aSplat(g, w * 0.3, h * 0.35, 70, '#ff6fc0'); aSplat(g, w * 0.72, h * 0.66, 60, '#5ff0d8');
+    aAlien(g, w / 2, h / 2, 120, '#f4f0ff', '#2a1050'); aCrown(g, w / 2, h / 2 - 150, 40, NEON.gold); }],
+  ['chevron', 256, 128, (g, w, h) => { g.save(); g.fillStyle = '#ffd23f'; g.strokeStyle = '#7a5a00'; g.lineWidth = 6; g.lineJoin = 'round';
+    for (const x0 of [30, 130]) { g.beginPath(); g.moveTo(x0, 14); g.lineTo(x0 + 60, 64); g.lineTo(x0, 114); g.lineTo(x0 + 34, 114); g.lineTo(x0 + 94, 64); g.lineTo(x0 + 34, 14); g.closePath(); g.fill(); g.stroke(); } g.restore(); }],
+  ['peak', 512, 160, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 22, '#1a1030', NEON.gold, 8); aCrown(g, 70, h / 2 + 6, 36, NEON.gold);
+    aNeon(g, 'HIGHER', 300, 52, 50, NEON.gold); aNeon(g, 'GROUND', 300, 112, 50, '#ffffff'); }],
+  ['smile', 128, 128, (g, w, h) => { g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2); g.fillStyle = '#ffd23f'; g.fill(); g.lineWidth = 7; g.strokeStyle = '#3a2a00'; g.stroke();
+    g.fillStyle = '#3a2a00'; g.beginPath(); g.arc(46, 52, 7, 0, 7); g.arc(82, 52, 7, 0, 7); g.fill(); g.beginPath(); g.arc(64, 70, 28, 0.2, Math.PI - 0.2); g.stroke(); }],
+  ['tag', 512, 192, (g, w, h) => aGraf(g, ['ORBITAL'], w / 2, h / 2, 120, '#7ff0c8', '#2a1a5a', -0.05)],
+];
+let ATLAS = null;
+function orbAtlas() {
+  if (ATLAS) return ATLAS;
+  const W = 2048, rects = {}; let x = 0, y = 0, rowH = 0;
+  const list = SIGNS.slice().sort((a, b) => b[2] - a[2]);
+  for (const [k, w, h] of list) { if (x + w > W) { x = 0; y += rowH + 4; rowH = 0; } rects[k] = { x, y, w, h }; x += w + 4; rowH = Math.max(rowH, h); }
+  const H = Math.ceil((y + rowH) / 64) * 64;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext && c.getContext('2d');
+  if (g && g.fillText) for (const [k, , , draw] of SIGNS) {
+    const r = rects[k]; g.save(); g.translate(r.x, r.y); g.beginPath(); g.rect(0, 0, r.w, r.h); g.clip && g.clip();
+    try { draw(g, r.w, r.h); } catch (e) { console.warn('[atlas] ' + k, e); }
+    g.restore();
+  }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  ATLAS = { tex, rects, W, H };
+  return ATLAS;
+}
+// A SIGN: a quad facing `yaw` (its normal is (sin yaw, cos yaw)), `w` wide, as tall as its art says
+function obSign(key, x, y, z, yaw, w, o) {
+  const A = orbAtlas(), r = A.rects[key]; if (!r) return;
+  o = o || {};
+  const h = o.h || w * r.h / r.w, rx = Math.cos(yaw), rz = -Math.sin(yaw), nx = Math.sin(yaw) * 0.05, nz = Math.cos(yaw) * 0.05;
+  const u0 = r.x / A.W, u1 = (r.x + r.w) / A.W, v1 = 1 - r.y / A.H, v0 = 1 - (r.y + r.h) / A.H;
+  const p = (s, t) => [x + rx * s * w / 2 + nx, y + t * h / 2, z + rz * s * w / 2 + nz];
+  const S = OB.sign;
+  S.pos.push(...p(-1, -1), ...p(1, -1), ...p(1, 1), ...p(-1, -1), ...p(1, 1), ...p(-1, 1));
+  S.uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
+}
+// A DECAL lying on the floor (or on a slope `pitch` radians up), its top edge pointing along `yaw`
+function obDecal(key, x, y, z, yaw, w, pitch) {
+  const A = orbAtlas(), r = A.rects[key]; if (!r) return;
+  const h = w * r.h / r.w, fx = Math.sin(yaw), fz = Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw);
+  const cp = Math.cos(pitch || 0), sp = Math.sin(pitch || 0);
+  // the art's +X runs along the yaw (so a chevron points the way she should go); its +Y runs to her left
+  const u0 = r.x / A.W, u1 = (r.x + r.w) / A.W, v1 = 1 - r.y / A.H, v0 = 1 - (r.y + r.h) / A.H;
+  const p = (s, t) => [x + fx * cp * s * w / 2 - sx * t * h / 2, y + sp * s * w / 2 + 0.02, z + fz * cp * s * w / 2 - sz * t * h / 2];
+  const S = OB.sign;
+  S.pos.push(...p(-1, -1), ...p(1, -1), ...p(1, 1), ...p(-1, -1), ...p(1, 1), ...p(-1, 1));
+  S.uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
+}
+// a sign wrapped round a cylinder -- the mural on Nimbus
+function obWrap(key, cx, cz, r, a0, a1, y0, y1, seg) {
+  const A = orbAtlas(), R = A.rects[key]; if (!R) return;
+  const u0 = R.x / A.W, u1 = (R.x + R.w) / A.W, v1 = 1 - R.y / A.H, v0 = 1 - (R.y + R.h) / A.H, S = OB.sign;
+  for (let s = 0; s < seg; s++) {
+    // seen from OUTSIDE, a growing angle runs to the viewer's LEFT -- so the art runs the other way round
+    const ta = a0 + (a1 - a0) * s / seg, tb = a0 + (a1 - a0) * (s + 1) / seg, ua = u1 - (u1 - u0) * s / seg, ub = u1 - (u1 - u0) * (s + 1) / seg;
+    const A1 = [cx + Math.cos(ta) * r, y0, cz + Math.sin(ta) * r], B1 = [cx + Math.cos(tb) * r, y0, cz + Math.sin(tb) * r];
+    const C1 = [B1[0], y1, B1[2]], D1 = [A1[0], y1, A1[2]];
+    S.pos.push(...A1, ...B1, ...C1, ...A1, ...C1, ...D1);
+    S.uv.push(ua, v0, ub, v0, ub, v1, ua, v0, ub, v1, ua, v1);
+  }
+}
+
+// a lane with no deck of its own (on a roof, an island): registration and its chevrons
+function orbLane(a, b, hw, spec, every) {
+  const n = Math.max(1, Math.round(a.distanceTo(b) / 2)), pts = [];
+  for (let i = 0; i <= n; i++) pts.push(a.clone().lerp(b, i / n));
+  ORB.lanes.push({ pts, hw, v: spec.v, acc: spec.acc, name: 'lane' });
+  const yaw = Math.atan2(b.x - a.x, b.z - a.z), L = a.distanceTo(b);
+  for (let d = 2; d < L - 1; d += every || 4.5) { const q = a.clone().lerp(b, d / L); obDecal('chevron', q.x, q.y + 0.03, q.z, yaw, Math.min(2 * hw - 0.6, 3)); }
+}
+// a ring of boxes standing in for a cylinder -- the city's walls are oriented boxes, and a round tower is
+// twenty-four of them round a circle, with no lids (the floor on top is its own disc)
+function cylSolid(cx, cz, r, y0, y1, n, tag) {
+  const t = 1.2, hl = r * Math.tan(Math.PI / n) + 0.15;
+  for (let k = 0; k < n; k++) {
+    const a = (k + 0.5) / n * Math.PI * 2, rr = r - t / 2;
+    solidAdd(cx + Math.cos(a) * rr, cz + Math.sin(a) * rr, hl, t / 2, y0, y1, Math.atan2(-Math.cos(a), -Math.sin(a)), { top: false, tag });
+  }
+}
+function obIsland(I, o) {
+  o = o || {};
+  const B = OB.lit, G = OB.glow, r = I.r, y = I.y;
+  obRev(B, I.x, I.z, [{ u: r, y, c: 0xd8c7a6 }, { u: r - 1.1, y, c: (s) => (s & 1 ? 0x76c25a : 0x6cb853) }, { u: r * 0.55, y, c: (s) => (s & 1 ? 0x7fcb62 : 0x74c05b) }, { u: 0, y }], 32, 1, true);
+  const rock = (s, i) => [0x8d7c93, 0x9a8a80, 0x7f7088, 0xa08f86][(s + i) & 3];
+  const jag = k => 1 + 0.12 * Math.sin(k * 3.1 + I.x);
+  obRev(B, I.x, I.z, [{ u: r, y, c: 0xc9b896 }, { u: r, y: y - 1.2, c: rock }, { u: r * 0.86 * jag(1), y: y - 3.2, c: rock }, { u: r * 0.62 * jag(2), y: y - 6.5, c: rock },
+    { u: r * 0.36 * jag(3), y: y - 10, c: rock }, { u: r * 0.14, y: y - 13.5, c: rock }, { u: 0, y: y - 15.5 }], 20, 0, false);
+  for (let k = 0; k < 7; k++) {   // glowing crystals hanging under it
+    const a = orand() * Math.PI * 2, d = r * (0.3 + orand() * 0.4), h = 1.5 + orand() * 2.5;
+    obGeo(G, new THREE.ConeGeometry(0.35 + orand() * 0.3, h, 5), obM(I.x + Math.cos(a) * d, y - 4 - orand() * 5, I.z + Math.sin(a) * d, orand() * 3, 1, 1, 1, Math.PI), opick([0x8a6bff, 0x4fe8ff, 0xff6fd8]));
+  }
+  for (let k = 0; k < 18; k++) {   // tufts and flowers, scenery
+    const a = orand() * Math.PI * 2, d = (r - 1.5) * Math.sqrt(orand());
+    if (o.clear && o.clear(I.x + Math.cos(a) * d, I.z + Math.sin(a) * d)) continue;
+    obGeo(B, new THREE.IcosahedronGeometry(0.25 + orand() * 0.3, 0), obM(I.x + Math.cos(a) * d, y + 0.12, I.z + Math.sin(a) * d, orand() * 3, 1, 0.6, 1), opick([0x4f9a3f, 0xff7fc8, 0xffd23f, 0x9b5cff, 0x63b04a]));
+  }
+  if (o.fall != null) obFall(I.x + Math.cos(o.fall) * (r + 0.1), y - 0.4, I.z + Math.sin(o.fall) * (r + 0.1), o.fall, 4, 30, 0xbff0ff);
+}
+// A FALLING SHEET OF WATER (or slime): a curtain whose texture scrolls down and whose alpha fades to nothing
+// at the bottom -- `face` is the bearing it leans out toward, in the (cos, sin) sense of the revolves
+function obFall(x, y, z, face, w, h, hex) {
+  const F = OB.fall, tx = -Math.sin(face), tz = Math.cos(face), nx = Math.cos(face), nz = Math.sin(face);
+  _oc.setHex(hex).convertSRGBToLinear();
+  const rows = 6;
+  for (let i = 0; i < rows; i++) {
+    const t0 = i / rows, t1 = (i + 1) / rows, ya = y - h * t0, yb = y - h * t1, oa = 0.8 * Math.sqrt(t0) * Math.min(1, h / 6), ob = 0.8 * Math.sqrt(t1) * Math.min(1, h / 6);
+    const a0 = 0.9 * (1 - t0 * t0), a1 = 0.9 * (1 - t1 * t1);
+    const P = (s, yy, oo) => [x + tx * s * w / 2 + nx * oo, yy, z + tz * s * w / 2 + nz * oo];
+    const q = [P(-1, ya, oa), P(1, ya, oa), P(1, yb, ob), P(-1, yb, ob)], al = [a0, a0, a1, a1], uv = [[0, t0 * h / 4], [w / 4, t0 * h / 4], [w / 4, t1 * h / 4], [0, t1 * h / 4]];
+    for (const k of [0, 1, 2, 0, 2, 3]) { F.pos.push(...q[k]); F.uv.push(uv[k][0], uv[k][1]); F.col.push(_oc.r, _oc.g, _oc.b, al[k]); }
+  }
+}
+// a slime pipe out of a wall, over the water, pouring into it
+function obPipe(x, z, dir, y) {
+  const G = OB.glow, B = OB.lit, out = 1.8;
+  obGeo(G, new THREE.CylinderGeometry(0.5, 0.5, out, 10).rotateX(Math.PI / 2), obM(x, y, z + dir * out / 2), 0x8dff3a);
+  obGeo(B, new THREE.TorusGeometry(0.56, 0.1, 6, 12), obM(x, y, z + dir * 0.25), 0x3a5f3a);
+  obGeo(G, new THREE.SphereGeometry(0.55, 10, 6), obM(x, y, z + dir * out), 0x9cff4a);
+  obGeo(G, new THREE.CylinderGeometry(0.46, 0.5, 0.7, 10), obM(x, y - 0.4, z + dir * out), 0x8dff3a);
+  obFall(x, y - 0.75, z + dir * (out + 0.05), dir > 0 ? Math.PI / 2 : -Math.PI / 2, 0.85, y - 0.75 - ORB.canal.y + 0.1, 0xa8ff5a);
+  obGeo(G, new THREE.TorusGeometry(0.8, 0.12, 4, 14).rotateX(Math.PI / 2), obM(x, ORB.canal.y + 0.04, z + dir * (out + 0.05)), 0xd8ffb0);
+}
+function buildOrbital() {
+  if (!ORB.on) return;
+  _oseed = 4242;
+  const B = OB.lit, G = OB.glow, nq = ORB.nq, sq = ORB.sq, cn = ORB.canal, V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const hi = AIR.jump * AIR.jump / (2 * SK.g) * CITY.railK;
+  // ===== THE CANAL QUARTER ===========================================================================
+  obSlab(nq.x0, nq.x1, nq.z0, nq.z1, 0, nq.y, { tag: 'quay', moss: cn.y, mossSide: -1 });
+  obSlab(sq.x0, sq.x1, sq.z0, sq.z1, 0, sq.y, { tag: 'quay', moss: cn.y, mossSide: 1 });
+  obSlab(cn.x0 - 4, cn.x0, cn.z0, cn.z1, 0, nq.y, { tag: 'quay' });
+  obSlab(cn.x1, cn.x1 + 4, cn.z0, cn.z1, 0, nq.y, { tag: 'quay' });
+  ORB.water.push({ x0: cn.x0, x1: cn.x1, z0: cn.z0, z1: cn.z1, y: cn.y, col: 0x2fe3b4, col2: 0x9dffd8, splash: true });
+  // the grand stairs up from the gate, a bank beside them, and the curved launch onto the quay
+  obStairs(0, -104, Math.PI, 8, 0, nq.y, 16, { rails: [-8.25, 0, 8.25], name: 'grand stairs' });
+  obExtrude(B, -30, -106, Math.PI, 6, [{ u: 0, y: 0, c: RAMP }, { u: 14, y: nq.y, c: COPE }]);
+  { const r = 5.4, sw = 75 * Math.PI / 180, lip = r * Math.sin(sw), p = [{ u: 0, y: 0, c: RAMP }];
+    for (let i = 1; i <= 14; i++) { const a = sw * i / 14; p.push({ u: r * Math.sin(a), y: r * (1 - Math.cos(a)), c: i > 12 ? COPE : RAMP }); }
+    obExtrude(B, 36, nq.z1 + lip, Math.PI, 7, p); }
+  // THE BRIDGES: a humped deck from quay edge to quay edge, an arch under it, orange rails down both edges
+  for (const br of ORB.bridges) {
+    const L = cn.z1 - cn.z0, prof = [], N = 18, dk = u => nq.y + br.rise * Math.sin(Math.PI * clamp(u / L, 0, 1));
+    for (let i = 0; i <= N; i++) prof.push({ u: i / N * L, y: dk(i / N * L), c: (i % 3) ? 0xdccdb6 : 0xd2c2aa });
+    obExtrude(B, br.x, cn.z1, Math.PI, br.hw, prof, { skirt: false });
+    const archTop = nq.y - 0.9, sp = 1.1;
+    const ya = u => (u <= sp || u >= L - sp) ? 0 : 0.6 + (archTop - 0.6) * Math.sqrt(Math.max(0, 1 - ((u - L / 2) / (L / 2 - sp)) ** 2));
+    for (let i = 0; i < N; i++) {
+      const u0 = i / N * L, u1 = (i + 1) / N * L;
+      for (const sg of [-1, 1]) {
+        const x = br.x - sg * br.hw;   // yaw pi: +w is -x
+        obQuad(B, [x, ya(u0), cn.z1 - u0], [x, ya(u1), cn.z1 - u1], [x, dk(u1), cn.z1 - u1], [x, dk(u0), cn.z1 - u0], [-sg, 0, 0], sg > 0 ? 0xcdbfa8 : 0xc3b59e);
+      }
+      if (u0 >= sp && u1 <= L - sp) obQuad(B, [br.x - br.hw, ya(u0), cn.z1 - u0], [br.x + br.hw, ya(u0), cn.z1 - u0], [br.x + br.hw, ya(u1), cn.z1 - u1], [br.x - br.hw, ya(u1), cn.z1 - u1], DNN, 0x8f8478);
+    }
+    for (const w of [br.hw - 0.2, -br.hw + 0.2]) {
+      const pts = []; for (let u = -1.6; u <= L + 1.61; u += 1.6) pts.push(V(br.x + w, dk(u) + 1.1, cn.z1 - u));
+      ORB.rails.push({ pts, o: { name: 'bridge rail' }, d: { mat: 'orange', every: 3.2, postMax: 2 } });
+    }
+    obLamp(br.x - br.hw - 0.6, cn.z1 + 1.2, nq.y); obLamp(br.x + br.hw + 0.6, cn.z0 - 1.2, sq.y);
+    obSign('tag', br.x - br.hw - 0.08, nq.y + 0.25, cn.z1 - L / 2, -Math.PI / 2, Math.min(5, L - 4));
+  }
+  // the gate over the middle bridge: ORBITAL COMMONS, facing the city as you come in
+  { const x = ORB.bridges[1].hw + 0.9, z = nq.z0 + 1.6, top = nq.y + 9.5;
+    for (const sx of [-1, 1]) { solidAdd(sx * x, z, 0.45, 0.45, nq.y, top, 0, { tag: 'gate' }); obBox(B, sx * x - 0.45, sx * x + 0.45, nq.y, top, z - 0.45, z + 0.45, 0xe9e0cf, 0xd8cdb8);
+      obGeo(G, new THREE.CylinderGeometry(0.16, 0.16, top - nq.y - 1, 6), obM(sx * (x - 0.5), (top + nq.y) / 2, z + 0.5), 0x3ff0e0); }
+    obBox(B, -x - 0.6, x + 0.6, top - 1.4, top, z - 0.35, z + 0.35, 0x2a2f4a, 0x3a3f5a);
+    obSign('commons', 0, top - 0.7, z + 0.37, 0, 8.6); obSign('flow', 0, top - 0.7, z - 0.37, Math.PI, 6.5); }
+  // canal-side rails along both quays, between the bridges
+  const spans = [[-128, -69.4], [-60.6, -6.6], [6.6, 60.6], [69.4, 128]];
+  for (const [xa, xb] of spans) for (const [z, y] of [[nq.z0 + 0.4, nq.y], [sq.z1 - 0.4, sq.y]])
+    ORB.rails.push({ pts: railLine(V(xa, y + 1.2, z), V(xb, y + 1.2, z), 2), o: { name: 'canal rail' }, d: { mat: 'orange', every: 3.2, postMax: 2 } });
+  for (let x = -120; x <= 120; x += 16) { if (Math.abs(x) > 12) obLamp(x, nq.z1 - 2.5, nq.y); if (Math.abs(x + 8 + 112) > 6 && Math.abs(x + 8 - 108) > 6) obLamp(x + 8, sq.z0 + 2.5, sq.y); }
+  for (const x of [-100, -35, 35, 100]) obPipe(x, sq.z1, 1, 3.2);
+  for (const x of [-82, 22, 92]) obPipe(x, nq.z0, -1, 3.2);
+  // THE SLIME PIPE BRIDGE: a fat glowing pipe arching over the canal, and its top is a booster rail
+  { const pts = []; for (let i = 0; i <= 22; i++) { const t = i / 22; pts.push(V(112, nq.y + 3.3 + 3.6 * Math.sin(Math.PI * t), nq.z1 - 6 - t * (nq.z1 - 6 - (sq.z0 + 6)))); }
+    const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q => q.clone().add(V(0, -0.42, 0)))), 44, 0.4, 10, false);
+    obGeo(G, tube, new THREE.Matrix4(), 0x8dff3a);
+    for (const q of [pts[0], pts[pts.length - 1]]) obGeo(B, new THREE.CylinderGeometry(0.3, 0.4, q.y - 0.8 - nq.y, 8), obM(q.x, (q.y - 0.8 + nq.y) / 2, q.z), 0x3a5f3a);
+    ORB.rails.push({ pts, o: { boost: 14, boostK: 3, name: 'slime pipe' }, d: { skip: true }, gems: 3 }); }
+  // the paintings' graffiti, on the quay walls
+  obSign('further', -55, 2.05, nq.z1, 0, 5); obSign('goodlines', 55, 2.05, nq.z1, 0, 5); obSign('cat', -84, 2.0, nq.z1, 0, 3.2);
+  obSign('alien', 86, 2.0, nq.z1, 0, 3.2); obSign('roll', -100, 2.0, nq.z1, 0, 2.2); obSign('smile', 100, 2.2, nq.z1, 0, 1.6);
+  obSign('push', 42, 2.75, nq.z0, Math.PI, 2.9); obSign('bunny', -42, 2.75, nq.z0, Math.PI, 2.0); obSign('tag', -98, 2.7, nq.z0, Math.PI, 5.5);
+  obSign('flow', 30, 2.8, sq.z1, 0, 5.4); obSign('sameplanet', -30, 2.75, sq.z1, 0, 2.6); obSign('tag', 96, 2.7, sq.z1, 0, 5.5);
+  obSign('further', -55, 2.05, sq.z0, Math.PI, 5); obSign('goodlines', 55, 2.05, sq.z0, Math.PI, 5); obSign('alien', -90, 2.0, sq.z0, Math.PI, 3);
+  for (const x of [-64, -24, 24, 64]) obBanner(x, sq.z0 + 1.2, sq.y, Math.PI, opick(['bannerA', 'bannerB', 'bannerC']));
+  // ===== NEXUS PLAZA ==================================================================================
+  obStairs(0, sq.z0 - 16, 0, 10, 0, sq.y, 16, { rails: [-10.25, 0, 10.25], name: 'plaza stairs' });
+  for (const sx of [-1, 1]) obExtrude(B, sx * 34, sq.z0 - 14, 0, 6, [{ u: 0, y: 0, c: RAMP }, { u: 14, y: sq.y, c: COPE }]);
+  // THE STATUE: a round plinth you can ride (a bank up its north side), the two figures, and the HALO
+  const st = ORB.statue, ha = ORB.halo;
+  cylSolid(st.x, st.z, st.r, 0, st.h, 20, 'plinth');
+  obDisk(null, st.x, st.h, st.z, st.r, 24, 0, true);
+  obGeo(B, new THREE.CylinderGeometry(st.r, st.r, st.h, 28, 1, true), obM(st.x, st.h / 2, st.z), (t, i) => ((i / 6) & 1 ? 0xe2d9c8 : 0xd5cbb8));
+  obRev(B, st.x, st.z, [{ u: st.r, y: st.h + 0.01, c: 0xf0e8da }, { u: st.r - 0.8, y: st.h + 0.01, c: 0xc9bfd8 }, { u: 3, y: st.h + 0.01, c: 0xd6cde4 }, { u: 0, y: st.h + 0.01 }], 28, 1, false);
+  obExtrude(B, st.x, st.z + st.r + 7, Math.PI, 3, [{ u: 0, y: 0, c: RAMP }, { u: 7, y: st.h, c: COPE }]);
+  obSign('sol', st.x, st.h / 2, st.z - st.r - 0.06, Math.PI, 5.5);
+  solidAdd(st.x, st.z, 1.9, 1.9, st.h, st.h + 14, 0, { tag: 'statue', top: false });
+  { const lp = [[0, 0], [1.0, 0], [1.15, 1.5], [0.75, 4.2], [1.05, 6.6], [1.35, 8.6], [0.55, 9.8], [0.72, 10.8], [0.58, 11.7], [0, 12.0]].map(([r, y]) => new THREE.Vector2(r, y));
+    const body = new THREE.LatheGeometry(lp, 12), silver = (t, i) => ((i / 3) % 3 === 0 ? 0xf2f4f8 : (i / 3) % 3 === 1 ? 0xe0e4ec : 0xd2d8e2);
+    for (const sx of [-1, 1]) {
+      obGeo(B, body, obM(st.x + sx * 0.75, st.h, st.z, sx * 0.4, 1, 1, 1, 0, -sx * 0.1), silver);
+      for (const ay of [0.6, -0.6]) obGeo(B, new THREE.CapsuleGeometry(0.24, 4.2, 3, 6), obM(st.x + sx * 2.4, st.h + 10.8, st.z + ay * 1.6, 0, 1, 1, 1, ay * 0.4, -sx * 0.85), silver);
+    }
+    obGeo(G, new THREE.TorusGeometry(ha.r, 0.2, 6, 72).rotateX(-Math.PI / 2 - ha.tilt), obM(st.x, ha.y - 0.22, st.z), 0x7ff8ff);
+    const pts = []; for (let k = 0; k <= 64; k++) { const t = k / 64 * Math.PI * 2;
+      pts.push(V(st.x + ha.r * Math.cos(t), ha.y + ha.r * Math.sin(t) * Math.sin(ha.tilt), st.z + ha.r * Math.sin(t) * Math.cos(ha.tilt))); }
+    ORB.rails.push({ pts, o: { boost: ha.boost, boostK: 3, name: 'halo' }, d: { skip: true }, closed: true, gems: 8 }); }
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.3; obBanner(st.x + Math.cos(a) * 13, st.z + Math.sin(a) * 13, 0, -a + Math.PI / 2, ['bannerA', 'bannerB', 'bannerC'][k % 3]); }
+  // the bowls, raised, with the alien painted on the floor
+  ORB.bowls = [obBowl(-42, -212, 8, 3.0, 80 * Math.PI / 180, 5, 'bowlart'), obBowl(44, -258, 9, 3.2, 80 * Math.PI / 180, 5, 'bowlart')];
+  ORB.bowls[0].x = -42; ORB.bowls[0].z = -212; ORB.bowls[1].x = 44; ORB.bowls[1].z = -258;
+  // the fountain terrace: a slab with water falling off its face into a shallow pool, and SOL TOGETHER
+  obSlab(-30, 30, -282, -270, 0, 3, { tag: 'fountain', wall: 0xd9d2e4, trim: 0xf2eefa, deckA: 0xd6cde4, deckB: 0xcfc5df });
+  for (const x of [-21, -11, 11, 21]) obFall(x, 3.0, -269.9, Math.PI / 2, 4.2, 2.6, 0xbfe8ff);
+  obSign('sol', 0, 1.9, -270, 0, 9);
+  ORB.water.push({ x0: -28, x1: 28, z0: -270, z1: -262, y: 0.42, col: 0x58c8ff, col2: 0xd8f6ff, splash: false });
+  for (const [x0, x1, z0, z1] of [[-28.3, 28.3, -262.3, -262], [-28.3, -28, -270, -262], [28, 28.3, -270, -262]]) obBox(B, x0, x1, 0, 0.45, z0, z1, 0xe9e2f2, 0xf4f0fa);
+  for (const sx of [-1, 1]) obExtrude(B, sx * 42, -276, sx > 0 ? -Math.PI / 2 : Math.PI / 2, 5, [{ u: 0, y: 0, c: RAMP }, { u: 12, y: 3, c: COPE }]);
+  for (const x of [-24, -8, 8, 24]) obPlanter(x, -279, 4, 1.6, 3);
+  // NEXUS HALL, behind it
+  obBlock(-40, 40, -318, -298, 14, { tag: 'nexus hall', shop: ['n'], col: 0xe6dcef, trim: 0xfaf6ff, vines: true, clutter: 5, lit: 0.45 });
+  obSign('nexus', 0, 10.6, -298, 0, 13); obSign('humans', -27, 7.4, -298, 0, 2.9); obSign('curiosity', 27, 7.4, -298, 0, 2.9);
+  // mushrooms -- trampolines -- and palms, planters, lamps
+  for (const [x, z, y, R, c] of [[-20, -200, 7, 4, 0xff5fb0], [24, -205, 8.5, 4.5, 0xb06bff], [-60, -245, 9, 4.5, 0x4fe0d0],
+    [56, -226, 7.6, 3.6, 0xff8fd0], [-30, -252, 8, 4, 0xb06bff], [-48, -178, 6.2, 3.4, 0x4fe0d0]]) obShroom(x, z, y, R, c);
+  for (const [x, z, t] of [[-70, -190, 0], [-66, -215, 1], [-36, -293, 1], [38, -290, 0], [70, -205, 1], [66, -282, 0], [14, -190, 1],
+    [-14, -190, 0], [74, -245, 1], [-8, -250, 0], [10, -222, 1], [-80, -275, 0]]) obPalm(x, z, 0, 7 + orand() * 3, t);
+  for (const [x, z, w, d] of [[-30, -232, 4, 2], [30, -232, 4, 2], [-18, -215, 4, 1.6], [18, -215, 4, 1.6], [-56, -230, 2, 5], [56, -244, 2, 5]]) obPlanter(x, z, w, d);
+  for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; obLamp(st.x + Math.cos(a) * 24, st.z + Math.sin(a) * 24 * 0.9, 0); }
+  // A VERTICAL LOOP, booster, in the plaza's south-west corner
+  { const lp = [], ups = [], LR = 6, LN = 44, x = -50, y = hi;
+    for (let z = -298; z < -284.9; z += 1.5) { lp.push(V(x, y, z)); ups.push(V(0, 1, 0)); }
+    for (let i = 0; i <= LN; i++) { const ph = i / LN * Math.PI * 2; lp.push(V(x + 2.5 * i / LN, y + LR - LR * Math.cos(ph), -284 + LR * Math.sin(ph))); ups.push(V(0, Math.cos(ph), -Math.sin(ph))); }
+    for (let z = -282.5; z <= -268; z += 1.5) { lp.push(V(x + 2.5, y, z)); ups.push(V(0, 1, 0)); }
+    ORB.rails.push({ pts: lp, o: { boost: 16, boostK: 12, ups, name: 'plaza loop' }, d: { mat: 'boost' }, gemsLoop: true }); }
+  // ===== THE ROOFTOP RUN ==============================================================================
+  const R = ORB.roofs, cols = [0xe8c9b0, 0xc9d8e6, 0xe2d0ee, 0xd6e8d2];
+  R.forEach((r, i) => obBlock(r.x0, r.x1, r.z0, r.z1, r.h, { tag: 'roof' + (i + 1), shop: ['e', 'n'], col: cols[i], vines: true, lit: 0.38 }));
+  obRibbon([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => V(-112, 4.02 + (R[0].h - 4.02) * i / 11, sq.z1 - 1 - (sq.z1 - 1 - R[0].z1) * i / 11)), 4, { name: 'skyway', lane: { v: ORB.laneRoof.v, acc: ORB.laneRoof.acc, every: 4 } });
+  orbLane(V(-112, R[0].h, R[0].z1 - 3), V(-112, R[0].h, R[0].z0 + 4), 4, ORB.laneRoof);
+  obKicker(B, -112, R[0].z0 + 1.5, Math.PI, 4, 4, 22 * Math.PI / 180, R[0].h);
+  orbLane(V(-112, R[1].h, R[1].z1 - 3), V(-112, R[1].h, R[1].z0 + 4), 4, ORB.laneRoof);
+  obKicker(B, -112, R[1].z0 + 1.5, Math.PI, 4, 4, 22 * Math.PI / 180, R[1].h);
+  orbLane(V(R[2].x0 + 3, R[2].h, -250), V(R[2].x1 - 4, R[2].h, -250), 4, { v: 12, acc: 10 });
+  obKicker(B, R[2].x1 - 1.5, -250, Math.PI / 2, 4, 4, 22 * Math.PI / 180, R[2].h);
+  for (const [x, z, h] of [[-112, -199, R[0].h + 4.5], [-112, -233, R[1].h + 4.5], [-96, -250, R[2].h + 4.5]]) gem(x, h, z);
+  obSign('humans', R[0].x1 + 0.06, 5.5, -182, Math.PI / 2, 2.6); obSign('nimbus', R[1].x1 + 0.06, 6.0, -216, Math.PI / 2, 2.9);
+  obSign('saturn', R[2].x1 + 0.06, 9.5, -244, Math.PI / 2, 3.2); obSign('curiosity', R[2].x1 + 0.06, 6.2, -258, Math.PI / 2, 2.4);
+  { const x = R[3].x0 + 3.5, z = (R[3].z0 + R[3].z1) / 2, y = R[3].h;
+    for (const dz of [-3.2, 3.2]) obGeo(B, new THREE.CylinderGeometry(0.1, 0.1, 4.2, 6), obM(x, y + 2.1, z + dz), 0x3a3550);
+    obSign('nextstop', x + 0.12, y + 3.6, z, Math.PI / 2, 7); obSign('nextstop', x - 0.12, y + 3.6, z, -Math.PI / 2, 7); }
+  // ===== THE MARKET, and the skyway onto its roof ======================================================
+  obBlock(85, 130, -205, -172, 9, { tag: 'market', shop: ['w', 'n', 's'], col: 0xd7e8e6, trim: 0xf4fbfa, vines: true, lit: 0.4 });
+  obSign('market', 84.94, 7.0, -188, -Math.PI / 2, 9.5); obSign('blades', 116, 7.0, -171.94, 0, 7); obSign('ramen', 95, 4.6, -171.94, 0, 1.7);
+  obRibbon([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(i => V(108, 4.02 + (9 - 4.02) * i / 12, sq.z1 - 1 - (sq.z1 - 1 + 172) * i / 12)), 4, { name: 'market skyway', lane: { v: ORB.laneRoof.v, acc: ORB.laneRoof.acc, every: 4 } });
+  // ===== NIMBUS: the mural tower and its helix ========================================================
+  const T = ORB.tower;
+  cylSolid(T.x, T.z, T.r, 0, T.h, 28, 'nimbus');
+  obGeo(B, new THREE.CylinderGeometry(T.r, T.r, T.h, 36, 1, true), obM(T.x, T.h / 2, T.z), (t, i) => ((i / 6) & 1 ? 0xeee4d2 : 0xe4d9c5));
+  for (let y = 6; y < T.h; y += 6) obGeo(G, new THREE.CylinderGeometry(T.r + 0.08, T.r + 0.08, 0.35, 36, 1, true), obM(T.x, y, T.z), 0x3ff0e0);
+  obWrap('mural', T.x, T.z, T.r + 0.1, Math.PI - 0.85, Math.PI + 0.85, 4, 33, 18);
+  obDisk(B, T.x, T.h, T.z, T.r, 36, 0xc9bfe0, true);
+  obGeo(G, new THREE.TorusGeometry(T.r - 0.3, 0.12, 4, 48).rotateX(Math.PI / 2), obM(T.x, T.h + 0.05, T.z), 0xff4fb8);
+  obGeo(B, new THREE.CylinderGeometry(0.25, 0.4, 7, 6), obM(T.x, T.h + 3.5, T.z), 0xd8d0e8);
+  obGeo(G, new THREE.IcosahedronGeometry(0.6, 0), obM(T.x, T.h + 7.2, T.z), 0xff4fb8);
+  { const rc = T.r + T.lane / 2, a0 = Math.PI, aEnd = a0 + T.turns * Math.PI * 2, aRise = aEnd - Math.PI / 2, pts = [];
+    const da = 1.5 / rc;
+    for (let a = a0; a <= aEnd + 1e-6; a += da) pts.push(V(T.x + rc * Math.cos(a), 0.02 + (T.h - 0.02) * clamp((a - a0) / (aRise - a0), 0, 1), T.z + rc * Math.sin(a)));
+    obRibbon(pts, T.lane / 2, { wall: -1, wallH: 1.05, rail: { boost: 15, boostK: 2.5 }, lane: { v: ORB.laneHelix.v, acc: ORB.laneHelix.acc, every: 7 }, name: 'nimbus helix', tag: 'helix wall', col: 0xd9d0ea, edge: 0xff4fb8 });
+    const e = pts[pts.length - 1], f = pts[pts.length - 2], yaw = Math.atan2(e.x - f.x, e.z - f.z);
+    solidAdd(e.x, e.z, T.lane / 2, 0.3, T.h - 0.5, T.h + 1.2, Math.atan2(-(e.z - f.z), e.x - f.x) + Math.PI / 2, { tag: 'helix end', top: false });
+    obGeo(B, new THREE.BoxGeometry(T.lane, 1.2, 0.6), obM(e.x, T.h + 0.6, e.z, yaw), 0xece4f6);
+    ORB.helix = { pts }; }
+  // the connector: off the Market roof's south edge onto the helix
+  { const a = Math.PI / 2 + Math.PI * 2, rc = T.r + T.lane / 2, aRise = Math.PI + T.turns * Math.PI * 2 - Math.PI / 2, yh = T.h * (a - Math.PI) / (aRise - Math.PI);
+    ORB.rails.push({ pts: railLine(V(100, 9 + hi, -203), V(100, yh + 1.6, T.z + rc - 0.5), 2), o: { name: 'market rail' }, d: { mat: 'orange', posts: false } }); }
+  // ===== THE MONORAIL =================================================================================
+  const M = ORB.mono, mp = [];
+  { const seg = (x0, z0, x1, z1) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(L / 2)); for (let i = 0; i < n; i++) mp.push(V(x0 + (x1 - x0) * i / n, M.y, z0 + (z1 - z0) * i / n)); };
+    const arc = (cx, cz, a0) => { const n = Math.round(M.cr * Math.PI / 2 / 2); for (let i = 0; i < n; i++) { const a = a0 + i / n * Math.PI / 2; mp.push(V(cx + M.cr * Math.cos(a), M.y, cz + M.cr * Math.sin(a))); } };
+    const x0 = M.cx - M.hx, x1 = M.cx + M.hx, z0 = M.cz - M.hz, z1 = M.cz + M.hz, c = M.cr;
+    seg(x0 + c, z0, x1 - c, z0); arc(x1 - c, z0 + c, -Math.PI / 2); seg(x1, z0 + c, x1, z1 - c); arc(x1 - c, z1 - c, 0);
+    seg(x1 - c, z1, x0 + c, z1); arc(x0 + c, z1 - c, Math.PI / 2); seg(x0, z1 - c, x0, z0 + c); arc(x0 + c, z0 + c, Math.PI);
+    mp.push(mp[0].clone()); }
+  M.pts = mp;
+  { const n = mp.length;
+    for (let i = 0; i < n - 1; i++) {
+      const a = mp[i], b = mp[i + 1], dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, sx = -dz / l * 0.65, sz = dx / l * 0.65;
+      const A = [a.x + sx, M.y, a.z + sz], Bq = [b.x + sx, M.y, b.z + sz], C = [b.x - sx, M.y, b.z - sz], D = [a.x - sx, M.y, a.z - sz];
+      obQuad(B, A, Bq, C, D, UPN, (i & 1) ? 0x7c8190 : 0x868b9a);
+      obQuad(B, A, Bq, [Bq[0], M.y - 0.95, Bq[2]], [A[0], M.y - 0.95, A[2]], [sx, 0, sz], 0xf2eef8);
+      obQuad(B, D, C, [C[0], M.y - 0.95, C[2]], [D[0], M.y - 0.95, D[2]], [-sx, 0, -sz], 0xe6e0ee);
+      obQuad(B, [A[0], M.y - 0.95, A[2]], [Bq[0], M.y - 0.95, Bq[2]], [C[0], M.y - 0.95, C[2]], [D[0], M.y - 0.95, D[2]], DNN, 0xb8b2c8);
+      obQuad(G, [A[0], M.y - 0.35, A[2]], [Bq[0], M.y - 0.35, Bq[2]], [Bq[0], M.y - 0.2, Bq[2]], [A[0], M.y - 0.2, A[2]], [sx, 0, sz], 0x3ff0e0);
+      obQuad(G, [D[0], M.y - 0.35, D[2]], [C[0], M.y - 0.35, C[2]], [C[0], M.y - 0.2, C[2]], [D[0], M.y - 0.2, D[2]], [-sx, 0, -sz], 0xff4fb8);
+    }
+    // the pylons, avoiding everything worth riding under them
+    const keep = (x, z) => ![[-42, -212, 16], [44, -258, 17], [st.x, st.z, 12], [-49, -284, 9]].some(([cx, cz, r]) => Math.hypot(x - cx, z - cz) < r)
+      && !ORB.shrooms.some(s => Math.hypot(x - s.x, z - s.z) < s.R + 2.5) && !(Math.abs(x) < 31 && z < -261 && z > -284);
+    for (let i = 0; i < n - 1; i += 12) {
+      const q = mp[i]; if (!keep(q.x, q.z)) continue;
+      solidAdd(q.x, q.z, 0.55, 0.55, 0, M.y - 1, 0, { tag: 'pylon', top: false });
+      obGeo(B, new THREE.CylinderGeometry(0.45, 0.7, M.y - 1, 8), obM(q.x, (M.y - 1) / 2, q.z), 0xe6e0ee);
+      obGeo(B, new THREE.BoxGeometry(1.6, 0.5, 1.6), obM(q.x, M.y - 1.15, q.z), 0xd0c8de);
+    }
+    ORB.rails.push({ pts: mp, o: { boost: M.boost, boostK: 1.5, name: 'monorail' }, d: { skip: true }, closed: true, mono: true, gems: 14 }); }
+  // ===== THE SKY ======================================================================================
+  const [I1, I2, I3] = ORB.isl, d12 = V(I2.x - I1.x, 0, I2.z - I1.z).normalize(), sp = V(I2.x, 0, I2.z).addScaledVector(V(d12.z, 0, -d12.x), 6);
+  ORB.spire = { x: sp.x, z: sp.z, r: 7.5 };
+  obIsland(I1, { fall: Math.atan2(I1.z - T.z, I1.x - T.x) + 1.2, clear: (x, z) => Math.abs((x - I1.x) * d12.z - (z - I1.z) * d12.x) < 5 });
+  obIsland(I2, { fall: Math.atan2(I2.z - I1.z, I2.x - I1.x) + 1.9 });
+  obIsland(I3, { fall: -Math.PI / 2 });
+  // I1: a runway along the line to I2, and a kicker at the end of it
+  { const a = V(I1.x, I1.y, I1.z).addScaledVector(d12, -9), b = V(I1.x, I1.y, I1.z).addScaledVector(d12, 5.5);
+    orbLane(a, b, 3.2, ORB.laneRun, 3.5);
+    const k = V(I1.x, 0, I1.z).addScaledVector(d12, 6);
+    ORB.kick12 = obKicker(B, k.x, k.z, Math.atan2(d12.x, d12.z), 3, 3.6, 30 * Math.PI / 180, I1.y, 0xffc93c); }
+  obShroom(I1.x - d12.z * 6.5 + d12.x * -3, I1.z + d12.x * 6.5 + d12.z * -3, I1.y + 3.2, 2.4, 0xff5fb0);
+  obPalm(I1.x + d12.z * 7, I1.z - d12.x * 7, I1.y, 6, 1);
+  // I2: the crystal spire
+  solidAdd(sp.x, sp.z, 1.9, 1.9, I2.y, I2.y + 30, 0, { tag: 'spire', top: false });
+  obGeo(G, new THREE.CylinderGeometry(1.6, 2.6, 26, 6), obM(sp.x, I2.y + 13, sp.z), (t, i) => (i % 4 < 2 ? 0x8a6bff : 0x5fe8ff));
+  obGeo(G, new THREE.ConeGeometry(1.6, 6, 6), obM(sp.x, I2.y + 29, sp.z), 0xffffff);
+  for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; obGeo(G, new THREE.ConeGeometry(0.7, 5 + k, 5), obM(sp.x + Math.cos(a) * 2.4, I2.y + 2, sp.z + Math.sin(a) * 2.4, 0, 1, 1, 1, Math.cos(a) * 0.4, -Math.sin(a) * 0.4), k & 1 ? 0xff6fd8 : 0x8a6bff); }
+  obPalm(I2.x - d12.z * 7, I2.z + d12.x * 7, I2.y, 6.5, 0);
+  // I3: THE PEAK
+  ORB.peak = { x: I3.x, y: I3.y, z: I3.z, r: 6 };
+  obSign('peak', I3.x, I3.y + 3.2, I3.z - I3.r + 1.2, 0, 5.5); obSign('peak', I3.x, I3.y + 3.2, I3.z - I3.r + 1.1, Math.PI, 5.5);
+  for (const dx of [-2.4, 2.4]) obGeo(B, new THREE.CylinderGeometry(0.1, 0.1, 4.6, 6), obM(I3.x + dx, I3.y + 2.3, I3.z - I3.r + 1.15), 0x3a3550);
+  for (const a of [0.6, 2.2, 3.8]) obPalm(I3.x + Math.cos(a) * 6.5, I3.z + Math.sin(a) * 6.5, I3.y, 5.5, a > 3);
+  // the rails of the climb: off Nimbus's roof to I1, and the spiral round the spire to the PEAK
+  { const dT = V(I1.x - T.x, 0, I1.z - T.z).normalize(), a = V(T.x, T.h + hi, T.z).addScaledVector(dT, 2), b = a.clone().addScaledVector(dT, 10),
+      c = V(I1.x, I1.y + 1.0, I1.z).addScaledVector(dT, -6), pts = railLine(a, b, 2); pts.pop(); pts.push(...railLine(b, c, 2));
+    ORB.rails.push({ pts, o: { boost: 15, boostK: 3, name: 'sky rail' }, d: { mat: 'boost', posts: false }, gems: 5 }); }
+  { const S = ORB.spire, px = d12.z, pz = -d12.x, as = Math.atan2(-pz, -px), y0 = I2.y + hi, y1 = I3.y + 3.5, D3 = V(I3.x, 0, I3.z);
+    let best = null;
+    for (const sg of [1, -1]) {
+      const ae = as + sg * Math.PI * 3, E = V(S.x + S.r * Math.cos(ae), y1, S.z + S.r * Math.sin(ae)), Tn = V(-Math.sin(ae) * sg, 0, Math.cos(ae) * sg);
+      const k = Tn.dot(D3.clone().sub(E).setY(0).normalize()); if (!best || k > best.k) best = { sg, ae, E, Tn, k }; }
+    const pts = [], n = Math.round(S.r * Math.PI * 3 / 1.4);
+    for (let i = 0; i <= n; i++) { const t = i / n, a = as + best.sg * Math.PI * 3 * t; pts.push(V(S.x + S.r * Math.cos(a), y0 + (y1 - y0) * smooth(0, 1, t * 1.15), S.z + S.r * Math.sin(a))); }
+    const E = best.E, dir = D3.clone().sub(E).setY(0).normalize(), D = V(I3.x, I3.y + 1.2, I3.z).addScaledVector(dir, -3);
+    const P1 = E.clone().addScaledVector(best.Tn, 16), P2 = D.clone().addScaledVector(dir, -9).setY(y1 - 1.2);
+    for (let i = 1; i <= 26; i++) { const t = i / 26, u = 1 - t;
+      pts.push(V(0, 0, 0).addScaledVector(E, u * u * u).addScaledVector(P1, 3 * u * u * t).addScaledVector(P2, 3 * u * t * t).addScaledVector(D, t * t * t)); }
+    ORB.rails.push({ pts, o: { boost: 14, boostK: 5, name: 'spire rail' }, d: { mat: 'boost', posts: false }, gems: 6 }); }
+  // RIMS: a low wall round the far side of each island, so a landing at speed bonks rather than falls --
+  // with gaps where she is meant to leave (the kicker) and arrive
+  const rim = (I, skip) => { const n = 28;
+    for (let k = 0; k < n; k++) { const a = (k + 0.5) / n * Math.PI * 2, dx = Math.cos(a), dz = Math.sin(a); if (skip && skip(dx, dz)) continue;
+      const rr = I.r - 0.35, hl = I.r * Math.tan(Math.PI / n) + 0.1, cx = I.x + dx * rr, cz = I.z + dz * rr;
+      solidAdd(cx, cz, hl, 0.25, I.y - 0.3, I.y + 0.9, Math.atan2(-dx, -dz), { tag: 'rim' });
+      obGeo(B, new THREE.BoxGeometry(hl * 2, 0.9, 0.5), obM(cx, I.y + 0.45, cz, Math.atan2(-dz, dx) + Math.PI / 2), k & 1 ? 0xd8c7a6 : 0xcdbb98); } };
+  rim(I1, (dx, dz) => dx * d12.x + dz * d12.z > 0.9);
+  rim(I2, (dx, dz) => dx * d12.x + dz * d12.z < 0.1);
+  rim(I3, null);
+  // a few islands for scenery, too high or too far to reach
+  for (const [x, y, z, r] of [[-120, 70, -330, 9], [150, 82, -300, 11], [-170, 64, -180, 8], [40, 96, -360, 13]]) obIsland({ x, y, z, r }, { fall: orand() * 6.28 });
+  // ===== THE FAR CITY ==================================================================================
+  obBackdrop();
+  // where the ➤ key goes
+  Object.assign(CITY.spots, {
+    gate: [0, 0.2, -92, Math.PI], canal: [0, nq.y + 0.2, nq.z0 + 6, Math.PI], nexus: [0, 0.2, -200, Math.PI],
+    rooftops: [-112, R[0].h + 0.2, R[0].z1 - 3, Math.PI], nimbus: [T.x - T.r - T.lane / 2, 0.2, T.z + 12, Math.PI],
+    'nimbus top': [T.x, T.h + 0.2, T.z, Math.atan2(I1.x - T.x, I1.z - T.z)],
+    sky: [I1.x - d12.x * 9.5, I1.y + 0.2, I1.z - d12.z * 9.5, Math.atan2(d12.x, d12.z)], peak: [I3.x, I3.y + 0.2, I3.z + 2, Math.PI] });
+  ORB.built = 1;
+}
+
+// ---- THE FAR CITY: spires, ring stations and mushroom towers past the edge of the world -------------------
+// The paintings are never a district on its own; there is always a city going on for ever behind it. This
+// is that: eighty-odd towers on a ring outside the world's wall, built from three's own cylinders and cones
+// into ONE buffer, drawn with fog that is CAPPED so they stay a hazy silhouette rather than vanishing.
+function obBackdrop() {
+  const K = OB.back, pal = [0xf2ecfa, 0xe4dcf4, 0xd8e8f2, 0xf4e2ee, 0xe9f2ea], glow = [0x5fe8ff, 0xff6fc8, 0xb98bff, 0x8dff9a];
+  for (let k = 0; k < 84; k++) {
+    const a = k / 84 * Math.PI * 2 + orand() * 0.05, r = 400 + orand() * 150, x = Math.cos(a) * r, z = Math.sin(a) * r;
+    const H = 50 + Math.pow(orand(), 1.6) * 200, w = 7 + orand() * 14, col = opick(pal), kind = orand();
+    if (kind < 0.12) {   // a mushroom tower
+      obGeo(K, new THREE.CylinderGeometry(w * 0.35, w * 0.6, H, 8), obM(x, H / 2, z), 0xe8dcc8);
+      obGeo(K, new THREE.SphereGeometry(w * 2.2, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1), obM(x, H, z), opick([0xff8fd0, 0xc28bff, 0x6fe8d8]));
+      continue;
+    }
+    let y = 0, ww = w;
+    const tiers = 1 + Math.floor(orand() * 3);
+    for (let t = 0; t < tiers; t++) {
+      const h = H * (t === 0 ? 0.55 : 0.45 / (tiers - 1 || 1));
+      const g = orand() < 0.5 ? new THREE.CylinderGeometry(ww * 0.85, ww, h, 8) : new THREE.BoxGeometry(ww * 1.6, h, ww * 1.6);
+      obGeo(K, g, obM(x, y + h / 2, z, orand() * 3), t ? shade(col, 0.96) : col);
+      obGeo(K, new THREE.CylinderGeometry(ww * 1.02, ww * 1.02, 1.2, 8, 1, true), obM(x, y + h * 0.82, z), opick(glow));
+      y += h; ww *= 0.62;
+    }
+    obGeo(K, new THREE.ConeGeometry(ww * 0.9, H * 0.2, 6), obM(x, y + H * 0.1, z), shade(col, 0.9));
+    if (orand() < 0.25) obGeo(K, new THREE.TorusGeometry(w * 2.4, 0.9, 5, 24).rotateX(Math.PI / 2 + (orand() - 0.5) * 0.3), obM(x, y * 0.8, z), opick(glow));
+  }
+  // the elevated ring road from the first painting, sweeping round behind everything
+  for (const [r, y, a0, a1] of [[470, 64, -2.6, -0.4], [520, 92, 0.6, 2.2]]) {
+    const n = 40; for (let i = 0; i < n; i++) {
+      const t0 = a0 + (a1 - a0) * i / n, t1 = a0 + (a1 - a0) * (i + 1) / n;
+      const P = (t, rr, yy) => [Math.cos(t) * rr, yy, Math.sin(t) * rr];
+      obQuad(K, P(t0, r - 6, y), P(t1, r - 6, y), P(t1, r + 6, y), P(t0, r + 6, y), UPN, 0xe0d8ee);
+      obQuad(K, P(t0, r - 6, y - 3), P(t1, r - 6, y - 3), P(t1, r - 6, y), P(t0, r - 6, y), [-Math.cos((t0 + t1) / 2), 0, -Math.sin((t0 + t1) / 2)], 0xd2c9e4);
+      if (i % 4 === 0) obGeo(K, new THREE.CylinderGeometry(2.2, 3, y, 8), obM(Math.cos(t0) * r, y / 2, Math.sin(t0) * r), 0xcfc6e2);
+    }
+  }
+}
+// ---- once the collider is up: the rails ----------------------------------------------------------------
+function orbitalRails() {
+  if (!ORB.on || !ORB.built) return;
+  for (const spec of ORB.rails) {
+    const P = railPath(spec.pts, spec.o);
+    if (spec.closed && P.segs.length > 2) { const a = P.segs[0], z = P.segs[P.segs.length - 1]; z.next = a; a.prev = z; P.closed = true; }
+    let cum = 0; for (const S of P.segs) { S.s0 = cum; cum += S.len; } P.len = cum;
+    spec.path = P;
+    if (spec.mono) ORB.mono.path = P;
+    if (!spec.d.skip) railDraw(P, Object.assign({ into: OB.railGeo }, spec.d));
+    if (spec.gems) gemsAlong(P, P.len / (spec.gems + 1), 0.9);
+    if (spec.gemsLoop) gemsAlong({ segs: P.segs.filter(S => S.ua && (S.ua.y < 0.97 || S.ub.y < 0.97)) }, 4, 0.9, 2);
+  }
+  // gems up the helix, round the sky, along the roofs
+  if (ORB.helix) { const H = ORB.helix.pts; for (let i = 8; i < H.length - 8; i += 9) gem(H[i].x, H[i].y + 1.1, H[i].z); }
+  for (const I of ORB.isl) for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; gem(I.x + Math.cos(a) * I.r * 0.55, I.y + 1.1, I.z + Math.sin(a) * I.r * 0.55); }
+  for (const r of ORB.roofs) gem((r.x0 + r.x1) / 2, r.h + 1.1, (r.z0 + r.z1) / 2);
+}
+// ---- the meshes ---------------------------------------------------------------------------------------
+// THE CAP ON THE FOG IS ONE LINE IN THE FOG CHUNK: the far city is past the fog's far plane by design, and
+// fully fogged it would be a flat wall of fog colour -- capped, it is a silhouette in the haze.
+function fogCap(mat, k) {
+  mat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <fog_fragment>',
+    `#ifdef USE_FOG\n  float fogF = smoothstep( fogNear, fogFar, vFogDepth );\n  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, min( fogF, ${k.toFixed(2)} ) );\n#endif`); };
+  mat.customProgramCacheKey = () => 'fogcap' + k;
+  return mat;
+}
+function streakTex(w, h, base, hi, waves) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext && c.getContext('2d');
+  if (g && g.fillRect) {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    if (waves) {
+      for (let i = 0; i < 70; i++) { const y = (i * 37) % h, x = (i * 53) % w, L = 20 + (i * 7) % 50;
+        g.strokeStyle = hi; g.globalAlpha = 0.25 + (i % 5) * 0.1; g.lineWidth = 2 + (i % 3); g.beginPath();
+        g.moveTo(x, y); g.quadraticCurveTo(x + L / 2, y - 6, x + L, y); g.stroke();
+        g.beginPath(); g.moveTo(x - w, y); g.quadraticCurveTo(x - w + L / 2, y - 6, x - w + L, y); g.stroke(); }
+    } else {
+      for (let i = 0; i < 26; i++) { const x = (i * 23) % w; g.fillStyle = hi; g.globalAlpha = 0.18 + (i % 4) * 0.14; g.fillRect(x, 0, 2 + (i % 3) * 2, h); }
+    }
+    g.globalAlpha = 1;
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function orbMeshes() {
+  if (!ORB.on || !ORB.built) return;
+  const add = (m, name, shadow) => { m.name = name; if (shadow) { m.castShadow = true; m.receiveShadow = true; } scene.add(m); ORB.meshes = (ORB.meshes || []).concat(m); return m; };
+  // CHUNKED BY POSITION, so what is behind the camera is culled -- the district is a few hundred metres
+  // across and one buffer of it would be drawn whole, twice (the shadow pass), every frame
+  const chunk = (Bf, mat, name, shadow) => {
+    const by = new Map();
+    for (let t = 0; t < Bf.pos.length; t += 9) {
+      const cx = (Bf.pos[t] + Bf.pos[t + 3] + Bf.pos[t + 6]) / 3, cz = (Bf.pos[t + 2] + Bf.pos[t + 5] + Bf.pos[t + 8]) / 3;
+      const k = Math.floor(cx / ORB.chunk) + ',' + Math.floor(cz / ORB.chunk);
+      let c = by.get(k); if (!c) by.set(k, c = { p: [], n: [], c: [] });
+      for (let i = 0; i < 9; i++) { c.p.push(Bf.pos[t + i]); c.n.push(Bf.nrm[t + i]); c.c.push(Bf.col[t + i]); }
+    }
+    for (const [k, c] of by) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(c.p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(c.n, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(c.c, 3)); g.computeBoundingSphere();
+      add(new THREE.Mesh(g, mat), name + ':' + k, shadow);
+    }
+    return by.size;
+  };
+  const litMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.0 });
+  const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+  ORB.chunks = chunk(OB.lit, litMat, 'orb', true) + chunk(OB.glow, glowMat, 'orb glow', false);
+  { const g = new THREE.BufferGeometry(), K = OB.back;
+    g.setAttribute('position', new THREE.Float32BufferAttribute(K.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(K.nrm, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(K.col, 3)); g.computeBoundingSphere();
+    const m = add(new THREE.Mesh(g, fogCap(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.58)), 'far city'); m.frustumCulled = false; }
+  // the signs
+  { const A = orbAtlas(), g = new THREE.BufferGeometry(), S = OB.sign;
+    g.setAttribute('position', new THREE.Float32BufferAttribute(S.pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(S.uv, 2)); g.computeBoundingSphere();
+    const mat = new THREE.MeshBasicMaterial({ map: A.tex, transparent: true, alphaTest: 0.04, side: THREE.DoubleSide, toneMapped: false,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, depthWrite: true });
+    add(new THREE.Mesh(g, mat), 'signs').renderOrder = 2; }
+  // the water: the canal glows, the fountain is clear. A texture scrolled every frame is the whole effect.
+  for (const W of ORB.water) {
+    const tex = streakTex(256, 256, '#' + W.col.toString(16).padStart(6, '0'), '#' + W.col2.toString(16).padStart(6, '0'), true);
+    tex.repeat.set((W.x1 - W.x0) / 10, (W.z1 - W.z0) / 10);
+    const m = add(new THREE.Mesh(new THREE.PlaneGeometry(W.x1 - W.x0, W.z1 - W.z0).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: W.splash ? 0.92 : 0.7, toneMapped: false, depthWrite: false })), 'water');
+    m.position.set((W.x0 + W.x1) / 2, W.y, (W.z0 + W.z1) / 2); m.renderOrder = 1;
+    ORB.anim.push(dt => { tex.offset.x += dt * 0.05; tex.offset.y += dt * 0.11; });
+  }
+  // every falling sheet of water and slime, one mesh, its streaks running down
+  { const F = OB.fall, g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(F.pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(F.uv, 2));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(F.col, 4)); g.computeBoundingSphere();
+    const tex = streakTex(64, 128, '#ffffff', '#9fd8ff', false);
+    const m = add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })), 'falls');
+    m.renderOrder = 3; ORB.anim.push(dt => { tex.offset.y += dt * 1.6; }); }
+  // the rails, merged by material: thirty paths would be thirty draw calls
+  { const by = new Map();
+    for (const it of OB.railGeo) { let l = by.get(it.mat); if (!l) by.set(it.mat, l = []); l.push(it.geo); }
+    for (const [mat, geos] of by) { const g = mergeGeometries(geos.map(q => q.index ? q : q)); if (g) add(new THREE.Mesh(g, mat), 'orb rails', true); else console.warn('[orbital] a rail bucket did not merge'); } }
+  // THE TRAIN: three cars, one instanced mesh, running on the beam
+  { const C = { pos: [], nrm: [], col: [] }, L = ORB.mono.carL;
+    obGeo(C, new THREE.BoxGeometry(2.4, 2.3, L - 1.4), obM(0, 1.35, 0), 0xf4f2fa);
+    obGeo(C, new THREE.CylinderGeometry(1.15, 1.15, 2.4, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), obM(0, 1.35, (L - 1.4) / 2, 0, 1, 1, 0.6), 0xf4f2fa);
+    obGeo(C, new THREE.CylinderGeometry(1.15, 1.15, 2.4, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2), obM(0, 1.35, -(L - 1.4) / 2, Math.PI, 1, 1, 0.6), 0xf4f2fa);
+    obGeo(C, new THREE.BoxGeometry(2.46, 0.8, L - 2), obM(0, 1.75, 0), 0x2a3a5e);
+    obGeo(C, new THREE.BoxGeometry(2.48, 0.14, L - 1.6), obM(0, 1.15, 0), 0x3ff0e0);
+    obGeo(C, new THREE.BoxGeometry(1.2, 0.5, L - 2), obM(0, 0.15, 0), 0x9a96aa);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(C.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(C.nrm, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C.col, 3));
+    const im = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.2 }), ORB.mono.cars);
+    im.frustumCulled = false; add(im, 'monorail train', true); ORB.train = { mesh: im, s: 0 }; }
+  // THE PEAK BEACON: a crown turning over the top island, and a pillar of light you can see from anywhere
+  { const P = ORB.peak, cr = new THREE.Group(), gold = new THREE.MeshStandardMaterial({ color: 0xffc93c, emissive: 0xff9a1a, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.3 });
+    const gp = [new THREE.TorusGeometry(1.6, 0.3, 8, 24).rotateX(Math.PI / 2)], jp = [];
+    for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2;
+      gp.push(new THREE.ConeGeometry(0.35, 1.5, 6).translate(Math.cos(a) * 1.6, 0.85, Math.sin(a) * 1.6));
+      jp.push(new THREE.IcosahedronGeometry(0.22, 0).translate(Math.cos(a) * 1.6, 1.7, Math.sin(a) * 1.6)); }
+    cr.add(new THREE.Mesh(mergeGeometries(gp.map(g => g.toNonIndexed())), gold));
+    cr.add(new THREE.Mesh(mergeGeometries(jp.map(g => g.index ? g.toNonIndexed() : g)), new THREE.MeshBasicMaterial({ color: 0xff7fd8, toneMapped: false })));
+    cr.position.set(P.x, P.y + 6.5, P.z); add(cr, 'crown');
+    const pil = add(new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.6, 260, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x9ff8ff, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false, toneMapped: false })), 'beacon');
+    pil.position.set(P.x, P.y + 130, P.z);
+    sky.renderOrder = -100;   // the stand-in dome draws first, so the planet is never behind it
+    ORB.anim.push((dt, t) => { cr.rotation.y = t * 0.9; cr.position.y = P.y + 6.5 + Math.sin(t * 1.7) * 0.35; pil.material.opacity = (ORB.peakGot ? 0.42 : 0.24) + Math.sin(t * 2.2) * 0.06; }); }
+  // THE SKY: a ringed planet that rides with the camera (so it is always at the same infinite distance), a
+  // space whale, and a flight of small craft -- the paintings' sky is never empty
+  { const pg = new THREE.Group(), pm = new THREE.MeshLambertMaterial({ color: 0xc9b6ee, emissive: 0x3a2a6a, fog: false });
+    pg.add(new THREE.Mesh(new THREE.SphereGeometry(125, 32, 16), pm));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(165, 240, 64), new THREE.MeshBasicMaterial({ color: 0xf2e6ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide, fog: false, depthWrite: false }));
+    ring.rotation.x = -Math.PI / 2 + 0.38; ring.rotation.y = 0.3; pg.add(ring);
+    const off = new THREE.Vector3(-260, 250, -640).normalize().multiplyScalar(600);   // inside the camera's far plane, ring and all
+    add(pg, 'planet'); pg.children.forEach(c => { c.frustumCulled = false; });
+    ORB.anim.push(() => { pg.position.copy(camera.position).add(off); }); }
+  { const wm = fogCap(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 }), 0.45), C = { pos: [], nrm: [], col: [] };
+    obGeo(C, new THREE.IcosahedronGeometry(1, 1).scale(2.2, 1.6, 6), obM(0, 0, 0), (t) => (t[0][1] + t[1][1] + t[2][1] < -0.5 ? 0xf4ecff : 0x8f86d8));
+    obGeo(C, new THREE.ConeGeometry(1.6, 4, 4).rotateX(Math.PI / 2).scale(2.4, 0.3, 1), obM(0, 0.2, -7), 0x7a70c8);
+    for (const sx of [-1, 1]) obGeo(C, new THREE.ConeGeometry(1.2, 5, 4).rotateZ(sx * Math.PI / 2).scale(1, 0.25, 1), obM(sx * 3.4, -0.6, 1.2, sx * 0.3), 0x7a70c8);
+    for (const sx of [-1, 1]) obGeo(C, new THREE.SphereGeometry(0.35, 6, 4), obM(sx * 1.6, 0.5, 4.2), 0x1a1030);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(C.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(C.nrm, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C.col, 3));
+    const wh = add(new THREE.Mesh(g, wm), 'whale'); wh.scale.setScalar(3.2);
+    ORB.anim.push((dt, t) => { const a = t * 0.025, r = 190; wh.position.set(Math.cos(a) * r, 78 + Math.sin(t * 0.4) * 4, -220 + Math.sin(a) * r);
+      wh.rotation.set(Math.sin(t * 0.4) * 0.08, -a, Math.sin(t * 0.7) * 0.06); }); }
+  { const C = { pos: [], nrm: [], col: [] };
+    obGeo(C, new THREE.CapsuleGeometry(0.9, 2.6, 3, 8).rotateX(Math.PI / 2), obM(0, 0, 0), 0xeeeaf6);
+    obGeo(C, new THREE.BoxGeometry(4.2, 0.18, 1.4), obM(0, -0.2, -0.4), 0xd0c8e0);
+    obGeo(C, new THREE.SphereGeometry(0.75, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), obM(0, 0.45, 0.9), 0x5fd8ff);
+    obGeo(C, new THREE.CylinderGeometry(0.5, 0.7, 0.3, 8), obM(0, -0.85, 0), 0xff6fc8);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(C.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(C.nrm, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C.col, 3));
+    const N = 9, im = new THREE.InstancedMesh(g, fogCap(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 }), 0.5), N);
+    im.frustumCulled = false; add(im, 'craft');
+    const fl = []; for (let i = 0; i < N; i++) fl.push({ r: 60 + orand() * 170, y: 28 + orand() * 60, w: (0.04 + orand() * 0.08) * (orand() < 0.5 ? -1 : 1), a: orand() * 6.28, cx: (orand() - 0.5) * 120, cz: -220 + (orand() - 0.5) * 100, s: 1.4 + orand() * 1.6 });
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    ORB.anim.push((dt, t) => { fl.forEach((f, i) => { const a = f.a + t * f.w; v.set(f.cx + Math.cos(a) * f.r, f.y + Math.sin(t * 0.5 + i) * 2, f.cz + Math.sin(a) * f.r);
+      q.setFromAxisAngle(UP, -a + (f.w > 0 ? 0 : Math.PI)); m.compose(v, q, sc.setScalar(f.s)); im.setMatrixAt(i, m); }); im.instanceMatrix.needsUpdate = true; }); }
+  // splash droplets
+  { const n = 160, g = new THREE.BufferGeometry(), pos = new Float32Array(n * 3).fill(-999);
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.35, color: 0xa8ffcf, transparent: true, opacity: 0.9, depthWrite: false }));
+    pts.frustumCulled = false; add(pts, 'splash');
+    ORB.spl = { pos, vel: new Float32Array(n * 3), age: new Float32Array(n).fill(9), n, head: 0, g }; }
+  OB.lit = OB.glow = OB.back = null; OB.sign = OB.fall = null; OB.railGeo = [];
+}
+// A WORD IN THE MIDDLE OF THE SCREEN for the things worth a word -- the chip is too small to notice a splash in
+function toast(msg, col) {
+  const el = document.getElementById('toast'); if (!el) return;
+  el.textContent = msg; el.style.textShadow = `0 0 18px ${col || '#ff4fb8'},0 4px 0 #3a1a5a`;
+  el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 1400);
+}
+function orbSplash(x, y, z, k) {
+  const S = ORB.spl; if (!S) return;
+  for (let j = 0; j < k; j++) { const i = S.head; S.head = (S.head + 1) % S.n; const a = Math.random() * 6.28, s = Math.random() * 4;
+    S.pos[i * 3] = x; S.pos[i * 3 + 1] = y; S.pos[i * 3 + 2] = z; S.vel[i * 3] = Math.cos(a) * s; S.vel[i * 3 + 1] = 4 + Math.random() * 7; S.vel[i * 3 + 2] = Math.sin(a) * s; S.age[i] = 0; }
+}
+// ---- every frame ----------------------------------------------------------------------------------------
+function inWater(x, y, z) {
+  for (const W of ORB.water) if (W.splash && x > W.x0 && x < W.x1 && z > W.z0 && z < W.z1 && y < W.y + 0.15) return W;
+  return null;
+}
+function stepOrbital(dt) {
+  if (!ORB.on || !ORB.built) return;
+  const p = player;
+  ORB.t = (ORB.t || 0) + dt;
+  // THE WATER IS THE "DON'T FALL": she goes in, she is put back where she last stood on something
+  const W = !p.grind && inWater(p.pos.x, p.pos.y, p.pos.z);
+  if (W) {
+    orbSplash(p.pos.x, W.y, p.pos.z, 40); ORB.splashes++;
+    const s = ORB.safe;
+    if (s) { p.pos.copy(s.pos); p.heading = p.faceH = s.h; }
+    else respawn();
+    p.vel.set(0, 0, 0); p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.flip = null; p.mel = null; p.bailT = 0; p.drift = 0; groundQ(p.bq);
+    CITY.goMsg = 'SPLASH'; CITY.goAt = performance.now(); toast('SPLASH!', '#3ff0b0');
+  } else if (p.grounded && !p.grind) {
+    ORB.safeT -= dt;
+    if (ORB.safeT <= 0) { ORB.safeT = ORB.safeEvery;
+      const x = p.pos.x, z = p.pos.z, c = ORB.canal, near = x > c.x0 - 1.5 && x < c.x1 + 1.5 && z > c.z0 - 1.5 && z < c.z1 + 1.5 && p.pos.y < ORB.nq.y + 0.2;
+      if (!near) ORB.safe = { pos: p.pos.clone(), h: p.heading }; }
+  }
+  // BOOST LANES: grounded, going its way, pushed up to its speed
+  if (p.grounded && !p.grind && ORB.lanes.length) {
+    const L = laneAt(p.pos.x, p.pos.y, p.pos.z);
+    if (L) { const along = p.vel.x * L.dx + p.vel.y * L.dy + p.vel.z * L.dz;
+      if (along > -0.5 && along < L.L.v) { const add = Math.min(L.L.acc * dt, L.L.v - along); p.vel.x += L.dx * add; p.vel.y += L.dy * add; p.vel.z += L.dz * add; }
+      p.onLane = L.L.name; } else p.onLane = null;
+  }
+  // MUSHROOMS THROW HER UP
+  for (const M of ORB.bounce) {
+    M.cool = Math.max(0, M.cool - dt);
+    if (M.cool > 0 || p.grind || !p.grounded) continue;
+    if (Math.hypot(p.pos.x - M.x, p.pos.z - M.z) < M.r * 0.92 && p.pos.y > M.y - M.r * 0.5 && p.pos.y < M.y + 0.6) {
+      leaveGround(0, false); p.vel.y = ORB.bounceV; M.cool = ORB.bounceCool; sparkBurst(10);
+    }
+  }
+  // THE TRAIN, and what it does to anyone grinding its beam
+  const Mo = ORB.mono;
+  if (Mo.path && ORB.train) {
+    const P = Mo.path, Ln = P.len, tr = ORB.train;
+    tr.s = (tr.s + Mo.v * dt) % Ln;
+    if (p.grind && p.grind.rail.path === P) {
+      const her = p.grind.rail.s0 + p.grind.t * p.grind.rail.len, span = Mo.cars * (Mo.carL + Mo.gap);
+      const behind = ((tr.s - her) % Ln + Ln) % Ln;            // how far her point is behind the train's nose
+      if (behind < span + 1.2 || behind > Ln - 2.5) {
+        const R = p.grind.rail; grindLeave(true); p.vel.x += -R.hz * 5; p.vel.z += R.hx * 5; p.vel.y += 3;
+        CITY.goMsg = 'TRAIN!'; CITY.goAt = performance.now(); sparkBurst(20); toast('TRAIN!', '#ff8a2a');
+      }
+    }
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), a = new THREE.Vector3(), b = new THREE.Vector3();
+    for (let i = 0; i < Mo.cars; i++) {
+      const s = ((tr.s - i * (Mo.carL + Mo.gap) - Mo.carL / 2) % Ln + Ln) % Ln;
+      railPoint(P, s - 2, a); railPoint(P, s + 2, b);
+      v.copy(a).add(b).multiplyScalar(0.5); q.setFromAxisAngle(UP, Math.atan2(b.x - a.x, b.z - a.z));
+      m.compose(v, q, one); tr.mesh.setMatrixAt(i, m);
+    }
+    tr.mesh.instanceMatrix.needsUpdate = true;
+  }
+  // THE PEAK
+  const Pk = ORB.peak;
+  if (Pk && p.grounded && !p.grind && Math.hypot(p.pos.x - Pk.x, p.pos.z - Pk.z) < Pk.r && p.pos.y > Pk.y - 0.5) {
+    if (!ORB.peakGot) { ORB.peakGot = 1; sparkBurst(40); toast('PEAK!', '#ffc93c'); }
+    if (!ORB.peakMsgT || ORB.t - ORB.peakMsgT > 6) { ORB.peakMsgT = ORB.t; CITY.goMsg = 'PEAK!'; CITY.goAt = performance.now(); }
+  }
+  for (const f of ORB.anim) f(dt, ORB.t);
+  const S = ORB.spl;
+  if (S) { for (let i = 0; i < S.n; i++) { if (S.age[i] > 1.2) { S.pos[i * 3 + 1] = -999; continue; } S.age[i] += dt; S.vel[i * 3 + 1] -= 16 * dt;
+    S.pos[i * 3] += S.vel[i * 3] * dt; S.pos[i * 3 + 1] += S.vel[i * 3 + 1] * dt; S.pos[i * 3 + 2] += S.vel[i * 3 + 2] * dt; } S.g.attributes.position.needsUpdate = true; }
+}
+// a point a distance `s` along a path (a closed one wraps)
+function railPoint(P, s, out) {
+  if (P.closed) s = ((s % P.len) + P.len) % P.len; else s = clamp(s, 0, P.len);
+  let lo = 0, hi = P.segs.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (P.segs[mid].s0 <= s) lo = mid; else hi = mid - 1; }
+  const S = P.segs[lo]; return out.copy(S.a).lerp(S.b, clamp((s - S.s0) / S.len, 0, 1));
+}
+
 
 // ---------- sparks ----------
 // *"Put sparks on the grind rails -- everything's gonna be really exaggerated."* A ring of points
@@ -3652,7 +4894,7 @@ document.getElementById('resetB').addEventListener('click', respawn);
 // r45: THE CITY IS BIG AND HE TESTS ON A PHONE WITH NO CONSOLE, so a key walks round the places worth
 // looking at: the street, the Steps, the top of the Steps, the tower's spiral, its roof, the loop, his
 // buildings, the hydrant by C. The chip names where she went.
-const GO = ['street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
+const GO = ['gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
 let goI = -1;
 function goSpot(name) {
   const s = CITY.spots[name]; if (!s) return false;
@@ -4894,6 +6136,14 @@ const TAILUI = [
   ['GEY.vmax',       'Geyser lift m/s', 4, 24, 0.5, ''],
   ['GEY.h',          'Geyser column height', 2, 16, 0.5, ''],
   ['GEM.r',          'Gem pickup reach', 0.5, 3, 0.05, ''],
+  ['Orbital (r49)', ''],
+  ['ORB.bounceV',    'Mushroom bounce m/s', 8, 30, 0.5, ''],
+  ['ORB.laneHelix.v', 'Helix boost lane m/s', 0, 24, 0.5, ''],
+  ['ORB.laneRun.v',  'Island runway m/s', 10, 34, 0.5, ''],
+  ['ORB.laneRoof.v', 'Roof lanes m/s', 0, 26, 0.5, ''],
+  ['ORB.mono.v',     'Monorail train m/s', 0, 30, 0.5, ''],
+  ['ORB.mono.boost', 'Monorail grind m/s', 6, 30, 0.5, ''],
+  ['ORB.halo.boost', 'Halo ring m/s', 6, 26, 0.5, ''],
   ['Grinding', ''],
   ['GRIND.catchR',   'Rail catch reach', 0.2, 1.5, 0.05, ''],
   ['GRIND.drag',     'Rail drag',      0,   2,   0.05, ''],
@@ -4902,7 +6152,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM };
+const UIOBJ = { TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -5022,7 +6272,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
