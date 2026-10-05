@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r72</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r73</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r72';
+const BUILD = 'r73';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
+const ASSETS = {"parks/mega_skatepark.json":"ddbded6e","parks/mega_skatepark.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -1974,7 +1974,8 @@ Object.assign(KIT_KINDS, {
 // and what an `fn_` marker in a GLB carries back in.
 function kitPiece(kind, size, T, o) {
   o = o || {};
-  const S = typeof size === 'object' ? size : KSZ[size] || KSZ.M;
+  let S = typeof size === 'object' ? size : KSZ[size] || KSZ.M;
+  if (o.tint != null) S = { ...S, tint: o.tint };      // r73: a schematic paints its pieces the way his drawing does
   const t0 = MESH.pos.length;
   if (kind === 'loop360' || kind === 'loop180') {
     const P = kitLoop(T, S, { ...o, half: kind === 'loop180' });
@@ -2244,158 +2245,106 @@ function kitPark() {
   SPAWN.set(KPARK.spawn[0], KPARK.spawn[1] + 0.2, KPARK.spawn[2]); SPAWN.h = KPARK.spawn[3];
   CITY.spots['park drop-in'] = KPARK.spawn.slice();
 }
-// ===================================================================================================== r72: THE SHEET PARK
-// *"Why don't you try to build this skate park ... see if you can build it with the pieces you have -- how the edges of
-// each modular piece go together, and if we're missing pieces, let's build those. And make the scale fairly large -- I
-// want this game to feel very big and exaggerated, like you're really flying around."* His MEGA SKATEPARK style sheet,
-// laid out at about 1.7x its own scale on the west side of the kit world (x -450..-160, z -270..150), oriented as drawn:
-// standing at the main entry looking in, the sheet's up is world -x and its right is world -z. Every feature is kit
-// pieces (what an `fn_` node in his file makes); where the kit could not build it, a piece was added (above).
-//   1 MAIN ENTRY     a deck at L you spawn on, the grand stairs L with HUBBAS down into the hub, banks either side
-//   2 STREET COURSE  two blocks at M -- stairs + handrails, stairs + hubbas -- ledges, manual pads, a kink and a down rail
-//   4 BOWL COMPLEX   a CLOVER bowl XXL with a deep end (7.2 m) and a shallow lobe (4 m), and a round bowl XL raised to
-//                    share its deck -- varied depths; a bank XXL up, and the BRIDGE off its deck
-//   5 FLOW PARK      hips, a bank-to-bank, a berm, rollers, a pyramid
-//   6 VERT           a half pipe MEGA (9.6 m) with 4 m decks and stairs MEGA up to one
-//   7 SPINE          QP XL > spine XL > QP XL, a transfer
-//   8 SNAKE RUN      pipe L with 45-degree elbows, capped both ends; and a PUMP TRACK of rollers and two 180 berms
-//   9 BRIDGE         a deck XXL on posts from the bowl complex to a tower, a bank down -- ride over it or under it
-//  10 GAP            a gap XL (12 m) and a drop off a deck L
-//  13 QUARTER PIPES  S, M, L, XL and XXL in one row, joined by ADAPTERS so the coping climbs with no step
-//  14 FUNBOX         a funbox M with a rail along its top and down rails over its banks
-//  16 MINI RAMP      half pipe M
-//  17 ROOFTOP        a block XL with a street on its roof; 18 ADVANCED LINE: stairs XL with handrails off it
-//  MEGA RAMP         along the north fence: roll-in MEGA, 65 m of run, a gap XL, and a QP MEGA at the end
-//  19 BEGINNER LINE  S pieces; 20-24 bleachers, shade roofs, planters, lamps and a fence all round
-const SHEET = { x0: -450, x1: -160, z0: -270, z1: 150, spawn: null, runs: {}, at: {} };
-function kitSheet() {
-  const P = Math.PI, stop = [], L25 = s => KSZ[s].H / Math.tan(25 * D2R), sp = (zone, kind, size, x, z, yaw, o, group, label, y) =>
-    pk('sheet ' + zone, kind, size, x, z, yaw, o, group, label, y);
-  const area = (name, sub, x, z, sx, sz, sy, sh, ly) => { kitLabel(name.toUpperCase(), sub, x, ly || 9, z);
-    CITY.spots['sheet ' + name] = [sx, sy || 0, sz, sh || 0]; stop.push('sheet ' + name); };
-  const A = SHEET.at;
-  // ---- 1 MAIN ENTRY: the deck you spawn on, the grand stairs with hubbas, a bank either side, a bank out through the fence
-  { const xD = -181;
-    sp('entry', 'platform', 'L', xD, -47, P / 2, { w: 26, d: 18 }, 'entry', 'entry deck L');
-    A.stairs = sp('entry', 'stairs', 'L', xD - 3 - KSZ.L.H / Math.tan(32 * D2R), -47, P / 2, { w: 10, hubba: 1 }, 'entry', 'grand stairs L + hubbas');
-    for (const z of [-56.5, -37.5]) sp('entry', 'bank', 'L', xD - L25('L'), z, P / 2, { w: 6.6 }, 'entry', 'bank L down into the hub');
-    sp('entry', 'bank', 'L', xD + 18 + L25('L'), -47, -P / 2, { w: 8 }, 'entry', 'bank L out the back (to the gallery)');
-    SHEET.spawn = [xD + 11, KSZ.L.H, -47, -P / 2];
-    area('main entry', 'deck L > grand stairs + hubbas > hub', -172, -47, xD + 11, -47, KSZ.L.H, -P / 2, 12); }
-  // ---- 2 STREET COURSE: two blocks at M, each with a bank up the east side and a stair set down the west
-  for (const [z, hub, nm] of [[-24, 0, 'stairs M + handrails'], [-74, 1, 'stairs M + hubbas']]) {
-    const x0 = -250, run = KSZ.M.H / Math.tan(32 * D2R);
-    sp('street', 'platform', 'M', x0, z, P / 2, { w: 12, d: 10 }, 'block' + z, 'street block M');
-    sp('street', 'bank', 'M', x0 + 10 + L25('M'), z, -P / 2, { w: 8 }, 'block' + z, 'bank M up');
-    sp('street', 'stairs', 'M', x0 - 3 - run, z, P / 2, { w: 6, hubba: hub }, 'block' + z, nm); }
-  sp('street', 'ledge', 'S', -212, -64, -P / 2, { h: 0.6, len: 12 }, null, 'ledge 0.6');
-  sp('street', 'ledge', 'S', -212, -56, -P / 2, { h: 0.36, w: 3, len: 10 }, null, 'manual pad');
-  sp('street', 'ledge', 'S', -212, -30, -P / 2, { len: 12 }, null, 'ledge S');
-  sp('street', 'railKink', 'M', -212, -10, -P / 2, {}, null, 'kink rail M');
-  sp('street', 'railDown', 'M', -268, -50, -P / 2, { len: 8 }, null, 'down rail M');
-  sp('street', 'rail', 'S', -268, -42, -P / 2, { len: 12 }, null, 'flat rail S');
-  area('street', 'stairs, hubbas, ledges, manual pad, rails', -240, -50, -222, -50, 0, -P / 2);
-  // ---- 15 PYRAMID L and 14 FUNBOX with rails
-  sp('pyramid', 'frustum', 'L', -300, -52, -P / 2, { len: 6, w: 6, banks: [1, 1, 1, 1] }, null, 'pyramid L');
-  sp('funbox', 'frustum', 'M', -322, -18, -P / 2, { len: 8, w: 6, banks: [1, 1, 0, 0], rails: 1 }, null, 'funbox M + rails');
-  area('pyramid', 'pyramid L, funbox M with rails', -310, -38, -286, -40, 0, -P / 2);
-  // ---- 10 GAP: a gap XL (12 m) toward the west, and a drop off a deck L
-  sp('gap', 'gap', 'XL', -345, -48, -P / 2, { gap: 12 }, null, 'gap XL (12 m)');
-  sp('gap', 'platform', 'L', -360, -14, -P / 2, { w: 8, d: 8 }, 'drop', 'drop deck L');
-  sp('gap', 'bank', 'L', -360 + L25('L'), -14, -P / 2, { w: 8 }, 'drop', 'bank L up to the drop');
-  area('gap', 'gap XL 12 m, drop off a deck L', -360, -32, -333, -48, 0, -P / 2);
-  // ---- 13 QUARTER PIPES of every height, joined by ADAPTERS: S > M > L > XL > XXL along the west, facing into the park
-  { const xT = -412, yaw = -P / 2, seq = [['qp', 'S'], ['qpAdapt', 'S', 'M'], ['qp', 'M'], ['qpAdapt', 'M', 'L'], ['qp', 'L'], ['qpAdapt', 'L', 'XL'], ['qp', 'XL'], ['qpAdapt', 'XL', 'XXL'], ['qp', 'XXL']];
-    let z = -150; A.qps = [];
-    for (const [kind, size, to] of seq) { const w = kind === 'qp' ? 8 : 6;
-      A.qps.push(sp('qps', kind, size, xT, z + w / 2, yaw, { w, to }, 'qprow', kind === 'qp' ? 'QP ' + size : 'adapter ' + size + ' > ' + to)); z += w; }
-    area('quarter pipes', 'S > M > L > XL > XXL, joined by adapters', -395, -118, -392, -118, 0, -P / 2); }
-  // ---- 6 VERT: a half pipe MEGA with 4 m decks, and stairs MEGA up the north side onto the east deck
-  { const C = { x: -406, z: -194 }, F = 10, dk = 4, S = KSZ.MEGA;
-    A.vert = sp('vert', 'halfpipe', 'MEGA', C.x, C.z, P / 2, { flat: F, len: 18, deck: dk }, 'vert', 'half pipe MEGA (9.6 m)');
-    const xd = C.x + F / 2 + S.lip + KITW.cope + (dk - KITW.cope) / 2, run = S.H / Math.tan(32 * D2R);
-    A.vertStairs = sp('vert', 'stairs', 'MEGA', xd, -185 + 3 + run, P, { w: 4 }, 'vert', 'stairs MEGA up to the deck');
-    area('vert', 'half pipe MEGA, 9.6 m -- stairs up the north side', C.x, -175, xd, -189, S.H, -P / 2 + 0, 14); }
-  // ---- 7 SPINE: QP XL > spine XL > QP XL, south of the vert
-  { const S = KSZ.XL, z = -243, x0 = -400, flat = 6;
-    sp('spine', 'qp', 'XL', x0, z, -P / 2, { w: 10 }, 'spine', 'QP XL');
-    sp('spine', 'spine', 'XL', x0 + flat, z, P / 2, { w: 10 }, 'spine', 'spine XL');
-    const x2 = x0 + flat + 2 * S.lip + 0.2 + flat; sp('spine', 'qp', 'XL', x2, z, P / 2, { w: 10 }, 'spine', 'QP XL');
-    area('spine', 'QP XL > spine XL > QP XL', x0 + 14, -230, x0 + 3, z, 0, P / 2); }
-  // ---- 4 BOWL COMPLEX: the clover XXL (deep end west, shallow lobe east), the round bowl XL raised to share its deck
-  { const C = { x: -334, z: -178 };
-    A.clover = sp('bowls', 'freeBowl', 'XXL', C.x, C.z, 0, { R: 15, lobes: 3, amp: 0.2, phase: 30, shallow: 4, deepAt: 180 }, 'bowls', 'clover bowl XXL, deep end 7.2 m');
-    const Q = A.clover.Q, x1 = C.x + Q, R2 = 8, Q2 = R2 + 3;
-    sp('bowls', 'platform', 'M', x1, C.z, P / 2, { w: 2 * Q2, d: 2 * Q2 }, 'bowls', 'base M under the round bowl');
-    A.round = sp('bowls', 'freeBowl', 'XL', x1 + Q2, C.z, 0, { R: R2, lobes: 0, amp: 0, shallow: KSZ.XL.H }, 'bowls', 'round bowl XL (raised 2.4)', KSZ.M.H);
-    A.bowlBank = sp('bowls', 'bank', 'XXL', x1 + 2 * Q2 + L25('XXL'), C.z, -P / 2, { w: 8 }, 'bowls', 'bank XXL up to the bowl deck');
-    // ---- 9 THE BRIDGE off the clover's north deck to a tower, and a bank XXL down
-    const zb = C.z + Q, L = 28;
-    A.bridge = sp('bridge', 'bridge', 'XXL', C.x, zb, 0, { len: L, w: 5 }, 'bridge', 'bridge XXL (ride over it or under it)');
-    sp('bridge', 'platform', 'XXL', C.x, zb + L, 0, { w: 10, d: 10 }, 'bridge', 'tower XXL');
-    A.bridgeBank = sp('bridge', 'bank', 'XXL', C.x, zb + L + 10 + L25('XXL'), P, { w: 8 }, 'bridge', 'bank XXL down off the tower');
-    area('bowl complex', 'clover XXL + round XL, one deck at 7.2 m', C.x + 20, C.z, A.bowlBank.T.x + 3, C.z, 0, -P / 2, 13);
-    area('bridge', 'deck XXL on posts -- over it or under it', C.x + 8, zb + 14, C.x, zb + L + 5, KSZ.XXL.H, P, 12); }
-  // ---- 5 FLOW PARK: hips, a bank-to-bank, a berm, rollers, a pyramid M
-  sp('flow', 'frustum', 'L', -240, -150, -P / 2, { len: 6, w: 6, banks: [1, 0, 1, 0] }, null, 'hip L');
-  sp('flow', 'frustum', 'L', -240, -120, -P / 2, { len: 6, w: 6, banks: [1, 0, 0, 1] }, null, 'hip L (mirrored)');
-  sp('flow', 'bank', 'L', -205, -200, P / 2, { w: 10 }, 'b2b', 'bank L');
-  sp('flow', 'bank', 'L', -205 + L25('L') + 12 + L25('L'), -200, -P / 2, { w: 10 }, 'b2b', 'bank L (facing)');
-  A.flowRun = kitRun('sheet flow', { x: -270, y: 0, z: -235, yaw: P / 2 }, [['roller', 'M', { len: 6, h: 0.8, w: 5 }], ['roller', 'M', { len: 6, h: 0.8, w: 5 }], ['roller', 'M', { len: 6, h: 0.8, w: 5 }],
-    ['berm', 'M', { deg: 90, r: 9, w: 5, h: 1.6 }, 'berm M 90'], ['roller', 'M', { len: 6, h: 0.8, w: 5 }], ['roller', 'M', { len: 6, h: 0.8, w: 5 }]]);
-  sp('flow', 'frustum', 'M', -268, -140, P / 2, { len: 4, w: 4, banks: [1, 1, 1, 1] }, null, 'pyramid M');
-  area('flow park', 'hips, bank-to-bank, rollers, a berm', -235, -175, -270, -238, 0, P / 2);
-  // ---- 8 SNAKE RUN: pipe L, 45-degree elbows, capped both ends, entered over a bank L at its start
-  { const T0 = { x: -232, y: 0, z: 40, yaw: -P / 2 }, F = 6;
-    sp('snake', 'pipeEnd', 'L', T0.x, T0.z, P / 2, { flat: F }, 'snake', 'snake start (half bowl)');
-    A.snake = kitRun('sheet snake', T0, [['pipe', 'L', { flat: F, len: 10 }, 'snake pipe L'], ['elbow', 'L', { flat: F, deg: 45 }, 'elbow L 45'], ['pipe', 'L', { flat: F, len: 8 }],
-      ['elbow', 'L', { flat: F, deg: 45 }, 'elbow L 45'], ['pipe', 'L', { flat: F, len: 8 }], ['elbow', 'L', { flat: F, deg: 45, right: 1 }, 'elbow L 45 (right)'],
-      ['elbow', 'L', { flat: F, deg: 45, right: 1 }, 'elbow L 45 (right)'], ['pipe', 'L', { flat: F, len: 12 }], ['pipeEnd', 'L', { flat: F }, 'snake end (half bowl)']]);
-    for (const r of A.snake) r.group = 'snake';        // a bent piece's bounding box overlaps its neighbours' by construction
-    const c = kPipeC(KSZ.L, F); sp('snake', 'bank', 'L', T0.x + 6, T0.z - c - L25('L'), 0, { w: 8 }, 'snakebank', 'bank L onto the snake deck');
-    area('snake run', 'pipe L, four 45-degree elbows, two ends', T0.x - 10, T0.z - 16, T0.x + 6, T0.z - c + 1, KSZ.L.H, 0, 11); }
-  // ---- PUMP TRACK: rollers and two 180 berms, a closed oval
-  A.pump = kitRun('sheet pump', { x: -290, y: 0, z: 34, yaw: -P / 2 }, [['roller', 'S', { len: 5, h: 0.7 }], ['roller', 'S', { len: 5, h: 0.7 }], ['roller', 'S', { len: 5, h: 0.7 }],
-    ['berm', 'M', { deg: 180, r: 7, h: 1.5 }, 'berm 180'], ['roller', 'S', { len: 5, h: 0.7 }], ['roller', 'S', { len: 5, h: 0.7 }], ['roller', 'S', { len: 5, h: 0.7 }],
-    ['berm', 'M', { deg: 180, r: 7, h: 1.5 }, 'berm 180']]);
-  area('pump track', 'rollers + two 180 berms', -298, 41, -290, 34, 0, -P / 2);
-  // ---- 16 MINI RAMP (north-west) and the BEGINNER LINE
-  A.mini = sp('mini', 'halfpipe', 'M', -392, 100, P / 2, { flat: 6, len: 14, deck: 2 }, null, 'mini ramp M');
-  area('mini ramp', 'half pipe M', -392, 88, -392, 100, 0, P / 2);
-  sp('beginner', 'kicker', 'S', -250, 110, -P / 2, {}, null, 'kicker S'); sp('beginner', 'ledge', 'S', -265, 100, -P / 2, { h: 0.4, w: 2, len: 8 }, null, 'curb 0.4');
-  sp('beginner', 'frustum', 'S', -280, 115, -P / 2, { len: 5, w: 4, banks: [1, 1, 0, 0] }, null, 'funbox S'); sp('beginner', 'qp', 'S', -300, 108, -P / 2, { w: 8 }, null, 'QP S');
-  area('beginner line', 'low pieces: kicker, curb, funbox, QP S', -270, 96, -240, 108, 0, -P / 2);
-  // ---- 17 ROOFTOP: a block XL with a street on the roof; 18 ADVANCED LINE: stairs XL with handrails down its south side
-  { const x0 = -372, z0 = 96, S = KSZ.XL;
-    sp('rooftop', 'platform', 'XL', x0, z0 + 12, P / 2, { w: 24, d: 24 }, 'roof', 'rooftop block XL');
-    sp('rooftop', 'bank', 'XL', x0 + 24 + L25('XL'), z0 + 12, -P / 2, { w: 6 }, 'roof', 'bank XL up to the roof');
-    sp('rooftop', 'ledge', 'S', x0 + 6, z0 + 18, P / 2, { h: 0.6, len: 10 }, null, 'roof ledge', S.H);
-    sp('rooftop', 'rail', 'S', x0 + 6, z0 + 8, P / 2, { len: 10, h: 1.2 }, null, 'roof rail', S.H);
-    A.roofStairs = sp('rooftop', 'stairs', 'XL', x0 + 12, z0 - 3 - S.H / Math.tan(32 * D2R), 0, { w: 6 }, 'roof', 'stairs XL + handrails (the advanced line)');
-    area('rooftop', 'block XL, street on the roof, stairs XL off it', x0 + 12, z0 + 12, x0 + 20, z0 + 12, S.H, P / 2, 13); }
-  // ---- MEGA RAMP along the north fence: roll-in MEGA, the run, a gap XL, a QP MEGA
-  { const z = 138;
-    A.megaIn = sp('mega', 'rollin', 'MEGA', -395, z, -P / 2, { w: 8, r: 8, deck: 4 }, null, 'roll-in MEGA');
-    // the kicker straight off the roll-in's foot: a long flat run hands the drop's speed to the coast fade (25 -> 18 m/s over 67 m)
-    A.megaGap = sp('mega', 'gap', 'XL', -378, z, P / 2, { gap: 12, landH: 4.8, landDeg: 15, landW: 4 }, null, 'gap XL (12 m), landing XL');
-    A.megaQP = sp('mega', 'qp', 'MEGA', -308, z, P / 2, { w: 12, deck: 3 }, null, 'QP MEGA');
-    const top = kT(A.megaIn.T, A.megaIn.top + 1.5, 0, 0);
-    area('mega ramp', 'roll-in MEGA > gap XL > QP MEGA', -360, z - 8, top.x, top.z, KSZ.MEGA.H, P / 2, 15); }
-  // ---- 20-24: bleachers, shade, planters, lamps, the fence
-  sp('furniture', 'bleachers', 'S', -195, 22, -P / 2, { rows: 5, len: 16 }, null, 'bleachers'); sp('furniture', 'bleachers', 'S', -195, 46, -P / 2, { rows: 5, len: 16 }, null, 'bleachers');
-  sp('furniture', 'shade', 'S', -205, 80, 0, { w: 9, d: 9 }, null, 'shade roof'); sp('furniture', 'shade', 'S', -205, -248, 0, { w: 9, d: 9 }, null, 'shade roof');
-  for (const [x, z] of [[-225, -90], [-215, 8], [-300, -95], [-300, 0], [-420, 30], [-420, -20], [-180, 120], [-430, -258], [-180, -150], [-320, 80]])
-    sp('furniture', 'planter', 'S', x, z, 0, {}, null, 'planter + tree');
-  const { x0, x1, z0, z1 } = SHEET;
-  for (let x = x0 + 20; x < x1; x += 45) { sp('furniture', 'lamp', 'S', x, z0 + 3, 0); sp('furniture', 'lamp', 'S', x, z1 - 3, 0); }
-  for (let z = z0 + 25; z < z1; z += 45) { sp('furniture', 'lamp', 'S', x0 + 3, z, 0); if (z < -70 || z > -25) sp('furniture', 'lamp', 'S', x1 - 3, z, 0); }
-  // THE FENCE: all four sides, with a gap where the entry's back bank runs out to the gallery
-  sp('fence', 'fence', 'S', x0, z0, P / 2, { len: x1 - x0 }, 'fence', 'fence south'); sp('fence', 'fence', 'S', x0, z1, P / 2, { len: x1 - x0 }, 'fence', 'fence north');
-  sp('fence', 'fence', 'S', x0, z0, 0, { len: z1 - z0 }, 'fence', 'fence west');
-  sp('fence', 'fence', 'S', x1, z0, 0, { len: -52 - z0 }, 'fence', 'fence east'); sp('fence', 'fence', 'S', x1, -42, 0, { len: z1 + 42 }, 'fence', 'fence east');
+// ===================================================================================================== r73: A PARK FROM A SCHEMATIC
+// *"I really wanna figure out how we can build this park as a test -- basically take a schematic of a park and be able
+// to build the whole thing from our modular parts."* r72 built his MEGA SKATEPARK sheet feature by feature but laid it out
+// by hand, its own way, over 290 x 420 m -- the right parts and none of his plan. A SCHEMATIC is a file
+// (`parks/<name>.json`) that says where each piece goes IN THE PIXELS OF HIS DRAWING: trace a plan, write the file, and
+// this builds it. Nothing about a particular park lives in code.
+//   mpp           metres per pixel of the drawing (his sheet: 0.30 -- about 1.75x the scale bar, which is the "big and
+//                 exaggerated" he asked for at r72)
+//   pin           one drawing pixel and the world point it lands on
+//   dir           degrees ON THE DRAWING: 0 is up the page, 90 is right. It is the way the piece's +u points -- up a ramp's
+//                 face, up a flight of stairs, along a rail -- so a quarter pipe drawn with its deck at the top is dir 0.
+//   p             the piece's own origin (the piece frame in docs/RAMP_KIT.md): a ramp's toe, a bowl's or a half pipe's
+//                 centre, a platform's front edge. `c` instead of `p` is the middle of what it covers, for the kinds
+//                 whose length along +u is an option (platform, frustum, ledge, bleachers, shade).
+//   y             metres to stand it on (a ledge on a roof); `tint` a palette name or colour; `id` names it for a harness
+//   pipePath      `pts`, a polyline down the middle of a pipe: straights and ELBOWS AT WHATEVER ANGLE EACH CORNER IS,
+//                 with a half-bowl end on either end -- a snake run is a line drawn on the plan, not a list of pieces
+//   run           `steps` snapped piece to piece from `p`/`dir`, as `kitRun` (a flow line of rollers and berms)
+//   fence/trees/lamps   `pts` -- a fence along a polyline, a planter or a light pole at each point
+//   ground        flat colour under it all (concrete, grass), drawn only -- it is how the render reads like his plan
+// The drawing itself sits beside the file (`image`), and `npm run plan` renders the built park from straight above at the
+// drawing's own scale and lays it over the drawing -- the check that the trace is where he drew it.
+const SHEET = { x0: -450, x1: -160, z0: -270, z1: 150, spawn: null, at: {}, areas: [], url: 'parks/mega_skatepark.json', data: null, err: null };
+async function schematicLoad() {
+  try { const r = await fetch(A(SHEET.url)); if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
+    SHEET.data = await r.json(); }
+  catch (e) { SHEET.err = String(e && e.message || e); console.warn('[park] ' + SHEET.url + ' did not arrive', e); }
+}
+const SHEET_C = (c, J) => typeof c === 'number' ? c : (J.tints && J.tints[c] != null) ? SHEET_C(J.tints[c], J) : typeof c === 'string' ? parseInt(c.replace('#', ''), 16) : 0xdddddd;
+const SHEET_SPAN = { platform: o => o.d || KITW.W, frustum: o => o.len || 6, ledge: o => o.len || 8, bleachers: o => (o.rows || 5) * (o.rd || 0.9), shade: o => o.d || 8, rail: o => o.len || 8 };
+function kitSheet(J) {
+  J = J || SHEET.data; if (!J) return;
+  const m = J.mpp, [px0, py0] = J.pin.px, [wx0, wz0] = J.pin.world;
+  const W = p => [wx0 + (p[0] - px0) * m, wz0 + (p[1] - py0) * m], yawOf = d => Math.PI - (d || 0) * D2R;
+  const stop = [], all = [];
+  for (const Ar of J.areas) {
+    const zone = 'sheet ' + Ar.name, grp = 'a' + Ar.id, recs = [];
+    const put = (kind, size, x, z, yaw, o, label, y, group) => { const r = pk(zone, kind, size, x, z, yaw, o, group || grp, label, y); if (r) { r.area = Ar.id; recs.push(r); } return r; };
+    for (const q of Ar.pieces || []) {
+      const o = { ...(q.o || {}) }, size = q.size || 'S', y = q.y || 0;
+      if (q.tint != null) o.tint = SHEET_C(q.tint, J);
+      if (q.kind === 'pipePath') {
+        // straights between the corners, an elbow of the corner's own angle at each, the half bowl at either end
+        const P = q.pts.map(W), S = KSZ[size], F = o.flat || 6, Rc = KITW.deck + S.lip + F / 2, seg = [];
+        for (let i = 0; i < P.length - 1; i++) seg.push({ yaw: Math.atan2(P[i + 1][0] - P[i][0], P[i + 1][1] - P[i][1]), L: Math.hypot(P[i + 1][0] - P[i][0], P[i + 1][1] - P[i][1]) });
+        const turn = i => wrapAngle(seg[i].yaw - seg[i - 1].yaw), t = i => i > 0 && i < seg.length ? Rc * Math.tan(Math.abs(turn(i)) / 2) : 0;
+        const steps = [];
+        for (let i = 0; i < seg.length; i++) {
+          const L = seg[i].L - t(i) - t(i + 1);
+          if (L < 0.2) console.warn(`[park] ${q.id || 'pipePath'}: corner ${i + 1} is too sharp for its legs (${L.toFixed(2)} m of straight)`);
+          if (L > 0.05) steps.push(['pipe', size, { ...o, len: L }, 'pipe']);
+          if (i < seg.length - 1 && Math.abs(turn(i + 1)) > 1e-3) steps.push(['elbow', size, { ...o, deg: Math.abs(turn(i + 1)) / D2R, right: turn(i + 1) < 0 ? 1 : 0 }, 'elbow']);
+        }
+        const ends = q.ends || [1, 1], T0 = { x: P[0][0], y, z: P[0][1], yaw: seg[0].yaw };
+        if (ends[1]) steps.push(['pipeEnd', size, { ...o }, 'pipe end']);
+        if (ends[0]) put('pipeEnd', size, T0.x, T0.z, T0.yaw + Math.PI, { ...o }, 'pipe end', y, q.group);
+        const out = kitRun(zone, T0, steps); out.forEach(r => { r.area = Ar.id; r.group = q.group || grp; recs.push(r); });
+        if (q.id) SHEET.at[q.id] = out;
+        continue;
+      }
+      if (q.kind === 'run') {
+        const [x, z] = W(q.p), out = kitRun(zone, { x, y, z, yaw: yawOf(q.dir) }, q.steps.map(([k, s, oo, lb]) => [k, s, { ...(oo || {}), ...(q.tint != null ? { tint: o.tint } : {}) }, lb]));
+        out.forEach(r => { r.area = Ar.id; r.group = q.group || grp; recs.push(r); });
+        if (q.id) SHEET.at[q.id] = out;
+        continue;
+      }
+      if (q.kind === 'fence' || q.kind === 'trees' || q.kind === 'lamps') {
+        const P = q.pts.map(W);
+        if (q.kind === 'fence') for (let i = 0; i < P.length - 1; i++) {
+          const dx = P[i + 1][0] - P[i][0], dz = P[i + 1][1] - P[i][1];
+          put('fence', 'S', P[i][0], P[i][1], Math.atan2(dx, dz), { ...o, len: Math.hypot(dx, dz) }, 'fence', y, 'fence'); }
+        else for (const [x, z] of P) put(q.kind === 'trees' ? 'planter' : 'lamp', 'S', x, z, 0, o, q.kind === 'trees' ? 'planter + tree' : 'lamp', y, 'furniture');
+        continue;
+      }
+      const yaw = yawOf(q.dir);
+      let [x, z] = W(q.p || q.c);
+      if (!q.p && q.c && SHEET_SPAN[q.kind]) { const s = SHEET_SPAN[q.kind](o) / 2; x -= Math.sin(yaw) * s; z -= Math.cos(yaw) * s; }
+      const r = put(q.kind, size, x, z, yaw, o, q.label, y, q.group);
+      if (r && q.id) SHEET.at[q.id] = r;
+    }
+    if (Ar.stop) { const [x, z] = W(Ar.stop.p); CITY.spots['sheet ' + Ar.name] = [x, Ar.stop.y || 0, z, yawOf(Ar.stop.dir)]; stop.push('sheet ' + Ar.name); }
+    if (Ar.label) { const [x, z] = W(Ar.label); kitLabel((Ar.id + ' ' + Ar.name).toUpperCase(), Ar.sub || '', x, Ar.labelY || 11, z); }
+    SHEET.areas.push({ id: Ar.id, name: Ar.name, recs }); all.push(...recs);
+  }
+  // the ground he drew: concrete under the park, grass where it is landscaped -- picture only, a hair over the floor
+  for (const G of J.ground || []) {
+    const P = G.pts.map(W), col = SHEET_C(G.color, J), y = 0.004 + (G.lift || 0);
+    const tris = THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), []);
+    for (const [a, b, c] of tris) { const A3 = [P[a][0], y, P[a][1]], B3 = [P[b][0], y, P[b][1]], C3 = [P[c][0], y, P[c][1]];
+      const up = (B3[2] - A3[2]) * (C3[0] - A3[0]) - (B3[0] - A3[0]) * (C3[2] - A3[2]);
+      if (up > 0) kTri(A3, B3, C3, col, false); else kTri(A3, C3, B3, col, false); }
+  }
+  // the bounds the harness holds the park to: the fence, or everything
+  const fx = [], fz = []; for (const r of all) if (r.bb && (r.kind === 'fence' || !all.some(q => q.kind === 'fence'))) { fx.push(r.bb[0], r.bb[3]); fz.push(r.bb[2], r.bb[5]); }
+  if (fx.length) Object.assign(SHEET, { x0: Math.min(...fx), x1: Math.max(...fx), z0: Math.min(...fz), z1: Math.max(...fz) });
+  if (J.spawn) { const [x, z] = W(J.spawn.p); SHEET.spawn = [x, J.spawn.y || 0, z, yawOf(J.spawn.dir)];
+    SPAWN.set(x, SHEET.spawn[1] + 0.2, z); SPAWN.h = SHEET.spawn[3]; CITY.spots['sheet ' + (J.spawn.name || 'spawn')] = SHEET.spawn.slice(); }
   KITW.go.unshift(...stop);
-  SPAWN.set(SHEET.spawn[0], SHEET.spawn[1] + 0.2, SHEET.spawn[2]); SPAWN.h = SHEET.spawn[3];
-  CITY.spots['sheet main entry'] = SHEET.spawn.slice();
+  SHEET.n = all.length;
+  console.log(`[park] ${J.name}: ${all.length} pieces in ${J.areas.length} areas`);
 }
 // THE PICTURE: everything pushed since `from` into one mesh -- plain, near-white, NOT the detail pass; this is a kit to
 // read shapes off, and texture would only hide them. `offset` pushes a floor back in depth the way the plaza is.
@@ -9896,7 +9845,7 @@ function hud(dt) {
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : '') +
       // a console warning is invisible on a phone, and "the sky never loaded" looks like "it is meant to be grey"
-      (LOOK.failed ? ' · NO SKY IMG' : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') +
+      (LOOK.failed ? ' · NO SKY IMG' : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
@@ -10306,6 +10255,7 @@ tailLoad();
 // not need to be playable. The CITY and the GIRL are the two there is no game without.
 async function init() {
   setBoot(WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : 'building the park', 0.05);
+  if (WORLD.zones === 2) await schematicLoad();      // r73: the park his schematic describes, built with the kit
   buildPark();
   // r64: HIS ZONES' COLLIDERS ARE STARTED NOW AND WAITED FOR BEFORE SHE DROPS IN -- there is no floor without them
   const zonesCol = WORLD.zones === 1 ? levelImports(LEVEL.zones) : null;
@@ -10343,7 +10293,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, SHEET, kitSheet, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

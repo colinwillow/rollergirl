@@ -242,9 +242,8 @@ proud of the deck.
 
 ## The sheet park (r72): building his style sheet out of the kit
 
-His MEGA SKATEPARK style sheet (24 numbered features) is built at the WEST end of the kit world. It is fenced, 290 x 420 m,
-134 pieces, and the kit world now SPAWNS at its main entry. ➤ walks its 16 'sheet' stops first and then the r70 park's.
-The point was to find where the pieces do not meet and to build what was missing, not to make a great park.
+**Superseded at r73 by the schematic below.** r72 built every feature on the sheet but laid them out by hand, its own
+way; the table is kept because it is the list of what each feature is made of.
 
 | # | sheet feature | built from |
 |---|---------------|------------|
@@ -314,3 +313,60 @@ the 'giants (r72)' row at z 412):**
    anything sunk into a floor has to be sized to it.
 6. **Still not there:** a pipe that rises or falls (a downhill snake), a branch at an angle other than 90°, a euro gap
    piece, a bowl hip or a spined bowl, a bowl extension between two bowls. The furniture is placeholder art.
+
+
+## Schematics (r73): a park built from a plan drawing
+
+A **schematic** is a JSON file in `parks/` that places kit pieces **in the pixels of a plan drawing**. Trace a top-down plan,
+write the file, and the kit world builds it. Nothing about a particular park is in the code. `parks/mega_skatepark.json` is
+his MEGA SKATEPARK sheet (drawing: `parks/mega_skatepark.webp`): 105 pieces in 23 areas, and the kit world spawns at its
+main entry.
+
+```json
+{ "name": "MEGA SKATEPARK", "image": "parks/mega_skatepark.webp",
+  "mpp": 0.3,                                     // metres per pixel of the drawing
+  "pin": { "px": [575, 312], "world": [-305, -60] },   // one pixel and where it lands
+  "spawn": { "p": [538, 548], "dir": 0 },
+  "tints": { "wood": "#dca76f", "concrete": "#c9cdd5" },
+  "ground": [ { "color": "grass", "pts": [[x, y], ...] } ],      // flat colour, drawn only
+  "areas": [ { "id": 6, "name": "vert", "label": [x, y], "stop": { "p": [x, y], "dir": 180, "y": 9.6 },
+               "pieces": [ { "kind": "qp", "size": "MEGA", "p": [821, 150], "dir": 0, "o": { "w": 32, "deck": 4 }, "tint": "wood", "id": "vert" } ] } ] }
+```
+
+- **`p`** is the piece's own origin, as in the piece frame above: a ramp's toe, a bowl's, pool's or half pipe's centre, a
+  platform's front edge, a pipe's entry, a stair set's foot. **`c`** instead is the middle of what it covers, for platform,
+  frustum, ledge, bleachers, shade and rail.
+- **`dir`** is degrees on the drawing: 0 is up the page, 90 is right. It is the way the piece's +u points: up a ramp's
+  face, up a flight of stairs, along a rail. A quarter pipe drawn with its deck at the top of the page is `dir 0`.
+- **`o`** holds the piece's options in metres, exactly as the kit takes them.
+- **`y`** puts a piece on top of something; a ledge on a roof is `"y": 4.8`.
+- Per-piece extras:
+  - `tint`: a name from `tints`, or a colour.
+  - `id`: names the piece for the harness.
+  - `group`: pieces built to touch.
+- Kinds that only exist in a schematic:
+  - `pipePath`: `pts` is a line drawn down the middle of a pipe. It becomes straights plus an **elbow at each corner's own
+    angle**, with a half-bowl end at each end (`ends: [1, 1]`). A corner too sharp for its legs is reported in the console.
+  - `run`: `steps` snapped piece to piece from `p`/`dir`, as `kitRun` (e.g. roller, berm 180, roller).
+  - `fence` along a polyline, `trees` (a planter at each point), `lamps`.
+
+**Checking a trace: `npm run plan [parks/<name>.json]`** (about 30 s, headless chromium). It renders the built park from
+straight above, at the drawing's own scale and orientation (the camera comes from `mpp` and `pin`), and writes:
+- `shots/plan_<name>_side.png`: the plan and the build, side by side;
+- `shots/plan_<name>_overlay.png`: the build laid over the plan at half strength, so a misplaced piece shows;
+- `shots/plan_<name>_persp.png`: a view from the south-west, as his sheet has.
+
+**Making a new one:**
+1. Put the drawing in `parks/`.
+2. Pick `mpp` from its scale bar (times the exaggeration you want: his sheet's bar says 0.17 m/px; 0.30 is 1.75x).
+3. Pick a `pin` somewhere open in the kit world.
+4. Read pixel positions off the drawing. A gridded zoom of it is the quickest way.
+5. Write the areas, then run `npm run plan` and move whatever the overlay shows is off.
+6. Run `npm run sim kit`. Every piece with an `id` can have a ride test, and the sheet tests find their pieces by id.
+
+**What his plan has that the kit still cannot draw:**
+- the S-curved spine (7) and the U-shaped funbox (14): there is no curved spine and no horseshoe bank;
+- the long raised walkway with railings from the rooftop to the quarter pipe deck: there is no sloped deck;
+- bowls sunk into the plaza: the bowl is a raised block with banks up to its deck;
+- the planted islands: they are only grass colour and box planters.
+Each of these would be a new kind, then a line in the schematic.

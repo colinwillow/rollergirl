@@ -2859,7 +2859,7 @@ CASES.kit = async () => {
   // ---- r70: THE MEGA PARK ---------------------------------------------------------------------------------------------
   const KP = rg.KPARK, M = KSZ.M;
   // P1. NOTHING SITS INSIDE ANYTHING ELSE unless it was built to touch (same `group`)
-  { const pkz = K.pieces.filter(p => p.park), bad = [];
+  { const pkz = K.pieces.filter(p => p.park && !p.park.startsWith('sheet')), bad = [];      // r73: the sheet park has its own (S1)
     for (let i = 0; i < pkz.length; i++) for (let j = i + 1; j < pkz.length; j++) { const a = pkz[i], b = pkz[j];
       if (!a.bb || !b.bb || (a.group && a.group === b.group)) continue;
       const o = [0, 1, 2].map(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k]));
@@ -2948,77 +2948,87 @@ CASES.kit = async () => {
       say('bridge M: ridden OVER on its deck', on, on ? 'on the deck' : `y ${fix(P.pos.y)}`); }
     { const bm = find('berm'); go(bm, -6, 0, 0, 10); const r = ride(3, () => { fwd(P.heading); city(); }); const turned = Math.abs(rg.wrapAngle ? rg.wrapAngle(P.heading - bm.T.yaw) : 0);
       say('berm M 90: round it on the bank', !r.falls && !r.bail && r.top > 0.2 && r.low > -0.05, `up to ${fix(r.top)} on the bank`); }
-    // S1. NOTHING IN THE SHEET PARK INSIDE ANYTHING ELSE, and nothing outside its fence
+    // ---- r73: THE PARK HIS SCHEMATIC DESCRIBES (`parks/mega_skatepark.json`, `kitSheet`). Every piece below is found by the
+    // `id` the schematic gives it, so moving a piece in the file moves its test with it.
+    const at = id => { const r = A[id]; if (!r) say(`schematic has "${id}"`, false, 'missing'); return r; };
+    const onAt = (yy, tol) => P.grounded && Math.abs(P.pos.y - yy) < (tol || 0.08);
+    // S1. NOTHING IN ONE AREA INSIDE A PIECE OF ANOTHER, and nothing outside the fence
     { const bad = [], out = [];
       for (let i = 0; i < sheetP.length; i++) { const a = sheetP[i]; if (!a.bb) continue;
-        if (a.kind !== 'fence' && (a.bb[0] < SH.x0 || a.bb[3] > SH.x1 + 25 || a.bb[2] < SH.z0 || a.bb[5] > SH.z1)) out.push(a.label);
+        if (a.kind !== 'fence' && (a.bb[0] < SH.x0 - 0.5 || a.bb[3] > SH.x1 + 0.5 || a.bb[2] < SH.z0 - 0.5 || a.bb[5] > SH.z1 + 0.5)) out.push(a.label + ' (outside)');
         for (let j = i + 1; j < sheetP.length; j++) { const b = sheetP[j]; if (!b.bb || (a.group && a.group === b.group)) continue;
           const o = [0, 1, 2].map(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k])); if (o.every(v => v > 0.3)) bad.push(`${a.label} x ${b.label}`); } }
-      say(`sheet park: ${sheetP.length} pieces, none inside another, all inside the fence`, sheetP.length > 100 && !bad.length && !out.length, (bad.concat(out)).slice(0, 4).join('; ') || 'clear'); }
-    // S2. THE SPAWN: off the entry deck, down the grand stairs into the hub
-    { reset(); const S0 = SH.spawn; place(S0[0], S0[1] + 0.3, S0[2], S0[3], 0); let hub = 0;
-      const r = ride(6, () => { fwd(-Math.PI / 2); city(); if (P.grounded && P.pos.y < 0.05 && P.pos.x < -200) hub = 1; });
-      say('sheet entry: off the deck, down the grand stairs into the hub', hub && !r.bail && !r.falls, hub ? 'in the hub' : `ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`); }
+      say(`sheet park: ${sheetP.length} pieces from the schematic, none inside another, all inside the fence`, sheetP.length > 80 && !bad.length && !out.length, (bad.concat(out)).slice(0, 4).join('; ') || 'clear'); }
+    // S2. THE MAIN ENTRY: off the landing down the grand stairs (south), and down the bank off its far side (north)
+    { const st = at('entryStairs'), run = KSZ.L.H / Math.tan(32 * Math.PI / 180), bk = at('entryBank');
+      reset(); let t = L(st, run + 1.5, 0); place(t.x, KSZ.L.H + 0.3, t.z, H(st, Math.PI), 4); let down = 0;
+      let r = ride(4, () => { fwd(H(st, Math.PI)); city(); if (onAt(0, 0.05) && loc(st).u < -1) down = 1; });
+      say('sheet entry: off the landing, down the grand stairs L', down && !r.bail && !r.falls, down ? 'at the foot' : `ends u ${fix(loc(st).u, 1)} y ${fix(P.pos.y)}`);
+      reset(); t = L(st, run + 1.5, 0); place(t.x, KSZ.L.H + 0.3, t.z, H(st, 0), 4); down = 0;
+      r = ride(4, () => { fwd(H(st, 0)); city(); if (onAt(0, 0.05) && loc(bk).u < -1) down = 1; });
+      say('sheet entry: off the landing, down the bank L the other way', down && !r.bail && !r.falls, down ? 'on the street' : `ends y ${fix(P.pos.y)}`); }
     // S3. THE QUARTER PIPE ROW: straight at every QP and every adapter, up its face and back
-    { const bad = []; for (const q of A.qps) { const Ht = q.kind === 'qp' ? KSZ[q.size].H : (KSZ[q.size].H + KSZ[q.o.to].H) / 2;
-        go(q, -16, 0, 0, Math.min(22, Math.sqrt(2 * g * Ht) + 3)); const r = ride(5);
+    { const bad = []; for (let i = 0; i < 7; i++) { const q = at('qp' + i); if (!q) continue; const Ht = q.kind === 'qp' ? KSZ[q.size].H : (KSZ[q.size].H + KSZ[q.o.to].H) / 2;
+        go(q, -14, 0, 0, Math.min(22, Math.sqrt(2 * g * Ht) + 3)); const r = ride(5);
         if (!(r.top > Ht * 0.85 && !r.falls && !r.bail && r.low > -0.05)) bad.push(`${q.label}: up to ${fix(r.top)} of ${fix(Ht)}${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}`); }
-      say(`sheet quarter pipes: ${A.qps.length} faces S to XXL, adapters between, each ridden`, !bad.length, bad.slice(0, 3).join('; ') || 'every one'); }
-    // S4. THE VERT: rolled in off the east deck, she swings the MEGA pipe to the far wall's coping
-    { const v = A.vert, S = KSZ.MEGA, xd = v.T.x + 5 + S.lip + 1.2; reset(); place(xd, S.H + 0.3, v.T.z, -Math.PI / 2, 2); let far = 0;
-      const r = ride(10, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.pos.x < v.T.x - 5) far = Math.max(far, P.pos.y); });
-      say('sheet vert: drop in off the 9.6 m deck, up the far wall', far > S.H * 0.85 && !r.falls && !r.bail && r.low > -0.05, `far wall up to ${fix(far)} of ${S.H}`);
-      const st = A.vertStairs; reset(); const t = rg.kT(st.T, -4, 0, 0); place(t.x, 0.3, t.z, st.T.yaw, 10); let up = 0;
-      ride(6, () => { fwd(st.T.yaw); city(); if (P.grounded && Math.abs(P.pos.y - S.H) < 0.08) up = 1; });
-      say('sheet vert: up the stairs MEGA onto the deck', up, up ? 'on the deck at 9.6' : `ends y ${fix(P.pos.y)}`); }
-    // S5. THE BOWL COMPLEX: up the bank XXL onto the deck; dropped into the clover from four sides; into the raised round bowl
-    { const bk = A.bowlBank; reset(); const t = rg.kT(bk.T, -6, 0, 0); place(t.x, 0.3, t.z, bk.T.yaw, Math.sqrt(2 * g * 7.2) + 3); let deck = 0;
-      ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && Math.abs(P.pos.y - 7.2) < 0.06) deck = 1; });
-      say('sheet bowls: up the bank XXL onto the 7.2 m deck', deck, deck ? 'on the deck' : `top ${fix(P.pos.y)}`);
-      const c = A.clover, bad = []; let deepest = 99;
-      for (const h of [0, Math.PI / 2, Math.PI, -Math.PI / 2, Math.PI / 4]) { reset(); const R = c.R * (1 + 0.2 * Math.cos(3 * (h - 30 * Math.PI / 180))) + 1.2;
-        const t2 = rg.kT(c.T, R * Math.cos(h), R * Math.sin(h), 0); place(t2.x, 7.6, t2.z, 0, 0); P.heading = P.faceH = Math.atan2(c.T.x - t2.x, c.T.z - t2.z);
-        P.vel.set(Math.sin(P.heading) * 3, 0, Math.cos(P.heading) * 3); const r = ride(9); deepest = Math.min(deepest, r.low);
-        if (r.falls || r.bail || r.low < -0.05 || r.low > 3.3) bad.push(`at ${fix(h * 180 / Math.PI, 0)}: ${r.falls ? 'fell' : r.bail ? 'bailed' : 'low ' + fix(r.low)}`); }
-      say('sheet bowls: dropped into the clover XXL from five sides', !bad.length && deepest < 0.3, bad.join('; ') || `deep end reached (${fix(deepest)})`);
-      const rb = A.round; reset(); const t3 = rg.kT(rb.T, rb.R + 1.2, 0, 0); place(t3.x, 7.6, t3.z, 0, 0); P.heading = P.faceH = Math.atan2(rb.T.x - t3.x, rb.T.z - t3.z);
-      P.vel.set(Math.sin(P.heading) * 3, 0, Math.cos(P.heading) * 3); const r = ride(8);
-      say('sheet bowls: into the round bowl XL, raised to share the deck', Math.abs(r.low - 2.4) < 0.15 && !r.falls && !r.bail && r.top > 6, `floor ${fix(r.low)}, up to ${fix(r.top)}`); }
-    // S6. THE BRIDGE: across it off the clover's deck to the tower and down the bank; and under it at ground level
-    { const b = A.bridge; reset(); const t = rg.kT(b.T, -1, 0, 0); place(t.x, 7.5, t.z, b.T.yaw, 6); let tower = 0, down = 0;
-      const r = ride(10, () => { fwd(b.T.yaw); city(); if (P.grounded && Math.abs(P.pos.y - 7.2) < 0.06 && loc(b).u > b.len + 1) tower = 1; if (tower && P.grounded && P.pos.y < 0.05) down = 1; });
-      say('sheet bridge: across it to the tower, down the bank XXL', tower && down && !r.falls && !r.bail, `tower ${tower ? 'yes' : 'no'}, down ${down ? 'yes' : 'no'}`);
-      reset(); const m = rg.kT(b.T, b.len / 2 + 3.3, -14, 0); place(m.x, 0.3, m.z, b.T.yaw + Math.PI / 2, 10); let under = 0;      // between two posts
-      ride(3, () => { fwd(b.T.yaw + Math.PI / 2); city(); if (loc(b).w > 5 && P.pos.y < 0.2) under = 1; });
-      say('sheet bridge: ridden under it, across the bowl side', under, under ? 'came out the far side' : `ends w ${fix(loc(b).w, 1)} y ${fix(P.pos.y)}`); }
-    // S7. THE SNAKE RUN (45-degree elbows) and the PUMP TRACK (a full lap), steering down their middles
-    { const pts = line(A.snake), s0 = pts[1]; reset(); place(s0[0], 0.2, s0[1], Math.atan2(pts[4][0] - s0[0], pts[4][1] - s0[1]), 9); const so = {}; const r = follow(pts, 14, so);
-      say('sheet snake run: pipe L, four 45-degree elbows, end to end', r.far >= pts.length - 6 && !r.falls && !r.bail && r.low > -0.05, `${r.far}/${pts.length} of the line, worst ${fix(r.offMax, 1)} m off (${so.at})`); }
-    { const L0 = line(A.pump), pts = L0.concat(L0.slice(1, 20)), s0 = pts[1]; reset(); place(s0[0], 0.2, s0[1], Math.atan2(pts[4][0] - s0[0], pts[4][1] - s0[1]), 8); const so = {};
-      const r = follow(pts, 20, so); say('sheet pump track: a full lap of rollers and two 180 berms', r.far >= L0.length && !r.falls && !r.bail && r.low > -0.05, `${r.far}/${L0.length}, worst ${fix(r.offMax, 1)} m off (${so.at})`); }
-    { const pts = line(A.flowRun), s0 = pts[0]; reset(); place(s0[0], 0.2, s0[1], Math.atan2(pts[4][0] - s0[0], pts[4][1] - s0[1]), 9); const so = {};
-      const r = follow(pts, 10, so); say('sheet flow: rollers into a berm and out', r.far >= pts.length - 4 && !r.falls && !r.bail, `${r.far}/${pts.length}, worst ${fix(r.offMax, 1)} m off (${so.at})`); }
-    // S8. THE HUBBAS: a swipe down beside the grand stairs grinds one to the foot
-    { const st = A.stairs, rl = KSZ.L.H / Math.tan(32 * Math.PI / 180); rg.GRIND.intent = 1; rg.ledgeClear();
-      reset(); const t = rg.kT(st.T, rl + 3, 9.2, 0); place(t.x, KSZ.L.H + 0.3, t.z, st.T.yaw + Math.PI, 6);      // on the landing, 1.6 m in from the hubba's steel P.grindCool = 0; P.grindLast = null;
+      say('sheet quarter pipes: S to XL with adapters between, each ridden', !bad.length, bad.slice(0, 3).join('; ') || 'every one'); }
+    // S4. THE VERT: off its deck down the QP MEGA, over the flat, up the bank L onto the bowl deck; and up the stairs MEGA
+    { const v = at('vert'), bn = at('bowlBankN'), S = KSZ.MEGA; reset(); const t = L(v, S.lip + 2.5, 0); place(t.x, S.H + 0.3, t.z, H(v, Math.PI), 3);
+      let bottom = 0, deck = 0; const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.pos.y < 0.3) bottom = 1; if (bottom && loc(bn).u > 0 && P.pos.y > KSZ.L.H - 0.3) deck = 1; });
+      say('sheet vert: drop in off the 9.6 m deck, over the flat, onto the bowl deck', bottom && deck && !r.falls && !r.bail, `bottom ${bottom ? 'yes' : 'no'}, bowl deck ${deck ? 'yes' : 'no'}`);
+      const st = at('vertStairs'); reset(); const t2 = L(st, -4, 0); place(t2.x, 0.3, t2.z, st.T.yaw, 10); let up = 0;
+      ride(7, () => { fwd(st.T.yaw); city(); if (onAt(S.H)) up = 1; });
+      say('sheet advanced line: up the stairs MEGA onto the vert deck', up, up ? 'on the deck at 9.6' : `ends y ${fix(P.pos.y)}`); }
+    // S5. THE BOWL: dropped in from its deck at five bearings (deep end reached, nothing fallen through), and up each bank
+    { const b = at('bowl'), o = b.o, Hd = KSZ[b.size].H, bad = []; let deepest = 99;
+      for (const h of [0, Math.PI / 2, Math.PI, -Math.PI / 2, Math.PI / 4]) { reset();
+        const R = b.R * (1 + o.amp * Math.cos(o.lobes * (h - o.phase * Math.PI / 180))) + 1.2, t = L(b, R * Math.cos(h), R * Math.sin(h));
+        place(t.x, Hd + 0.4, t.z, 0, 0); P.heading = P.faceH = Math.atan2(b.T.x - t.x, b.T.z - t.z); P.vel.set(Math.sin(P.heading) * 3, 0, Math.cos(P.heading) * 3);
+        const r = ride(9); deepest = Math.min(deepest, r.low);
+        if (r.falls || r.bail || r.low < -0.05 || r.low > Hd - o.shallow + 0.3 || r.top < Hd * 0.6) bad.push(`at ${fix(h * 180 / Math.PI, 0)}: ${r.falls ? 'fell' : r.bail ? 'bailed' : 'low ' + fix(r.low) + ' top ' + fix(r.top)}`); }
+      say('sheet bowl: dropped in from five sides, swings', !bad.length && deepest < 0.3, bad.join('; ') || `deep end reached (${fix(deepest)})`);
+      const nb = []; for (const id of ['bowlBankN', 'bowlBankW', 'bowlBankS']) { const k = at(id); go(k, -6, 0, 0, Math.sqrt(2 * g * Hd) + 3); let deck = 0;
+        ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(Hd)) deck = 1; }); if (!deck) nb.push(`${id} top ${fix(P.pos.y)}`); }
+      say('sheet bowl: up each of its three banks onto the deck', !nb.length, nb.join('; ') || 'all three'); }
+    // S6. THE BRIDGE: up its stairs, across it, onto the deck and down the bank; and under it between two posts
+    { const st = at('bridgeStairs'), b = at('bridge'), bk = at('bridgeBank'); reset(); const t = L(st, -3, 0); place(t.x, 0.3, t.z, st.T.yaw, 9);
+      let on = 0, down = 0; const r = ride(9, () => { fwd(st.T.yaw); city(); const l = loc(b); if (onAt(KSZ.L.H) && l.u > 1 && l.u < b.len - 1) on = 1; if (on && onAt(0, 0.05) && loc(bk).u < 0) down = 1; });
+      say('sheet bridge: up the stairs, across the bridge L, down the bank', on && down && !r.falls && !r.bail, `on the bridge ${on ? 'yes' : 'no'}, down ${down ? 'yes' : 'no'}`);
+      reset(); const m = L(b, 9, -9); place(m.x, 0.3, m.z, H(b, Math.PI / 2), 8); let under = 0;      // half way between the 2nd and 3rd posts
+      ride(3, () => { fwd(H(b, Math.PI / 2)); city(); if (loc(b).w > 5 && P.pos.y < 0.2) under = 1; });
+      say('sheet bridge: ridden under it', under, under ? 'came out the far side' : `ends w ${fix(loc(b).w, 1)} y ${fix(P.pos.y)}`); }
+    // S7. THE SNAKE RUN (a pipe along the drawn line, elbows at the drawn angles) and the FLOW LINE (rollers, a 180 berm)
+    { const pts = line(at('snake')), s0 = pts[2]; reset(); place(s0[0], 0.2, s0[1], Math.atan2(pts[6][0] - s0[0], pts[6][1] - s0[1]), 8); const so = {}; const r = follow(pts, 12, so);
+      say('sheet snake run: end to end down the drawn line', r.far >= pts.length - 6 && !r.falls && !r.bail && r.low > -0.05, `${r.far}/${pts.length} of the line, worst ${fix(r.offMax, 1)} m off (${so.at})`); }
+    { const pts = line(at('flow')), s0 = pts[0]; reset(); place(s0[0], 0.2, s0[1], Math.atan2(pts[4][0] - s0[0], pts[4][1] - s0[1]), 8); const so = {};
+      const r = follow(pts, 10, { ...so, coast: 9 }); say('sheet flow: rollers into the 180 berm and out', r.far >= pts.length - 4 && !r.falls && !r.bail, `${r.far}/${pts.length}, worst ${fix(r.offMax, 1)} m off`); }
+    // S8. THE HUBBAS: a swipe down on the landing beside the grand stairs grinds one down them
+    { const st = at('entryStairs'), rl = KSZ.L.H / Math.tan(32 * Math.PI / 180); rg.GRIND.intent = 1; rg.ledgeClear();
+      reset(); const t = L(st, rl + 1.5, 4); place(t.x, KSZ.L.H + 0.3, t.z, H(st, Math.PI), 6); P.grindCool = 0; P.grindLast = null;
       const w = rg.rightFlick(0, 60); let hub = 0, low = 99; run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && (/hubba/.test(P.grind.rail.path.name) || P.grind.rail.path.ledge)) { hub = 1; low = Math.min(low, P.pos.y); } });
       say('sheet entry: a swipe down beside the stairs grinds a hubba down them', hub && low < 1.2, `${w}, ${hub ? 'on the hubba, down to ' + fix(low) : 'NO HUBBA'}`);
       rg.ledgeClear(); rg.GRIND.intent = 0; }
-    // S9. THE MEGA RAMP: off the roll-in MEGA, pushing down the run, over the gap XL, up the QP MEGA
-    { const ri = A.megaIn, gp = A.megaGap, qp = A.megaQP, top = rg.kT(ri.T, ri.top + 1.5, 0, 0); reset(); place(top.x, KSZ.MEGA.H + 0.3, top.z, Math.PI / 2, 1);
-      let vMax = 0, landed = 0, qpTop = 0, tq = 0; const kick = rg.kT(gp.T, 9, 0, 0).x, landX = gp.T.x + 9 + 12;
-      const r = ride(14, () => { if (P.pos.x < kick - 4 && P.hSpeed < 18) fwd(Math.PI / 2); else { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = Math.PI / 2; } city(); vMax = Math.max(vMax, P.hSpeed);
-        if (P.grounded && P.pos.x > landX - 1 && P.pos.x < qp.T.x - 2 && !landed) landed = P.pos.x; if (P.pos.x > qp.T.x) qpTop = Math.max(qpTop, P.pos.y); if (process.env.DBG && ((tq = (tq || 0) + 1) % 6 === 0)) console.log('     ', fix(P.pos.x, 1), fix(P.pos.y), fix(P.pos.z, 1), fix(P.hSpeed, 1), fix(P.vel.y, 1), P.grounded ? 'G' : 'a', P.grind ? 'GRIND ' + P.grind.rail.path.name : '', P.bailT > 0 ? 'BAIL' : ''); });
-      say('sheet mega ramp: roll-in MEGA, the gap XL cleared, up the QP MEGA', landed && qpTop > KSZ.MEGA.H * 0.9 && !r.falls, `${fix(vMax, 1)} m/s, landed ${landed ? 'at x ' + fix(landed, 1) + ' (gap ends ' + fix(landX, 1) + ')' : 'SHORT'}, QP MEGA up to ${fix(qpTop)}`); }
-    // S10. THE GAP XL at speed, and the rooftop: up the bank XL, down the stairs XL
-    { const gp = K.pieces.find(p => p.park === 'sheet gap' && p.kind === 'gap'); go(gp, -8, 0, 0, 22); let land = 0; const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && loc(gp).u > 9 + 12) land = 1; });
-      say('sheet gap XL (12 m) at 22 m/s: cleared', land && !r.bail && !r.falls, land ? 'landed past the gap' : `ends u ${fix(loc(gp).u, 1)}`); }
-    { const st = A.roofStairs; reset(); const t = rg.kT(st.T, st.len - 1, 0, 0); place(t.x, KSZ.XL.H + 0.3, t.z, st.T.yaw + Math.PI, 4); let down = 0;
-      const r = ride(4, () => { fwd(st.T.yaw + Math.PI); city(); if (P.grounded && P.pos.y < 0.05) down = 1; });
-      say('sheet rooftop: down the stairs XL (the advanced line)', down && !r.bail && !r.falls, down ? 'at the foot' : `ends y ${fix(P.pos.y)}`); }
-    // S11. THE FENCE holds her in, and every ➤ stop in the sheet park stands her on a floor
-    { reset(); place(SH.x0 + 25, 0.2, -60, -Math.PI / 2, 16); const r = ride(3, () => { fwd(-Math.PI / 2); city(); });
-      say('sheet fence: ridden into at 16 m/s, holds', P.pos.x > SH.x0 && !r.falls, `ends x ${fix(P.pos.x, 1)} (fence ${SH.x0})`); }
+    // S9. THE MINI RAMP and THE POOL: dropped in off one deck, they swing to the other wall
+    for (const id of ['mini', 'pool']) { const q = at(id), S = KSZ[q.size], F = q.o.flat || 6; reset(); const t = L(q, F / 2 + S.lip + 0.8, 0); place(t.x, S.H + 0.3, t.z, H(q, Math.PI), 2);
+      let far = 0; const r = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (loc(q).u < -F / 2) far = Math.max(far, P.pos.y); });
+      say(`sheet ${id === 'mini' ? 'mini ramp: half pipe M' : 'gap and drop: pool L'}, dropped in, swings to the far wall`, far > S.H * 0.6 && !r.falls && !r.bail && r.low > -0.05, `far wall up to ${fix(far)} of ${S.H}`); }
+    { const k = at('poolBank'); go(k, -6, 0, 0, Math.sqrt(2 * g * KSZ.L.H) + 3); let deck = 0; ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(KSZ.L.H)) deck = 1; });
+      say('sheet gap and drop: up the bank L onto the pool deck', deck, deck ? 'on the deck' : `top ${fix(P.pos.y)}`); }
+    // S10. THE ROOFTOP: up the bank XL onto the roof, and down the stairs XL off it
+    { const k = at('roofBank'), XL = KSZ.XL; go(k, -8, 0, 0, Math.sqrt(2 * g * XL.H) + 3); let roof = 0; ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(XL.H)) roof = 1; });
+      say('sheet rooftop: up the bank XL onto the roof', roof, roof ? 'on the roof' : `top ${fix(P.pos.y)}`);
+      const st = at('roofStairs'), run = XL.H / Math.tan(32 * Math.PI / 180); reset(); const t = L(st, run + 1.5, 0); place(t.x, XL.H + 0.3, t.z, H(st, Math.PI), 4); let down = 0;
+      const r = ride(4, () => { fwd(H(st, Math.PI)); city(); if (onAt(0, 0.05) && loc(st).u < 0) down = 1; });
+      say('sheet rooftop: down the stairs XL', down && !r.bail && !r.falls, down ? 'at the foot' : `ends y ${fix(P.pos.y)}`); }
+    // S11. THE SPINE, THE FUNBOX, THE PYRAMID, THE HUB QP: each ridden straight at, no bail, nothing fallen through
+    { const bad = []; for (const [id, v, need, from] of [['spine', Math.sqrt(2 * g * KSZ.L.H) + 2, KSZ.L.H * 0.8, -10], ['funbox', 9, 1.0, -10], ['pyramid', 12, 2.0, -12], ['hubQP', 8, 1.0, -10],
+        ['beginBox', 8, 1.0, -6], ['flowBox', 9, 1.0, -10], ['flowHip', 9, 1.0, -10]]) {      // the beginner box starts past its kicker
+        const q = at(id); if (!q) continue; go(q, from, 0, 0, v); const r = ride(4);
+        if (r.bail || r.falls || r.low < -0.05 || r.top < need) bad.push(`${id}: up to ${fix(r.top)}${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}`); }
+      say('sheet: spine, funbox, pyramid, hub QP, beginner box, flow boxes ridden', !bad.length, bad.join('; ') || 'all of them'); }
+    // S12. THE FENCE holds her in, and every ➤ stop in the sheet park stands her on a floor
+    { const zm = (SH.z0 + SH.z1) / 2; reset(); place(SH.x0 + 12, 0.2, zm, -Math.PI / 2, 16); const r = ride(3, () => { fwd(-Math.PI / 2); city(); });
+      say('sheet fence: ridden into at 16 m/s, holds', P.pos.x > SH.x0 && !r.falls, `ends x ${fix(P.pos.x, 1)} (fence ${fix(SH.x0, 1)})`); }
     { const bad = []; for (const n of K.go.filter(n => /^sheet /.test(n))) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
         run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; });
         if (gr < 30 || Math.abs(P.pos.y - y0) > 0.1) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }

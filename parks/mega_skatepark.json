@@ -1,0 +1,168 @@
+{
+  "name": "MEGA SKATEPARK",
+  "source": "his style sheet & schematic, top-down plan view (r73). Every position below is a pixel of mega_skatepark.webp.",
+  "image": "parks/mega_skatepark.webp",
+  "units": "p / c / pts are pixels of the image; mpp metres per pixel; dir degrees on the image (0 = up the page, 90 = right) and it is the way the piece's +u points; every option inside o is in metres, as the kit takes it",
+  "mpp": 0.3,
+  "pin": { "px": [575, 312], "world": [-305, -60] },
+  "spawn": { "p": [538, 548], "dir": 0, "name": "main entry" },
+  "tints": { "wood": "#dca76f", "concrete": "#c9cdd5", "seat": "#b9bfcc", "ground": "#d3d6dc", "grass": "#8fc98a" },
+  "ground": [
+    { "color": "ground", "pts": [[255, 568], [232, 545], [232, 110], [250, 98], [480, 98], [545, 60], [905, 60], [928, 78], [928, 545], [905, 568]] },
+    { "color": "grass", "lift": 0.02, "pts": [[232, 455], [262, 455], [262, 568], [255, 568], [232, 545]] },
+    { "color": "grass", "lift": 0.02, "pts": [[596, 528], [800, 528], [800, 566], [596, 566]] },
+    { "color": "grass", "lift": 0.02, "pts": [[250, 99], [478, 99], [470, 113], [244, 113]] },
+    { "color": "grass", "lift": 0.02, "pts": [[285, 433], [470, 433], [470, 455], [285, 455]] },
+    { "color": "grass", "lift": 0.02, "pts": [[866, 458], [926, 458], [926, 512], [866, 512]] },
+    { "color": "grass", "lift": 0.02, "pts": [[570, 248], [632, 248], [632, 280], [570, 280]] },
+    { "color": "grass", "lift": 0.02, "pts": [[316, 262], [362, 262], [362, 300], [316, 300]] },
+    { "color": "grass", "lift": 0.02, "pts": [[500, 412], [517, 412], [517, 455], [500, 455]] },
+    { "color": "grass", "lift": 0.02, "pts": [[559, 412], [576, 412], [576, 455], [559, 455]] }
+  ],
+  "areas": [
+    { "id": 1, "name": "main entry", "sub": "the walkway in, the grand stairs with hubbas", "label": [565, 490],
+      "stop": { "p": [538, 535], "dir": 0 },
+      "pieces": [
+        { "kind": "stairs", "size": "L", "p": [538, 450], "dir": 0, "o": { "w": 10, "hubba": 1 }, "tint": "concrete", "id": "entryStairs", "label": "grand stairs L + hubbas (11, 12)" },
+        { "kind": "bank", "size": "L", "p": [538, 395.1], "dir": 180, "o": { "w": 10 }, "tint": "concrete", "id": "entryBank", "label": "bank L off the landing" },
+        { "kind": "trees", "pts": [[487, 512], [487, 540], [589, 512], [589, 540], [508, 440], [564, 446]] },
+        { "kind": "lamps", "pts": [[505, 495], [571, 495]] }
+      ] },
+    { "id": 2, "name": "street course", "sub": "stairs + rail, manual pad, hubba ledge", "label": [528, 340],
+      "stop": { "p": [500, 378], "dir": 0 },
+      "pieces": [
+        { "kind": "stairs", "size": "M", "p": [452, 326], "dir": 340, "o": { "w": 6 }, "tint": "concrete", "id": "streetStairs", "label": "stairs M + handrails" },
+        { "kind": "ledge", "size": "S", "c": [475, 306], "dir": 0, "o": { "h": 0.36, "w": 4, "len": 8 }, "label": "manual pad" },
+        { "kind": "ledge", "size": "S", "c": [497, 350], "dir": 90, "o": { "h": 0.6, "w": 2, "len": 10 }, "label": "hubba ledge" }
+      ] },
+    { "id": 12, "name": "handrails", "sub": "flat rail, kink rail", "label": [575, 455],
+      "stop": { "p": [575, 485], "dir": 90 },
+      "pieces": [
+        { "kind": "rail", "size": "S", "p": [553, 383], "dir": 0, "o": { "len": 16 }, "label": "flat rail S" },
+        { "kind": "railKink", "size": "M", "p": [600, 470], "dir": 90, "label": "kink rail M" }
+      ] },
+    { "id": 14, "name": "funbox", "sub": "funbox S with rails", "label": [517, 264],
+      "stop": { "p": [515, 300], "dir": 0 },
+      "pieces": [
+        { "kind": "frustum", "size": "S", "c": [515, 262], "dir": 90, "o": { "len": 10, "w": 10, "banks": [1, 1, 1, 1], "rails": 1 }, "tint": "wood", "id": "funbox", "label": "funbox S + rails" }
+      ] },
+    { "id": 10, "name": "gap and drop", "sub": "a pool L, a bank up to its deck, a drop off the far end", "label": [528, 202],
+      "stop": { "p": [436, 203], "dir": 90 },
+      "pieces": [
+        { "kind": "pool", "size": "L", "p": [527, 203], "dir": 0, "o": { "flat": 6, "len": 17 }, "tint": "concrete", "id": "pool", "label": "pool L" },
+        { "kind": "bank", "size": "L", "p": [444, 203], "dir": 90, "o": { "w": 12 }, "tint": "wood", "id": "poolBank", "label": "bank L up to the pool deck" }
+      ] },
+    { "id": 13, "name": "quarter pipes", "sub": "S to XL in a row, adapters between", "label": [548, 92],
+      "stop": { "p": [548, 170], "dir": 0 },
+      "pieces": [
+        { "kind": "qp", "size": "S", "p": [478.3, 140], "dir": 0, "o": { "w": 8, "deck": 3 }, "tint": "wood", "id": "qp0", "label": "QP S" },
+        { "kind": "qpAdapt", "size": "M", "p": [501.7, 140], "dir": 0, "o": { "to": "S", "w": 6, "deck": 3 }, "tint": "wood", "id": "qp1", "label": "QP adapter S > M" },
+        { "kind": "qp", "size": "M", "p": [525, 140], "dir": 0, "o": { "w": 8, "deck": 3 }, "tint": "wood", "id": "qp2", "label": "QP M" },
+        { "kind": "qpAdapt", "size": "L", "p": [548.3, 140], "dir": 0, "o": { "to": "M", "w": 6, "deck": 3 }, "tint": "wood", "id": "qp3", "label": "QP adapter M > L" },
+        { "kind": "qp", "size": "L", "p": [571.7, 140], "dir": 0, "o": { "w": 8, "deck": 3 }, "tint": "wood", "id": "qp4", "label": "QP L" },
+        { "kind": "qpAdapt", "size": "XL", "p": [595, 140], "dir": 0, "o": { "to": "L", "w": 6, "deck": 3 }, "tint": "wood", "id": "qp5", "label": "QP adapter L > XL" },
+        { "kind": "qp", "size": "XL", "p": [618.3, 140], "dir": 0, "o": { "w": 8, "deck": 3 }, "tint": "wood", "id": "qp6", "label": "QP XL" },
+        { "kind": "stairs", "size": "L", "p": [665, 140], "dir": 0, "o": { "w": 6, "land": 4 }, "tint": "concrete", "id": "qpStairs", "label": "stairs L + handrails" }
+      ] },
+    { "id": 6, "name": "vert", "sub": "QP MEGA (9.6 m) on a deck", "label": [821, 125], "labelY": 15,
+      "stop": { "p": [821, 85], "dir": 180, "y": 9.6 },
+      "pieces": [
+        { "kind": "qp", "size": "MEGA", "p": [821, 150], "dir": 0, "o": { "w": 32, "deck": 4 }, "tint": "wood", "id": "vert", "label": "QP MEGA" },
+        { "kind": "platform", "size": "MEGA", "c": [821, 85], "dir": 0, "o": { "w": 32, "d": 11.4 }, "tint": "concrete", "id": "vertDeck", "label": "vert deck MEGA" }
+      ] },
+    { "id": 18, "name": "advanced line", "sub": "stairs MEGA up to the vert deck", "label": [760, 80], "labelY": 14,
+      "stop": { "p": [760, 168], "dir": 0 },
+      "pieces": [
+        { "kind": "stairs", "size": "MEGA", "p": [760, 155], "dir": 0, "o": { "w": 5, "land": 3 }, "tint": "concrete", "id": "vertStairs", "label": "stairs MEGA + handrails" }
+      ] },
+    { "id": 4, "name": "bowl complex", "sub": "a four-lobed bowl L, 2 m shallow end to 3.6 m deep", "label": [848, 255],
+      "stop": { "p": [760, 205], "dir": 135, "y": 3.6 },
+      "pieces": [
+        { "kind": "freeBowl", "size": "L", "p": [828, 275], "dir": 0, "o": { "R": 21, "lobes": 4, "amp": 0.16, "phase": 45, "shallow": 2, "deepAt": 0, "deck": 3 }, "tint": "concrete", "id": "bowl", "label": "bowl L, four lobes" },
+        { "kind": "bank", "size": "L", "p": [828, 158], "dir": 180, "o": { "w": 24 }, "tint": "wood", "id": "bowlBankN", "label": "bank L from the vert onto the bowl deck" },
+        { "kind": "bank", "size": "L", "p": [711, 290], "dir": 90, "o": { "w": 14 }, "tint": "wood", "id": "bowlBankW", "label": "bank L up the west side" },
+        { "kind": "bank", "size": "L", "p": [860, 392], "dir": 0, "o": { "w": 12 }, "tint": "wood", "id": "bowlBankS", "label": "bank L up the south side" }
+      ] },
+    { "id": 7, "name": "spine", "sub": "a transfer spine L", "label": [729, 205],
+      "stop": { "p": [645, 198], "dir": 90 },
+      "pieces": [
+        { "kind": "spine", "size": "L", "p": [677, 198], "dir": 90, "o": { "w": 22 }, "tint": "wood", "id": "spine", "label": "spine L" }
+      ] },
+    { "id": 9, "name": "bridge", "sub": "stairs L up, a bridge L, a deck, a bank down", "label": [645, 300], "labelY": 13,
+      "stop": { "p": [585, 348], "dir": 54 },
+      "pieces": [
+        { "kind": "stairs", "size": "L", "p": [598, 330], "dir": 54, "o": { "w": 8, "land": 1 }, "tint": "concrete", "id": "bridgeStairs", "label": "stairs L up to the bridge" },
+        { "kind": "bridge", "size": "L", "p": [616.2, 316.8], "dir": 54, "o": { "len": 18, "w": 6 }, "tint": "concrete", "id": "bridge", "label": "bridge L" },
+        { "kind": "platform", "size": "L", "p": [664.7, 281.5], "dir": 54, "o": { "w": 8, "d": 6 }, "tint": "concrete", "id": "bridgeDeck", "label": "bridge deck L" },
+        { "kind": "bank", "size": "L", "p": [701.7, 254.6], "dir": 234, "o": { "w": 8 }, "tint": "wood", "id": "bridgeBank", "label": "bank L down off the deck" }
+      ] },
+    { "id": 3, "name": "central hub", "sub": "the open flat, a QP S", "label": [600, 368],
+      "stop": { "p": [640, 380], "dir": 0 },
+      "pieces": [
+        { "kind": "qp", "size": "S", "p": [655, 345], "dir": 0, "o": { "w": 10 }, "tint": "wood", "id": "hubQP", "label": "QP S" }
+      ] },
+    { "id": 5, "name": "flow park", "sub": "rollers into a 180 berm, ledges, a bank-to-bank, a hip box", "label": [812, 432],
+      "stop": { "p": [745, 470], "dir": 270 },
+      "pieces": [
+        { "kind": "run", "p": [705, 368], "dir": 270, "tint": "wood", "id": "flow",
+          "steps": [["roller", "S", { "len": 5 }, "roller S"], ["berm", "M", { "deg": 180, "r": 11, "w": 4 }, "berm M 180"], ["roller", "S", { "len": 5 }, "roller S"]] },
+        { "kind": "ledge", "size": "S", "c": [722, 395], "dir": 90, "o": { "h": 0.45, "w": 1.2, "len": 10 }, "label": "ledge" },
+        { "kind": "rail", "size": "S", "p": [705, 415], "dir": 90, "o": { "len": 8, "h": 0.9 }, "label": "flat rail" },
+        { "kind": "frustum", "size": "S", "c": [768, 392], "dir": 0, "o": { "len": 8, "w": 10, "banks": [1, 1, 0, 0] }, "tint": "wood", "id": "flowBox", "label": "bank-to-bank S" },
+        { "kind": "frustum", "size": "S", "c": [845, 430], "dir": 90, "o": { "len": 14, "w": 8, "banks": [1, 1, 1, 1] }, "tint": "wood", "id": "flowHip", "label": "hip box S" },
+        { "kind": "launch", "size": "S", "p": [704, 500], "dir": 0, "o": { "w": 8 }, "tint": "wood", "label": "launch S" }
+      ] },
+    { "id": 15, "name": "pyramid", "sub": "pyramid M", "label": [595, 405],
+      "stop": { "p": [595, 462], "dir": 0 },
+      "pieces": [
+        { "kind": "frustum", "size": "M", "c": [595, 418], "dir": 0, "o": { "len": 5, "w": 5, "banks": [1, 1, 1, 1] }, "tint": "concrete", "id": "pyramid", "label": "pyramid M" }
+      ] },
+    { "id": 8, "name": "snake run", "sub": "pipe S along the drawn line, half bowls at both ends", "label": [393, 370],
+      "stop": { "p": [318, 374], "dir": 114 },
+      "pieces": [
+        { "kind": "pipePath", "size": "S", "o": { "flat": 6 }, "pts": [[302, 367], [358, 392], [410, 390], [470, 415]], "tint": "concrete", "id": "snake" }
+      ] },
+    { "id": 19, "name": "beginner line", "sub": "a kicker S and a fun box S", "label": [393, 330],
+      "stop": { "p": [328, 312], "dir": 90 },
+      "pieces": [
+        { "kind": "kicker", "size": "S", "p": [342, 312], "dir": 90, "o": { "w": 4 }, "tint": "wood", "label": "kicker S" },
+        { "kind": "frustum", "size": "S", "c": [385, 312], "dir": 90, "o": { "len": 6, "w": 6, "banks": [1, 1, 1, 1] }, "tint": "wood", "id": "beginBox", "label": "fun box S" }
+      ] },
+    { "id": 16, "name": "mini ramp", "sub": "half pipe M", "label": [340, 150],
+      "stop": { "p": [310, 148], "dir": 90 },
+      "pieces": [
+        { "kind": "halfpipe", "size": "M", "p": [310, 148], "dir": 90, "o": { "flat": 10, "len": 14 }, "tint": "wood", "id": "mini", "label": "half pipe M" }
+      ] },
+    { "id": 17, "name": "rooftop", "sub": "a block XL with a street on its roof", "label": [287, 222], "labelY": 16,
+      "stop": { "p": [292, 240], "dir": 180, "y": 4.8 },
+      "pieces": [
+        { "kind": "platform", "size": "XL", "c": [292, 232], "dir": 0, "o": { "w": 31.5, "d": 28.5 }, "tint": "concrete", "id": "roof", "label": "rooftop block XL" },
+        { "kind": "stairs", "size": "XL", "p": [282, 306], "dir": 0, "o": { "w": 9, "land": 0.6 }, "tint": "concrete", "id": "roofStairs", "label": "stairs XL off the roof" },
+        { "kind": "bank", "size": "XL", "p": [379, 232], "dir": 270, "o": { "w": 14 }, "tint": "wood", "id": "roofBank", "label": "bank XL up to the roof" },
+        { "kind": "ledge", "size": "S", "c": [262, 232], "dir": 0, "y": 4.8, "o": { "h": 0.6, "w": 1.2, "len": 14 }, "label": "roof ledge" },
+        { "kind": "rail", "size": "S", "p": [318, 255], "dir": 0, "y": 4.8, "o": { "len": 14 }, "label": "roof rail" },
+        { "kind": "ledge", "size": "S", "c": [292, 200], "dir": 90, "y": 4.8, "o": { "h": 0.36, "w": 3, "len": 8 }, "label": "roof manual pad" }
+      ] },
+    { "id": 20, "name": "spectators", "sub": "bleachers facing the snake run", "label": [408, 500],
+      "pieces": [
+        { "kind": "bleachers", "size": "S", "p": [401, 488], "dir": 180, "o": { "rows": 6, "rd": 2.5, "rh": 0.5, "len": 36 }, "tint": "seat", "label": "bleachers" }
+      ] },
+    { "id": 21, "name": "shade", "sub": "two shade roofs",
+      "pieces": [
+        { "kind": "shade", "size": "S", "p": [281, 528], "dir": 0, "o": { "d": 14, "w": 14 }, "label": "shade roof" },
+        { "kind": "shade", "size": "S", "p": [826, 526], "dir": 0, "o": { "d": 14, "w": 14 }, "label": "shade roof" }
+      ] },
+    { "id": 22, "name": "landscaping",
+      "pieces": [
+        { "kind": "trees", "pts": [[380, 132], [648, 190], [695, 130], [722, 85], [590, 258], [612, 262], [350, 292], [300, 440], [350, 445], [440, 445], [600, 540], [660, 540], [720, 545], [880, 470], [900, 500], [250, 140], [244, 470], [455, 108]] }
+      ] },
+    { "id": 23, "name": "lighting",
+      "pieces": [
+        { "kind": "lamps", "pts": [[250, 330], [250, 520], [450, 470], [640, 480], [895, 95], [895, 545], [520, 112], [760, 560], [700, 300]] }
+      ] },
+    { "id": 24, "name": "fence",
+      "pieces": [
+        { "kind": "fence", "pts": [[566, 568], [905, 568], [928, 545], [928, 78], [905, 60], [545, 60], [480, 98], [250, 98], [232, 110], [232, 545], [255, 568], [510, 568]] }
+      ] }
+  ]
+}

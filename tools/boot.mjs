@@ -165,7 +165,13 @@ globalThis.removeEventListener = () => {};
 globalThis.__win = (t, e) => { for (const fn of (WINL[t] || []).slice()) fn(e); };
 globalThis.requestAnimationFrame = () => 0; globalThis.cancelAnimationFrame = () => {};
 globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
-globalThis.fetch = () => Promise.reject(new Error('offline'));
+// r73: A SCHEMATIC IS READ OFF THE DISK -- the kit world's park is built from `parks/*.json`, and a harness that cannot
+// fetch it measures a kit world with no park in it. Only that folder; every other asset stays offline, as before.
+// (`process.getBuiltinModule`, because this block is lifted by indirect eval and module-scope imports are not in scope.)
+globalThis.fetch = u => { const p = String(u).split('?')[0];
+  if (/^parks\/[\w.-]+\.json$/.test(p)) { try { const t = process.getBuiltinModule('fs').readFileSync(p, 'utf8');
+    return Promise.resolve({ ok: true, status: 200, json: async () => JSON.parse(t), text: async () => t }); } catch (e) { return Promise.reject(e); } }
+  return Promise.reject(new Error('offline')); };
 globalThis.Image = class { set src(v) {} addEventListener() {} };
 globalThis.AudioContext = globalThis.webkitAudioContext = class { constructor() { this.destination = {}; this.currentTime = 0; this.state = 'running'; }
   createGain() { return { gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }

@@ -14,7 +14,8 @@
     "borrow": "node tools/borrow.mjs",
     "shot": "node tools/shot.mjs",
     "export": "node tools/export.mjs",
-    "export:kit": "node tools/export.mjs kit"
+    "export:kit": "node tools/export.mjs kit",
+    "plan": "node tools/plan.mjs"
   },
   "type": "module",
   "devDependencies": {

@@ -91,6 +91,26 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **A PARK FROM A SCHEMATIC (r73, `parks/mega_skatepark.json`, `kitSheet(J)`, `schematicLoad`, `npm run plan`).** *"I'm not really
+  seeing the park ... what I wanna be able to do is take a schematic of a park and be able to build the whole thing from
+  our modular parts."* He was right not to see it: r72 had every feature but **laid out by hand, its own way, scattered
+  over 290 x 420 m**, and the top-down render (`npm run shot` with a top lens) showed islands on an empty floor.
+  - **The park is now a FILE.** It places kit pieces in the PIXELS OF HIS DRAWING (`mpp` metres per pixel, a `pin`,
+    `dir` in degrees on the page). The game fetches it before `buildPark` in the kit world. The format is in
+    `docs/RAMP_KIT.md`.
+  - **`pipePath` turns a line drawn down a snake run into straights and elbows at each corner's own angle.** That is the
+    "we might need a 20 degree elbow" from r72, answered by the drawing instead of by a catalogue.
+  - **`npm run plan` is the check.** It renders the build from straight above with the camera derived from `mpp` and
+    `pin`, so a render pixel is a drawing pixel, then writes side-by-side and overlay images.
+  - **`check:boot`'s `fetch` reads `parks/*.json` off the disk now (`STUBS`).** Without that, every harness would measure
+    a kit world with no park in it. Every other asset is still offline.
+  - **`npm run sim kit`'s sheet tests find pieces by the schematic's `id`,** so moving a piece in the file moves its test.
+
+  Two traps the first runs hit:
+  - **An overlap check on axis-aligned boxes calls a lamp inside a diagonal fence segment's box an overlap.** The lamp
+    moved; the check is right for everything else.
+  - **A planter traced from the drawing stood in front of the QP XL,** so the ride test hit the tree and read "up to
+    0.00". The drawing's oval planter sits where riders would need run-up; the tree moved.
 - **THE SHEET PARK: HIS STYLE SHEET BUILT FROM THE KIT, AND THE PIECES IT WAS MISSING (r72, `kitSheet`, `SHEET`, `KIT_NEW_ROWS`,
   `qpAdapt`, `pipeAdapt`, `freeBowl`, `squareBowl`, `bridge`, `roller`, `berm`, sizes `XXL`/`MEGA`).** *"See if you can build
   it with the pieces that you have ... how the edges of each modular piece go together ... we might need a 45 degree elbow
