@@ -109,7 +109,8 @@ function glbWriter() {
 if (KITMODE) {
   const K = rg.KITW, W = glbWriter(), spec = [];
   W.J.materials.push({ name: 'kit', pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.85 } });
-  const root = W.node('ramp_kit', null), cnt = {};
+  const root = W.node('ramp_kit', null), cnt = {}, park = W.node('example_park', null), zones = {};
+  const zoneOf = z => zones[z] != null ? zones[z] : (zones[z] = W.node('park_' + z.replace(/[^a-z0-9]+/gi, '_'), park));
   for (const pc of K.pieces) {
     const T = pc.T, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
     const toLocal = (X, Y, Z) => { const dx = X - T.x, dz = Z - T.z; return [dx * fz - dz * fx, Y - T.y, dx * fx + dz * fz]; };
@@ -148,12 +149,12 @@ if (KITMODE) {
         for (let k = 0; k < 3; k++) nrm.set([nx, ny, nz], t + k * 3); }
       W.J.meshes.push({ name, primitives: [prim({ pos, nrm, col, uv: null }, 0, W)] }); node.mesh = W.J.meshes.length - 1;
     }
-    const ni = W.node(name, root, node);
+    const ni = W.node(name, pc.park ? zoneOf(pc.park) : root, node);
     paths.forEach((R, j) => { const pts = [R.segs[0].a, ...R.segs.map(q => q.b)], pos = new Float32Array(pts.length * 3), gn = 'guide_' + name + (paths.length > 1 ? '_' + j : '');
       pts.forEach((q, i) => pos.set(toLocal(q.x, q.y, q.z), i * 3));
       W.J.meshes.push({ name: gn, primitives: [{ attributes: { POSITION: W.acc(pos, 'VEC3', 5126, true) }, mode: 3 }] });
       W.node(gn, ni, { mesh: W.J.meshes.length - 1, extras: { part_of: name, info: { boost: R.boost, closed: !!R.closed } } }); });
-    spec.push({ name, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI) });
+    spec.push({ name, park: pc.park || undefined, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI) });
   }
   const sz = W.write(`${OUT}/rollergirl_kit.glb`);
   fs.writeFileSync(`${OUT}/rollergirl_kit.json`, JSON.stringify({ sizes: Object.fromEntries(Object.entries(rg.KSZ).map(([k, v]) => [k, { H: v.H, r: +v.r.toFixed(3), lip: +v.lip.toFixed(3), sweep_deg: Math.round(v.sweep * 180 / Math.PI) }])),

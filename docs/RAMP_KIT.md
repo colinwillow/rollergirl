@@ -4,7 +4,9 @@ A set of modular skate pieces built and tested in the game. They are white place
 you place them where the level wants them, then export. The game rebuilds every one from its name, so the ramps ride
 exactly as tested whatever the art on top of them looks like.
 
-- **In game:** ⚙ → *World 2 ramp kit* (reload), or open the page with `?world=kit`. The ➤ key walks the rows.
+- **In game:** tap ⚙ and choose **RAMP KIT PARK** under WORLD at the top (or open the page with `?world=kit`). You spawn
+  at the top of a roll-in in the **example park** (below). The ➤ key walks the park's areas first, then the gallery rows.
+  Tap **SKATE PARK** to go back.
 - **Out of the game:** `npm run export:kit` writes:
   - `exports/rollergirl_kit.glb`: one object per piece, placed as in the gallery.
   - `exports/rollergirl_kit.json`: the same, as data.
@@ -68,7 +70,7 @@ The `guide_…` line under each loop is the shape of the rail, for reference onl
 | `bank` | straight slope up to H | `angle` 25°, `w` |
 | `platform` | solid block H tall | `w` 4, `d` 4 |
 | `frustum` | flat top with a bank or a wall on each side: funbox, pyramid, hip | `len` 6, `w` 6, `angle` 25, `banks` [−Z, +Z, −X, +X] as 1/0 |
-| `rollin` | the tall drop-in for speed: deck, steep face, transition, and a climbable back bank | `angle` 42, `r` 4, `deck` 3, `back` 20 |
+| `rollin` | the tall drop-in for speed: deck, a ROUNDED lip (so a pushing start stays on the face), steep face, transition, and a climbable back bank | `angle` 42, `r` 4, `deck` 3, `back` 20, `lipR` 5 (0 = a sharp lip) |
 | `kicker` | an arc that ENDS at its lip. H is half the size | `angle` 38, `h`, `w` 3 |
 | `launch` | a plank with no top | `angle` 30, `w` 3 |
 | `table` | kicker, flat table, landing | `angle` 32, `table` 6, `land` 22 |
@@ -157,3 +159,30 @@ ground but not drawn, because your art is the rail.
 - The chain is ridden end to end, the Y follows the stick, the booster speeds her up, and a ledge is a floor on top
   and a wall from the side.
 - The export round trip puts all 68 rail ends back within 0.000 m.
+
+## The example park (r68)
+
+There are 48 pieces in 13 areas, built from the same `kitPiece` calls an `fn_` node makes and placed so they connect. It
+shows the kit in use, and the export puts it in its own `example_park` group (one child per area), separate from the
+`ramp_kit` gallery.
+
+| area | what fits together |
+|------|--------------------|
+| drop-in (spawn) | roll-in XL → table-top M → kicker M → a 12 m wide QP L. One line from the deck to the QP. |
+| plaza | bank M up → platform M → the stairs M landing → down the stairs → a 0.36 m manual pad. The bank top, platform and landing are all at M height. The stair handrails' tops (3.6) run on as a **rail L** across the platform and a **down rail L** over the bank: one grind from the bank to the stair foot. Ledges S and 0.6 beside. |
+| boxes | pyramid M, hip M, a funbox S with a rail along its top |
+| pool / T-pipe / bowl / L-pipe | the assemblies: pool M, T-pipe M, round bowl L, L-pipe M |
+| mini | half pipe S and a spine S |
+| XL corner | a QP XL straight, an inside corner XL and another straight, placed by the corner's own rule (each straight's toe is `rc` out from the corner's centre) |
+| big pipe | half pipe XL and a pool L |
+| rails | the snapped chain, a ring, a helix, a Y, a rainbow, a booster and a ledge |
+| jumps | launch S, kicker M, gap M, table-top M |
+| loops | the 360 and the 180 |
+
+**Tested in `npm run sim kit`:**
+- No two park pieces sit inside each other, except sets built to touch.
+- The drop-in line rides from the spawn (push off, let go past the kicker) to 8.2 m of air off the QP L.
+- The plaza line rides bank → deck → stairs → pad, never under the step noses.
+- The rail L grinds on down the handrail to its foot.
+- 36 hands-off rides through every pool, pipe, bowl and corner: none fall out, go under the floor or bail.
+- Every ➤ stop stands her on a floor.

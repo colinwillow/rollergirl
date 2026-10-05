@@ -1155,6 +1155,9 @@ CASES.panel = () => {
   const click = b => (b._h.click || []).forEach(f => f({}));
   Object.assign(rg.TAIL, rg.TAIL_DEF); rg.tailPanel();
   const nWave = rows().length;
+  const wb = P.children.filter(c => c.className === 'btns').flatMap(c => c.children || []).map(b => b.textContent);
+  const wOk = ['SKATE PARK', 'RAMP KIT PARK', 'HIS ZONES'].every(t => wb.includes(t));
+  console.log(`  WORLD buttons at the top: ${wOk ? 'SKATE PARK / RAMP KIT PARK / HIS ZONES' : 'MISSING (' + wb.join(', ') + ')'}`); if (!wOk) ok = false;
   const sway = rows().find(r => r.children[0].textContent === 'Sway');
   if (!sway) { console.log('  -> no Sway slider in wave mode'); return false; }
   const trk = sway.children[1];
@@ -1171,7 +1174,9 @@ CASES.panel = () => {
   lfire('pointerdown', 150); lfire('pointerup', 150);
   console.log(`  Landing window to mid-track -> shows ${land.children[2].textContent}, LAND.ok = ${fix(rg.LAND.ok, 3)} rad`);
   if (Math.abs(rg.LAND.ok - 53 * Math.PI / 180) > 1e-6 || land.children[2].textContent !== '53') ok = false;
-  click(P.children[0].children[1]);
+  // r68: the WORLD buttons sit above the modes now -- find the row by its button, not its position
+  const modeRow = P.children.find(c => c.className === 'btns' && (c.children || []).some(b => b.textContent === 'PHYSICS'));
+  click(modeRow.children.find(b => b.textContent === 'PHYSICS'));
   const simRows = rows().map(r => r.children[0].textContent);
   console.log(`  PHYSICS: mode ${rg.TAIL.mode}, ${simRows.length} sliders, Sway still shown: ${simRows.includes('Sway')}`);
   if (rg.TAIL.mode !== 'sim' || simRows.includes('Sway') || !simRows.includes('Strength')) ok = false;
@@ -2747,7 +2752,9 @@ CASES.kit = async () => {
     say(`bank ${sz}: rolls up onto its platform`, on && !r.falls, on ? `on the platform at y ${fix(P.pos.y)}` : `never got on (ends y ${fix(P.pos.y)} at u ${fix(loc(pc).u, 1)})`); }
   // 7. ROLL-INS: drop off the deck and come out fast
   for (const sz of ['L', 'XL']) { const pc = find('rollin', sz), S = KSZ[sz]; go(pc, pc.top + 1.2, 0, Math.PI, 1); P.pos.y = S.H; P.grounded = true;
-    let vOut = 0; const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.y < 0.1 && P.grounded) vOut = Math.max(vOut, P.speed); });
+    let vOut = 0, tr = []; const r = ride(5, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.y < 0.1 && P.grounded) vOut = Math.max(vOut, P.speed);
+      if (process.env.TRACE && Math.round(t * 60) % 12 === 0) tr.push(`u${fix(loc(pc).u)} y${fix(P.pos.y)} v${fix(P.hSpeed, 1)} sp${fix(P.speed || 0, 1)} ${P.grounded ? 'g' : 'a'}`); });
+    if (process.env.TRACE) console.log(tr.join(' | '));
     say(`roll-in ${sz}: drop in, out fast`, vOut > 0.75 * Math.sqrt(2 * g * S.H) && !r.falls && !r.bail, `${fix(vOut, 1)} m/s at the bottom (free fall from ${S.H} m is ${fix(Math.sqrt(2 * g * S.H), 1)})`); }
   // 8. SPINES: a small one rolls over; a vert one sends her straight back
   { const pc = find('spine', 'S'); go(pc, -8, 0, 0, 9); const r = ride(3);
@@ -2838,6 +2845,48 @@ CASES.kit = async () => {
   { const pc = K.pieces.find(p => p.kind === 'ledge' && !p.o.h); go(pc, 3, 0, 0, 0); P.pos.y = 2; P.grounded = false; ride(1);
     const stood = Math.abs(P.pos.y - pc.h) < 0.03 && P.grounded; go(pc, 4, -5, Math.PI / 2, 7); ride(1.5, () => { fwd(H(pc, Math.PI / 2)); city(); });
     const l = loc(pc); say('a ledge: stood on top, a wall from the side', stood && !(Math.abs(l.w) < 0.6 && P.pos.y < pc.h - 0.2), `on top ${stood ? 'yes' : 'no'}; side run ends w ${fix(l.w, 2)} y ${fix(P.pos.y)}`); }
+  // ---- r68: THE KIT PARK ----------------------------------------------------------------------------------------------
+  { const pkz = K.pieces.filter(p => p.park), bad = [];
+    // P1. NOTHING SITS INSIDE ANYTHING ELSE unless it was built to touch (same `group`): drawn boxes overlapping by more
+    //     than 0.3 m on every axis is a piece placed into another one
+    for (let i = 0; i < pkz.length; i++) for (let j = i + 1; j < pkz.length; j++) { const a = pkz[i], b = pkz[j];
+      if (!a.bb || !b.bb || (a.group && a.group === b.group)) continue;
+      const o = [0, 1, 2].map(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k]));
+      if (o.every(v => v > 0.3)) bad.push(`${a.label} x ${b.label}`); }
+    say(`kit park: ${pkz.length} pieces, none placed inside another`, pkz.length > 40 && !bad.length, bad.slice(0, 4).join('; ') || 'clear'); }
+  // P2. THE DROP-IN LINE: off the spawn deck, one push and then nothing -- down the roll-in, over the table-top, off the
+  //     kicker, up the QP L at the end
+  { const S0 = rg.SPAWN, qpL = K.pieces.find(p => p.park === 'drop-in' && p.kind === 'qp');
+    reset(); place(S0.x, S0.y + 0.5, S0.z, 0, 0); let top = 0, minV = 99, lowest = 99, z = -1e9, tr = [];
+    const r = ride(9, t => { if (P.pos.z < -62) fwd(0); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (P.pos.z > qpL.T.z - 0.5) top = Math.max(top, P.pos.y); z = Math.max(z, P.pos.z); if (P.pos.z > -110 && P.pos.z < -50) minV = Math.min(minV, P.hSpeed); if (process.env.TRACE && Math.round(t * 60) % 15 === 0) tr.push(`${fix(t, 2)} x${fix(P.pos.x, 1)} z${fix(P.pos.z, 1)} y${fix(P.pos.y)} v${fix(P.hSpeed, 1)} ${P.grounded ? 'g' : 'a'}${P.bailT > 0 ? ' BAIL' : ''}`); });
+    if (process.env.TRACE) console.log(tr.join('\n'));
+    say('kit park drop-in: roll-in, table, kicker, up the QP L', top > 2.5 && !r.falls && !r.bail, `up the QP to ${fix(top)} m (H 3.6), slowest on the line ${fix(minV, 1)} m/s, furthest z ${fix(z, 1)}`); }
+  // P3. THE PLAZA LINE: up the bank M, across the deck, down the stairs, over the manual pad
+  { const st = K.pieces.find(p => p.park === 'plaza' && p.kind === 'stairs'), bk = K.pieces.find(p => p.park === 'plaza' && p.kind === 'bank');
+    reset(); place(215, 0.2, bk.T.z - 8, 0, Math.sqrt(2 * g * 2.4) + 2.5); let deck = 0, pad = 0, low = 0;
+    const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && Math.abs(P.pos.y - 2.4) < 0.05) deck = 1;
+      if (P.grounded && P.pos.z > -94 && P.pos.z < -88 && Math.abs(P.pos.y - 0.36) < 0.05) pad = 1;
+      const u = -100 - P.pos.z; if (u > 0.2 && u < st.len - 3 - 0.2) low = Math.min(low, P.pos.y - 2.4 * u / (st.len - 3)); });
+    say('kit park plaza: bank up, deck, down the stairs, the manual pad', deck && pad && !r.bail && !r.falls && low > -0.05, `deck ${deck ? 'yes' : 'no'}, pad ${pad ? 'yes' : 'no'}, worst ${fix(low)} under the step noses, ends z ${fix(P.pos.z, 1)}`); }
+  // P4. THE HANDRAIL RUNS ON: in at the top of the rail L, the grind carries across onto the handrail and down to its foot
+  { const rl = K.pieces.find(p => p.park === 'plaza' && p.kind === 'rail'), st = K.pieces.find(p => p.park === 'plaza' && p.kind === 'stairs');
+    const R0 = rl.rails[0].segs[0], hrs = new Set(st.rails), feet = new Set(st.rails.map(R => R.segs[0]));
+    reset(); place(R0.a.x, R0.a.y, R0.a.z, Math.atan2(-R0.hx, -R0.hz), 8); P.grounded = false; rg.enterGrind({ rail: R0, t: 0.05, dir: -1, s: 8, side: 'left' });
+    let on = 0, foot = 0; run(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && hrs.has(P.grind.rail.path)) { on = 1; if (feet.has(P.grind.rail)) foot = 1; } });
+    say('kit park plaza: the rail L runs on down the handrail', on && foot, on ? (foot ? 'rail L > handrail > its foot' : 'came off the handrail') : 'never crossed onto it'); }
+  // P4b. EVERY TRANSITIONED AREA: in from its middle at speed, toward the walls one way and then the other, hands off --
+  //      she swings, does not fall out of the world, never goes under the floor, does not bail
+  { const bad = [], spots = [['pool', 215, -40], ['T-pipe', 405, -55], ['T-pipe branch', 405, -42], ['bowl', 310, 45], ['mini', 215, 40], ['L-pipe', 391, 37.4],
+      ['XL corner', 378, 178], ['big pipe', 310, 210], ['pool L', 232, 210]];
+    let n = 0; for (const [nm, x, z] of spots) for (const h of [0, Math.PI / 2, Math.PI, -Math.PI / 4]) { n++;
+      reset(); place(x, 0.2, z, h, 11); const r = ride(5); if (r.falls || r.bail || r.low < -0.05) bad.push(`${nm} h${fix(h, 1)}: ${r.falls ? 'fell out' : r.bail ? 'bailed' : 'under the floor ' + fix(r.low)}`); }
+    say(`kit park: ${n} rides through the pipes, bowls and corners`, !bad.length, bad.slice(0, 5).join('; ') || 'all swung clean'); }
+  // P5. EVERY ➤ STOP IN THE PARK puts her on a floor, standing, and she stays there
+  { const bad = []; for (const n of K.go.filter(n => /^park /.test(n))) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; });
+      if (gr < 30 || Math.abs(P.pos.y - y0) > 0.1) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('kit park: every ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${K.go.filter(n => /^park /.test(n)).length} stops`); }
   // 13. AN `fn_` MARKER IN A GLB IS REBUILT AS ITS PIECE: a scene the way GLTFLoader hands one over, through the shipped
   //     levelIngest -- one by its name alone, turned 90 degrees, and one by its extras with an option
   { const root = new THREE.Group(), n0 = K.pieces.length;
@@ -2881,7 +2930,7 @@ CASES.kit = async () => {
           for (const [a, b] of e) { const d = Math.hypot(-a.x - b.x, a.y - b.y, -a.z - 70 - b.z); rn++; rworst = Math.max(rworst, d); if (d > 0.01) rbad++; } }); });
       say('  every rail comes back with both ends in place', rn > 60 && !rbad, `${rn} rail ends, ${rbad} off, worst ${fix(rworst, 3)} m`);
       const lp = got.filter(p => /^loop/.test(p.kind));
-      say('  its loops come back as booster rails that turn over', lp.length === 2 && lp.every(p => p.rail && p.rail.boost && p.rail.ups && p.rail.segs.length > 20), `${lp.length} loops`);
+      say('  its loops come back as booster rails that turn over', lp.length === gal.filter(p => /^loop/.test(p.kind)).length && lp.every(p => p.rail && p.rail.boost && p.rail.ups && p.rail.segs.length > 20), `${lp.length} loops`);
     }
   }
   return ok;

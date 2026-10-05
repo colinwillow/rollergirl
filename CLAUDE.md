@@ -91,6 +91,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE KIT PARK (r68, `kitPark`, `pk`, `KPARK`, the ⚙ WORLD buttons).** *"I'm not really sure how to go test the kit. I
+  thought you were gonna build a white world where I could ride the ramps -- an example skate park that's pretty complex,
+  just placing the ramps to see how they go together."* The kit world now spawns her at the top of a roll-in in a
+  48-piece park of 13 areas (drop-in line, plaza, boxes, pool, T-pipe, bowl, mini, L-pipe, XL corner, big pipe, rails,
+  jumps, loops) east of the gallery, every piece a `kitPiece` placed so they MEET (bank top = platform deck = stair
+  landing; handrail top runs on as a rail L and a down rail L; straights carried out of an inside corner by its rule).
+  ➤ walks the park first. **And the way in is three buttons at the top of ⚙ (SKATE PARK / RAMP KIT PARK / HIS ZONES)**,
+  each reloading with `?world=` -- the 0/1/2 slider halfway down the panel was the only way before, and he could not find
+  it. Export groups the park as `example_park/park_<area>`. `rec.bb` (each piece's drawn box) feeds an overlap check;
+  `rec.group` exempts sets built to touch.
+  **THE ROLL-IN THREW HER OFF ITS OWN LIP.** A sharp 42-degree crease at the top launched her at any pushing speed (8.6 m/s
+  off the deck = a flight to the flat and the drop's speed lost on landing). The lip is a 5 m convex curve now (`lipR`;
+  she stays on while v^2/R < g) -- the line went from 11 m/s at the bottom to 17.8.
+  **A HARNESS THAT HOLDS FORWARD THROUGH A VERT AIR DRIFTS HER ALONG THE COPING** (a locked air thrusts along it only), and
+  off the side of a 12 m QP onto the flat beside it -- which read as a fall-through until the trace printed x. The drop-in
+  row lets go past the kicker, like a player.
 - **THE RAIL KIT (r67, `KIT_RAIL_ROWS`, `kRail`, `kArcPts`, `kCol`, `KIT_CHAIN`, `RAILKIT`).** *"We'll do the same
   thing with a rail system."* Same world, same `fn_` export, rows behind the spawn: straights S-XL, down rails, kinks,
   curves (90 left / 45 right / r 6), S-bend, rainbow, ring, helix, a Y, a booster, two ledges, three stair sets with

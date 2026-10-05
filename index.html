@@ -176,7 +176,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r67</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r68</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -199,7 +199,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r67';
+const BUILD = 'r68';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1332,7 +1332,7 @@ function perimeter(S, r, sweep, back, apron) {
 // named assemblies too, because one object is easier to place than six.
 // =====================================================================================================
 const KITW = { W: 4, deck: 1.5, cope: 0.3, seg: 28, rseg: 16, rc: 1.5, floorS: 10, built: 0, pieces: [], go: [], labels: [], keep: !!globalThis.__kitKeep,
-  x0: -130, x1: 130, z0: -330, z1: 420 };
+  x0: -130, x1: 470, z0: -330, z1: 420 };
 const D2R = Math.PI / 180;
 const KSZ = {
   S:  { H: 1.2, sweep: 70 * D2R, tint: 0xdff5ec },
@@ -1481,12 +1481,18 @@ const KIT_KINDS = {
   rollin(T, S, o) {
     const w = (o.w || KITW.W) / 2, ang = (o.angle || 42) * D2R, rb = o.r || 4, H = S.H;
     const p = [{ u: 0, y: 0, c: S.tint }]; kArc(p, 0, 0, rb, 0, ang, 14, S.tint);
-    const e = p[p.length - 1], run = (H - e.y) / Math.tan(ang);
-    p.push({ u: e.u + run, y: H, c: KCOL.cope }); p.push({ u: e.u + run + KITW.cope, y: H, c: KCOL.deck });
-    const dEnd = e.u + run + (o.deck || 3); p.push({ u: dEnd, y: H, c: S.tint });
+    // r68: A ROUNDED LIP (`lipR`, 5 m) -- a sharp 42-degree crease threw her off the top into the air at any push
+    // speed (8.6 m/s off the deck = a flight to the flat, and the drop's whole speed lost on the landing). Over a
+    // convex curve she stays on while v^2 / R is under g, so 5 m keeps a pushing start on the face. 0 is the old crease.
+    const e = p[p.length - 1], R = o.lipR != null ? o.lipR : 5, cs = R * (1 - Math.cos(ang)), run = Math.max(0, (H - cs - e.y) / Math.tan(ang));
+    const ud = e.u + run + R * Math.sin(ang);
+    if (R > 0) for (let i = 1; i <= 10; i++) { const a = ang * (1 - i / 10); p.push({ u: ud - R * Math.sin(a), y: H - R * (1 - Math.cos(a)), c: i === 10 ? KCOL.cope : S.tint }); }
+    else p.push({ u: ud, y: H, c: KCOL.cope });
+    p.push({ u: ud + KITW.cope, y: H, c: KCOL.deck });
+    const dEnd = ud + (o.deck || 3); p.push({ u: dEnd, y: H, c: S.tint });
     const back = H / Math.tan((o.back || 20) * D2R); p.push({ u: dEnd + back, y: 0, c: KCOL.side });
     kStrip(T, p, -w, w);
-    return { len: dEnd + back, wid: 2 * w, h: H, top: e.u + run };
+    return { len: dEnd + back, wid: 2 * w, h: H, top: ud };
   },
   // KICKER: an arc up that ENDS -- the lip is the end of the arc, never a flat (a flat on a lip is a landing pad)
   kicker(T, S, o) {
@@ -1725,6 +1731,10 @@ function kitPiece(kind, size, T, o) {
   const r = f(T, S, o) || {};
   const rec = { kind, size: typeof size === 'string' ? size : 'M', T: { ...T }, o, m0: t0, m1: MESH.pos.length, ...r };
   if (KITW.keep) rec.pos = MESH.pos.slice(t0), rec.col = MESH.col.slice(t0);
+  // r68: what it occupies, drawn -- the kit park's overlap check reads it
+  if (MESH.pos.length > t0) { const b = [1e9, 1e9, 1e9, -1e9, -1e9, -1e9];
+    for (let i = t0; i < MESH.pos.length; i += 3) for (let k = 0; k < 3; k++) { const v = MESH.pos[i + k]; if (v < b[k]) b[k] = v; if (v > b[k + 3]) b[k + 3] = v; }
+    rec.bb = b; }
   KITW.pieces.push(rec); return rec;
 }
 // THE GALLERY: a white floor and every piece in rows by kind, columns by size, each labelled with its name, its size and
@@ -1802,11 +1812,99 @@ function kitGallery() {
   // the chain, and how many pieces are the gallery (an `fn_` import adds more after)
   const C = kitChain({ x: -60, y: 0, z: -275, yaw: Math.PI / 2 });
   kitLabel('rail chain', 'pieces snapped end to end', -56, 5.6, -278); CITY.spots['kit rail chain'] = [-72, 0, -275, Math.PI / 2]; KITW.go.push('kit rail chain');
-  KITW.chain = C; KITW.nGallery = KITW.pieces.length;
+  KITW.chain = C;
   CITY.spots['kit start'] = [0, 0, -40, 0]; KITW.go.unshift('kit start');
   SPAWN.set(0, 0.2, -40); SPAWN.h = 0;
 }
 
+// ===================================================================================================== r68: THE KIT PARK
+// *"I thought you were gonna build a white world where I could ride the ramps ... an example skate park that's pretty
+// complex, just placing the ramps to see how they go together."* Every piece below is a `kitPiece` -- the same call an
+// `fn_` node in his file makes -- placed so the pieces MEET: a bank's top is the platform's deck is the stair landing,
+// a stair handrail's top runs on as a rail L and down a rail over the bank, straights carry on out of an inside corner.
+// That is the spec in use, and the export writes it out as a worked example beside the gallery. She spawns at the top
+// of the drop-in; the ➤ key walks the areas. `rec.group` names a set built to touch, so the overlap check spares it.
+const KPARK = { x1: 470, spawn: null };
+function pk(zone, kind, size, x, z, yaw, o, group, label) {
+  const rec = kitPiece(kind, size, { x, y: 0, z, yaw: yaw || 0 }, o || {});
+  if (!rec) return null;
+  rec.park = zone; rec.group = group || null; rec.label = 'park ' + zone + ': ' + (label || kind + ' ' + size);
+  return rec;
+}
+function kitPark() {
+  const P = Math.PI, H = (s) => KSZ[s].H, L25 = s => KSZ[s].H / Math.tan(25 * D2R), stop = [];
+  const area = (name, sub, x, z, sx, sz, sh, ly) => { kitLabel(name.toUpperCase(), sub, x, ly || 7, z);
+    CITY.spots['park ' + name] = [sx, sh || 0, sz, 0]; stop.push('park ' + name); };
+  // 1. THE DROP-IN LINE: roll-in XL, a table-top, a kicker, and a wide QP L to turn round on
+  const ri = pk('drop-in', 'rollin', 'XL', 310, -128, P, {}, null, 'roll-in XL');
+  const dk = kT(ri.T, ri.top + 1.5, 0, 0);
+  pk('drop-in', 'table', 'M', 310, -100, 0); pk('drop-in', 'kicker', 'M', 310, -72, 0);
+  pk('drop-in', 'qp', 'L', 310, -40, 0, { w: 12 }, null, 'QP L (12 m wide)');
+  KPARK.spawn = [dk.x, H('XL'), dk.z, 0];
+  area('drop-in', 'roll-in XL > table > kicker > QP L', 318, -118, dk.x, dk.z, H('XL'), 9);
+  // 2. THE PLAZA: up a bank M, across a platform M, onto the stair landing and DOWN the stairs, out over a manual pad.
+  //    The handrails' tops (H + 1.2 = 3.6) run on as a rail L over the platform and a down rail L over the bank.
+  const st = pk('plaza', 'stairs', 'M', 215, -100, P, {}, 'plaza', 'stairs M + handrails'), run = st.len - 3;
+  pk('plaza', 'platform', 'M', 215, -100 - st.len, P, { w: 4, d: 6 }, 'plaza', 'platform M');
+  pk('plaza', 'bank', 'M', 215, -100 - st.len - 6 - L25('M'), 0, { w: 4 }, 'plaza', 'bank M');
+  for (const s of [-1, 1]) {
+    const a = kT(st.T, run + 2.5, s * 1.75, 0), r1 = pk('plaza', 'rail', 'L', a.x, a.z, P, { len: 3.5 + 6 - 3 }, 'plaza', 'rail L (handrail on)');
+    const b = kT(r1.T, r1.out.u, 0, 0); pk('plaza', 'railDown', 'L', b.x, b.z, P, { len: L25('M') + 0.5 }, 'plaza', 'down rail L over the bank');
+  }
+  pk('plaza', 'ledge', 'S', 215, -94, 0, { h: 0.36, w: 3, len: 6 }, null, 'manual pad 0.36');
+  pk('plaza', 'ledge', 'S', 202, -124, 0, { len: 10 }, null, 'ledge S');
+  pk('plaza', 'ledge', 'S', 228, -124, 0, { h: 0.6, len: 10 }, null, 'ledge 0.6');
+  area('plaza', 'bank M > deck > stairs M > manual pad', 215, -112, 215, -134, 0);
+  // 3. BANKS + BOXES: a pyramid, a hip, a funbox with a rail along its top
+  pk('boxes', 'frustum', 'M', 405, -124, 0, { len: 4, w: 4, banks: [1, 1, 1, 1] }, null, 'pyramid M');
+  pk('boxes', 'frustum', 'M', 437, -124, 0, { len: 4, w: 4, banks: [1, 0, 1, 0] }, null, 'hip M');
+  pk('boxes', 'frustum', 'S', 378, -125, 0, { len: 6, w: 4, banks: [1, 1, 0, 0] }, 'funbox', 'funbox S');
+  pk('boxes', 'rail', 'S', 378, -125, 0, { h: 1.8, len: 6 }, 'funbox', 'rail on the funbox');
+  area('boxes', 'pyramid · hip · funbox + rail', 405, -138, 405, -142, 0);
+  // 4. THE POOL: a half pipe capped at both ends by inside corners
+  pk('pool', 'pool', 'M', 215, -40, 0, { flat: 6, len: 10 }, null, 'pool M');
+  area('pool', 'half pipe + inside-corner ends', 215, -55, 215, -40, 0);
+  // 5. THE T-PIPE: a pipe with a second one leaving it at 90 (outside corners on the opening)
+  pk('T-pipe', 'pipeT', 'M', 405, -55, 0, { flat: 6, len: 30, leg: 10 }, null, 'T-pipe M');
+  area('T-pipe', 'straights + outside corners', 405, -68, 400, -55, 0);
+  // 6. THE BOWL
+  pk('bowl', 'bowl', 'L', 310, 45, 0, { rc: 5 }, null, 'round bowl L');
+  area('bowl', 'four inside corners L', 310, 30, 310, 45, 0);
+  // 7. THE MINI RAMP + a spine
+  pk('mini', 'halfpipe', 'S', 215, 40, 0, { flat: 4, len: 10 }, null, 'mini ramp S');
+  pk('mini', 'spine', 'S', 236, 34, 0, {}, null, 'spine S');
+  area('mini', 'half pipe S · spine S', 222, 28, 215, 40, 0);
+  // 8. THE L-PIPE: a pipe turning 90 (concave outer wall, convex inner)
+  pk('L-pipe', 'pipeL', 'M', 395, 30, 0, { flat: 6, leg: 8 }, null, 'L-pipe M');
+  area('L-pipe', 'inside + outside corner, legs', 398, 16, 391, 26, 0);
+  // 9. THE XL CORNER: a vert wall turning a corner -- a straight, an inside corner, a straight, fitted by the corner's
+  //    own rule (each straight's toe sits `rc` out from the corner's centre)
+  { const rc = 1.5, wl = 8, C = { x: 384, y: 0, z: 186.5, yaw: 0 };
+    pk('XL corner', 'qpIn', 'XL', C.x, C.z, 0, { rc }, 'xlc', 'inside corner XL');
+    const a = kT(C, rc, -wl / 2, 0), b = kT(C, -wl / 2, rc, P / 2);
+    pk('XL corner', 'qp', 'XL', a.x, a.z, 0, { w: wl }, 'xlc', 'QP XL'); pk('XL corner', 'qp', 'XL', b.x, b.z, P / 2, { w: wl }, 'xlc', 'QP XL');
+    area('XL corner', 'straight + inside corner + straight', 374, 176, 372, 174, 0); }
+  // 10. THE BIG PIPE + a pool L
+  pk('big pipe', 'halfpipe', 'XL', 310, 210, 0, { flat: 8, len: 16 }, null, 'half pipe XL');
+  pk('big pipe', 'pool', 'L', 232, 210, 0, { flat: 7, len: 10 }, null, 'pool L');
+  area('big pipe', 'half pipe XL · pool L', 285, 196, 310, 210, 0);
+  // 11. THE RAIL GARDEN: the snapped chain, a ring, a helix, a Y, a rainbow, a booster, a ledge
+  { let T = { x: 285, y: 0, z: 110, yaw: P / 2 };
+    for (const [kind, size, o] of KIT_CHAIN) { const r = pk('rails', kind, size, T.x, T.z, T.yaw, o, 'chain', 'chain ' + kind + ' ' + size); T = kT(T, r.out.u, r.out.w, r.out.dyaw); } }
+  pk('rails', 'railRing', 'M', 330, 105, 0); pk('rails', 'helix', 'M', 300, 136, 0); pk('rails', 'railY', 'M', 325, 135, 0);
+  pk('rails', 'rainbow', 'M', 347, 125, 0); pk('rails', 'rail', 'M', 360, 108, 0, { boost: 14, len: 12 }, null, 'booster rail M');
+  pk('rails', 'ledge', 'S', 272, 128, 0, {}, null, 'ledge S');
+  area('rails', 'chain · ring · helix · Y · rainbow · booster', 315, 100, 280, 104, 0);
+  // 12. JUMPS + LOOPS
+  pk('jumps', 'launch', 'S', 195, 100, 0); pk('jumps', 'kicker', 'M', 215, 100, 0); pk('jumps', 'gap', 'M', 235, 100, 0, { gap: 5 }, null, 'gap M (5 m)');
+  pk('jumps', 'table', 'M', 215, 132, 0);
+  area('jumps', 'launch · kicker · gap · table', 215, 92, 215, 80, 0);
+  pk('loops', 'loop360', 'M', 395, 100, 0); pk('loops', 'loop180', 'M', 425, 130, P);
+  area('loops', 'booster loops: 360 · 180', 410, 92, 395, 95, 0);
+  KITW.go.unshift(...stop);
+  SPAWN.set(KPARK.spawn[0], KPARK.spawn[1] + 0.2, KPARK.spawn[2]); SPAWN.h = 0;
+  CITY.spots['park drop-in'] = KPARK.spawn.slice();
+}
 // THE PICTURE: everything pushed since `from` into one mesh -- plain, near-white, NOT the detail pass; this is a kit to
 // read shapes off, and texture would only hide them. `offset` pushes a floor back in depth the way the plaza is.
 function kitFlush(from, name, offset) {
@@ -1830,7 +1928,7 @@ function kitRailsDraw() {
 function kitWorld() {
   CITY.on = 0;
   kitFloor(); const nF = MESH.pos.length;
-  kitGallery();
+  kitGallery(); kitPark(); KITW.nGallery = KITW.pieces.length;
   triBuild(); solidBuild();
   kitRailsDraw(); railLink();
   ORB.built = 1; splashMake(m => scene.add(m));
@@ -9434,6 +9532,16 @@ const fmt = v => (Math.abs(v) >= 10 || Number.isInteger(v)) ? String(Math.round(
 function tailPanel() {
   while (tailP.children.length) tailP.removeChild(tailP.children[0]);
   const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  // r68: WHICH WORLD, as three buttons at the top -- *"I'm not really sure how to go test the kit."* A slider labelled
+  // 0/1/2 halfway down a panel of tail dials was the only way in. A tap reloads straight into it (the URL carries it).
+  tailP.appendChild(el('h3', '', 'WORLD'));
+  const worlds = el('div', 'btns');
+  for (const [k, q, t] of [[0, 'park', 'SKATE PARK'], [2, 'kit', 'RAMP KIT PARK'], [1, 'zones', 'HIS ZONES']]) {
+    const b = el('button', WORLD.zones === k ? 'sel' : '', t);
+    b.addEventListener('click', () => { try { localStorage.setItem('rg.world', String(k)); } catch (e) {} location.href = location.pathname + '?world=' + q; });
+    worlds.appendChild(b);
+  }
+  tailP.appendChild(worlds);
   const modes = el('div', 'btns');
   for (const m of ['wave', 'sim']) {
     const b = el('button', TAIL.mode === m ? 'sel' : '', m === 'wave' ? 'WAVE (visualizer)' : 'PHYSICS');
@@ -9511,6 +9619,7 @@ async function init() {
   respawn();
   hudGutter(); resize();
   ready = true;
+  if (WORLD.zones === 2) { CITY.goMsg = 'RAMP KIT PARK -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('RAMP KIT PARK', '#6fcfff'); } catch (e) {} }
   // r45: the city's pictures come down AFTER she is skating -- the boxes and the collider are already up
   if (!WORLD.zones) { kitLoad(); hydLoad(); levelImports(LEVEL.imports); }
   document.getElementById('boot').classList.add('gone');
