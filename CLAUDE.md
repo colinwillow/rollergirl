@@ -307,6 +307,18 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **TRICK POINTS (r62, `SCORE`, `trick`, `scoreStep`, `scoreBank`, `#score`, `#pops`).** *"Every time you do a trick ...
+  +15 +10 +25 +100, flips, air tricks, grabs, spins, grinds."* THPS's shape: every trick in one line goes into a COMBO
+  (shown beside the star total as it builds), BANKED times the number of tricks in it (cap `multMax`) once she has been
+  on the ground `bankAfter` s, LOST on a bail or a respawn. Popups float up the middle of the screen; held grabs and
+  grinds add quietly per tick. Sources, each one line at the place the event already happens: spins (scored at
+  landing / rail catch, nearest 180 with `spinSlack`), flips (when they are far enough round), grabs (start + held),
+  grinds (catch, held, `RAIL LINK` on every junction taken, SWITCH, grind tricks), air and ground strikes (named per
+  clip), TRANSFER, DIVE, BIG AIR. **THE VERT AIR'S AUTO 180 IS TAKEN OUT OF THE SPIN COUNT** where it is applied (and
+  put back where `vertRelease` undoes it) -- the game turned her, not the thumb. `npm run sim score`.
+  **GRIND TRICKS WERE ALREADY THERE (r46) -- ON THE LEFT PAD'S FLICK.** He remembered asking and could not find them;
+  the right pad's swipe on a rail did nothing but the transfer (up). Right-pad left/right/down on a rail pick grind
+  tricks now too, up stays the transfer.
 - **THE SETTLE DIVES NOW, AND THE PLAIN PUNCH IS OUT OF THE CHAIN (r61, `AIR.slam*`, `p.slamN`, `p.slamS`).**
   *"It slows you way down -- you transfer into the bowl but you're not going very fast. I want it to give you speed, like
   you just hit some velocity down the ramp."* Over a ramp, the held-down settle turns her velocity DOWN THE FACE (the fall

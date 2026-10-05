@@ -2530,6 +2530,36 @@ CASES.network = () => {
     say(`${nm}: grind it down and land on the roof`, !!land && Math.abs(land.y - endY) < 0.15, land ? `landed at y ${fix(land.y, 2)}` : `at y ${fix(P.pos.y, 2)}`); }
   return ok;
 };
+// r62: TRICK POINTS -- a spun jump scores its spin and banks after landing; a grind scores; the vert air's automatic
+// 180 is NOT a spin; a bail loses the combo.
+CASES.score = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.SCORE, seen = () => { const L = new Set(); return { L, take: () => S.list.forEach(n => L.add(n)) }; };
+  // 1. a jump spun with the stick (the spin-rate mode, so the thumb is a steady rate)
+  { const keepA = rg.AIR.aim; rg.AIR.aim = 0; S.total = 0; place(60, 1, -60, 0, 6); const w = seen();
+    run(0.1); P.jump = 1; run(2.5, () => { rg.stick.L.y = 0; rg.stick.L.x = P.grounded ? 0 : 1; w.take(); });
+    rg.AIR.aim = keepA; rg.stick.L.x = 0;
+    const spin = [...w.L].find(n => /^\d+$/.test(n));
+    say('a spun jump scores its spin, banked on landing', !!spin && S.total > 0 && S.combo === 0, `${[...w.L].join(', ')} -> total ${S.total}`); }
+  // 2. a tap onto a rail: GRIND, held ticks, banked
+  { S.total = 0; const R = rg.RAILS.find(r => r.path.name === 'park'); place(R.mx + 1.6, 0, R.mz, Math.atan2(R.hx, R.hz), 6); const w = seen();
+    run(0.2); P.jump = 1; let ground = false; run(4, () => { w.take(); });
+    say('a grind scores and banks', w.L.has('GRIND') && S.total >= rg.SCORE.grind, `${[...w.L].join(', ')} -> total ${S.total}`); }
+  // 3. the vert air's automatic half turn is not a spin
+  { S.total = 0; place(0, 3, 29, 0, 13); const w = seen(); let fired = 0, air = 0;
+    run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0; if (!fired && P.grounded && P.n.y < 0.4 && P.vel.y > 0) { P.jump = 1; fired = 1; } if (!P.grounded) air = 1; w.take(); });
+    const spun = [...w.L].filter(n => /^\d+$/.test(n));
+    say('a vert air\'s auto 180 does not score as a spin', fired && air && spun.length === 0, `${fired ? 'tapped on the wall' : 'never tapped'}, tricks: ${[...w.L].join(', ') || 'none'}`); }
+  // r62: a right-pad swipe on a rail is a grind trick now (the left pad's flick already was)
+  { const R = rg.RAILS.find(r => r.path.name === 'park'); place(R.mx, R.a.y, R.mz, 0, 0); P.grind = { rail: R, t: 0.5, dir: 1, s: 6, side: 'left', time: 0 }; P.grounded = true;
+    const got = [[1, 0], [-1, 0], [0, 1]].map(([dx, dy]) => { const r = rg.rightFlick(dx, dy); return r + ':' + (P.grind && P.grind.trick); });
+    say('right-pad swipes on a rail pick grind tricks', got.every(g => g.startsWith('grind trick:') && !g.endsWith('null')), got.join(' ')); P.grind = null; }
+  // 4. a bail loses the combo
+  { S.total = 0; place(60, 1, -60, 0, 0); S.combo = 120; S.n = 2; S.list.push('TEST'); P.bailT = 1; run(0.05); P.bailT = 0;
+    say('a bail loses the combo', S.combo === 0 && S.total === 0, `combo ${S.combo}, total ${S.total}`); P.wasBail = false; }
+  return ok;
+};
 CASES.shores = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };

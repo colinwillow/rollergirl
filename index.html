@@ -89,6 +89,15 @@
   #speed b{font-size:17px;color:#ff6fa5}
   #gems{top:calc(76px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left))}
   #gems b{font-size:15px;color:#7ff3ff}
+  #score{top:calc(108px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left))}
+  #score b{font-size:15px;color:#ffe066}
+  #score i{font-style:normal;color:#ff9ad2;margin-left:8px}
+  #pops{position:fixed;left:50%;top:38%;transform:translateX(-50%);pointer-events:none;z-index:6;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .pop{font:900 20px "Arial Black",Impact,sans-serif;letter-spacing:1px;color:#fff;white-space:nowrap;
+    text-shadow:0 0 10px #40e8ff,0 3px 0 #2a1a5a;animation:popup 1.15s ease-out forwards}
+  .pop.big{font-size:30px;color:#ffe066;text-shadow:0 0 14px #ff6fd0,0 3px 0 #3a1a5a}
+  .pop.bad{color:#ff8a8a;text-shadow:0 0 10px #ff3d6a,0 3px 0 #3a1a2a}
+  @keyframes popup{0%{opacity:0;transform:translateY(10px) scale(.7)}14%{opacity:1;transform:translateY(0) scale(1.1)}24%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
   #toast{position:fixed;left:50%;top:28%;transform:translate(-50%,-50%) scale(.6);pointer-events:none;opacity:0;z-index:6;
     font:900 42px "Arial Black",Impact,sans-serif;letter-spacing:2px;color:#fff;text-shadow:0 0 18px #ff4fb8,0 4px 0 #3a1a5a;transition:opacity .25s,transform .25s}
   #toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -167,9 +176,11 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r61</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r62</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
+<div class="chip" id="score">&#9733; <b>0</b><i></i></div>
+<div id="pops"></div>
 <div id="toast"></div>
 <button class="key" id="resetB" aria-label="respawn">&#8635;</button>
 <button class="key" id="charB" aria-label="swap character">&#8644;</button>
@@ -188,7 +199,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r61';
+const BUILD = 'r62';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1513,6 +1524,7 @@ function enterGrind(c) {
     setStance(fx * c.rail.d.x * c.dir + fz * c.rail.d.z * c.dir >= 0 ? 1 : -1, 'rail');
   }
   p.grounded = true; p.n.set(0, 1, 0); p.flip = null; p.drift = 0; p.landHard = 2;
+  trick(c.rail.path.boost ? 'BOOSTER' : 'GRIND', SCORE.grind);     // r62
   sparkBurst(14);
 }
 // ON THE RAIL: locked to the line, slowed by `drag`, sped up or slowed by the slope, and off it
@@ -7070,6 +7082,7 @@ function leaveGround(coy, xfer) {
   // r57: a NATURAL leave off the lip (not a pop) while a swipe on the face has armed it is the transfer
   if (xfer === undefined && p.xferArm > 0 && n.y < Math.cos(VERT.at)) xfer = true;
   p.xferArm = 0;
+  if (xfer && n.y < Math.cos(VERT.at)) trick('TRANSFER', SCORE.xfer);      // r62
   if (n.y < Math.cos(VERT.at) && h > 1e-4) {
     const ix = n.x / h, iz = n.z / h;                   // INTO the pipe, horizontally
     const out = -(p.vel.x * ix + p.vel.z * iz);         // her speed out over the coping
@@ -7105,7 +7118,7 @@ function vertRelease(flick) {
   const p = player;
   if (!p.vertLock) return false;
   p.vertLock = 0;
-  if (p.autoTurn) { p.heading -= p.autoTurn.side * (Math.PI - p.autoTurn.left); p.autoTurn = null; }
+  if (p.autoTurn) { p.heading -= p.autoTurn.side * (Math.PI - p.autoTurn.left); p.spinAcc = (p.spinAcc || 0) + p.autoTurn.side * (Math.PI - p.autoTurn.left); p.autoTurn = null; }
   p.xferKick = { ix: p.vertIx, iz: p.vertIz, hold: 1 };
   p.xferHold = flick ? 0 : 1; p.grab = null;
   return true;
@@ -7113,6 +7126,7 @@ function vertRelease(flick) {
 
 function respawn() {
   const p = player;
+  SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0; p.spinAcc = 0; p.spinPrev = null; p.wasAir = false;
   p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = 0; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
@@ -7385,7 +7399,8 @@ function stepGround(dt) {
 function stepAir(dt) {
   const p = player;
   p.airT += dt; p.coyote -= dt;
-  if (p.flip) p.flip.t += dt;
+  if (p.flip) { p.flip.t += dt;
+    if (!p.flip.scored && p.flip.t >= p.flip.dur * LAND.flipDone) { p.flip.scored = 1; const F = SCORE.flip[p.flip.dir]; if (F) trick(F[0], F[1]); } }
   // THE LEFT STICK: X SPINS HER, Y PUSHES HER. Read RAW off the pad rather than through
   // `cam.az`, because a spin is relative to her body and the thrust is along her nose -- neither
   // is a question about where the lens happens to be.
@@ -7435,7 +7450,7 @@ function stepAir(dt) {
     thrust = Math.max(0, -sy);
   }
   const AT = p.autoTurn;
-  if (AT && AT.left > 0) { const d = Math.min(AT.left, AT.rate * dt); p.heading += AT.side * d; AT.left -= d; if (hold) p.vertSpin += AT.side * d; }
+  if (AT && AT.left > 0) { const d = Math.min(AT.left, AT.rate * dt); p.heading += AT.side * d; AT.left -= d; if (hold) p.vertSpin += AT.side * d; p.spinAcc = (p.spinAcc || 0) - AT.side * d; }
   // *"In the air you'll hold forward"* -- which is how you get over the back of one ramp and
   // reach the next. Capped by how much it has already added, so a long flight is not a free one.
   // r55: with the stick as a heading, the push is along where she points, while the thumb is held steady there.
@@ -7521,6 +7536,7 @@ function stepAir(dt) {
     const dl = Math.hypot(dx, dy, dz) || 1; dx /= dl; dy /= dl; dz /= dl;
     const sT = Math.min(AIR.slamMax, Math.max(p.vel.length(), AIR.slamMin) + AIR.slamAdd * dt), a = 1 - Math.exp(-AIR.slamK * dt);
     p.vel.x += (dx * sT - p.vel.x) * a; p.vel.y += (dy * sT - p.vel.y) * a; p.vel.z += (dz * sT - p.vel.z) * a;
+    if (!p.slamS) trick('DIVE', SCORE.dive);
     p.slamS = Math.max(p.slamS || 0, sT);
   } else if (settle) { p.vel.x = decay(p.vel.x, AIR.settleDrag, dt); p.vel.z = decay(p.vel.z, AIR.settleDrag, dt); }
   // THE YAW IS EXACT, THE TILT IS EASED (r27). `_qb` is the target swing (plumb, any pitch, and the
@@ -7647,6 +7663,7 @@ function grindSwitch() {
   const G = player.grind;
   if (!G || (G.rail && G.rail.path.hang)) return false;
   G.side = G.side === 'left' ? 'right' : 'left'; G.trick = null;
+  trick('SWITCH', SCORE.grindSwitch);
   return true;
 }
 function grindTrick(dx, dy) {
@@ -7654,6 +7671,7 @@ function grindTrick(dx, dy) {
   if (!G || (G.rail && G.rail.path.hang)) return false;
   const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
   G.trick = G.trick === dir ? null : dir;
+  if (G.trick) trick(SCORE.grinds[dir] || 'GRIND TRICK', SCORE.grindTrick);
   return true;
 }
 function swivel() {
@@ -7698,6 +7716,7 @@ function meleeStrike(wx, wz) {
   if (!nm) return false;
   const air = !p.grounded, win = air ? (MELEE.airWin[nm] || MELEE.airDef) : [0, 1];
   p.mel = { kind: 'strike', nm, t: 0, dur: Math.max(0.3, meleeBeat(nm) * (win[1] - win[0])), h: Math.atan2(wx, wz), air, win };
+  trick(SCORE.names[nm] || 'STRIKE', air ? SCORE.strike : SCORE.strikeGround);      // r62
   if (!air) {
     p.vel.x += wx * MELEE.lunge; p.vel.z += wz * MELEE.lunge;
     // r57: AND A BOOST ALONG HER TRAVEL, so a string of strikes is also a way to gain speed (along the flick if she is still)
@@ -7797,13 +7816,70 @@ function grabStep() {
   if (p.grab && p.grab.k === k) return;
   const pair = m && m.grabs ? (m.grabs[k] || m.grabs.centre) : null;
   const nm = pair ? ((p.stance < 0 && MOVES.useBack > 0.5 && pair[1]) || pair[0] || pair[1]) : null;
+  if (!p.grab) trick(SCORE.grabs[k] || 'GRAB', SCORE.grab);      // r62: changing grab mid-air is the same grab
   p.grab = { k, nm };
+}
+// ---- r62: TRICK POINTS. *"Every time you do a trick ... a points counter. I don't know what it's for yet, but +15 +10 +25
+// +100: flips, air tricks, grabs, spins, grinds."* THPS's shape: every trick in one unbroken line (air, rails, more air)
+// goes into a COMBO, shown as it builds; it is BANKED -- times the number of tricks in it, up to `multMax` -- once she
+// has been back on the ground for `bankAfter` seconds, and LOST if she bails. Holding a grab or a grind keeps adding
+// quietly (no popup per tick) so a long one is worth more without spamming the screen.
+// Spins are her heading turned in the air with the vert air's automatic 180 taken OUT (it is applied by the game, not
+// by the thumb), rounded to the nearest 180 with `spinSlack` of forgiveness for landing a little short.
+const SCORE = { on: 1, total: 0, best: 0, combo: 0, n: 0, list: [], ground: 0, bankAfter: 0.6, multMax: 8, spinSlack: 25,
+  spin: [0, 20, 50, 90, 150, 220, 300], spinStep: 100,
+  flip: { up: ['FRONT FLIP', 100], down: ['BACK FLIP', 100], right: ['TWIST FLIP', 150], left: ['TWIST FLIP', 150] },
+  grab: 15, grabTick: 10, grabEvery: 0.5, grabs: { centre: 'DUCK GRAB', up: 'DAFFY', down: 'SWAN', left: 'ONE FOOT', right: 'ONE FOOT' },
+  grind: 10, grindTick: 5, grindEvery: 0.5, grindTrick: 15, grindSwitch: 5, link: 25,
+  strike: 25, strikeGround: 10, xfer: 50, dive: 25, air: 10, airFrom: 1.0, airEvery: 0.5,
+  names: { melee_01: 'LUNGE', melee_02: 'HANDSPRING', melee_03: 'SPIN KICK', melee_04: 'CARTWHEEL', melee_05: 'FLIP KICK' },
+  grinds: { up: 'DAFFY GRIND', down: 'SWAN GRIND', left: 'DUCK GRIND', right: 'DUCK GRIND' } };
+const popsEl = document.getElementById('pops');
+function scorePop(txt, big, bad) {
+  if (!popsEl || !popsEl.appendChild) return;
+  const d = document.createElement('div'); d.className = 'pop' + (big ? ' big' : '') + (bad ? ' bad' : ''); d.textContent = txt;
+  popsEl.appendChild(d);
+  while (popsEl.children && popsEl.children.length > 5 && popsEl.removeChild) popsEl.removeChild(popsEl.children[0]);
+  setTimeout(() => { if (d.parentNode && d.parentNode.removeChild) d.parentNode.removeChild(d); }, 1200);
+}
+function trick(name, pts, quiet) {
+  const S = SCORE; if (!S.on || !(pts > 0)) return;
+  S.combo += pts; S.ground = 0;
+  if (quiet) return;
+  S.n++; if (S.list[S.list.length - 1] !== name) { S.list.push(name); if (S.list.length > 5) S.list.shift(); }
+  scorePop('+' + pts + ' ' + name);
+}
+function scoreBank() { const S = SCORE; if (!S.combo) return; const m = Math.max(1, Math.min(S.n, S.multMax)), got = S.combo * m;
+  S.total += got; S.best = Math.max(S.best, got); scorePop((m > 1 ? 'x' + m + '  ' : '') + '+' + got, true); S.combo = 0; S.n = 0; S.list.length = 0; }
+function scoreLose() { const S = SCORE; if (S.combo) scorePop('BAILED', true, true); S.combo = 0; S.n = 0; S.list.length = 0; }
+function scoreStep(dt) {
+  const p = player, S = SCORE, air = !p.grounded && !p.grind;
+  if (air) { if (p.spinPrev != null) p.spinAcc = (p.spinAcc || 0) + wrapAngle(p.heading - p.spinPrev); p.wasAirT = p.airT; }
+  else if (p.wasAir) {
+    if (p.bailT > 0) scoreLose();
+    else {
+      const steps = Math.floor((Math.abs(p.spinAcc || 0) * 180 / Math.PI + S.spinSlack) / 180);
+      if (steps >= 1) trick(String(steps * 180), steps < S.spin.length ? S.spin[steps] : S.spin[S.spin.length - 1] + (steps - S.spin.length + 1) * S.spinStep);
+      if ((p.wasAirT || 0) > S.airFrom) trick('BIG AIR', S.air * (1 + Math.floor((p.wasAirT - S.airFrom) / S.airEvery)));
+    }
+    p.spinAcc = 0;
+  }
+  p.spinPrev = air ? p.heading : null; p.wasAir = air;
+  if (p.bailT > 0 && !p.wasBail) scoreLose(); p.wasBail = p.bailT > 0;
+  // held grabs and grinds keep adding, quietly
+  if (air && p.grab) { p.grabT = (p.grabT || 0) + dt; while (p.grabT > S.grabEvery) { p.grabT -= S.grabEvery; trick('', S.grabTick, true); } } else p.grabT = 0;
+  if (p.grind) { const G = p.grind; G.scoreT = (G.scoreT || 0) + dt; while (G.scoreT > S.grindEvery) { G.scoreT -= S.grindEvery; trick('', S.grindTick, true); }
+    if ((G.turns || 0) > (G.scored || 0)) { G.scored = G.turns; trick('RAIL LINK', S.link); } }
+  if (p.grounded && !p.grind) { S.ground += dt; if (S.ground > S.bankAfter) scoreBank(); } else S.ground = 0;
 }
 // THE RIGHT PAD'S FLICK, AS A RULE (the binding below calls this; `npm run sim melee` calls it too).
 function rightFlick(dx, dy) {
   const p = player, dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
   const w = flickWorld(dx, dy);
-  if (p.grind || (!p.grounded && p.coyote > 0)) { if (dir === 'up') { p.jump = 2; return 'transfer'; } return null; }
+  if (p.grind || (!p.grounded && p.coyote > 0)) { if (dir === 'up') { p.jump = 2; return 'transfer'; }
+    // r62: *"when you're on the pole and you swipe different directions she does different grinds"* -- the right pad too now
+    if (p.grind && grindTrick(dx, dy)) return 'grind trick';
+    return null; }
   if (p.grounded) {
     // r57: a swipe UP is the transfer ONLY on the steep face itself -- swiped instead of the ollie as she goes off the
     // vert. Anywhere else it is a strike like every other direction (and every ground strike carries a boost now).
@@ -7855,6 +7931,7 @@ function stepPlayer(dt) {
   // horizontal speed is nearly zero while she is doing fifteen -- so a bearing taken from
   // the horizontal velocity there is pure noise, and the lens would spin.
   p.speed = p.vel.length();
+  scoreStep(dt);        // r62: trick points
   p.hSpeed = Math.hypot(p.vel.x, p.vel.z);
   // the body comes round onto the heading -- quickly, it is a skater, not a boat (r27: 18 -> 32)
   // ...except just after a landing squared her onto her line (r33): that turn is the landing's, not
@@ -8209,8 +8286,10 @@ function hudGutter() {
 addEventListener('resize', hudGutter); addEventListener('orientationchange', hudGutter);
 
 let fps = 60, fpsT = 0, fpsN = 0;
+const scoreB = document.getElementById('score'), scoreN = scoreB && scoreB.querySelector('b'), scoreC = scoreB && scoreB.querySelector('i');
 function hud(dt) {
   speedB.textContent = player.speed.toFixed(1);
+  if (scoreN) { scoreN.textContent = SCORE.total.toLocaleString(); scoreC.textContent = SCORE.combo ? (SCORE.n > 1 ? 'x' + Math.min(SCORE.n, SCORE.multMax) + ' ' : '') + SCORE.combo : ''; }
   fpsT += dt; fpsN++;
   if (fpsT > 0.5) { fps = fpsN / fpsT; fpsT = 0; fpsN = 0;
     buildI.textContent = `${Math.round(fps)} fps · ${renderer.info.render.calls} dc` +
@@ -8471,6 +8550,10 @@ const TAILUI = [
   ['AIR.slamAdd',    'Dive gains per second held', 0, 30, 1, ''],
   ['AIR.slamIn',     'Dive angle into the face', 0, 1, 0.05, ''],
   ['LAND.flipMax',   'Longest flip',   0.4, 2.5, 0.05, 's'],
+  ['Trick points (r62)', ''],
+  ['SCORE.on',       'Trick points', 0, 1, 1, ''],
+  ['SCORE.bankAfter', 'Combo banks after on the ground', 0.2, 2, 0.05, 's'],
+  ['SCORE.multMax',  'Biggest combo multiplier', 1, 20, 1, ''],
   ['Rail network (r59)', ''],
   ['RAILNET.on',     'Rails join up (junctions)', 0, 1, 1, ''],
   ['RAILNET.stickK', 'Stick picks the way at a junction', 0, 4, 0.1, ''],
@@ -8503,7 +8586,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { RAILNET, TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
+const UIOBJ = { SCORE, RAILNET, TAIL, LAND, MOVES, VERT, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -8623,7 +8706,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, SLC, NEX, HUB, RAILNET, SKYW, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
