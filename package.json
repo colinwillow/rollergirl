@@ -12,7 +12,8 @@
     "clips": "node tools/clips.mjs",
     "icons": "node tools/icons.mjs",
     "borrow": "node tools/borrow.mjs",
-    "shot": "node tools/shot.mjs"
+    "shot": "node tools/shot.mjs",
+    "export": "node tools/export.mjs"
   },
   "type": "module",
   "devDependencies": {

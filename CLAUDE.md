@@ -70,7 +70,7 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   whole. No draco (custom attributes), WebP textures. `models/props/prop_hydrant.glb` is his hydrant.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
-- `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`.
+- `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`, `export.mjs` (`npm run export`, the world as GLB for Blender).
 - `icons/` — `npm run icons [art.png]` (`tools/icons.mjs`, City's tool, needs the `sharp` dev dependency)
   turns one square artwork (`icons/source.png`, his alien-on-skates art since r31) into the 180/167/152
   apple-touch icons, 192/512 for the manifest and the 32 favicon. **THE VERSION IS IN THE FILENAME
@@ -307,6 +307,16 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   slides and kicks all draw the blade trails. `npm run sim melee`: every rail, from either side, GRIND --
   and with the aim switched off every one misses; plus the chain, the queue, the slide, the open kick and
   the borrowed clips binding to her bones. `NO MELEE GLB` in the chip if the file fails.
+- **`npm run export` WRITES THE WORLD AS A GLB FOR BLENDER (r60, `tools/export.mjs`, `docs/BLENDER_EXPORT.md`).**
+  *"Is there any way to get this scene into a Blender file?"* It boots the real module headless (the sim's page),
+  lets `init()` build every district and writes `exports/rollergirl_world.glb` (the picture -- one object per chunk,
+  grouped by district, generated textures embedded as PNG, rails as EDGE polylines with extras, every spot / water zone
+  / launcher / lane / trampoline / hydrant / gem as a named marker with extras) and `exports/rollergirl_collision.glb`
+  (`deck_<district>` floors and every solid as a `bld_` box, the handoff's naming). Uncompressed, metres, ~1.6 s.
+  `exports/` is gitignored -- regenerate, never commit. **Its own minimal glTF writer** (no gltf-transform in this
+  repo); checked by parsing both files back through the vendored `GLTFLoader` and rendering them.
+  **A PLANET GROUP'S SPHERES ARE UNNAMED**, so the skip test walks the ancestors; and a ring of far towers has its
+  centre at the world's middle, so district is decided by size first (radius > 250 is `backdrop`).
 - **THE RAIL NETWORK (r59, `RAILNET`, `railLink`, `railWeave`, `railPick`, `railExit`).** *"It would be really cool if the
   railings attached to each other so they looped around -- you just continue grinding down the stairs and then along the
   railing along the water ... make the grind rail system way more complex."* Built once, after every rail is in:
