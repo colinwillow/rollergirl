@@ -95,7 +95,9 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
   *"Import zone_skyline via LEVEL.imports at [0,0,0] ... rail_ edge polylines, launchers, spots, water and lava, fall
   below -40 -> respawn at the last spot, spawn me at the spawn marker."* His zones are in world coordinates and
   zone_skyline alone covers x/z +/-133 -- the hub, the bowl and three districts' gates -- so the two worlds cannot both
-  stand. `WORLD.zones` (1, his) is read at LOAD from `rg.world` (or `?world=park|zones`), and in zones mode
+  stand. `WORLD.zones` (1 his, **0 the built-in park -- the default again since r65**: *"your build is way better from a
+  functionality standpoint"*; his blockout was not fun to skate) is read at LOAD from `rg.world` (or
+  `?world=park|zones`), and in zones mode
   `buildPark` builds NOTHING but the empty grids, Orbital's water/launcher/put-back machinery and the splash points.
   ⚙ "World 1 his zones 0 built-in park (reload)" switches. `init` starts the zones' collision files right after
   `buildPark` and WAITS for them before she drops in (no floor otherwise); the visuals land whenever they land.

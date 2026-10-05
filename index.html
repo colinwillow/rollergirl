@@ -176,7 +176,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r64</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r65</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -199,7 +199,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r64';
+const BUILD = 'r65';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -800,7 +800,7 @@ LOOK.bright = LOOK.style > 0 ? 1 : 0;
 // imported at the origin) and the world this file builds (the park and its districts) stand on the SAME ground,
 // so it is one or the other, chosen at load: `zones` 1 is his, 0 is the built-in park. Remembered under its own
 // key; `?world=park` / `?world=zones` in the URL overrides it for one load.
-const WORLD = { zones: 1, fallY: -40, at: undefined };
+const WORLD = { zones: 0, fallY: -40, at: undefined };   // r65: the built-in park is the default again; his zones are one ⚙ switch away
 try {
   const v = localStorage.getItem('rg.world'); if (v === '0' || v === '1') WORLD.zones = +v;
   const q = new URLSearchParams(location.search || '').get('world');
