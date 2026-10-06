@@ -94,6 +94,23 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE PANTHEON: A THIRD LEVEL AT 46 m, AND THE AGORA DRESSED (r93, `ACR.PN`, `buildPantheon`, `acAgora`, `acDisc`,
+  `acWallRing`, `acRingSolid`, `acFlip`).** *"Sounds good!"* -- to a third level above the island and more on the agora.
+  A round deck (r 19.5) floating over the agora's north end (-158, 240): a kit bowl M sunk in it with a volcano M under the
+  oculus, sixteen columns on the half step (so N/S/E/W are gaps), an entablature, a dome (outside cream, inside a flipped
+  copy with coffer rings), a column of oculus light, and a parapet whose top is a closed grind ring, THE HALO (`railLoop`).
+  Up: THE SKY BRIDGE (a booster off the sky agora's north-east, in through the west gap) and a LAUNCHER on the agora at
+  (-138, 210). Down: THE CASCADE, one rail in right angles (north, west, north, east, south) onto the ground, 10.4 s.
+  The agora: a STOA along its south side (a 0.28 m step she rolls up, columns, a back wall, a marble bench, a gable) and a
+  FOUNTAIN whose rim is a 0.6 m ledge and whose water is a floor at 0.4. ➤ stops `acro agora`, `acro pantheon`.
+  - **A KIT BOWL IS ONLY ITS WALLS -- THE GROUND IS ITS FLOOR -- AND 46 m UP THERE IS NO GROUND.** The first ride fell
+    through the flat between the volcano's toe and the bowl's toe onto the agora (`deep` read 43 m). `buildPantheon` draws
+    and collides that ring itself. Any kit piece placed in the air needs the same.
+  - **`bowl` takes `fill: false`** (passed to `qpIn`), so it stops at a circle the slab's paving meets vertex for vertex
+    (`acRP` uses `kRev`'s own angle convention). Default unchanged.
+  - **A grind ring decelerates** (0.13/s on the flat), so the halo row tests that she crosses the SEAM where the loop
+    closes, not that she does a lap.
+  - The bowl and the volcano overlap by design: the kit overlap row skips pairs that share a `nest`.
 - **THE ACROPOLIS: THE WORLD GOES UP (r92, `ACR`, `buildAcro`, `acroKit`, `acroRails`, `acTwin`, `acSlope`, `acPoly`, `npm run sim
   acro`).** *"Start thinking vertically -- a skate park on the ground, a giant building you launch or grind a rail up, a full
   skate park on top of it that leads to another level, floating islands ... an upper platform, stairs down either side, one

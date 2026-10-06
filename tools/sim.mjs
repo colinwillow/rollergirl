@@ -4127,10 +4127,10 @@ CASES.acro = () => {
   const W = -Math.PI / 2, E = Math.PI / 2, N = 0, S = Math.PI, cz = (A.P.z0 + A.P.z1) / 2;
   const on = (y, tol) => P.grounded && Math.abs(P.pos.y - y) < (tol || 0.08);
   say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
-  { const bad = []; for (let i = 0; i < A.kit.length; i++) for (let j = i + 1; j < A.kit.length; j++) { const a = A.kit[i], b = A.kit[j]; if (!a.bb || !b.bb) continue;
+  { const bad = []; for (let i = 0; i < A.kit.length; i++) for (let j = i + 1; j < A.kit.length; j++) { const a = A.kit[i], b = A.kit[j]; if (!a.bb || !b.bb || (a.nest && a.nest === b.nest)) continue;
       if ([0, 1, 2].every(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k]) > 0.05)) bad.push(a.label + ' x ' + b.label); }
     // and nothing of the kit's stands on a rail's line: every booster and the descent clear of every piece by a body
-    for (const R of A.paths.filter(P0 => /ascent|sky stair|descent/.test(P0.name))) for (const sg of R.segs) for (const k of A.kit) if (k.bb && sg.a.x > k.bb[0] - 0.8 && sg.a.x < k.bb[3] + 0.8 && sg.a.z > k.bb[2] - 0.8 && sg.a.z < k.bb[5] + 0.8 && sg.a.y < k.bb[4] + 1.8 && sg.a.y > k.bb[1] - 0.5) { bad.push(k.label + ' on the ' + R.name); break; }
+    for (const R of A.paths.filter(P0 => /ascent|sky stair|descent|sky bridge|cascade/.test(P0.name))) for (const sg of R.segs) for (const k of A.kit) if (k.bb && sg.a.x > k.bb[0] - 0.8 && sg.a.x < k.bb[3] + 0.8 && sg.a.z > k.bb[2] - 0.8 && sg.a.z < k.bb[5] + 0.8 && sg.a.y < k.bb[4] + 1.8 && sg.a.y > k.bb[1] - 0.5) { bad.push(k.label + ' on the ' + R.name); break; }
     say('the Acropolis kit: nothing inside anything, nothing on a rail\'s line', !bad.length, bad.slice(0, 4).join('; ') || `${A.kit.length} pieces`); }
   // 0. EVERY ➤ STOP stands her on a floor
   { const bad = []; for (const n of A.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
@@ -4194,7 +4194,42 @@ CASES.acro = () => {
     const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.y > T.y + S2.H * 0.85) pk = 1; if (pk && on(T.y, 0.12)) back = 1; });
     if (process.env.ATRACE && !back) console.log('    ', k.label, fix(P.pos.x, 1), fix(P.pos.y, 2), fix(P.pos.z, 1));
     say(`${k.label}: up the face and back down onto its level`, pk && back && r.clean, `up to ${fix(r.top - T.y)} over its level, ${back ? 'back down' : 'NEVER BACK, ends y ' + fix(P.pos.y)}${cl(r)}`); }
-  // 10. A RAIL ACROSS THE GROUND IS NOT A WALL: nothing in the agora stops a run at the grand stair
+  // 10. r93: THE PANTHEON -- the third level, 46 m up
+  const C = A.PN, onP = () => Math.hypot(P.pos.x - C.x, P.pos.z - C.z) < C.R - 0.6 && P.pos.y > C.y - 2.5 && P.grounded;
+  // the sky bridge: on at its foot on the sky agora, boosted up and in through the west gap -- and she stays up there
+  { const R = A.paths.find(P0 => /sky bridge/.test(P0.name)), S0 = R.segs[0]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 6); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 6, side: 'left' }); let isl = 0, low = 99; const r = ride(9, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!P.grind && onP()) isl = 1; if (isl) low = Math.min(low, P.pos.y); });
+    say('the sky bridge: boosted from the sky agora into the Pantheon, and stays up', isl && low > C.y - 2.5 && r.clean, `${isl ? 'in the Pantheon, never under ' + fix(low) : 'ends ' + fix(P.pos.x, 1) + ',' + fix(P.pos.y, 1) + ',' + fix(P.pos.z, 1)}, top speed ${fix(r.vmax, 1)}${cl(r)}`); }
+  // a tap beside the sky bridge's foot catches it
+  { const R = A.paths.find(P0 => /sky bridge/.test(P0.name)), S0 = R.segs[0]; rg.GRIND.intent = 0; rg.ledgeClear(); go(S0.a.x + 1, S0.a.z - 1.1, E, 5, A.IS.y); P.jump = 1;
+    const r = ride(3); say('a tap beside the sky bridge\'s foot catches it', r.grind.has(R), r.grind.has(R) ? 'grinding it' : `ends y ${fix(P.pos.y)}${cl(r)}`); }
+  // the launcher on the agora throws her onto the ambulatory
+  { go(A.plaunch.x, A.plaunch.z, N, 0); let isl = 0; const r = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; if (onP()) isl = 1; });
+    say('the agora launcher throws her into the Pantheon', isl && r.clean, `${isl ? 'in the Pantheon' : 'ends ' + fix(P.pos.x, 1) + ',' + fix(P.pos.y, 1) + ',' + fix(P.pos.z, 1)}, up to ${fix(r.top)}${cl(r)}`); }
+  // the bowl: dropped in from the ambulatory hands-off, over the volcano, and it stays in; then at the sky bridge's speed
+  for (const v of [3, 15]) { go(C.x - C.Rb - 0.6, C.z + 0.3, E, v, C.y); let over = 0, inB = 1;
+    const r = ride(6, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (Math.hypot(P.pos.x - C.x, P.pos.z - C.z) < 1.5 && P.pos.y > C.y - 2.4 + 0.7) over = 1; if (t > 1 && Math.hypot(P.pos.x - C.x, P.pos.z - C.z) > C.Rb + 0.5) inB = 0; });
+    say(`the Pantheon bowl: dropped in at ${v} m/s hands-off, over the volcano, stays in`, over && inB && P.pos.y > C.y - 3 && r.clean, `${over ? 'over the top' : 'MISSED IT'}, ${inB ? 'stays in' : 'OUT at ' + fix(Math.hypot(P.pos.x - C.x, P.pos.z - C.z), 1)}, up to ${fix(r.top - C.y)} over the deck${cl(r)}`); }
+  // the halo: once round on it with no stick, and a tap from the ambulatory catches it
+  { const R = A.paths.find(P0 => /halo/.test(P0.name)), S0 = R.segs[R.segs.length - 6]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 8); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 8, side: 'left' }); let off = 0, dist = 0, seam = 0, lx = P.pos.x, lz = P.pos.z;
+    run(8, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (!P.grind || P.grind.rail.path !== R) off = 1; else { dist += Math.hypot(P.pos.x - lx, P.pos.z - lz); if (P.grind.rail === R.segs[2]) seam = 1; } lx = P.pos.x; lz = P.pos.z; });
+    say('the halo: round the rim on it, hands off, through the seam where the ring closes', !off && seam && R.closed, `${off ? 'CAME OFF' : 'on it'}, ${seam ? 'through the seam' : 'NEVER CROSSED THE SEAM'}, ${fix(dist, 0)} m in 8 s`);
+    const a = Math.PI * 0.75, rr = C.R - 1.7; rg.GRIND.intent = 0; rg.ledgeClear(); go(C.x + rr * Math.sin(a), C.z + rr * Math.cos(a), a + Math.PI / 2, 5, C.y); P.jump = 1;
+    const r = ride(3); say('a tap in the ambulatory catches the halo', r.grind.has(R), r.grind.has(R) ? 'grinding it' : `${[...r.grind].map(p => p.name).join('+') || 'nothing'}, ends y ${fix(P.pos.y)}${cl(r)}`); }
+  // the cascade: from its start in the north gap, through every right angle, onto the ground
+  { const R = A.paths.find(P0 => /cascade/.test(P0.name)), S0 = R.segs[0], goal = R.segs[R.segs.length - 1]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 5); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 5, side: 'left' }); let reached = 0, off = 0, tE = 0, gr = 0; const r = ride(30, (t) => { rg.stick.L.x = rg.stick.L.y = 0;
+      if (P.grind && P.grind.rail.path === R) { if (P.grind.rail === goal && !reached) { reached = 1; tE = t; } } else if (!reached) off = 1; if (reached && on(0, 0.1)) gr = 1; });
+    say('the cascade: off the Pantheon, every right angle, onto the ground', reached && gr && !r.bail, `${reached ? 'reached the end in ' + fix(tE, 1) + ' s' : off ? 'CAME OFF at ' + fix(P.pos.x, 1) + ',' + fix(P.pos.y, 1) + ',' + fix(P.pos.z, 1) : 'never reached the end'}, top speed ${fix(r.vmax, 1)}, ${gr ? 'rolling on the ground' : 'ends y ' + fix(P.pos.y)}`);
+    const rr = (C.col + C.R - 0.7) / 2; rg.GRIND.intent = 0; rg.ledgeClear(); go(C.x - 1.1, C.z + rr - 2.5, N, 5, C.y); P.jump = 1;
+    const r2 = ride(3); say('a tap beside the cascade\'s start catches it', r2.grind.has(R), r2.grind.has(R) ? 'grinding it' : `${[...r2.grind].map(p => p.name).join('+') || 'nothing'}, ends y ${fix(P.pos.y)}${cl(r2)}`); }
+  // 11. THE AGORA: into the stoa over its step and stopped by its wall; the fountain's rim is a wall, its water a floor
+  { const T = A.STOA; go(-157, 80, S, 8); let up = 0; const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && Math.abs(P.pos.y - 0.28) < 0.05) up = 1; });
+    say('the stoa: rolled in under the colonnade, up its step, stopped by the back wall', up && P.pos.z > T.z0 - 0.05 && r.clean, `${up ? 'on its floor' : 'NEVER UP'}, ends z ${fix(P.pos.z, 2)} (wall ${T.z0})${cl(r)}`); }
+  { const F = A.FT; go(F.x + F.r + 6, F.z, W, 7); const r = ride(2); const d = Math.hypot(P.pos.x - F.x, P.pos.z - F.z);
+    say('the fountain: its rim is a wall from outside', d > F.r - 0.05, `ends ${fix(d, 2)} m from its middle (rim ${F.r})${cl(r)}`);
+    go(F.x + 2.4, F.z, N, 0, 0.4); const r2 = ride(1); say('the fountain: the water is a floor at 0.4', on(0.4, 0.03), `stands at y ${fix(P.pos.y)}${cl(r2)}`); }
   rg.GRIND.intent = 0;
   return ok;
 };

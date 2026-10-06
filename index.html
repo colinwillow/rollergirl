@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r92</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r93</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r92';
+const BUILD = 'r93';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1623,7 +1623,7 @@ const KIT_KINDS = {
   },
   // ROUND BOWL: four inside corners on one centre
   bowl(T, S, o) {
-    const rc = o.rc || 4; KIT_KINDS.qpIn(T, S, { rc, a0: 0, a1: Math.PI * 2 });
+    const rc = o.rc || 4; KIT_KINDS.qpIn(T, S, { rc, a0: 0, a1: Math.PI * 2, fill: o.fill });
     const R = rc + S.lip + KITW.deck; return { len: 2 * R, wid: 2 * R, h: S.H };
   },
   // L: a pipe turning 90 degrees. Outer wall a concave corner, inner wall a convex one, on the same centre, so the flat
@@ -7358,6 +7358,9 @@ const ACR = { on: 1, built: 0, rails: [], stops: [],
   TP: { x0: -246, x1: -222, z0: 116, z1: 152, y: 12 },  // the temple podium
   IS: { x: -222, z: 228, h: 18, y: 28 },               // the sky island: centre, half size, deck height
   OB: { x: -188, z: 228, h: 3, top: 30 },              // the obelisk the descent spirals round
+  PN: { x: -158, z: 240, y: 46, R: 19.5, rc: 8, col: 14.6, n: 64 },   // r93: the Pantheon -- centre, deck, rim, bowl, colonnade
+  STOA: { x0: -178, x1: -138, z0: 58.5, z1: 67.5 },     // r93: the stoa along the agora's south side
+  FT: { x: -143, z: 160, r: 4.2 },                      // r93: the agora fountain
   cream: 0xf3e7d2, sand: 0xe6cfae, trim: 0xfbf4e8, gold: 0xffc84a };
 // a frame: (x, z) on the line where the upper level stops, +u = (sin yaw, cos yaw) away from it (down the slope), +w across
 function acP(F, u, w, y) { const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw); return [F.x + fx * u + fz * w, F.y + y, F.z + fz * u - fx * w]; }
@@ -7486,6 +7489,169 @@ function acPoly(W, r, step) {
     cur = B; }
   return out;
 }
+// ---- r93: ROUND THINGS -- a ring of quads about a centre, in the kit's own angle convention (x = cx + r sin A, z = cz + r cos A,
+// the same as `kRev` with yaw 0), so a ring drawn here meets a revolved kit piece vertex for vertex
+const acRP = (cx, cz, r, A, y) => [cx + r * Math.sin(A), y, cz + r * Math.cos(A)];
+// a flat ring (r0..r1) at y, collided if `solid`
+function acDisc(k, cx, cz, r0, r1, y, n, o) {
+  o = o || {};
+  for (let i = 0; i < n; i++) { const A = 2 * Math.PI * i / n, B = 2 * Math.PI * (i + 1) / n;
+    slQuad(k, acRP(cx, cz, r0, A, y), acRP(cx, cz, r0, B, y), acRP(cx, cz, r1, B, y), acRP(cx, cz, r1, A, y), [0, 1, 0], { solid: o.solid, tint: o.tint, base: o.base }); }
+}
+// a vertical ring wall at radius r from y0 to y1, facing out (sg 1) or in (sg -1)
+function acWallRing(k, cx, cz, r, y0, y1, n, sg, o) {
+  o = o || {};
+  for (let i = 0; i < n; i++) { const A = 2 * Math.PI * i / n, B = 2 * Math.PI * (i + 1) / n, M = (A + B) / 2;
+    slQuad(k, acRP(cx, cz, r, A, y0), acRP(cx, cz, r, B, y0), acRP(cx, cz, r, B, y1), acRP(cx, cz, r, A, y1), [sg * Math.sin(M), 0, sg * Math.cos(M)], { tint: o.tint, base: o.base }); }
+}
+// a ring of solid boxes, thickness t, centred on radius r -- `cylSolid` with its own thickness and a floor on top
+function acRingSolid(cx, cz, r, t, y0, y1, n, tag, top) {
+  const hl = r * Math.tan(Math.PI / n) + 0.06;
+  for (let k = 0; k < n; k++) { const a = (k + 0.5) / n * Math.PI * 2;
+    solidAdd(cx + Math.cos(a) * r, cz + Math.sin(a) * r, hl, t / 2, y0, y1, Math.atan2(-Math.cos(a), -Math.sin(a)), { top: !!top, tag }); }
+}
+// the inside of a shell: the same triangles wound the other way, normals turned round
+function acFlip(geo) {
+  const g = geo.index ? geo.toNonIndexed() : geo.clone(); g.computeVertexNormals();
+  const P = g.attributes.position.array, N = g.attributes.normal.array;
+  for (let t = 0; t < P.length; t += 9) for (let j = 0; j < 3; j++) { let q = P[t + 3 + j]; P[t + 3 + j] = P[t + 6 + j]; P[t + 6 + j] = q; q = N[t + 3 + j]; N[t + 3 + j] = N[t + 6 + j]; N[t + 6 + j] = q; }
+  for (let i = 0; i < N.length; i++) N[i] = -N[i];
+  return g;
+}
+// THE PANTHEON (r93): the third level. A round deck at 46 m floating over the agora's north end, with a sunk bowl M under
+// the dome (the kit's own bowl and volcano, `acroKit`), a colonnade of sixteen columns round it, a coffered dome with an
+// oculus whose light falls on the volcano, and a parapet round the rim whose top is a closed grind ring -- the HALO.
+// Up: the sky bridge (a booster off the sky agora) and a launcher on the agora. Down: the cascade, one rail in right angles.
+function buildPantheon() {
+  const C = ACR.PN, n = C.n, y = C.y, S = KSZ.M, Rb = C.rc + S.lip + KITW.deck, R = C.R;
+  C.Rb = Rb;
+  // THE DECK: paving from the bowl's own deck edge out to the parapet, vertex for vertex against the kit's revolve
+  acDisc('paving', C.x, C.z, Rb, R, y, n, { solid: true, tint: ACR.sand, base: y });
+  // THE BOWL'S FLOOR: a kit bowl is only its walls (the ground is its floor), and 46 m up there is no ground -- the flat
+  // between the volcano's toe and the bowl's is drawn and collided here, with a gold sunburst under the oculus
+  { const yf = y - S.H, Hh = S.H * 0.5, sv = Math.tan(24 * D2R), rv = 1.2 + Hh / sv + Math.min(1.2, Hh / sv / 2.2, 1.2) - 0.05;
+    acDisc('paving', C.x, C.z, rv, C.rc + 0.05, yf, n, { solid: true, tint: ACR.cream, base: yf });
+    for (let k = 0; k < 16; k++) { const A = (k + 0.5) / 16 * 2 * Math.PI, a = acRP(C.x, C.z, rv + 0.3, A - 0.05, yf + 0.012), b = acRP(C.x, C.z, rv + 0.3, A + 0.05, yf + 0.012), c = acRP(C.x, C.z, C.rc - 0.4, A, yf + 0.012);
+      slTri('neon', a, c, b, { tint: ACR.gold }); }
+    C.rv = rv; }
+  // a ring of gold inlay round the bowl's deck, and another inside the parapet -- paint, a hair over the floor
+  acDisc('neon', C.x, C.z, Rb + 0.25, Rb + 0.45, y + 0.012, n, { tint: ACR.gold });
+  acDisc('neon', C.x, C.z, R - 1.25, R - 1.1, y + 0.012, n, { tint: ACR.gold });
+  // THE SLAB: a drum 3 m deep under the deck, a cornice band, a floor seen from under it, and four inverted tiers to a gold point
+  slGeo('stone', new THREE.CylinderGeometry(R, R, 3, n, 1, true), slMat(C.x, y - 1.5, C.z), { tint: ACR.sand, base: y - 3 });
+  slGeo('stone', new THREE.CylinderGeometry(R + 0.08, R + 0.08, 0.5, n, 1, true), slMat(C.x, y - 0.4, C.z), { tint: ACR.trim });
+  slGeo('stone', new THREE.CircleGeometry(R, n).rotateX(Math.PI / 2), slMat(C.x, y - 3, C.z), { tint: 0xd6bd98 });
+  let yb = y - 3;
+  for (let k = 1; k <= 4; k++) { const r = R - k * 3.6, h = 2.2;
+    slGeo('stone', new THREE.CylinderGeometry(r + 0.6, r, h, n, 1, false), slMat(C.x, yb - h / 2, C.z), { tint: k % 2 ? ACR.cream : ACR.sand });
+    yb -= h; }
+  slGeo('neon', new THREE.ConeGeometry(2.2, 4.6, 16).rotateX(Math.PI), slMat(C.x, yb - 2.3, C.z), { tint: ACR.gold });
+  slGlow(C.x, yb - 3.2, C.z, 8, 0xffd27a, 0.65);
+  // THE PARAPET: 0.55 m, a wall to her and a floor on top, with a steel coping on it that is the HALO
+  const p0 = R - 0.7, ph = 0.55;
+  acDisc('stone', C.x, C.z, p0, R, y + ph, n, { tint: ACR.trim });
+  acWallRing('stone', C.x, C.z, p0, y, y + ph, n, -1, { tint: ACR.sand, base: y });
+  acWallRing('stone', C.x, C.z, R, y, y + ph, n, 1, { tint: ACR.sand, base: y });
+  acRingSolid(C.x, C.z, R - 0.35, 0.7, y, y + ph, n, 'acro parapet', true);
+  { const pts = []; for (let i = 0; i < n; i++) pts.push(acRP(C.x, C.z, R - 0.35, 2 * Math.PI * i / n, y + ph + 0.05)); ACR.rails.push({ pts, name: 'acro halo', bare: 1, closed: 1 }); }
+  // THE COLONNADE: sixteen columns on the half step, so north, south, east and west are all gaps -- the sky bridge arrives
+  // through the west one, the cascade leaves through the north one
+  const ch = 7, cy = y + ch;
+  for (let k = 0; k < 16; k++) { const A = (k + 0.5) / 16 * 2 * Math.PI, P = acRP(C.x, C.z, C.col, A, y); acColumn(P[0], y, P[2], ch, 0.55); }
+  // THE ENTABLATURE: architrave, a gold frieze, a cornice -- drawn rings, out of her reach
+  const ra = C.col - 1.0, rb = C.col + 1.0;
+  acDisc('stone', C.x, C.z, ra, rb, cy, n, { tint: ACR.trim });            // seen from under it? no -- its top; the soffit follows
+  slGeo('stone', new THREE.CircleGeometry(rb, n).rotateX(Math.PI / 2), slMat(C.x, cy - 0.001, C.z), { tint: 0xe8d6b8 });
+  acWallRing('stone', C.x, C.z, ra, cy, cy + 1.0, n, -1, { tint: ACR.trim }); acWallRing('stone', C.x, C.z, rb, cy, cy + 1.0, n, 1, { tint: ACR.trim });
+  acWallRing('neon', C.x, C.z, rb + 0.02, cy + 1.0, cy + 1.25, n, 1, { tint: ACR.gold }); acWallRing('neon', C.x, C.z, ra - 0.02, cy + 1.0, cy + 1.25, n, -1, { tint: ACR.gold });
+  const cc = cy + 1.25, rd = rb + 0.3;
+  acWallRing('stone', C.x, C.z, rd, cc, cc + 0.5, n, 1, { tint: ACR.cream }); acWallRing('stone', C.x, C.z, ra - 0.3, cc, cc + 0.5, n, -1, { tint: ACR.cream });
+  acDisc('stone', C.x, C.z, ra - 0.3, rd, cc, n, { tint: ACR.cream });
+  // the soffit under the architrave would be hidden by the disc at cy; draw the underside of the architrave ring explicitly
+  for (let i = 0; i < n; i++) { const A = 2 * Math.PI * i / n, B = 2 * Math.PI * (i + 1) / n;
+    slQuad('stone', acRP(C.x, C.z, ra, A, cy), acRP(C.x, C.z, rb, A, cy), acRP(C.x, C.z, rb, B, cy), acRP(C.x, C.z, ra, B, cy), [0, -1, 0], { tint: 0xe8d6b8 }); }
+  // THE DOME: a hemisphere on the cornice with an oculus, outside cream, inside gold-washed with three coffer rings
+  const Rd = C.col + 0.2, yd = cc + 0.5, th0 = 0.17;
+  const dome = () => new THREE.SphereGeometry(Rd, 48, 14, 0, Math.PI * 2, th0, Math.PI / 2 - th0);
+  slGeo('stone', dome(), slMat(C.x, yd, C.z), { smooth: true, tint: ACR.cream });
+  slGeo('stone', acFlip(dome()), slMat(C.x, yd, C.z), { smooth: true, tint: 0xf3dfb4 });
+  for (const th of [0.55, 0.9, 1.25]) slGeo('neon', new THREE.TorusGeometry(Rd * Math.sin(th) - 0.12, 0.08, 4, 48).rotateX(Math.PI / 2), slMat(C.x, yd + Rd * Math.cos(th) - 0.05, C.z), { tint: ACR.gold });
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, pts = [];          // ribs, outside
+    for (let j = 0; j <= 10; j++) { const th = th0 + (Math.PI / 2 - th0) * j / 10; pts.push([C.x + (Rd + 0.05) * Math.sin(th) * Math.sin(a), yd + (Rd + 0.05) * Math.cos(th), C.z + (Rd + 0.05) * Math.sin(th) * Math.cos(a)]); }
+    slTube('stone', pts, 0.16, { tint: ACR.trim }); }
+  const ro = Rd * Math.sin(th0), yo = yd + Rd * Math.cos(th0);
+  slGeo('neon', new THREE.TorusGeometry(ro, 0.18, 6, 32).rotateX(Math.PI / 2), slMat(C.x, yo, C.z), { tint: ACR.gold });
+  slGeo('neon', new THREE.ConeGeometry(0.5, 1.6, 8), slMat(C.x, yd + Rd + 1.4, C.z), { tint: ACR.gold });
+  // THE OCULUS'S LIGHT: a soft column of glow from the opening down onto the volcano
+  for (let yy = yo + 1, k = 0; yy > y; yy -= 2.6, k++) slGlow(C.x, yy, C.z, 5.5 - k * 0.25, 0xfff0c0, 0.22);
+  slGlow(C.x, yo + 2, C.z, 10, 0xffe6a0, 0.7);
+  // braziers on the ambulatory at the four diagonals
+  for (let k = 0; k < 4; k++) { const P = acRP(C.x, C.z, (C.col + R - 0.7) / 2, Math.PI / 4 + k * Math.PI / 2, y); acBrazier(P[0], y, P[2]); }
+  // THE SKY BRIDGE: a booster off the sky agora's north-east, through the parapet line and in through the west gap
+  { const I = ACR.IS, a = [I.x + I.h - 14, I.y + 1.0, C.z], bx = C.x - (C.col + R - 0.7) / 2, pts = [];
+    for (let i = 0; i <= 30; i++) { const t = i / 30; pts.push([a[0] + (bx - a[0]) * t, a[1] + (y + 0.95 - a[1]) * Math.min(1, t / 0.86), C.z]); }
+    ACR.rails.push({ pts, name: 'acro sky bridge', boost: 16, hgt: 0, tube: 1, arms: 5, postMax: 10 }); ACR.bridge = pts; }
+  // THE LAUNCHER on the agora, south-east of the island, onto the ambulatory
+  { const lx = -138, lz = 210, A = Math.atan2(lx - C.x, lz - C.z), tP = acRP(C.x, C.z, (C.col + R - 0.7) / 2, A, y);
+    ORB.launch.push({ x: lx, z: lz, y: 0, r: 1.7, tx: tP[0], ty: y, tz: tP[2], apex: 3, cool: 0, name: 'acro pantheon launch' });
+    slBox('stone', lx - 2.4, 0, lz - 2.4, lx + 2.4, 0.3, lz + 2.4, { top: 'stone', bev: 0.05, solid: true, tag: 'acro pad', tint: ACR.trim, base: 0 });
+    slGeo('neon', new THREE.TorusGeometry(1.55, 0.14, 6, 28).rotateX(Math.PI / 2), slMat(lx, 0.36, lz), { tint: ACR.gold });
+    for (let k = 0; k < 3; k++) slGeo('neon', new THREE.TorusGeometry(1.15 - k * 0.28, 0.05, 4, 20).rotateX(Math.PI / 2), slMat(lx, 0.9 + k * 0.7, lz), { tint: 0xfff0b0 });
+    slGlow(lx, 1.5, lz, 4, 0xffd27a, 0.6);
+    for (const s of [-1, 1]) acObelisk(lx + s * 4, 0, lz, 0.5, 4.5);
+    ACR.plaunch = { x: lx, z: lz }; }
+  // THE CASCADE: off the north gap, out over the parapet, and down in right angles -- north, west along the back, north, east
+  // the whole width of the agora, and south onto the ground -- one rail, every corner a fillet, a constant fall
+  { const top = y + 0.95, bot = 1.0, r0 = (C.col + R - 0.7) / 2;
+    const W = [[C.x, C.z + r0], [C.x, 268], [-200, 268], [-200, 280], [-134, 280], [-134, 260]];
+    const pts = acPoly(W, 2.6, 0.9); let S2 = 0; const sl = [0]; for (let i = 1; i < pts.length; i++) { S2 += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sl.push(S2); }
+    const flat = R - r0 + 0.8, s1 = S2 - 6, P3 = pts.map(([x, z], i) => [x, sl[i] <= flat ? top : sl[i] >= s1 ? bot : top + (bot - top) * (sl[i] - flat) / (s1 - flat), z]);
+    ACR.rails.push({ pts: P3, name: 'acro cascade', hgt: 0, tube: 1, maxV: 17, arms: 5, postMax: 14 }); ACR.cascade = P3; }
+  CITY.spots['acro pantheon'] = [C.x + (C.col + R - 0.7) / 2, y, C.z, 0];
+}
+// THE AGORA (r93): a stoa along its south side -- a colonnade you roll in under, a back wall, a long marble bench to grind --
+// and a fountain whose rim is a ledge and whose water is a floor
+function acAgora() {
+  const T = ACR.STOA, zc = T.z1 - 0.8, ch = 5, zb = T.z0;
+  // the stylobate: one 0.28 m step, under `SK.step`, so she rolls up onto it
+  slBox('stone', T.x0, 0, T.z0, T.x1, 0.28, T.z1, { top: 'paving', bev: 0.04, solid: true, tag: 'acro stoa', tint: ACR.sand, base: 0, skip: 'y' });
+  // the back wall, ashlar, pilasters inside, a mural band
+  slBox('stone', T.x0, 0, zb - 0.9, T.x1, ch + 0.9, zb, { bev: 0.06, solid: true, tag: 'acro stoa wall', tint: ACR.sand, base: 0, skip: 'y' });
+  for (let x = T.x0 + 2; x <= T.x1 - 2; x += 4) slBox('stone', x - 0.5, 0.28, zb, x + 0.5, ch, zb + 0.18, { bev: 0.04, tint: ACR.trim, skip: 'yY' });
+  slBox('neon', T.x0 + 1, ch - 0.6, zb + 0.01, T.x1 - 1, ch - 0.45, zb + 0.05, { bev: 0, tint: ACR.gold, skip: 'yY' });
+  // the columns along the front, and the end walls
+  for (let x = T.x0 + 1.2; x <= T.x1 - 1.1; x += 4.2) acColumn(x, 0.28, zc, ch - 0.28, 0.42);
+  for (const x of [T.x0, T.x1]) slBox('stone', x - 0.45, 0, zb, x + 0.45, ch + 0.9, zb + 3.2, { bev: 0.05, solid: true, tag: 'acro stoa wall', tint: ACR.sand, base: 0, skip: 'y' });
+  // the roof: an architrave over the columns, a ceiling, a low gable in terracotta
+  slBox('stone', T.x0 - 0.3, ch, zb - 0.9, T.x1 + 0.3, ch + 0.9, T.z1 + 0.3, { bev: 0.05, solid: true, tag: 'acro stoa roof', tint: ACR.trim, skip: '' });
+  slBox('neon', T.x0 - 0.32, ch + 0.55, T.z1 + 0.29, T.x1 + 0.32, ch + 0.7, T.z1 + 0.33, { bev: 0, tint: ACR.gold, skip: 'yY' });
+  { const y0 = ch + 0.9, yr = y0 + 1.6, zm = (zb - 0.9 + T.z1 + 0.3) / 2;
+    for (const [za, zz, nz] of [[zb - 1.1, zm, -1], [T.z1 + 0.5, zm, 1]]) slQuad('paint', [T.x0 - 0.5, y0, za], [T.x1 + 0.5, y0, za], [T.x1 + 0.5, yr, zm], [T.x0 - 0.5, yr, zm], [0, Math.abs(zm - za) / 1.6, nz], { tint: 0xc8714a });
+    for (const [x, nx] of [[T.x0 - 0.3, -1], [T.x1 + 0.3, 1]]) slTri('stone', [x, y0, zb - 0.9], [x, y0, T.z1 + 0.3], [x, yr - 0.05, zm], { tint: ACR.cream }), void nx; }
+  // the long marble bench inside, against the wall -- its front edge is a ledge
+  slBox('stone', T.x0 + 3, 0.28, zb + 0.5, T.x1 - 3, 0.28 + 0.48, zb + 1.5, { top: 'stone', bev: 0.04, solid: true, tag: 'acro stoa bench', tint: ACR.trim, base: 0.28 });
+  slBox('metal', T.x0 + 3, 0.72, zb + 1.46, T.x1 - 3, 0.78, zb + 1.54, { bev: 0.01, skip: 'y' });
+  for (const x of [T.x0 + 1.6, T.x1 - 1.6]) acBrazier(x, 0.28, zb + 1.6);
+  // THE FOUNTAIN: a round basin, its rim a 0.6 m ledge with steel on the outer edge, its water a floor at 0.4, a tiered
+  // fountain in the middle on a solid drum
+  const F = ACR.FT, n = 40, rw = 0.55;
+  acDisc('stone', F.x, F.z, F.r - rw, F.r, 0.6, n, { tint: ACR.trim });
+  acWallRing('stone', F.x, F.z, F.r, 0, 0.6, n, 1, { tint: ACR.sand, base: 0 }); acWallRing('stone', F.x, F.z, F.r - rw, 0.4, 0.6, n, -1, { tint: ACR.sand, base: 0.4 });
+  acRingSolid(F.x, F.z, F.r - rw / 2, rw, 0, 0.6, n, 'acro fountain', true);
+  acDisc('neon', F.x, F.z, 0.9, F.r - rw, 0.4, n, { solid: true, tint: 0x6fe0e8 });
+  slGeo('metal', new THREE.TorusGeometry(F.r + 0.02, 0.04, 4, n).rotateX(Math.PI / 2), slMat(F.x, 0.6, F.z), {});
+  slGeo('stone', new THREE.CylinderGeometry(0.9, 1.0, 1.4, 20), slMat(F.x, 0.7, F.z), { smooth: true, tint: ACR.cream });
+  cylSolid(F.x, F.z, 1.0, 0, 1.4, 12, 'acro fountain');
+  const bowl = [[0.3, 0], [1.7, 0.35], [1.75, 0.45], [1.5, 0.42], [0.2, 0.15]].map(([a, b]) => new THREE.Vector2(a, b));
+  slGeo('stone', new THREE.LatheGeometry(bowl, 24), slMat(F.x, 1.4, F.z), { smooth: true, tint: ACR.trim });
+  slGeo('stone', new THREE.CylinderGeometry(0.25, 0.32, 1.0, 12), slMat(F.x, 2.3, F.z), { smooth: true, tint: ACR.cream });
+  slGeo('stone', new THREE.LatheGeometry(bowl.map(v => v.clone().multiplyScalar(0.55)), 20), slMat(F.x, 2.8, F.z), { smooth: true, tint: ACR.trim });
+  slGeo('neon', new THREE.SphereGeometry(0.32, 12, 8), slMat(F.x, 3.35, F.z), { smooth: true, tint: ACR.gold });
+  slGlow(F.x, 3.4, F.z, 2.6, 0xffe2a0, 0.6);
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; slGlow(F.x + Math.sin(a) * 1.9, 1.2, F.z + Math.cos(a) * 1.9, 1.4, 0xbff6ff, 0.45); slGlow(F.x + Math.sin(a) * 3, 0.6, F.z + Math.cos(a) * 3, 1.1, 0x9ff0ff, 0.35); }
+  for (const [dx, dz] of [[-7, -7], [7, -7], [-7, 7], [7, 7]]) acCypress(F.x + dx, 0, F.z + dz, 4.5);
+  CITY.spots['acro agora'] = [F.x + 10, 0, F.z - 6, -Math.PI / 2];
+}
 // ---- THE BUILD ----------------------------------------------------------------------------------------------------------
 function buildAcro() {
   if (!ACR.on || !PARKD.on) return;
@@ -7580,6 +7746,8 @@ function buildAcro() {
     let S = 0; const sl = [0]; for (let i = 1; i < pts.length; i++) { S += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sl.push(S); }
     const s1 = S - 5, P3 = pts.map(([x, z], i) => [x, sl[i] <= flat ? top : sl[i] >= s1 ? bot : top + (bot - top) * (sl[i] - flat) / (s1 - flat), z]);
     ACR.rails.push({ pts: P3, name: 'acro descent', hgt: 0, tube: 1, maxV: 17, arms: 2.2, armTo: [ox, oz] }); ACR.descent = P3; }
+  // r93: THE THIRD LEVEL and the agora's dressing
+  buildPantheon(); acAgora();
   // THE ➤ STOPS (first on the key) and the dropping-in points the harness rides from
   const S = CITY.spots;
   S['acropolis'] = [-150, 0, cz, -Math.PI / 2];
@@ -7587,7 +7755,7 @@ function buildAcro() {
   S['acro stylobate'] = [-206, T8, cz + 26, -Math.PI / 2];
   S['acro temple'] = [-226, TP.y, tcz + 10, -Math.PI / 2];
   S['acro sky'] = [I.x - 6, I.y, I.z - 10, Math.PI];
-  ACR.stops = ['acropolis', 'acro terrace', 'acro stylobate', 'acro temple', 'acro sky'];
+  ACR.stops = ['acropolis', 'acro agora', 'acro terrace', 'acro stylobate', 'acro temple', 'acro sky', 'acro pantheon'];
   ACR.built = 1;
 }
 // THE KIT PIECES ON THE LEVELS (their own tested shapes, in the park district's palette): quarter pipes along the stylobate's
@@ -7617,6 +7785,10 @@ function acroKit() {
     p('frustum', 'M', -218, 230, 0, I.y, { len: 3, w: 4, banks: [1, 1, 1, 1] }, 'sky pyramid');
     p('ledge', 'S', -226, I.z - I.h + 4, Math.PI / 2, I.y, { h: 0.5, len: 8, w: 1.2 }, 'sky ledge');
     p('rail', 'S', -214, I.z - I.h + 6, Math.PI / 2, I.y, { h: 0.6, len: 8 }, 'sky flat bar');
+    // r93: THE PANTHEON'S BOWL -- a round bowl M sunk into the deck at 46 m (its own deck is the inner ring of the floor,
+    // `fill: false` so it stops at a circle the slab's paving meets), a volcano under the oculus
+    { const C = ACR.PN, b = p('bowl', 'M', C.x, C.z, 0, C.y - KSZ.M.H, { rc: C.rc, fill: false }, 'pantheon bowl M (r ' + C.rc + ')'), v = p('volcano', 'M', C.x, C.z, 0, C.y - KSZ.M.H, { top: 1.2 }, 'pantheon volcano M');
+      if (b) b.nest = 'pantheon'; if (v) v.nest = 'pantheon'; }
     // THE AGORA: two long ledges flanking the grand stair's approach, a manual pad, a funbox, a kicker into a pyramid
     const cz = (ACR.P.z0 + ACR.P.z1) / 2;
     p('ledge', 'S', -166, cz + 24, Math.PI / 2, 0, { h: 0.55, len: 16, w: 1.2 }, 'agora ledge north');
@@ -7641,10 +7813,11 @@ function acroRails() {
         const [x, y, z] = top[i];
         if (R.armTo) { const tx = R.armTo[0] + Math.sign(x - R.armTo[0]) * Math.min(ACR.OB.h * 0.8, Math.abs(x - R.armTo[0])), tz = R.armTo[1] + Math.sign(z - R.armTo[1]) * Math.min(ACR.OB.h * 0.8, Math.abs(z - R.armTo[1]));
           slTube('metal', [[x, y - 0.08, z], [tx, y - 0.6, tz]], 0.05); }
-        else { const g = groundAt(x, z, y - 0.2, 0), y0 = g.hit ? g.floor : 0; if (y - y0 > 0.3) slGeo('metal', new THREE.CylinderGeometry(0.05, 0.07, y - y0, 6, 1, true), slMat(x, (y + y0) / 2, z), { smooth: true }); } } }
-    else if (R.bare) { top = R.pts; slTube('metal', top, 0.035); }
+        else { const g = groundAt(x, z, y - 0.2, 0), y0 = g.hit ? g.floor : 0; if (R.postMax && y - y0 > R.postMax) continue; if (y - y0 > 0.3) slGeo('metal', new THREE.CylinderGeometry(0.05, 0.07, y - y0, 6, 1, true), slMat(x, (y + y0) / 2, z), { smooth: true }); } } }
+    else if (R.bare) { top = R.pts; slTube('metal', R.closed ? top.concat([top[0]]) : top, 0.035); }
     else top = slRailing(R.pts, R.hgt || 0.9, { step: 1.8 });
-    const P = railPath(top.map(V), { name: R.name, boost: R.boost || 0, boostK: R.boost ? 10 : 0, maxV: R.maxV || (R.boost ? 22 : 0) });
+    const opt = { name: R.name, boost: R.boost || 0, boostK: R.boost ? 10 : 0, maxV: R.maxV || (R.boost ? 22 : 0) };
+    const P = R.closed ? railLoop(top.map(V), opt) : railPath(top.map(V), opt);
     ACR.paths.push(P);
   }
 }
