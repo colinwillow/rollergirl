@@ -20,7 +20,8 @@
     "oblique": "node tools/oblique.mjs",
     "rebase": "node tools/rebase.mjs",
     "plan": "node tools/plan.mjs",
-    "trace": "node tools/trace.mjs"
+    "trace": "node tools/trace.mjs",
+    "export:park": "node tools/export.mjs park"
   },
   "type": "module",
   "devDependencies": {

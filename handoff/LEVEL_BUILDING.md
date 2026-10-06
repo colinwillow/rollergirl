@@ -9,6 +9,11 @@ works with **no code written on the game side**: no guessing, and no rebuild.
 The game session tests every level before it ships. It loads the level headless, drives her over it through the real
 physics, and reports anything that does not work.
 
+> **r88: build the skate park first, the level around it.** The Skyline import was a level with ramps added on top, and
+> it did not ride like a skate park. The park that does ride well is in `park_reference/`: the GLB, the image it came
+> from, the schematic that placed every piece, a top-down plan, and its layout numbers. Read `park_reference/README.md`
+> before designing a park.
+
 ## The files in this package
 
 | file | what it is |

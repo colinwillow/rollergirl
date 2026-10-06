@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r87</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r88</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r87';
+const BUILD = 'r88';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -2601,6 +2601,11 @@ function kitPark() {
 // The drawing itself sits beside the file (`image`), and `npm run plan` renders the built park from straight above at the
 // drawing's own scale and lays it over the drawing -- the check that the trace is where he drew it.
 const SHEET = { holes: [], x0: -450, x1: -160, z0: -270, z1: 150, spawn: null, at: {}, areas: [], url: 'parks/mega_skatepark.json', data: null, err: null };
+// r88: WHICH SCHEMATIC. `?park=<name>` (or `rg.park` in storage) builds `parks/<name>.json` in the kit world instead of the
+// mega park -- so a park written from a new drawing is skateable by dropping its file in `parks/` and running `npm run bump`
+// (which hashes it), and `npm run export:park -- <name>` writes any of them out for Blender. A name is letters, digits, _ and -.
+try { const q = new URLSearchParams(location.search || '').get('park') || localStorage.getItem('rg.park');
+  if (q && /^[a-z0-9_-]+$/i.test(q)) SHEET.url = 'parks/' + q + '.json'; } catch (e) {}
 async function schematicLoad() {
   try { const r = await fetch(A(SHEET.url)); if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
     SHEET.data = await r.json(); }

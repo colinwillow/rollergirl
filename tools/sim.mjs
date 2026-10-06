@@ -42,7 +42,7 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 (0, eval)(stubs);
 // r64: WHICH WORLD. Every case but `zones` measures the built-in park, and his zones stand on the same ground, so
 // the page is booted in the world the case is about (`rg.world` is what the game reads at load).
-globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : process.argv[2] === 'kit' ? '2' : '0');
+globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'parkref') ? '2' : '0');
 
 const html = fs.readFileSync('index.html', 'utf8');
 let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
@@ -3613,6 +3613,73 @@ CASES.kit = async () => {
   }
   return ok;
 };
+// r88: THE REFERENCE PARK RE-IMPORTED. *"Export the current skate park as a guide"* -- for a Blender session rebuilding parks
+// from images, so the file has to BE the park: `npm run export:park` written, parsed back through the vendored loader,
+// and handed to the shipped `levelIngest` TURNED 180 into an EMPTY collider. Every floor height, every solid and every
+// rail end inside the park has to come back where it was; if it does not rebuild here it will not rebuild on his level.
+CASES.parkref = async () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(52)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const { spawnSync } = await import('child_process');
+  const ex = spawnSync(process.execPath, ['tools/export.mjs', 'park'], { encoding: 'utf8', maxBuffer: 64 << 20 });
+  const S = rg.SHEET, file = 'handoff/park_reference/' + S.url.match(/([^/]+)\.json$/)[1] + '.glb';
+  if (ex.status !== 0 || !fs.existsSync(file)) { say('export:park runs', false, (ex.stderr || '').split('\n').slice(-4).join(' | ')); return false; }
+  console.log('  ' + (ex.stdout.split('\n').filter(l => /^park:|ramp to/.test(l)).join('\n  ')));
+  const K = rg.KITW, orig = K.pieces.filter(pc => pc.park && /^sheet /.test(pc.park)), n0 = K.pieces.length, gl = await realGLB(file);
+  const cx = (S.x0 + S.x1) / 2, cz = (S.z0 + S.z1) / 2, TURN = process.env.NOTURN ? 1 : -1, map = (x, z) => [TURN * (x - cx), TURN * (z - cz)];      // the copy: re-centred, turned 180
+  // inside the floor he drew (outside it is the kit world's own floor, which the copy rightly does not carry)
+  const inPoly = (x, z, P) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, zi] = P[i], [xj, zj] = P[j];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
+  const gf = (x, z) => { const q = rg.groundAt(x, z, 40, 0); return q.hit ? q.floor : null; };
+  const solid = (x, y, z) => !!rg.solidAt(x, y, z, 0);
+  const samp = [];
+  for (let x = S.x0 + 0.0137; x <= S.x1; x += 0.7) for (let z = S.z0 + 0.0291; z <= S.z1; z += 0.7) if (inPoly(x, z, S.floor))
+    samp.push([x, z, gf(x, z), solid(x, 0.6, z), solid(x, 3, z), solid(x, 9, z)]);
+  const triAt = (x, z) => { const T = rg.TRI, out = [], i = Math.floor((x - T.x0) / T.cell), k = Math.floor((z - T.z0) / T.cell), c = T.cells[k * T.w + i] || [];
+    for (const t of c) { const o = t * 12, V = T.v, ax = V[o], az = V[o + 2], bx = V[o + 3], bz = V[o + 5], cx2 = V[o + 6], cz2 = V[o + 8], d = (bz - cz2) * (ax - cx2) + (cx2 - bx) * (az - cz2);
+      const l1 = ((bz - cz2) * (x - cx2) + (cx2 - bx) * (z - cz2)) / d, l2 = ((cz2 - az) * (x - cx2) + (ax - cx2) * (z - cz2)) / d;
+      if (l1 >= -1e-6 && l2 >= -1e-6 && l1 + l2 <= 1 + 1e-6) out.push([...V.slice(o, o + 9)].map(v => fix(v, 2)).join(',')); } return out; };
+  const probe = process.env.DBG ? samp.slice() : null, triOrig = {};
+  if (probe) for (const q of probe) triOrig[q[0] + ',' + q[1]] = triAt(q[0], q[1]);
+  const spawn0 = S.spawn.slice(), rails0 = orig.flatMap(pc => pc.rails || (pc.rail ? [pc.rail] : []));
+  rg.colliderReset();
+  gl.scene.updateMatrixWorld(true);
+  const st = rg.levelIngest(gl.scene, gl.scene, new THREE.Matrix4().makeRotationY(process.env.NOTURN ? 0 : Math.PI), 'parkref'), got = K.pieces.slice(n0);
+  const sig = p => p.kind + ' ' + p.size + ' ' + JSON.stringify(Object.fromEntries(Object.entries(p.o || {}).filter(([k]) => k !== 'yaw').sort()));
+  const A = orig.map(sig).sort(), B = got.map(sig).sort();
+  if (A.join('|') !== B.join('|')) A.forEach((x, i) => { if (x !== B[i]) console.log('    original ' + x + '\n    copy     ' + B[i]); });
+  say('every piece comes back: same kind, size and options', st.fn === orig.length && A.join('|') === B.join('|') && !(st.bad && st.bad.length), `${st.fn} fn_ nodes for ${orig.length} pieces${st.bad ? ', REFUSED ' + st.bad.join('; ') : ''}`);
+  let n = 0, fb = 0, sb = 0, worst = 0, sunk = 0; const offs = [];
+  for (const [x, z, a, s1, s2, s3] of samp) { const [X, Z] = map(x, z), b = gf(X, Z); n++; if (a != null && a < -0.3) sunk++;
+    // A SAMPLE ON AN EDGE IS A ROUNDING TIE (r70's lesson): the move puts a hair of float error into every coordinate, and on
+    // the line between two surfaces that decides which one it reads. So a miss is re-read 2 cm either way on the copy, and
+    // counts only if no nudge agrees -- a real hole is wider than that. A BLENDED floor (`hAt` over a bowl's toes, in the sunk
+    // bowl and the pool on the deck) is triangulated afresh at the new coordinates and may differ by a few cm, so the
+    // tolerance is 5 cm -- a tenth of a kerb, against a missing piece that reads metres.
+    const tol = 0.05;
+    const near1 = (A, B) => A == null || B == null ? (A === B ? 0 : 99) : Math.abs(A - B);
+    let d = near1(a, b); if (d > tol) for (const [ex, ez] of [[0.02, 0], [-0.02, 0], [0, 0.02], [0, -0.02]]) d = Math.min(d, near1(a, gf(X + ex, Z + ez)));
+    worst = Math.max(worst, d);
+    if (d > tol) { fb++; if (offs.length < (process.env.DBG ? 200 : 4)) offs.push(`${fix(x, 1)},${fix(z, 1)}: ${a == null ? '-' : fix(a)} vs ${b == null ? '-' : fix(b)}`); }
+    const sAt = (x2, z2) => [solid(x2, 0.6, z2), solid(x2, 3, z2), solid(x2, 9, z2)].join();
+    if (sAt(X, Z) !== [s1, s2, s3].join() && ![[0.02, 0], [-0.02, 0], [0, 0.02], [0, -0.02]].some(([ex, ez]) => sAt(X + ex, Z + ez) === [s1, s2, s3].join())) sb++; }
+  if (offs.length) console.log('      ' + offs.join('\n      '));
+  if (fb && process.env.DBG) { const at = (x, z, L) => L.filter(p => p.bb && x >= p.bb[0] - 0.5 && x <= p.bb[3] + 0.5 && z >= p.bb[2] - 0.5 && z <= p.bb[5] + 0.5).map(p => p.label + ' T ' + [p.T.x, p.T.y, p.T.z, p.T.yaw].map(v => fix(v, 2)).join(',') + ' ' + JSON.stringify(p.o).slice(0, 300));
+    const f = samp.find(q => { const [X, Z] = map(q[0], q[1]), b = gf(X, Z); return q[2] == null ? b != null : b == null || Math.abs(q[2] - b) > 0.02; });
+    const [X, Z] = map(f[0], f[1]);
+    console.log('      collider tris at the point, ORIGINAL:\n        ' + (triOrig[f[0] + ',' + f[1]] || []).join('\n        '));
+    console.log('      collider tris at the point, COPY:\n        ' + triAt(X, Z).join('\n        '));
+    console.log('      originals:\n        ' + at(f[0], f[1], K.pieces.slice(0, n0)).join('\n        ')); console.log('      copies:\n        ' + at(X, Z, got).join('\n        ')); }
+  say('  every floor in the park at the same height', n > 20000 && fb === 0, `${n} points (${sunk} down in a sunk bowl), ${fb} off, worst ${fix(worst, 3)} m`);
+  say('  every solid where it was (0.6, 3 and 9 m up)', sb === 0, `${sb} of ${n} columns differ`);
+  const rails1 = got.flatMap(pc => pc.rails || (pc.rail ? [pc.rail] : []));
+  let rn = 0, rbad = 0;
+  for (const R of rails0) for (const e of [R.segs[0].a, R.segs[R.segs.length - 1].b]) { rn++; const [X, Z] = map(e.x, e.z);
+    if (!rails1.some(Q => [Q.segs[0].a, Q.segs[Q.segs.length - 1].b].some(f => Math.hypot(f.x - X, f.y - e.y, f.z - Z) < 0.01))) rbad++; }
+  say('  every rail end where it was', rn > 10 && rails1.length === rails0.length && !rbad, `${rails1.length} rails, ${rn} ends, ${rbad} off`);
+  const sp = rg.CITY.spots['parkref park'], [X, Z] = map(spawn0[0], spawn0[2]);
+  say('  the spawn marker lands on its spot', !!sp && Math.hypot(sp[0] - X, sp[2] - Z) < 0.01 && Math.abs(sp[1] - spawn0[1]) < 0.01, sp ? `at ${fix(sp[0], 1)},${fix(sp[1], 1)},${fix(sp[2], 1)}` : 'NONE');
+  return ok;
+};
 CASES.shores = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
@@ -3924,10 +3991,10 @@ for (const k of Object.keys(CASES)) {
   console.log(`\n== ${k} ==`);
   let ok = false;
   // the zones case needs a page booted in the OTHER world, so a full run hands it to a process of its own
-  if ((k === 'zones' || k === 'kit') && !only) {
+  if ((k === 'zones' || k === 'kit' || k === 'parkref') && !only) {
     const { spawnSync } = await import('child_process');
     const r = spawnSync(process.execPath, [process.argv[1], k], { encoding: 'utf8', maxBuffer: 64 << 20 });
-    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
+    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|parkref) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
   try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on

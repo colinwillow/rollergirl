@@ -51,12 +51,16 @@ const boot = fs.readFileSync('tools/boot.mjs', 'utf8');
 const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:END'));
 (0, eval)(stubs);
 // r64: the export is of the world this file builds, not of his zones. r66: `npm run export kit` is the ramp kit instead.
-const KITMODE = process.argv[2] === 'kit';
+// r88: `npm run export:park` -- the schematic park ALONE (`parks/<name>.json`, built from his drawing), as a reference
+// for a Blender session rebuilding parks from images: see the PARKMODE block below.
+const PARKMODE = process.argv[2] === 'park';
+const KITMODE = process.argv[2] === 'kit' || PARKMODE;
 // r83: `npm run export:lib` -- the gallery ALONE (every kind at every size, no example parks), into `handoff/`, as the
 // piece library a Blender session duplicates from. The full kit with both parks is 18 MB; the library is the part to hand over.
 const LIBMODE = KITMODE && process.argv[3] === 'lib';
 globalThis.localStorage.setItem('rg.world', KITMODE ? '2' : '0');
-if (KITMODE) globalThis.__kitKeep = 1;     // each piece keeps a copy of its own triangles to be written out
+if (KITMODE) globalThis.__kitKeep = 1;
+if (PARKMODE && process.argv[3]) globalThis.localStorage.setItem('rg.park', process.argv[3]);      // r88: `npm run export:park -- <name>`     // each piece keeps a copy of its own triangles to be written out
 
 const html = fs.readFileSync('index.html', 'utf8');
 let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
@@ -104,18 +108,8 @@ function glbWriter() {
       fs.writeFileSync(file, Buffer.concat([head, jh, js, bh, B])); return 12 + 16 + js.length + B.length; } };
 }
 
-// ---------------------------------------------------------------- r66: THE RAMP KIT
-// One object per piece, named `fn_<kind>_<size>_<n>`, its mesh in its OWN frame (origin on the ground at the middle of
-// the front edge, local +Z the way the rider goes up it, +X across) and the node placed where the gallery has it --
-// so in Blender each one is a placeholder he can duplicate, move and turn, and a GLB of them coming back is rebuilt by
-// `levelIngest` into the real pieces. The extras carry the kind, the size and every option the piece was built with.
-if (KITMODE) {
-  const K = rg.KITW, W = glbWriter(), spec = [];
-  W.J.materials.push({ name: 'kit', pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.85 } });
-  const root = W.node('ramp_kit', null), cnt = {}, park = W.node('example_park', null), zones = {};
-  const zoneOf = z => zones[z] != null ? zones[z] : (zones[z] = W.node('park_' + z.replace(/[^a-z0-9]+/gi, '_'), park));
-  for (const pc of K.pieces) {
-    if (LIBMODE && pc.park) continue;
+// one kit piece as an `fn_` node (shared by `export:kit`, `export:lib` and r88's `export:park`)
+function writePiece(W, pc, parent, cnt, spec, K) {
     const T = pc.T, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
     const toLocal = (X, Y, Z) => { const dx = X - T.x, dz = Z - T.z; return [dx * fz - dz * fx, Y - T.y, dx * fx + dz * fz]; };
     const n = cnt[pc.kind + pc.size] = (cnt[pc.kind + pc.size] || 0) + 1, name = `fn_${pc.kind}_${pc.size}_${n}`;
@@ -153,12 +147,159 @@ if (KITMODE) {
         for (let k = 0; k < 3; k++) nrm.set([nx, ny, nz], t + k * 3); }
       W.J.meshes.push({ name, primitives: [prim({ pos, nrm, col, uv: null }, 0, W)] }); node.mesh = W.J.meshes.length - 1;
     }
-    const ni = W.node(name, pc.park ? zoneOf(pc.park) : root, node);
+    const ni = W.node(name, parent, node);
     paths.forEach((R, j) => { const pts = [R.segs[0].a, ...R.segs.map(q => q.b)], pos = new Float32Array(pts.length * 3), gn = 'guide_' + name + (paths.length > 1 ? '_' + j : '');
       pts.forEach((q, i) => pos.set(toLocal(q.x, q.y, q.z), i * 3));
       W.J.meshes.push({ name: gn, primitives: [{ attributes: { POSITION: W.acc(pos, 'VEC3', 5126, true) }, mode: 3 }] });
       W.node(gn, ni, { mesh: W.J.meshes.length - 1, extras: { part_of: name, info: { boost: R.boost, closed: !!R.closed } } }); });
-    spec.push({ name, park: pc.park || undefined, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI) });
+    spec.push({ name, park: pc.park || undefined, area: pc.area || undefined, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI) });
+  return name;
+}
+
+// ---------------------------------------------------------------- r66: THE RAMP KIT
+// One object per piece, named `fn_<kind>_<size>_<n>`, its mesh in its OWN frame (origin on the ground at the middle of
+// the front edge, local +Z the way the rider goes up it, +X across) and the node placed where the gallery has it --
+// so in Blender each one is a placeholder he can duplicate, move and turn, and a GLB of them coming back is rebuilt by
+// `levelIngest` into the real pieces. The extras carry the kind, the size and every option the piece was built with.
+
+// ---------------------------------------------------------------- r88: THE REFERENCE PARK
+// *"If you export out the current skate park, that might act as a guide."* The park he rides and likes is the schematic
+// park: `parks/mega_skatepark.json`, every piece placed in the PIXELS of his drawing, built by `kitSheet` out of the kit.
+// This writes it alone, re-centred on its own middle, as the same `fn_` nodes `export:kit` writes -- so a Blender session
+// can open it, read it, duplicate from it, and a copy that comes back is rebuilt by `levelIngest` into the same pieces --
+// PLUS the three things a piece list alone would lose, each of which changes how it rides:
+//   deck_park_ground   the park's floor, CUT by every sunk bowl and pool. Dropped on a plain flat floor, a sunk bowl is a
+//                      bowl under a lid; this is the floor with the holes in it, and it is collided.
+//   art_ground_<n>     the grass and paint he drew -- a picture only, a hair over the floor, never collided
+//   marker_spawn_park / marker_spot_<area>   where she drops in, and the ➤ stop of every area
+// and beside it: `<name>_layout.json` (every piece with its area, kind, size, place, turn and options, and the LAYOUT numbers --
+// what faces what, how far apart, how much run-up), `<name>_plan.png` (a top-down height map of the collider itself,
+// labelled), and the drawing and the schematic it was built from.
+// `npm run sim parkref` re-imports the GLB turned round and moved, and checks it rebuilds the same floors, solids and rails.
+if (PARKMODE) {
+  const K = rg.KITW, S = rg.SHEET, J = S.data, W = glbWriter(), spec = [], cnt = {};
+  if (!J) { console.error('the schematic never loaded: ' + S.err); process.exit(1); }
+  const name = J.name ? String(J.name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') : 'park';
+  const key = (S.url.match(/([^/]+)\.json$/) || [0, name])[1];
+  const DIR = 'handoff/park_reference'; fs.mkdirSync(DIR, { recursive: true });
+  W.J.materials.push({ name: 'kit', pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.85 } });
+  const pieces = K.pieces.filter(pc => pc.park && /^sheet /.test(pc.park));
+  const cx = +((S.x0 + S.x1) / 2).toFixed(2), cz = +((S.z0 + S.z1) / 2).toFixed(2);
+  const root = W.node('park_' + key, null, { translation: [-cx, 0, -cz], extras: { source: S.url, world_centre: [cx, 0, cz],
+    note: 'children are in the game world frame; this node moves the park so its middle is at the origin' } });
+  const areaNode = {}, areaName = id => (S.areas.find(a => a.id === id) || { name: 'misc' }).name;
+  const nodeFor = id => areaNode[id] != null ? areaNode[id] : (areaNode[id] = W.node(`area_${id}_${areaName(id).replace(/[^a-z0-9]+/gi, '_')}`, root, { extras: { area: id, name: areaName(id) } }));
+  for (const pc of pieces) writePiece(W, pc, nodeFor(pc.area || 'x'), cnt, spec, K);
+  // THE FLOOR, cut -- the same triangulation `kitSheet` does, from the same polygon and the same holes
+  const tri = (P, Hs) => { const V = P.concat(...Hs), out = [];
+    for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), Hs.map(H => H.map(([x, z]) => new THREE.Vector2(x, z))))) out.push(V[a], V[b], V[c]);
+    return out; };
+  const flatMesh = (nm, tris, y, rgb, parent) => {
+    const pos = [], col = [], nrm = [];
+    for (let i = 0; i < tris.length; i += 3) { let [A, B, C] = [tris[i], tris[i + 1], tris[i + 2]];
+      const up = (B[1] - A[1]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[1] - A[1]); if (up <= 0) [B, C] = [C, B];      // wound to face UP
+      for (const q of [A, B, C]) { pos.push(q[0], y, q[1]); col.push(...rgb); nrm.push(0, 1, 0); } }
+    W.J.meshes.push({ name: nm, primitives: [prim({ pos: new Float32Array(pos), nrm: new Float32Array(nrm), col: new Float32Array(col), uv: null }, 0, W)] });
+    return W.node(nm, parent, { mesh: W.J.meshes.length - 1 }); };
+  const rgbOf = c => { const n = typeof c === 'number' ? c : 0xdddddd; return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255].map(v => Math.pow(v, 2.2)); };
+  const C_ = c => typeof c === 'number' ? c : (J.tints && J.tints[c] != null) ? C_(J.tints[c]) : typeof c === 'string' ? parseInt(c.replace('#', ''), 16) : 0xdddddd;
+  const W2 = S.W;
+  (J.ground || []).forEach((G, gi) => { const P = G.pts.map(W2);
+    if (gi === 0) flatMesh('deck_park_ground', tri(P, S.holes), 0.004, rgbOf(C_(G.color)), root);
+    else flatMesh('art_ground_' + gi, tri(P, []), 0.004 + (G.lift || 0) + 0.002 * gi, rgbOf(C_(G.color)), root); });
+  // where she drops in, and every area's stop (`heading` is degrees in the game's sense, as `levelIngest` reads it)
+  const mk = (nm, q, extra) => W.node(nm, root, { translation: [q[0], q[1], q[2]], extras: { heading: +(q[3] * 180 / Math.PI).toFixed(1), ...extra } });
+  if (S.spawn) mk('marker_spawn_park', S.spawn, { kind: 'spawn' });
+  for (const A of S.areas) { const q = rg.CITY.spots['sheet ' + A.name]; if (q) mk('marker_spot_' + A.id + '_' + A.name.replace(/[^a-z0-9]+/gi, '_'), q, { spot: A.name }); }
+  const sz = W.write(`${DIR}/${key}.glb`);
+
+  // ---- THE HEIGHT GRID OFF THE COLLIDER (the plan below and the "lines" measurement both read it), at `mpp`
+  const mpp = 0.15, pad = 8, X0 = S.x0 - pad, Z0 = S.z0 - pad, w = Math.ceil((S.x1 - S.x0 + 2 * pad) / mpp), h = Math.ceil((S.z1 - S.z0 + 2 * pad) / mpp);
+  const H = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = rg.groundAt(X0 + (i + 0.5) * mpp, Z0 + (j + 0.5) * mpp, 60, 0); H[j * w + i] = q.hit ? q.floor : NaN; }
+  // ---- THE LAYOUT, MEASURED ON WHAT SHE RIDES, not on what the pieces are called (most of this park is traced `wall`s,
+  // which have no single facing): from every ramp face, roll DOWN it, across whatever floor is at its foot, and measure
+  // how far she goes before the ground rises again -- the run-out from one feature into the next. Any park, from any
+  // tool, can be measured the same way, which is the point: a rebuild of this park should come out with the same numbers.
+  const Hg = (i, j) => (i < 1 || j < 1 || i >= w - 1 || j >= h - 1) ? NaN : H[j * w + i];
+  const runs = [], tall = [];
+  for (let j = 2; j < h - 2; j += 3) for (let i = 2; i < w - 2; i += 3) {
+    const y = Hg(i, j); if (Number.isNaN(y)) continue;
+    const gx = (Hg(i + 1, j) - Hg(i - 1, j)) / (2 * mpp), gz = (Hg(i, j + 1) - Hg(i, j - 1)) / (2 * mpp), g = Math.hypot(gx, gz);
+    if (!(g > 0.18 && g < 12)) continue;                        // a riding face: 10 to 85 degrees
+    const dx = -gx / g, dz = -gz / g;                          // downhill
+    let k = 1, toe = -1, prev = y, out = null;
+    for (; k < 60 / mpp; k++) { const yy = Hg(Math.round(i + dx * k), Math.round(j + dz * k)); if (Number.isNaN(yy)) break;
+      const step = (yy - prev) / mpp; prev = yy;
+      if (toe < 0) { if (step > -0.05) toe = k; continue; }      // still on the way down the face
+      if (step > 0.18) { out = (k - toe) * mpp; break; } }       // the ground rises again: the next feature
+    if (toe >= 0) runs.push(out); }
+  const rv = runs.filter(v => v != null).sort((p, q) => p - q);
+  const pct = (L, f) => L.length ? +L[Math.min(L.length - 1, Math.floor(L.length * f))].toFixed(1) : null;
+  const byKind = {}; for (const pc of pieces) { const k = pc.kind + ' ' + pc.size; byKind[k] = (byKind[k] || 0) + 1; }
+  const furn = /^(fence|planter|lamp|shade|bleachers)$/;
+  // the gap from each riding piece to its nearest neighbour (box to box), which is the push room between features
+  const ride = pieces.filter(pc => pc.bb && !furn.test(pc.kind)), gaps = [];
+  for (const a of ride) { let best = 1e9; for (const b of ride) { if (a === b || (a.group && a.group === b.group)) continue;
+    const gx = Math.max(0, Math.max(a.bb[0], b.bb[0]) - Math.min(a.bb[3], b.bb[3])), gz = Math.max(0, Math.max(a.bb[2], b.bb[2]) - Math.min(a.bb[5], b.bb[5]));
+    best = Math.min(best, Math.hypot(gx, gz)); } if (best < 1e8) gaps.push(best); }
+  gaps.sort((p, q) => p - q);
+  const areas = S.areas.map(A => { const L = A.recs.filter(r => r.bb); if (!L.length) return { id: A.id, name: A.name, pieces: 0, kinds: [] };
+    const x0 = Math.min(...L.map(r => r.bb[0])), x1 = Math.max(...L.map(r => r.bb[3])), z0 = Math.min(...L.map(r => r.bb[2])), z1 = Math.max(...L.map(r => r.bb[5]));
+    const top = Math.max(...L.map(r => r.bb[4]));
+    return { id: A.id, name: A.name, pieces: A.recs.length, size_m: [+(x1 - x0).toFixed(0), +(z1 - z0).toFixed(0)], tallest_m: +top.toFixed(1),
+      kinds: [...new Set(A.recs.map(r => r.kind + ' ' + r.size))] }; });
+  const layout = { park_size_m: [+(S.x1 - S.x0).toFixed(0), +(S.z1 - S.z0).toFixed(0)], pieces: pieces.length, riding_pieces: ride.length,
+    rails: pieces.reduce((n, pc) => n + (pc.rails ? pc.rails.length : pc.rail ? 1 : 0), 0), by_kind: byKind,
+    // from the foot of a ramp, rolling down its fall line: how far to the next rise, and how often there is one inside 60 m
+    ramp_to_ramp: { samples: runs.length, reaches_another_within_60m: runs.length ? +(rv.length / runs.length).toFixed(2) : null,
+      run_out_m: { p10: pct(rv, 0.1), p25: pct(rv, 0.25), median: pct(rv, 0.5), p75: pct(rv, 0.75), p90: pct(rv, 0.9) } },
+    nearest_neighbour_gap_m: { p10: pct(gaps, 0.1), median: pct(gaps, 0.5), p90: pct(gaps, 0.9) }, areas };
+  fs.writeFileSync(`${DIR}/${key}_layout.json`, JSON.stringify({ source: S.url, drawing: J.image || null, name: J.name, mpp: J.mpp, pin: J.pin,
+    origin_note: `pieces are in the game world frame; subtract world_centre to get the GLB's own frame (the park's middle at the origin)`,
+    world_centre: [cx, 0, cz], sizes: Object.fromEntries(Object.entries(rg.KSZ).map(([k, v]) => [k, { H: v.H, r: +v.r.toFixed(3), lip: +v.lip.toFixed(3) }])),
+    layout, pieces: spec }, null, 1));
+  fs.copyFileSync('docs/RAMP_KIT.md', `${DIR}/RAMP_KIT.md`);      // the schematic format and every piece's options, so the folder stands alone
+  for (const f of fs.readdirSync('parks')) if (f.startsWith(key)) fs.copyFileSync('parks/' + f, `${DIR}/${f.replace(/\.json$/, '_schematic.json')}`);
+
+  // ---- THE PLAN: a top-down height map read off the COLLIDER (so it is what she rides, not what is drawn)
+  const img = Buffer.alloc(w * h * 3), top = Math.max(...pieces.map(pc => pc.bb ? pc.bb[4] : 0), 1);
+  const lerp = (a, b, t) => a.map((v, k) => v + (b[k] - v) * t);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i, y = H[k];
+    let c;
+    if (Number.isNaN(y)) c = [40, 40, 52];
+    else { const yl = H[k - 1] ?? y, yu = H[k - w] ?? y, sx = Number.isNaN(yl) ? 0 : y - yl, sz = Number.isNaN(yu) ? 0 : y - yu;
+      const shade = Math.max(0.55, Math.min(1.15, 1 + (-sx * 0.7 - sz * 0.7) / mpp * 0.35)), steep = Math.min(1, Math.hypot(sx, sz) / mpp);
+      if (y < -0.05) c = lerp([150, 200, 235], [40, 90, 170], Math.min(1, -y / 4));
+      else if (y < 0.05) c = [226, 222, 232];
+      else c = lerp([255, 214, 170], [200, 60, 60], Math.min(1, y / top));
+      c = lerp(c, [90, 70, 110], steep * 0.35).map(v => Math.max(0, Math.min(255, v * shade))); }
+    img[k * 3] = c[0]; img[k * 3 + 1] = c[1]; img[k * 3 + 2] = c[2]; }
+  const px = (x, z) => [((x - X0) / mpp).toFixed(1), ((z - Z0) / mpp).toFixed(1)];
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" font-family="sans-serif">`;
+  for (const P of rg.PATHS) { if (!P.segs || !P.segs.length) continue; const pts = [P.segs[0].a, ...P.segs.map(q => q.b)];
+    if (!pts.every(q => q.x >= X0 && q.x <= X0 + w * mpp && q.z >= Z0 && q.z <= Z0 + h * mpp)) continue;
+    svg += `<polyline fill="none" stroke="${P.boost ? '#ff2b6a' : '#20202a'}" stroke-width="3" points="${pts.map(q => px(q.x, q.z).join(',')).join(' ')}"/>`; }
+  for (const A of areas) { const L = (S.areas.find(a => a.id === A.id) || { recs: [] }).recs.filter(r => r.bb); if (!L.length || A.size_m[0] > 120) continue;      // not the park-wide ones (fence, lamps, trees)
+    const mx = L.reduce((s, r) => s + (r.bb[0] + r.bb[3]) / 2, 0) / L.length, mz = L.reduce((s, r) => s + (r.bb[2] + r.bb[5]) / 2, 0) / L.length, [u, v] = px(mx, mz);
+    svg += `<text x="${u}" y="${v}" font-size="24" font-weight="bold" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="5" paint-order="stroke">${A.id} ${A.name.replace(/[<&>]/g, '')}</text>`; }
+  if (S.spawn) { const [u, v] = px(S.spawn[0], S.spawn[2]); svg += `<circle cx="${u}" cy="${v}" r="10" fill="#18c06a" stroke="#000" stroke-width="3"/><text x="${+u + 14}" y="${+v + 8}" font-size="22" fill="#000" stroke="#fff" stroke-width="4" paint-order="stroke">SPAWN</text>`; }
+  const bar = 20 / mpp; svg += `<rect x="20" y="${h - 46}" width="${bar}" height="10" fill="#000"/><text x="20" y="${h - 54}" font-size="20" fill="#000" stroke="#fff" stroke-width="4" paint-order="stroke">20 m   (+X right, +Z down: the drawing's way up, and Blender's top view)</text>`;
+  svg += `<text x="20" y="34" font-size="22" fill="#000" stroke="#fff" stroke-width="4" paint-order="stroke">${J.name || key}: height read off the collider. grey = floor, peach to red = up to ${top.toFixed(1)} m, blue = sunk. Lines are rails (pink = booster)</text></svg>`;
+  await sharp(img, { raw: { width: w, height: h, channels: 3 } }).composite([{ input: Buffer.from(svg), top: 0, left: 0 }]).png().toFile(`${DIR}/${key}_plan.png`);
+  console.log(`park: ${pieces.length} pieces in ${areas.length} areas -> ${DIR}/${key}.glb (${(sz / 1e6).toFixed(2)} MB), _layout.json, _schematic.json, _plan.png (${w}x${h})`);
+  const RR = layout.ramp_to_ramp; console.log(`  ramp to ramp: ${RR.samples} face samples, ${Math.round(RR.reaches_another_within_60m * 100)}% meet another rise inside 60 m, run-out p25/median/p75 ${RR.run_out_m.p25}/${RR.run_out_m.median}/${RR.run_out_m.p75} m; nearest-neighbour gap p10/median/p90 ${layout.nearest_neighbour_gap_m.p10}/${layout.nearest_neighbour_gap_m.median}/${layout.nearest_neighbour_gap_m.p90} m`);
+  process.exit(0);
+}
+
+if (KITMODE) {
+  const K = rg.KITW, W = glbWriter(), spec = [];
+  W.J.materials.push({ name: 'kit', pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 0, roughnessFactor: 0.85 } });
+  const root = W.node('ramp_kit', null), cnt = {}, park = W.node('example_park', null), zones = {};
+  const zoneOf = z => zones[z] != null ? zones[z] : (zones[z] = W.node('park_' + z.replace(/[^a-z0-9]+/gi, '_'), park));
+  for (const pc of K.pieces) {
+    if (LIBMODE && pc.park) continue;
+    writePiece(W, pc, pc.park ? zoneOf(pc.park) : root, cnt, spec, K);
   }
   const base = LIBMODE ? 'handoff/rollergirl_kit_library' : `${OUT}/rollergirl_kit`;
   if (LIBMODE) fs.mkdirSync('handoff', { recursive: true });

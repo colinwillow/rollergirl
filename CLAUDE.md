@@ -93,6 +93,30 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE REFERENCE PARK: SKATE PARK FIRST, LEVEL SECOND (r88, `npm run export:park`, `handoff/park_reference/`,
+  `npm run sim parkref`, `?park=`).** *"It's visually very interesting but the dynamic is just not there ... we built the
+  level first and tried to put a skate park on top of it. Export the current skate park -- that might act as a guide."*
+  The park he likes is the SCHEMATIC park (`parks/mega_skatepark.json`, every kit piece placed on the pixels of one
+  generated image). `export:park` writes it alone, re-centred:
+  - its 110 pieces as `fn_` nodes grouped by area (the kit export's writer, now `writePiece`, shared);
+  - its cut floor `deck_park_ground`, the grass as `art_ground_<n>` (picture only), the spawn and every area's stop;
+  - `_layout.json` (every piece, plus LAYOUT NUMBERS), `_plan.png` (a height map of the COLLIDER, labelled), the image,
+    the schematic and `RAMP_KIT.md`, with a README for the Blender session.
+  **THE GROUND IS NOT A PIECE, AND A PIECES-ONLY FILE WOULD HAVE BEEN WRONG.** The sunk bowl and pool sit below zero
+  under a floor with holes cut for them; dropped on a plain floor they get a lid. Revert-tested: export it as `art_` and
+  38,229 of 61,660 points come back wrong.
+  **THE LAYOUT IS MEASURED ON THE COLLIDER, NOT ON PIECE NAMES.** Most of this park is traced `wall`s, which have no
+  facing, so a yaw-based "what faces what" found zero pairs. From every ramp face she rolls down the fall line and the
+  distance to the next rise is recorded: 81% of faces meet another rise inside 60 m, run-out median 12 m (p25 6.3,
+  p75 24.6), nearest-neighbour gap median 3.8 m. Any park from any tool can be measured the same way.
+  **`parkref` RE-IMPORTS IT TURNED 180 INTO AN EMPTY COLLIDER** (110/110 pieces, 61,660 floor points, every solid, 96 rail
+  ends, the spawn). Its first run read 82 misses; every one was a ROUNDING TIE -- rows of samples landing exactly on box
+  edges (z 0.2 along 35 m, x -299.0), plus 2-4 cm on the BLENDED floors, which are triangulated afresh at the new
+  coordinates. A miss is re-read 2 cm either way and the tolerance is 5 cm. r70's lesson, again: a grid of samples lining
+  up with the geometry's grid is a false failure waiting to happen. It cost a long detour into the snake run first.
+  **`?park=<name>` / `rg.park` builds `parks/<name>.json` in the kit world**, and `npm run export:park -- <name>` exports it,
+  so a schematic written from a new image is skateable as soon as it is dropped in `parks/` and bumped.
+
 - **r86's AIR-PRESS FLAG NEVER CLEARED ON LANDING, SO THE IDLE-IN-THE-AIR CAME BACK INTERMITTENTLY (r87, `p.lAir`,
   `npm run sim airpose`).** *"She's doing the in-air pose and then after I do something she's just doing the idle pose in
   the air, and I don't know what triggers it."* The trigger is touching the left stick IN THE AIR and still holding it after

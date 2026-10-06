@@ -1,0 +1,4576 @@
+{
+ "source": "parks/mega_skatepark.json",
+ "drawing": "parks/mega_skatepark.webp",
+ "name": "MEGA SKATEPARK",
+ "mpp": 0.15559,
+ "pin": {
+  "px": [
+   708.8,
+   513
+  ],
+  "world": [
+   -305,
+   -60
+  ]
+ },
+ "origin_note": "pieces are in the game world frame; subtract world_centre to get the GLB's own frame (the park's middle at the origin)",
+ "world_centre": [
+  -300.92,
+  0,
+  -59.22
+ ],
+ "sizes": {
+  "S": {
+   "H": 1.2,
+   "r": 1.824,
+   "lip": 1.714
+  },
+  "M": {
+   "H": 2.4,
+   "r": 2.904,
+   "lip": 2.86
+  },
+  "L": {
+   "H": 3.6,
+   "r": 3.944,
+   "lip": 3.929
+  },
+  "XL": {
+   "H": 4.8,
+   "r": 4.974,
+   "lip": 4.971
+  },
+  "XXL": {
+   "H": 7.2,
+   "r": 7.46,
+   "lip": 7.456
+  },
+  "MEGA": {
+   "H": 9.6,
+   "r": 9.947,
+   "lip": 9.941
+  }
+ },
+ "layout": {
+  "park_size_m": [
+   210,
+   147
+  ],
+  "pieces": 110,
+  "riding_pieces": 54,
+  "rails": 48,
+  "by_kind": {
+   "stairs L": 2,
+   "bank L": 1,
+   "planter S": 25,
+   "lamp S": 12,
+   "stairs M": 3,
+   "ledge S": 12,
+   "rail S": 4,
+   "railKink M": 1,
+   "wall S": 3,
+   "wall L": 4,
+   "deck M": 2,
+   "terrace M": 1,
+   "stairBank M": 1,
+   "bank M": 3,
+   "island S": 2,
+   "stairs S": 1,
+   "wall M": 2,
+   "wall MEGA": 1,
+   "deck MEGA": 1,
+   "stairs MEGA": 1,
+   "stairs XL": 1,
+   "walk L": 2,
+   "frustum S": 4,
+   "frustum M": 1,
+   "bank S": 1,
+   "kicker S": 1,
+   "halfpipe M": 1,
+   "deck XL": 1,
+   "stairBank XL": 1,
+   "bleachers S": 1,
+   "shade S": 2,
+   "terrain S": 1,
+   "fence S": 11
+  },
+  "ramp_to_ramp": {
+   "samples": 22984,
+   "reaches_another_within_60m": 0.81,
+   "run_out_m": {
+    "p10": 2.4,
+    "p25": 6.3,
+    "median": 12,
+    "p75": 24.6,
+    "p90": 38.5
+   }
+  },
+  "nearest_neighbour_gap_m": {
+   "p10": 0.4,
+   "median": 3.8,
+   "p90": 15.8
+  },
+  "areas": [
+   {
+    "id": 1,
+    "name": "main entry",
+    "pieces": 10,
+    "size_m": [
+     34,
+     45
+    ],
+    "tallest_m": 8.3,
+    "kinds": [
+     "stairs L",
+     "bank L",
+     "planter S",
+     "lamp S"
+    ]
+   },
+   {
+    "id": 2,
+    "name": "street course",
+    "pieces": 3,
+    "size_m": [
+     40,
+     25
+    ],
+    "tallest_m": 2.4,
+    "kinds": [
+     "stairs M",
+     "ledge S"
+    ]
+   },
+   {
+    "id": 12,
+    "name": "handrails",
+    "pieces": 0,
+    "kinds": []
+   },
+   {
+    "id": 14,
+    "name": "funbox",
+    "pieces": 1,
+    "size_m": [
+     22,
+     20
+    ],
+    "tallest_m": 1.2,
+    "kinds": [
+     "wall S"
+    ]
+   },
+   {
+    "id": 10,
+    "name": "gap and drop",
+    "pieces": 1,
+    "size_m": [
+     38,
+     21
+    ],
+    "tallest_m": 0,
+    "kinds": [
+     "wall L"
+    ]
+   },
+   {
+    "id": 25,
+    "name": "upper plaza",
+    "pieces": 8,
+    "size_m": [
+     30,
+     39
+    ],
+    "tallest_m": 8.3,
+    "kinds": [
+     "deck M",
+     "terrace M",
+     "stairs M",
+     "stairBank M",
+     "rail S",
+     "planter S",
+     "lamp S"
+    ]
+   },
+   {
+    "id": 13,
+    "name": "north street",
+    "pieces": 10,
+    "size_m": [
+     79,
+     23
+    ],
+    "tallest_m": 8.3,
+    "kinds": [
+     "deck M",
+     "bank M",
+     "stairs M",
+     "island S",
+     "ledge S",
+     "stairs S",
+     "lamp S",
+     "wall M"
+    ]
+   },
+   {
+    "id": 6,
+    "name": "vert",
+    "pieces": 1,
+    "size_m": [
+     22,
+     25
+    ],
+    "tallest_m": 14.4,
+    "kinds": [
+     "wall MEGA"
+    ]
+   },
+   {
+    "id": 18,
+    "name": "advanced line",
+    "pieces": 4,
+    "size_m": [
+     25,
+     28
+    ],
+    "tallest_m": 15.1,
+    "kinds": [
+     "deck MEGA",
+     "stairs MEGA",
+     "planter S",
+     "stairs XL"
+    ]
+   },
+   {
+    "id": 4,
+    "name": "bowl complex",
+    "pieces": 3,
+    "size_m": [
+     61,
+     53
+    ],
+    "tallest_m": 1.2,
+    "kinds": [
+     "wall L",
+     "wall S"
+    ]
+   },
+   {
+    "id": 7,
+    "name": "spine",
+    "pieces": 1,
+    "size_m": [
+     16,
+     17
+    ],
+    "tallest_m": 3.6,
+    "kinds": [
+     "wall L"
+    ]
+   },
+   {
+    "id": 9,
+    "name": "bridge",
+    "pieces": 3,
+    "size_m": [
+     43,
+     21
+    ],
+    "tallest_m": 3.6,
+    "kinds": [
+     "stairs L",
+     "walk L"
+    ]
+   },
+   {
+    "id": 3,
+    "name": "central hub",
+    "pieces": 2,
+    "size_m": [
+     25,
+     12
+    ],
+    "tallest_m": 5.5,
+    "kinds": [
+     "frustum S",
+     "island S"
+    ]
+   },
+   {
+    "id": 5,
+    "name": "flow park",
+    "pieces": 11,
+    "size_m": [
+     75,
+     45
+    ],
+    "tallest_m": 2.4,
+    "kinds": [
+     "wall M",
+     "ledge S",
+     "rail S",
+     "frustum S",
+     "bank M"
+    ]
+   },
+   {
+    "id": 15,
+    "name": "pyramid",
+    "pieces": 1,
+    "size_m": [
+     15,
+     15
+    ],
+    "tallest_m": 2.4,
+    "kinds": [
+     "frustum M"
+    ]
+   },
+   {
+    "id": 8,
+    "name": "snake run",
+    "pieces": 2,
+    "size_m": [
+     66,
+     30
+    ],
+    "tallest_m": 1.5,
+    "kinds": [
+     "wall S",
+     "bank S"
+    ]
+   },
+   {
+    "id": 19,
+    "name": "beginner line",
+    "pieces": 2,
+    "size_m": [
+     19,
+     11
+    ],
+    "tallest_m": 1.2,
+    "kinds": [
+     "kicker S",
+     "frustum S"
+    ]
+   },
+   {
+    "id": 16,
+    "name": "mini ramp",
+    "pieces": 1,
+    "size_m": [
+     19,
+     14
+    ],
+    "tallest_m": 2.4,
+    "kinds": [
+     "halfpipe M"
+    ]
+   },
+   {
+    "id": 17,
+    "name": "rooftop",
+    "pieces": 5,
+    "size_m": [
+     29,
+     41
+    ],
+    "tallest_m": 5.4,
+    "kinds": [
+     "deck XL",
+     "stairBank XL",
+     "ledge S",
+     "rail S"
+    ]
+   },
+   {
+    "id": 20,
+    "name": "spectators",
+    "pieces": 1,
+    "size_m": [
+     36,
+     15
+    ],
+    "tallest_m": 3,
+    "kinds": [
+     "bleachers S"
+    ]
+   },
+   {
+    "id": 21,
+    "name": "shade",
+    "pieces": 2,
+    "size_m": [
+     194,
+     23
+    ],
+    "tallest_m": 4.8,
+    "kinds": [
+     "shade S"
+    ]
+   },
+   {
+    "id": 22,
+    "name": "landscaping",
+    "pieces": 17,
+    "size_m": [
+     207,
+     135
+    ],
+    "tallest_m": 5.5,
+    "kinds": [
+     "planter S",
+     "terrain S"
+    ]
+   },
+   {
+    "id": 23,
+    "name": "lighting",
+    "pieces": 8,
+    "size_m": [
+     198,
+     137
+    ],
+    "tallest_m": 8.3,
+    "kinds": [
+     "lamp S"
+    ]
+   },
+   {
+    "id": 24,
+    "name": "fence",
+    "pieces": 11,
+    "size_m": [
+     210,
+     147
+    ],
+    "tallest_m": 1.9,
+    "kinds": [
+     "fence S"
+    ]
+   }
+  ]
+ },
+ "pieces": [
+  {
+   "name": "fn_stairs_L_1",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "stairs",
+   "size": "L",
+   "w": 10,
+   "hubba": 1,
+   "tint": 13225429,
+   "label": "park sheet main entry: grand stairs L + hubbas (11, 12)",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     11.4,
+     8.76
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      0,
+      3.6,
+      8.761
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -316.11,
+    0,
+    -18.68
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_bank_L_1",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "bank",
+   "size": "L",
+   "w": 10,
+   "tint": 13225429,
+   "label": "park sheet main entry: bank L off the landing",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10,
+     7.72
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -316.11,
+    0,
+    -35.12
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_1",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet main entry: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -331.43,
+    0,
+    -0.1
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_2",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet main entry: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -331.43,
+    0,
+    8.27
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_3",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet main entry: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -300.78,
+    0,
+    -0.1
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_4",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet main entry: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -300.78,
+    0,
+    8.27
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_5",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet main entry: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -325.13,
+    0,
+    -21.66
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_6",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet main entry: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -307.71,
+    0,
+    -16.28
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_1",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet main entry: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -326.04,
+    0,
+    -5.2
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_2",
+   "park": "sheet main entry",
+   "area": 1,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet main entry: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -306.2,
+    0,
+    -5.2
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_M_1",
+   "park": "sheet street course",
+   "area": 2,
+   "fn": "stairs",
+   "size": "M",
+   "w": 6,
+   "tint": 13225429,
+   "label": "park sheet street course: stairs M + handrails",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     6.84
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.841
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -341.95,
+    0,
+    -55.81
+   ],
+   "yaw_deg": -160
+  },
+  {
+   "name": "fn_ledge_S_1",
+   "park": "sheet street course",
+   "area": 2,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.36,
+   "w": 4,
+   "len": 8,
+   "label": "park sheet street course: manual pad",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     8
+    ],
+    "top": 0.36,
+    "out": {
+     "at": [
+      0,
+      0.36,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -363.08,
+    0,
+    -71.08
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_ledge_S_2",
+   "park": "sheet street course",
+   "area": 2,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.6,
+   "w": 2,
+   "len": 10,
+   "label": "park sheet street course: hubba ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     2,
+     10
+    ],
+    "top": 0.6,
+    "out": {
+     "at": [
+      0,
+      0.6,
+      10
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -333.43,
+    0,
+    -48.63
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_rail_S_1",
+   "park": "sheet handrails",
+   "area": 12,
+   "fn": "rail",
+   "size": "S",
+   "len": 16,
+   "label": "park sheet handrails: flat rail S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     16
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      16
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -311.61,
+    0,
+    -38.75
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_railKink_M_1",
+   "park": "sheet handrails",
+   "area": 12,
+   "fn": "railKink",
+   "size": "M",
+   "label": "park sheet handrails: kink rail M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     9
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      9
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -297.49,
+    0,
+    -12.69
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_wall_S_1",
+   "park": "sheet funbox",
+   "area": 14,
+   "fn": "wall",
+   "size": "S",
+   "profile": "bank",
+   "top": 1.2,
+   "smooth": 1,
+   "tint": 14460783,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     -11.42
+    ],
+    [
+     2.396,
+     -16.228
+    ],
+    [
+     6.597,
+     -18.329
+    ],
+    [
+     10.782,
+     -16.228
+    ],
+    [
+     13.178,
+     -11.42
+    ],
+    [
+     13.178,
+     0
+    ]
+   ],
+   "face": "both",
+   "label": "park sheet funbox: U funbox S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     21.55,
+     20.14
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -315.52,
+    0,
+    -76.18
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_L_1",
+   "park": "sheet gap and drop",
+   "area": 10,
+   "fn": "wall",
+   "size": "L",
+   "closed": 1,
+   "deck": 1.5,
+   "tint": 13225429,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     -1.805,
+     6.021
+    ],
+    [
+     -2.1,
+     18.033
+    ],
+    [
+     -1.198,
+     26.45
+    ],
+    [
+     2.396,
+     30.06
+    ],
+    [
+     6.581,
+     31.258
+    ],
+    [
+     11.98,
+     29.158
+    ],
+    [
+     14.968,
+     22.841
+    ],
+    [
+     15.279,
+     12.027
+    ],
+    [
+     14.968,
+     1.805
+    ],
+    [
+     13.474,
+     -3.299
+    ],
+    [
+     7.484,
+     -2.692
+    ]
+   ],
+   "face": "in",
+   "rim": 3.6,
+   "label": "park sheet gap and drop: pool L, his kidney, sunk into the ground",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     29.54,
+     11.44
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -333.55,
+    -3.6,
+    -99.54
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_deck_M_1",
+   "park": "sheet upper plaza",
+   "area": 25,
+   "fn": "deck",
+   "size": "M",
+   "h": 2.4,
+   "tint": 13225429,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     21.627
+    ],
+    [
+     22.763,
+     21.627
+    ],
+    [
+     25.843,
+     18.624
+    ],
+    [
+     25.843,
+     -5.103
+    ],
+    [
+     15.279,
+     -5.103
+    ],
+    [
+     15.279,
+     0
+    ]
+   ],
+   "label": "park sheet upper plaza: upper plaza M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     26.73,
+     25.84
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -361.79,
+    0,
+    -110.02
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_terrace_M_1",
+   "park": "sheet upper plaza",
+   "area": 25,
+   "fn": "terrace",
+   "size": "M",
+   "w": 10.5,
+   "n": 6,
+   "rise": 0.4,
+   "run": 1.13,
+   "tint": 13225429,
+   "label": "park sheet upper plaza: kerb terrace M, down off the north side",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10.5,
+     6.78
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.78
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -353.82,
+    0,
+    -116.81
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_M_2",
+   "park": "sheet upper plaza",
+   "area": 25,
+   "fn": "stairs",
+   "size": "M",
+   "w": 10,
+   "land": 0.3,
+   "tint": 13225429,
+   "label": "park sheet upper plaza: stairs M + handrails",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10,
+     4.14
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      4.141
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -365.93,
+    0,
+    -102.23
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_stairBank_M_1",
+   "park": "sheet upper plaza",
+   "area": 25,
+   "fn": "stairBank",
+   "size": "M",
+   "w": 9,
+   "bw": 7,
+   "land": 0.3,
+   "angle": 22,
+   "bankTint": 14460783,
+   "tint": 13225429,
+   "label": "park sheet upper plaza: long stairs M + bank, down the south side",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     16,
+     6.24
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.24
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -359.01,
+    0,
+    -77.94
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_rail_S_2",
+   "park": "sheet upper plaza",
+   "area": 25,
+   "fn": "rail",
+   "size": "S",
+   "len": 8.5,
+   "label": "park sheet upper plaza: plaza rail",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     8.5
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      8.5
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -347.66,
+    2.4,
+    -95.94
+   ],
+   "yaw_deg": 38
+  },
+  {
+   "name": "fn_planter_S_7",
+   "park": "sheet upper plaza",
+   "area": 25,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet upper plaza: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -362.69,
+    0,
+    -113.31
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_8",
+   "park": "sheet upper plaza",
+   "area": 25,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet upper plaza: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -342.56,
+    0,
+    -114.21
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_3",
+   "park": "sheet upper plaza",
+   "area": 25,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet upper plaza: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -337.75,
+    0,
+    -111.52
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_deck_M_2",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "deck",
+   "size": "M",
+   "h": 2.4,
+   "tint": 13225429,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     64.259
+    ],
+    [
+     3.112,
+     64.259
+    ],
+    [
+     3.112,
+     0
+    ]
+   ],
+   "label": "park sheet north street: north terrace M, along the fence",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     64.26,
+     3.11
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -312.28,
+    0,
+    -132.97
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bank_M_1",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "bank",
+   "size": "M",
+   "w": 10,
+   "tint": 14460783,
+   "label": "park sheet north street: bank M up to the terrace",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10,
+     5.15
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -299.37,
+    0,
+    -124.71
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_stairs_M_3",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "stairs",
+   "size": "M",
+   "w": 7,
+   "land": 0.3,
+   "angle": 25,
+   "tint": 13225429,
+   "label": "park sheet north street: stairs M + handrails, up to the terrace",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     7,
+     5.45
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      5.447
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -280.7,
+    0,
+    -124.4
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_island_S_1",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "island",
+   "size": "S",
+   "h": 0.6,
+   "tint": 9423242,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     5.29
+    ],
+    [
+     12.447,
+     5.29
+    ],
+    [
+     12.447,
+     0
+    ]
+   ],
+   "trees": [
+    [
+     3.89,
+     2.645,
+     null
+    ],
+    [
+     9.024,
+     2.645,
+     null
+    ]
+   ],
+   "label": "park sheet north street: raised planter",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5.29,
+     12.45
+    ],
+    "top": 0.6
+   },
+   "at": [
+    -290.5,
+    0,
+    -128.93
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_ledge_S_3",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.6,
+   "w": 1.2,
+   "len": 13,
+   "label": "park sheet north street: hubba ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     13
+    ],
+    "top": 0.6,
+    "out": {
+     "at": [
+      0,
+      0.6,
+      13
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -319.78,
+    0,
+    -120.54
+   ],
+   "yaw_deg": 120
+  },
+  {
+   "name": "fn_ledge_S_4",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.45,
+   "w": 1.2,
+   "len": 9,
+   "label": "park sheet north street: hubba ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     9
+    ],
+    "top": 0.45,
+    "out": {
+     "at": [
+      0,
+      0.45,
+      9
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -313.38,
+    0,
+    -118.59
+   ],
+   "yaw_deg": 120
+  },
+  {
+   "name": "fn_stairs_S_1",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "stairs",
+   "size": "S",
+   "w": 6,
+   "land": 3,
+   "tint": 13225429,
+   "label": "park sheet north street: stair box S + handrails",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     4.92
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      4.92
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -305.28,
+    0,
+    -112.12
+   ],
+   "yaw_deg": 135
+  },
+  {
+   "name": "fn_ledge_S_5",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.45,
+   "w": 1.5,
+   "len": 11,
+   "label": "park sheet north street: bench ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.5,
+     11
+    ],
+    "top": 0.45,
+    "out": {
+     "at": [
+      0,
+      0.45,
+      11
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -326.65,
+    0,
+    -114.46
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_lamp_S_4",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet north street: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -324.57,
+    0,
+    -118.81
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_M_1",
+   "park": "sheet north street",
+   "area": 13,
+   "fn": "wall",
+   "size": "M",
+   "smooth": 1,
+   "deck": 1.5,
+   "tint": 14460783,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     -8.091,
+     2.396
+    ],
+    [
+     -12.883,
+     7.811
+    ],
+    [
+     -15.279,
+     15.621
+    ]
+   ],
+   "face": [
+    -3.003,
+    13.816
+   ],
+   "label": "park sheet north street: curved QP M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     13.66,
+     13.29
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -274.64,
+    0,
+    -113.01
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_MEGA_1",
+   "park": "sheet vert",
+   "area": 6,
+   "fn": "wall",
+   "size": "MEGA",
+   "H": 14.4,
+   "sweep": 70,
+   "deck": 4,
+   "tint": 14460783,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     21.783
+    ]
+   ],
+   "face": [
+    16.804,
+    10.891
+   ],
+   "label": "park sheet vert: mega ramp, 14.4 m (70 deg top), 4 m deck",
+   "info": {
+    "H": 9.6,
+    "r": 9.947,
+    "lip": 9.941,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     21.78,
+     0
+    ],
+    "top": 14.4
+   },
+   "at": [
+    -231.69,
+    0,
+    -128.62
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_deck_MEGA_1",
+   "park": "sheet advanced line",
+   "area": 18,
+   "fn": "deck",
+   "size": "MEGA",
+   "h": 9.6,
+   "tint": 13225429,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     14.781
+    ],
+    [
+     14.625,
+     14.781
+    ],
+    [
+     14.625,
+     7.779
+    ],
+    [
+     12.26,
+     5.866
+    ],
+    [
+     9.149,
+     1.976
+    ],
+    [
+     7.624,
+     0
+    ]
+   ],
+   "label": "park sheet advanced line: platform MEGA beside the vert",
+   "info": {
+    "H": 9.6,
+    "r": 9.947,
+    "lip": 9.941,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.78,
+     14.63
+    ],
+    "top": 9.6
+   },
+   "at": [
+    -246.47,
+    0,
+    -132.66
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_MEGA_1",
+   "park": "sheet advanced line",
+   "area": 18,
+   "fn": "stairs",
+   "size": "MEGA",
+   "w": 5,
+   "land": 0.3,
+   "angle": 26,
+   "tint": 13225429,
+   "label": "park sheet advanced line: long stairs MEGA + handrails",
+   "info": {
+    "H": 9.6,
+    "r": 9.947,
+    "lip": 9.941,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     19.98
+    ],
+    "top": 9.6,
+    "out": {
+     "at": [
+      0,
+      9.6,
+      19.983
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -255.02,
+    0,
+    -106.37
+   ],
+   "yaw_deg": 141
+  },
+  {
+   "name": "fn_planter_S_9",
+   "park": "sheet advanced line",
+   "area": 18,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet advanced line: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -237.91,
+    9.6,
+    -125.04
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_XL_1",
+   "park": "sheet advanced line",
+   "area": 18,
+   "fn": "stairs",
+   "size": "XL",
+   "w": 4,
+   "land": 0.3,
+   "tint": 13225429,
+   "label": "park sheet advanced line: stairs XL from the platform onto the mega ramp's deck",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     7.98
+    ],
+    "top": 4.8,
+    "out": {
+     "at": [
+      0,
+      4.8,
+      7.982
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -240.24,
+    9.6,
+    -130.64
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_wall_L_2",
+   "park": "sheet bowl complex",
+   "area": 4,
+   "fn": "wall",
+   "size": "L",
+   "closed": 1,
+   "rim": 3.6,
+   "H": [
+    2.4,
+    2.4,
+    3.6,
+    3.6,
+    3.6,
+    2.4,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    3.6,
+    2.4,
+    2.4,
+    2.4,
+    3.6,
+    3.6,
+    3.6,
+    2.4
+   ],
+   "deck": 1.5,
+   "tint": 13225429,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     -5.446,
+     1.089
+    ],
+    [
+     -8.713,
+     5.446
+    ],
+    [
+     -8.246,
+     11.669
+    ],
+    [
+     -5.912,
+     16.337
+    ],
+    [
+     -8.557,
+     18.671
+    ],
+    [
+     -14.781,
+     19.138
+    ],
+    [
+     -19.916,
+     21.005
+    ],
+    [
+     -22.561,
+     25.672
+    ],
+    [
+     -22.561,
+     31.896
+    ],
+    [
+     -18.671,
+     36.252
+    ],
+    [
+     -19.449,
+     42.009
+    ],
+    [
+     -17.893,
+     48.233
+    ],
+    [
+     -13.225,
+     52.434
+    ],
+    [
+     -7.002,
+     53.99
+    ],
+    [
+     -0.778,
+     52.434
+    ],
+    [
+     6.224,
+     53.367
+    ],
+    [
+     13.225,
+     53.367
+    ],
+    [
+     18.982,
+     50.567
+    ],
+    [
+     21.783,
+     44.343
+    ],
+    [
+     20.538,
+     38.12
+    ],
+    [
+     17.893,
+     34.697
+    ],
+    [
+     17.893,
+     29.562
+    ],
+    [
+     15.248,
+     26.139
+    ],
+    [
+     16.337,
+     24.894
+    ],
+    [
+     16.804,
+     21.316
+    ],
+    [
+     17.426,
+     14.781
+    ],
+    [
+     15.092,
+     9.335
+    ],
+    [
+     10.891,
+     5.134
+    ],
+    [
+     6.224,
+     1.556
+    ]
+   ],
+   "face": "in",
+   "label": "park sheet bowl complex: bowl complex, his peanut and clover, sunk (2.4 m at the shallow ends, 3.6 deep)",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     47.44,
+     38.08
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -254.25,
+    -3.6,
+    -69.8
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_L_3",
+   "park": "sheet bowl complex",
+   "area": 4,
+   "fn": "wall",
+   "size": "L",
+   "profile": "bank",
+   "H": 1.2,
+   "top": 1.2,
+   "smooth": 1,
+   "tint": 14460783,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     5.912,
+     7.779
+    ],
+    [
+     8.091,
+     18.671
+    ],
+    [
+     5.446,
+     28.784
+    ],
+    [
+     2.801,
+     35.786
+    ],
+    [
+     6.69,
+     42.787
+    ],
+    [
+     9.647,
+     45.121
+    ]
+   ],
+   "face": "both",
+   "label": "park sheet bowl complex: berm S along the bowl's south side (his tan wave)",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     44.53,
+     9.03
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -258.14,
+    0,
+    -52.69
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_S_2",
+   "park": "sheet bowl complex",
+   "area": 4,
+   "fn": "wall",
+   "size": "S",
+   "profile": "bank",
+   "H": 1.2,
+   "top": 1,
+   "smooth": 1,
+   "tint": 14460783,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     -3.423,
+     5.446
+    ],
+    [
+     -4.045,
+     12.447
+    ],
+    [
+     -1.556,
+     18.671
+    ]
+   ],
+   "face": "both",
+   "label": "park sheet bowl complex: berm S, the crescent north of the bowl",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     15.78,
+     3.68
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -255.02,
+    0,
+    -81.94
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_L_4",
+   "park": "sheet spine",
+   "area": 7,
+   "fn": "wall",
+   "size": "L",
+   "smooth": 1,
+   "tint": 14460783,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     -4.668,
+     0.778
+    ],
+    [
+     -8.246,
+     2.645
+    ],
+    [
+     -10.891,
+     6.535
+    ],
+    [
+     -12.447,
+     10.736
+    ]
+   ],
+   "face": "both",
+   "label": "park sheet spine: S-spine L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8.09,
+     9.24
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -265.76,
+    0,
+    -85.36
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_L_2",
+   "park": "sheet bridge",
+   "area": 9,
+   "fn": "stairs",
+   "size": "L",
+   "w": 6,
+   "land": 3,
+   "tint": 13225429,
+   "label": "park sheet bridge: stairs L up to the walkway",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     8.76
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      0,
+      3.6,
+      8.761
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -302,
+    0,
+    -51.61
+   ],
+   "yaw_deg": 120
+  },
+  {
+   "name": "fn_walk_L_1",
+   "park": "sheet bridge",
+   "area": 9,
+   "fn": "walk",
+   "size": "L",
+   "w": 5,
+   "rails": 1,
+   "under": "posts",
+   "tint": 13225429,
+   "pts": [
+    [
+     0,
+     0,
+     3.6
+    ],
+    [
+     -3.89,
+     11.731,
+     3.6
+    ],
+    [
+     -7.795,
+     23.152,
+     3.6
+    ]
+   ],
+   "label": "park sheet bridge: raised walkway L, rails",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     23.15,
+     7.79
+    ],
+    "top": 3.6,
+    "rails": 2
+   },
+   "at": [
+    -294.19,
+    0,
+    -56.41
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_walk_L_2",
+   "park": "sheet bridge",
+   "area": 9,
+   "fn": "walk",
+   "size": "L",
+   "w": 5,
+   "under": "solid",
+   "tint": 14460783,
+   "pts": [
+    [
+     0,
+     0,
+     3.6
+    ],
+    [
+     -1.214,
+     3.563,
+     2.4
+    ],
+    [
+     -2.381,
+     6.986,
+     1.2
+    ],
+    [
+     -3.501,
+     10.253,
+     0
+    ]
+   ],
+   "label": "park sheet bridge: ramp down off the walkway's end, toward the bowl",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10.25,
+     3.5
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -271.03,
+    0,
+    -64.2
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_frustum_S_1",
+   "park": "sheet central hub",
+   "area": 3,
+   "fn": "frustum",
+   "size": "S",
+   "len": 0.4,
+   "w": 9,
+   "banks": [
+    1,
+    1,
+    0,
+    0
+   ],
+   "angle": 15,
+   "tint": 14460783,
+   "label": "park sheet central hub: A-frame S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     9,
+     9.36
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -280.74,
+    0,
+    -43.66
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_island_S_2",
+   "park": "sheet central hub",
+   "area": 3,
+   "fn": "island",
+   "size": "S",
+   "h": 0.45,
+   "tint": 9423242,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     -1.198,
+     6.613
+    ],
+    [
+     -1.494,
+     10.207
+    ],
+    [
+     0.296,
+     12.323
+    ],
+    [
+     5.088,
+     12.323
+    ],
+    [
+     10.176,
+     3.905
+    ],
+    [
+     8.682,
+     0
+    ]
+   ],
+   "trees": [
+    [
+     3.299,
+     3.61,
+     null
+    ],
+    [
+     2.396,
+     9.009,
+     null
+    ]
+   ],
+   "label": "park sheet central hub: planted island, curbed",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12.32,
+     11.67
+    ],
+    "top": 0.45
+   },
+   "at": [
+    -300.49,
+    0,
+    -46.53
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_M_2",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "wall",
+   "size": "M",
+   "smooth": 1,
+   "deck": 1,
+   "tint": 14460783,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     -6.068
+    ],
+    [
+     2.178,
+     -10.736
+    ],
+    [
+     6.535,
+     -13.07
+    ],
+    [
+     11.98,
+     -12.603
+    ],
+    [
+     16.648,
+     -9.958
+    ],
+    [
+     21.316,
+     -6.846
+    ]
+   ],
+   "face": [
+    11.202,
+    -2.178
+   ],
+   "label": "park sheet flow park: angled QP M, his L of quarter pipes",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10.3,
+     17.04
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -277.74,
+    0,
+    -29.66
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_ledge_S_6",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.45,
+   "w": 1.2,
+   "len": 9.3,
+   "label": "park sheet flow park: ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     9.3
+    ],
+    "top": 0.45,
+    "out": {
+     "at": [
+      0,
+      0.45,
+      9.3
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -271.48,
+    0,
+    -26.16
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_ledge_S_7",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.6,
+   "w": 1.5,
+   "len": 15.6,
+   "label": "park sheet flow park: ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.5,
+     15.6
+    ],
+    "top": 0.6,
+    "out": {
+     "at": [
+      0,
+      0.6,
+      15.6
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -277.05,
+    0,
+    -21.66
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_rail_S_3",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "rail",
+   "size": "S",
+   "len": 9,
+   "h": 0.9,
+   "label": "park sheet flow park: flat rail",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     9
+    ],
+    "top": 0.9,
+    "out": {
+     "at": [
+      0,
+      0.9,
+      9
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -271.35,
+    0,
+    -17.18
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_ledge_S_8",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.45,
+   "w": 1.5,
+   "len": 16,
+   "label": "park sheet flow park: ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.5,
+     16
+    ],
+    "top": 0.45,
+    "out": {
+     "at": [
+      0,
+      0.45,
+      16
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -250.5,
+    0,
+    -36.65
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_ledge_S_9",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.45,
+   "w": 1.2,
+   "len": 12,
+   "label": "park sheet flow park: ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     12
+    ],
+    "top": 0.45,
+    "out": {
+     "at": [
+      0,
+      0.45,
+      12
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -239.48,
+    0,
+    -31.85
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_ledge_S_10",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.45,
+   "w": 1.2,
+   "len": 12.6,
+   "label": "park sheet flow park: ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     12.6
+    ],
+    "top": 0.45,
+    "out": {
+     "at": [
+      0,
+      0.45,
+      12.6
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -246.99,
+    0,
+    -39.93
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_frustum_S_2",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "frustum",
+   "size": "S",
+   "len": 9.8,
+   "w": 11,
+   "banks": [
+    1,
+    1,
+    0,
+    0
+   ],
+   "tint": 14460783,
+   "label": "park sheet flow park: bank-to-bank S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     11,
+     14.95
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -250,
+    0,
+    -19.16
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_frustum_S_3",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "frustum",
+   "size": "S",
+   "len": 16,
+   "w": 8.4,
+   "banks": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "tint": 14460783,
+   "label": "park sheet flow park: hip box S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     13.55,
+     21.15
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -235.77,
+    0,
+    -18.38
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_bank_M_2",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "bank",
+   "size": "M",
+   "w": 15,
+   "angle": 18,
+   "tint": 13225429,
+   "label": "park sheet flow park: launch bank M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     15,
+     7.39
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -268.25,
+    0,
+    -0.56
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_bank_M_3",
+   "park": "sheet flow park",
+   "area": 5,
+   "fn": "bank",
+   "size": "M",
+   "w": 14,
+   "angle": 25,
+   "tint": 14460783,
+   "label": "park sheet flow park: bank M by the south fence",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14,
+     5.15
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -251.91,
+    0,
+    4.88
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_frustum_M_1",
+   "park": "sheet pyramid",
+   "area": 15,
+   "fn": "frustum",
+   "size": "M",
+   "len": 5,
+   "w": 5,
+   "banks": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "tint": 13225429,
+   "label": "park sheet pyramid: pyramid M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     15.29,
+     15.29
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -300.49,
+    0,
+    -25.76
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_wall_S_3",
+   "park": "sheet snake run",
+   "area": 8,
+   "fn": "wall",
+   "size": "S",
+   "closed": 1,
+   "H": 1.5,
+   "deck": 1.5,
+   "tint": 13225429,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     -0.591,
+     4.512
+    ],
+    [
+     0.902,
+     9.024
+    ],
+    [
+     4.497,
+     15.03
+    ],
+    [
+     8.386,
+     21.036
+    ],
+    [
+     11.685,
+     26.155
+    ],
+    [
+     13.49,
+     31.554
+    ],
+    [
+     14.983,
+     37.575
+    ],
+    [
+     15.886,
+     45.074
+    ],
+    [
+     17.379,
+     52.589
+    ],
+    [
+     20.974,
+     56.495
+    ],
+    [
+     24.863,
+     55.592
+    ],
+    [
+     26.357,
+     51.096
+    ],
+    [
+     25.47,
+     41.169
+    ],
+    [
+     22.467,
+     31.554
+    ],
+    [
+     18.873,
+     24.039
+    ],
+    [
+     14.983,
+     17.13
+    ],
+    [
+     13.49,
+     11.125
+    ],
+    [
+     11.98,
+     3.61
+    ],
+    [
+     9.896,
+     -1.494
+    ],
+    [
+     5.399,
+     -3.003
+    ]
+   ],
+   "face": "in",
+   "label": "park sheet snake run: snake run, his pill",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     55.34,
+     22.84
+    ],
+    "top": 1.5
+   },
+   "at": [
+    -389.14,
+    0,
+    -43.54
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bank_S_1",
+   "park": "sheet snake run",
+   "area": 8,
+   "fn": "bank",
+   "size": "S",
+   "w": 6,
+   "tint": 14460783,
+   "label": "park sheet snake run: bank S up to the snake run",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     2.57
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -396.95,
+    0,
+    -38.14
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_kicker_S_1",
+   "park": "sheet beginner line",
+   "area": 19,
+   "fn": "kicker",
+   "size": "S",
+   "w": 4,
+   "tint": 14460783,
+   "label": "park sheet beginner line: kicker S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     1.74
+    ],
+    "top": 0.6
+   },
+   "at": [
+    -375.02,
+    0,
+    -60
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_frustum_S_4",
+   "park": "sheet beginner line",
+   "area": 19,
+   "fn": "frustum",
+   "size": "S",
+   "len": 6,
+   "w": 6,
+   "banks": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "tint": 14460783,
+   "label": "park sheet beginner line: fun box S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     11.15,
+     11.15
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -365.09,
+    0,
+    -60
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_halfpipe_M_1",
+   "park": "sheet mini ramp",
+   "area": 16,
+   "fn": "halfpipe",
+   "size": "M",
+   "flat": 10,
+   "len": 14,
+   "tint": 14460783,
+   "label": "park sheet mini ramp: half pipe M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14,
+     18.72
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -384.63,
+    0,
+    -109.12
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_deck_XL_1",
+   "park": "sheet rooftop",
+   "area": 17,
+   "fn": "deck",
+   "size": "XL",
+   "h": 4.8,
+   "tint": 13225429,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     29.438
+    ],
+    [
+     27.555,
+     29.438
+    ],
+    [
+     27.555,
+     0
+    ]
+   ],
+   "label": "park sheet rooftop: rooftop XL, the building's outline",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     29.44,
+     27.56
+    ],
+    "top": 4.8
+   },
+   "at": [
+    -403.26,
+    0,
+    -97.75
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairBank_XL_1",
+   "park": "sheet rooftop",
+   "area": 17,
+   "fn": "stairBank",
+   "size": "XL",
+   "w": 7,
+   "bw": 3,
+   "side": 0,
+   "land": 0.3,
+   "angle": 20,
+   "bankTint": 14460783,
+   "tint": 13225429,
+   "label": "park sheet rooftop: stairs XL between two banks, off the roof",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     13,
+     13.49
+    ],
+    "top": 4.8,
+    "out": {
+     "at": [
+      0,
+      4.8,
+      13.488
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -391.17,
+    0,
+    -56.58
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_ledge_S_11",
+   "park": "sheet rooftop",
+   "area": 17,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.6,
+   "w": 1.2,
+   "len": 14,
+   "label": "park sheet rooftop: roof ledge",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     14
+    ],
+    "top": 0.6,
+    "out": {
+     "at": [
+      0,
+      0.6,
+      14
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -399.05,
+    4.8,
+    -76.96
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_rail_S_4",
+   "park": "sheet rooftop",
+   "area": 17,
+   "fn": "rail",
+   "size": "S",
+   "len": 14,
+   "label": "park sheet rooftop: roof rail",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     14
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      14
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -382.22,
+    4.8,
+    -77.07
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_ledge_S_12",
+   "park": "sheet rooftop",
+   "area": 17,
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.36,
+   "w": 3,
+   "len": 8,
+   "label": "park sheet rooftop: roof manual pad",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     8
+    ],
+    "top": 0.36,
+    "out": {
+     "at": [
+      0,
+      0.36,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -394.05,
+    4.8,
+    -93.55
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_bleachers_S_1",
+   "park": "sheet spectators",
+   "area": 20,
+   "fn": "bleachers",
+   "size": "S",
+   "rows": 6,
+   "rd": 2.5,
+   "rh": 0.5,
+   "len": 36,
+   "tint": 12173260,
+   "label": "park sheet spectators: bleachers",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     36,
+     15
+    ],
+    "top": 3
+   },
+   "at": [
+    -357.28,
+    0,
+    -7.29
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_shade_S_1",
+   "park": "sheet shade",
+   "area": 21,
+   "fn": "shade",
+   "size": "S",
+   "d": 20,
+   "w": 20,
+   "label": "park sheet shade: shade roof",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     21.2,
+     21.2
+    ],
+    "top": 4.85
+   },
+   "at": [
+    -390.39,
+    0,
+    10.95
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_shade_S_2",
+   "park": "sheet shade",
+   "area": 21,
+   "fn": "shade",
+   "size": "S",
+   "d": 20,
+   "w": 20,
+   "label": "park sheet shade: shade roof",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     21.2,
+     21.2
+    ],
+    "top": 4.85
+   },
+   "at": [
+    -217.68,
+    0,
+    12.97
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_planter_S_10",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -283.96,
+    0,
+    -98.63
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_11",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -300.49,
+    0,
+    -76.18
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_12",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -293.88,
+    0,
+    -74.98
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_13",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -372.6,
+    0,
+    -65.99
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_14",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -297.49,
+    0,
+    8.27
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_15",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -279.45,
+    0,
+    8.27
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_16",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -261.42,
+    0,
+    9.78
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_17",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -213.34,
+    0,
+    -12.69
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_18",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -200.26,
+    0,
+    -8.81
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_19",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -402.66,
+    0,
+    -111.52
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_20",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -404.47,
+    0,
+    -12.69
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_21",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -341.07,
+    0,
+    -121.1
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_22",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -387.63,
+    0,
+    -12.69
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_23",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -345.56,
+    0,
+    -12.08
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_24",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -209.59,
+    0,
+    -30.59
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_planter_S_25",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "planter",
+   "size": "S",
+   "label": "park sheet landscaping: planter + tree",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 5.5
+   },
+   "at": [
+    -213.34,
+    0,
+    -30.66
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_terrain_S_1",
+   "park": "sheet landscaping",
+   "area": 22,
+   "fn": "terrain",
+   "size": "S",
+   "amp": 0.9,
+   "scale": 7,
+   "seed": 5,
+   "edge": 2.5,
+   "tint": 9423242,
+   "pts": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     61.302
+    ],
+    [
+     9.071,
+     61.302
+    ],
+    [
+     9.071,
+     0
+    ]
+   ],
+   "label": "park sheet landscaping: landscaped hills (terrain)",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     61.3,
+     9.07
+    ],
+    "top": 1.13
+   },
+   "at": [
+    -298.68,
+    0,
+    4.68
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_5",
+   "park": "sheet lighting",
+   "area": 23,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet lighting: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -402.66,
+    0,
+    -54.62
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_6",
+   "park": "sheet lighting",
+   "area": 23,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet lighting: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -400.97,
+    0,
+    -15.35
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_7",
+   "park": "sheet lighting",
+   "area": 23,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet lighting: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -342.56,
+    0,
+    -12.69
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_8",
+   "park": "sheet lighting",
+   "area": 23,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet lighting: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -282.72,
+    0,
+    0.99
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_9",
+   "park": "sheet lighting",
+   "area": 23,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet lighting: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -208.83,
+    0,
+    -124.99
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_10",
+   "park": "sheet lighting",
+   "area": 23,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet lighting: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -204.92,
+    0,
+    8.77
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_11",
+   "park": "sheet lighting",
+   "area": 23,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet lighting: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -249.42,
+    0,
+    11.42
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_lamp_S_12",
+   "park": "sheet lighting",
+   "area": 23,
+   "fn": "lamp",
+   "size": "S",
+   "label": "park sheet lighting: lamp",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1,
+     1
+    ],
+    "top": 8
+   },
+   "at": [
+    -262.93,
+    0,
+    -45.03
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_fence_S_1",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 101.91145000000003,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     101.91
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      101.911
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -304.04,
+    0,
+    14.22
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_fence_S_2",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 8.801499526785202,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     8.8
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      8.801
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -202.12,
+    0,
+    14.22
+   ],
+   "yaw_deg": 135
+  },
+  {
+   "name": "fn_fence_S_3",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 135.36329999999998,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     135.36
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      135.363
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -195.9,
+    0,
+    7.99
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_fence_S_4",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 8.168104539218387,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     8.17
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      8.168
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -195.9,
+    0,
+    -127.37
+   ],
+   "yaw_deg": -130
+  },
+  {
+   "name": "fn_fence_S_5",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 126.02790000000002,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     126.03
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      126.028
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -202.12,
+    0,
+    -132.66
+   ],
+   "yaw_deg": -90
+  },
+  {
+   "name": "fn_fence_S_6",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 13.755423190494716,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     13.76
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      13.755
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -328.15,
+    0,
+    -132.66
+   ],
+   "yaw_deg": -52
+  },
+  {
+   "name": "fn_fence_S_7",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 63.01395000000002,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     63.01
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      63.014
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -339.04,
+    0,
+    -124.26
+   ],
+   "yaw_deg": -90
+  },
+  {
+   "name": "fn_fence_S_8",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 5.500937204240746,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     5.5
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      5.501
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -402.06,
+    0,
+    -124.26
+   ],
+   "yaw_deg": -45
+  },
+  {
+   "name": "fn_fence_S_9",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 129.91765,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     129.92
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      129.918
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -405.95,
+    0,
+    -120.37
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_fence_S_10",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 6.601124645088911,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     6.6
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      6.601
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -405.95,
+    0,
+    9.55
+   ],
+   "yaw_deg": 45
+  },
+  {
+   "name": "fn_fence_S_11",
+   "park": "sheet fence",
+   "area": 24,
+   "fn": "fence",
+   "size": "S",
+   "len": 77.79500000000002,
+   "label": "park sheet fence: fence",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.3,
+     77.8
+    ],
+    "top": 1.8,
+    "out": {
+     "at": [
+      0,
+      0,
+      77.795
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -401.28,
+    0,
+    14.22
+   ],
+   "yaw_deg": 90
+  }
+ ]
+}
