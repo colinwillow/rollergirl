@@ -41,6 +41,1240 @@
  "deck": 1.5,
  "coping": 0.3,
  "rail_step": 1.2,
+ "combo_frame": "origin on the ground at the middle of the entry edge, +Z into the combo, +X across, +Y up; entries/exits are [x, y, z] in that frame, heading in degrees about +Y from +Z",
+ "combos": [
+  {
+   "combo": "mini_spine",
+   "name": "mini ramp + hump + decks",
+   "what": "stairs up to a deck, a mini ramp M split by a 1.2 m hump, a deck and stairs down the far side",
+   "from_photos": [
+    1,
+    3,
+    6
+   ],
+   "footprint": {
+    "u": [
+     -1,
+     40.4
+    ],
+    "w": [
+     -4,
+     4
+    ],
+    "size_m": [
+     8,
+     41.4
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      0,
+      -4
+     ],
+     "heading_deg": 0,
+     "what": "up the stairs"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      0,
+      43.4
+     ],
+     "heading_deg": 0,
+     "what": "down the far stairs"
+    }
+   ],
+   "heights": {
+    "levels": [
+     1.2,
+     2.4
+    ],
+    "max": 3.6
+   },
+   "rails": 4,
+   "tested": [
+    {
+     "test": "dropped in hands-off, over the hump and up B",
+     "pass": true,
+     "measured": "over the hump, up B, ends u 9.3"
+    },
+    {
+     "test": "up the stairs onto deck A",
+     "pass": true,
+     "measured": "on the deck"
+    }
+   ],
+   "node": "combo_mini_spine",
+   "world_at": [
+    -430,
+    0,
+    205
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_stairs_M_3",
+    "fn_qp_M_2",
+    "fn_roller_S_1",
+    "fn_qp_M_3",
+    "fn_stairs_M_4"
+   ]
+  },
+  {
+   "combo": "spine_wave",
+   "name": "triple wave",
+   "what": "three big rollers (2 m high, 12 m long) between two QP M walls -- she flows over all three and back",
+   "from_photos": [
+    4
+   ],
+   "footprint": {
+    "u": [
+     0,
+     56.72
+    ],
+    "w": [
+     -4,
+     4
+    ],
+    "size_m": [
+     8,
+     56.7
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      -6,
+      0,
+      5.86
+     ],
+     "heading_deg": 90,
+     "what": "from the side, into the first flat"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      6,
+      0,
+      50.86
+     ],
+     "heading_deg": 90,
+     "what": "out the side of the last flat"
+    }
+   ],
+   "heights": {
+    "levels": [
+     2,
+     2.4
+    ],
+    "max": 2.4
+   },
+   "rails": 0,
+   "tested": [
+    {
+     "test": "over all three spines, hands-off",
+     "pass": true,
+     "measured": "crossed 3 of 3, ends u 55.0"
+    }
+   ],
+   "node": "combo_spine_wave",
+   "world_at": [
+    -370,
+    0,
+    205
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_qp_M_4",
+    "fn_roller_M_1",
+    "fn_roller_M_2",
+    "fn_roller_M_3",
+    "fn_qp_M_5"
+   ]
+  },
+  {
+   "combo": "spine_transfer",
+   "name": "spine between two QPs",
+   "what": "QP M, a vert spine M, QP M: hands off she stays on her side; a swipe up on the spine transfers",
+   "from_photos": [
+    4,
+    6
+   ],
+   "footprint": {
+    "u": [
+     0,
+     26.64
+    ],
+    "w": [
+     -4,
+     4
+    ],
+    "size_m": [
+     8,
+     26.6
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      -6,
+      0,
+      7.36
+     ],
+     "heading_deg": 90,
+     "what": "side, into pit A"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      6,
+      0,
+      19.28
+     ],
+     "heading_deg": 90,
+     "what": "side, out of pit B"
+    }
+   ],
+   "heights": {
+    "levels": [
+     2.4
+    ],
+    "max": 2.4
+   },
+   "rails": 0,
+   "tested": [
+    {
+     "test": "hands-off, straight up and back",
+     "pass": true,
+     "measured": "furthest u 13.2 (ridge 13.3)"
+    },
+    {
+     "test": "a swipe up the face takes her over",
+     "pass": true,
+     "measured": "swiped, ends u 22.5 (pit B 19.3)"
+    }
+   ],
+   "node": "combo_spine_transfer",
+   "world_at": [
+    -310,
+    0,
+    205
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_qp_M_6",
+    "fn_spine_M_2",
+    "fn_qp_M_7"
+   ]
+  },
+  {
+   "combo": "vert_rollin",
+   "name": "roll-in XL to vert wall",
+   "what": "a roll-in XL (climb its back bank, drop in off the deck) across 12 m of flat to a QP XL vert wall with a deck",
+   "from_photos": [
+    4,
+    7
+   ],
+   "footprint": {
+    "u": [
+     0,
+     43.83
+    ],
+    "w": [
+     -4,
+     4
+    ],
+    "size_m": [
+     8,
+     43.8
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      0,
+      -3
+     ],
+     "heading_deg": 0,
+     "what": "up the roll-in's back bank"
+    },
+    {
+     "at": [
+      0,
+      4.8,
+      14.69
+     ],
+     "heading_deg": 0,
+     "what": "drop in from the deck"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      6,
+      0,
+      31.36
+     ],
+     "heading_deg": 90,
+     "what": "out the side of the flat"
+    }
+   ],
+   "heights": {
+    "levels": [
+     4.8
+    ],
+    "max": 4.8
+   },
+   "rails": 0,
+   "tested": [
+    {
+     "test": "dropped in hands-off, up the XL wall",
+     "pass": true,
+     "measured": "13.6 m/s at the bottom, up the wall to 4.80 (H 4.8)"
+    }
+   ],
+   "node": "combo_vert_rollin",
+   "world_at": [
+    -250,
+    0,
+    205
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_rollin_XL_2",
+    "fn_qp_XL_2"
+   ]
+  },
+  {
+   "combo": "donut",
+   "name": "racetrack bowl (round the island)",
+   "what": "a closed bowl M round an island M: carve the oval, wall on both sides, grind either coping",
+   "from_photos": [
+    3
+   ],
+   "footprint": {
+    "u": [
+     0,
+     42
+    ],
+    "w": [
+     -15,
+     15
+    ],
+    "size_m": [
+     30,
+     42
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      2.4,
+      0.5
+     ],
+     "heading_deg": 0,
+     "what": "drop in over the south coping"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      2.4,
+      41.5
+     ],
+     "heading_deg": 180,
+     "what": "out over the north coping"
+    }
+   ],
+   "heights": {
+    "levels": [
+     2.4
+    ],
+    "max": 2.4
+   },
+   "rails": 0,
+   "tested": [
+    {
+     "test": "dropped in hands-off, stays in the bowl",
+     "pass": true,
+     "measured": "ends u 8.8 w 1.1"
+    },
+    {
+     "test": "steered round the island, a whole lap",
+     "pass": true,
+     "measured": "swept 1270 deg"
+    }
+   ],
+   "node": "combo_donut",
+   "world_at": [
+    -430,
+    0,
+    270
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_wall_M_2",
+    "fn_wall_M_3",
+    "fn_deck_M_2"
+   ]
+  },
+  {
+   "combo": "volcano_bowl",
+   "name": "bowl with a volcano",
+   "what": "a round bowl M with a volcano in the middle -- carve round it, or hit it as a hip",
+   "from_photos": [
+    1,
+    5,
+    6
+   ],
+   "footprint": {
+    "u": [
+     0,
+     26.72
+    ],
+    "w": [
+     -13.36,
+     13.36
+    ],
+    "size_m": [
+     26.7,
+     26.7
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      2.4,
+      0.6
+     ],
+     "heading_deg": 0,
+     "what": "drop in over the coping"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      2.4,
+      26.12
+     ],
+     "heading_deg": 0,
+     "what": "out the far side"
+    }
+   ],
+   "heights": {
+    "levels": [
+     1.2,
+     2.4
+    ],
+    "max": 2.4
+   },
+   "rails": 0,
+   "tested": [
+    {
+     "test": "dropped in hands-off, over the volcano, stays in",
+     "pass": true,
+     "measured": "over the top, up to 2.40, ends 9.3 m from the middle"
+    }
+   ],
+   "node": "combo_volcano_bowl",
+   "world_at": [
+    -370,
+    0,
+    270
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_bowl_M_2",
+    "fn_volcano_M_3"
+   ]
+  },
+  {
+   "combo": "drum_bowl",
+   "name": "bowl with a centre drum",
+   "what": "a round bowl L with a 1.2 m drum in the middle, coping ring all round it",
+   "from_photos": [
+    2,
+    5
+   ],
+   "footprint": {
+    "u": [
+     0,
+     26.86
+    ],
+    "w": [
+     -13.43,
+     13.43
+    ],
+    "size_m": [
+     26.9,
+     26.9
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      3.6,
+      0.6
+     ],
+     "heading_deg": 0,
+     "what": "drop in over the coping"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      3.6,
+      26.26
+     ],
+     "heading_deg": 0,
+     "what": "out the far side"
+    }
+   ],
+   "heights": {
+    "levels": [
+     1.2,
+     3.6
+    ],
+    "max": 3.6
+   },
+   "rails": 1,
+   "tested": [
+    {
+     "test": "dropped in hands-off past the drum, stays in",
+     "pass": true,
+     "measured": "up to 3.60, ends 4.5 m from the middle"
+    },
+    {
+     "test": "a tap beside the drum grinds its ring",
+     "pass": true,
+     "measured": "on the ring"
+    }
+   ],
+   "node": "combo_drum_bowl",
+   "world_at": [
+    -310,
+    0,
+    270
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_bowl_L_2",
+    "fn_drum_S_2"
+   ]
+  },
+  {
+   "combo": "aframe",
+   "name": "A-frame with a ridge rail",
+   "what": "a narrow ridge box M, banks on all four sides, a flat bar along the ridge and down rails over both ends",
+   "from_photos": [
+    6
+   ],
+   "footprint": {
+    "u": [
+     6,
+     26.29
+    ],
+    "w": [
+     -5.55,
+     5.55
+    ],
+    "size_m": [
+     11.1,
+     20.3
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "heading_deg": 0,
+     "what": "up the front bank"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      0,
+      29.29
+     ],
+     "heading_deg": 0,
+     "what": "down the back bank"
+    }
+   ],
+   "heights": {
+    "levels": [
+     2.4
+    ],
+    "max": 2.85
+   },
+   "rails": 3,
+   "tested": [
+    {
+     "test": "up, along the ridge, down, hands-off",
+     "pass": true,
+     "measured": "up to 2.62, ends u 26.8"
+    },
+    {
+     "test": "a tap from the bank grinds a rail",
+     "pass": true,
+     "measured": "grinding"
+    }
+   ],
+   "node": "combo_aframe",
+   "world_at": [
+    -250,
+    0,
+    270
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_frustum_M_4"
+   ]
+  },
+  {
+   "combo": "stair_sets",
+   "name": "stair sets + rails + bank + hubba",
+   "what": "stairs M with handrails beside a bank M up to a shared deck, a hubba set back down, a 0.6 m ledge on the street",
+   "from_photos": [
+    1,
+    3,
+    6
+   ],
+   "footprint": {
+    "u": [
+     -1,
+     17.68
+    ],
+    "w": [
+     -8,
+     6.71
+    ],
+    "size_m": [
+     14.7,
+     18.7
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      0,
+      -4
+     ],
+     "heading_deg": 0,
+     "what": "up the stairs"
+    },
+    {
+     "at": [
+      -6,
+      0,
+      -4
+     ],
+     "heading_deg": 0,
+     "what": "up the bank"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      0,
+      20.68
+     ],
+     "heading_deg": 0,
+     "what": "down the hubba set"
+    }
+   ],
+   "heights": {
+    "levels": [
+     0.6,
+     2.4
+    ],
+    "max": 3.6
+   },
+   "rails": 6,
+   "tested": [
+    {
+     "test": "up the stairs, across, down the hubba set, hands-off",
+     "pass": true,
+     "measured": "over the deck, ends u 30.2 y 0.00"
+    },
+    {
+     "test": "up the bank onto the deck",
+     "pass": true,
+     "measured": "on the deck"
+    },
+    {
+     "test": "a tap on the landing takes a handrail down",
+     "pass": true,
+     "measured": "grinding"
+    },
+    {
+     "test": "a tap at the top of the far set takes a hubba",
+     "pass": true,
+     "measured": "grinding"
+    },
+    {
+     "test": "a tap beside the ledge grinds it",
+     "pass": true,
+     "measured": "grinding"
+    }
+   ],
+   "node": "combo_stair_sets",
+   "world_at": [
+    -430,
+    0,
+    335
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_stairs_M_5",
+    "fn_bank_M_1",
+    "fn_platform_M_1",
+    "fn_stairs_M_6",
+    "fn_ledge_S_3"
+   ]
+  },
+  {
+   "combo": "funbox_gaps",
+   "name": "funbox + rails between two gap lines",
+   "what": "a funbox M with a flat bar and down rails, flanked by two gap jumps S",
+   "from_photos": [
+    1,
+    3
+   ],
+   "footprint": {
+    "u": [
+     2,
+     20.29
+    ],
+    "w": [
+     -11,
+     11
+    ],
+    "size_m": [
+     22,
+     18.3
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "heading_deg": 0,
+     "what": "at the funbox"
+    },
+    {
+     "at": [
+      -8.5,
+      0,
+      -2
+     ],
+     "heading_deg": 0,
+     "what": "at a gap"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      0,
+      23.29
+     ],
+     "heading_deg": 0,
+     "what": "off the back"
+    }
+   ],
+   "heights": {
+    "levels": [
+     0.72,
+     2.4
+    ],
+    "max": 2.85
+   },
+   "rails": 3,
+   "tested": [
+    {
+     "test": "over the funbox, hands-off",
+     "pass": true,
+     "measured": "up to 2.48, ends u 38.8"
+    },
+    {
+     "test": "the west gap cleared at 12 m/s",
+     "pass": true,
+     "measured": "landed at u 8.3 (landing from 8.2)"
+    },
+    {
+     "test": "the east gap cleared at 12 m/s",
+     "pass": true,
+     "measured": "landed at u 8.3 (landing from 8.2)"
+    },
+    {
+     "test": "a tap from the front bank grinds a rail",
+     "pass": true,
+     "measured": "grinding"
+    }
+   ],
+   "node": "combo_funbox_gaps",
+   "world_at": [
+    -370,
+    0,
+    335
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_frustum_M_5",
+    "fn_gap_S_1",
+    "fn_gap_S_2"
+   ]
+  },
+  {
+   "combo": "wave_wall",
+   "name": "wave wall",
+   "what": "a 40 m QP whose coping rises and falls 1.2 <-> 2.4 m, carved along its length",
+   "from_photos": [
+    6
+   ],
+   "footprint": {
+    "u": [
+     9.14,
+     14
+    ],
+    "w": [
+     -20,
+     20
+    ],
+    "size_m": [
+     40,
+     4.9
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      -18,
+      0,
+      0
+     ],
+     "heading_deg": 0,
+     "what": "along the wall"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      18,
+      0,
+      0
+     ],
+     "heading_deg": 0,
+     "what": "off the far end"
+    }
+   ],
+   "heights": {
+    "levels": [
+     2.4
+    ],
+    "max": 2.4
+   },
+   "rails": 0,
+   "tested": [
+    {
+     "test": "square at w -15 (coping 2.4 m), up and back",
+     "pass": true,
+     "measured": "up to 3.25, ends u -1.5"
+    },
+    {
+     "test": "square at w -10 (coping 1.2 m), up and back",
+     "pass": true,
+     "measured": "up to 1.48, ends u 2.1"
+    },
+    {
+     "test": "square at w 0 (coping 1.2 m), up and back",
+     "pass": true,
+     "measured": "up to 1.48, ends u 2.1"
+    },
+    {
+     "test": "carved along it at a slant, hands-off",
+     "pass": true,
+     "measured": "travelled to w 2.6, up to 0.76"
+    }
+   ],
+   "node": "combo_wave_wall",
+   "world_at": [
+    -310,
+    0,
+    335
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_wall_M_4"
+   ]
+  },
+  {
+   "combo": "euro_gap",
+   "name": "euro gap",
+   "what": "a bank up to a deck M, a 4 m gap, and a bank down whose back is the gap's wall -- ollie it or fall in",
+   "from_photos": [
+    3,
+    6
+   ],
+   "footprint": {
+    "u": [
+     0,
+     20.29
+    ],
+    "w": [
+     -2.5,
+     2.5
+    ],
+    "size_m": [
+     5,
+     20.3
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      0,
+      0,
+      -4
+     ],
+     "heading_deg": 0,
+     "what": "up the bank"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      0,
+      23.29
+     ],
+     "heading_deg": 0,
+     "what": "down the landing"
+    }
+   ],
+   "heights": {
+    "levels": [
+     2.4
+    ],
+    "max": 2.4
+   },
+   "rails": 0,
+   "tested": [
+    {
+     "test": "an ollie off the lip clears the gap",
+     "pass": true,
+     "measured": "landed at u 15.7 y 1.02 (the landing's top at 15.1)"
+    },
+    {
+     "test": "no ollie, and she is in the gap",
+     "pass": true,
+     "measured": "ends u 12.5 y 1.34"
+    }
+   ],
+   "node": "combo_euro_gap",
+   "world_at": [
+    -250,
+    0,
+    335
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_bank_M_2",
+    "fn_platform_M_2",
+    "fn_bank_M_3"
+   ]
+  },
+  {
+   "combo": "thread_needle",
+   "name": "thread the needle",
+   "what": "a 360 loop with a rail M crossing straight through its middle -- loop it, or grind the rail through it",
+   "from_photos": [],
+   "footprint": {
+    "u": [
+     4,
+     21
+    ],
+    "w": [
+     -14,
+     10
+    ],
+    "size_m": [
+     24,
+     17
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      -3,
+      0,
+      0
+     ],
+     "heading_deg": 0,
+     "what": "onto the loop's lead-in"
+    },
+    {
+     "at": [
+      -16,
+      0,
+      12
+     ],
+     "heading_deg": 90,
+     "what": "at the rail"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      -1.4,
+      0,
+      24
+     ],
+     "heading_deg": 0,
+     "what": "off the loop"
+    },
+    {
+     "at": [
+      12,
+      0,
+      12
+     ],
+     "heading_deg": 90,
+     "what": "off the rail"
+    }
+   ],
+   "heights": {
+    "levels": [
+     3.01,
+     7
+    ],
+    "max": 7
+   },
+   "rails": 2,
+   "tested": [
+    {
+     "test": "round the loop, upside down at the top",
+     "pass": true,
+     "measured": "her up got to -1.00"
+    },
+    {
+     "test": "a tap from the ground catches the rail",
+     "pass": true,
+     "measured": "grinding"
+    },
+    {
+     "test": "the rail runs straight through the loop",
+     "pass": true,
+     "measured": "through the loop at y 3.01 (loop centre 4.00)"
+    }
+   ],
+   "node": "combo_thread_needle",
+   "world_at": [
+    -430,
+    0,
+    400
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_loop360_M_2",
+    "fn_rail_M_4"
+   ]
+  },
+  {
+   "combo": "corkscrew",
+   "name": "corkscrew to a Y",
+   "what": "a bank L to a deck L, a helix rail spiralling two turns down off its edge, into a Y you steer",
+   "from_photos": [],
+   "footprint": {
+    "u": [
+     0,
+     25.72
+    ],
+    "w": [
+     -6,
+     7.99
+    ],
+    "size_m": [
+     14,
+     25.7
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      -3,
+      0,
+      -4
+     ],
+     "heading_deg": 0,
+     "what": "up the bank"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      0,
+      0,
+      26.72
+     ],
+     "heading_deg": 0,
+     "what": "off the Y, straight"
+    },
+    {
+     "at": [
+      8,
+      0,
+      25.72
+     ],
+     "heading_deg": 40.1,
+     "what": "off the Y, the branch"
+    }
+   ],
+   "heights": {
+    "levels": [
+     1.7,
+     3.6,
+     4.1
+    ],
+    "max": 4.1
+   },
+   "rails": 3,
+   "tested": [
+    {
+     "test": "up the bank onto the deck",
+     "pass": true,
+     "measured": "on the deck"
+    },
+    {
+     "test": "a tap at the deck edge, two turns down, onto the Y",
+     "pass": true,
+     "measured": "onto the Y, helix down to 1.70"
+    }
+   ],
+   "node": "combo_corkscrew",
+   "world_at": [
+    -370,
+    0,
+    400
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_bank_L_1",
+    "fn_platform_L_1",
+    "fn_helix_L_1",
+    "fn_railY_S_1"
+   ]
+  },
+  {
+   "combo": "pump_track",
+   "name": "pump track",
+   "what": "rollers and two 180 berms in a closed loop -- lean into the berm and it turns her round",
+   "from_photos": [],
+   "footprint": {
+    "u": [
+     1.54,
+     32.46
+    ],
+    "w": [
+     -10.5,
+     10.5
+    ],
+    "size_m": [
+     21,
+     30.9
+    ],
+    "note": "u = along +Z (into it), w = along +X"
+   },
+   "entries": [
+    {
+     "at": [
+      -7,
+      0.21,
+      9
+     ],
+     "heading_deg": 0,
+     "what": "onto the first roller"
+    }
+   ],
+   "exits": [
+    {
+     "at": [
+      -7,
+      0.21,
+      9
+     ],
+     "heading_deg": 180,
+     "what": "off where it began"
+    }
+   ],
+   "heights": {
+    "levels": [
+     0.7,
+     1.44
+    ],
+    "max": 1.44
+   },
+   "rails": 0,
+   "tested": [
+    {
+     "test": "steered round the berms, a whole lap",
+     "pass": true,
+     "measured": "3 lap(s), 32 of 41 waypoints, top 1.63"
+    }
+   ],
+   "node": "combo_pump_track",
+   "world_at": [
+    -310,
+    0,
+    400
+   ],
+   "world_yaw_deg": 0,
+   "pieces": [
+    "fn_roller_S_2",
+    "fn_roller_S_3",
+    "fn_berm_M_2",
+    "fn_roller_S_4",
+    "fn_roller_S_5",
+    "fn_berm_M_3"
+   ]
+  }
+ ],
  "pieces": [
   {
    "name": "fn_qp_S_1",
@@ -3388,6 +4622,2259 @@
     -293
    ],
    "yaw_deg": 90
+  },
+  {
+   "name": "fn_volcano_M_1",
+   "fn": "volcano",
+   "size": "M",
+   "label": "volcano M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     11.79,
+     11.79
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -445,
+    0,
+    182
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_volcano_L_1",
+   "fn": "volcano",
+   "size": "L",
+   "crater": 0.5,
+   "rail": 1,
+   "label": "volcano L, crater + rim rail",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.49,
+     14.49
+    ],
+    "top": 1.8,
+    "rails": 1
+   },
+   "at": [
+    -401,
+    0,
+    182
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_volcano_M_2",
+   "fn": "volcano",
+   "size": "M",
+   "dome": 1,
+   "R": 6,
+   "label": "dome hump M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12,
+     12
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -357,
+    0,
+    182
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_drum_S_1",
+   "fn": "drum",
+   "size": "S",
+   "R": 2.5,
+   "h": 0.45,
+   "planter": 1,
+   "label": "round planter 0.45 m",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     5
+    ],
+    "top": 0.45,
+    "rails": 1
+   },
+   "at": [
+    -313,
+    0,
+    182
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_drum_M_1",
+   "fn": "drum",
+   "size": "M",
+   "R": 3,
+   "h": 0.9,
+   "label": "drum 0.9 m + coping ring",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     6
+    ],
+    "top": 0.9,
+    "rails": 1
+   },
+   "at": [
+    -269,
+    0,
+    182
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_drum_L_1",
+   "fn": "drum",
+   "size": "L",
+   "R": 1.5,
+   "rail": 0,
+   "label": "pillar L (3.6 m)",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -225,
+    0,
+    182
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_M_3",
+   "combo": "mini_spine",
+   "fn": "stairs",
+   "size": "M",
+   "w": 8,
+   "label": "combo mini_spine: stairs up",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     6.84
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.841
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -430,
+    0,
+    205
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_qp_M_2",
+   "combo": "mini_spine",
+   "fn": "qp",
+   "size": "M",
+   "w": 8,
+   "label": "combo mini_spine: mini wall A",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     4.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -430,
+    0,
+    216.2
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     0,
+     0,
+     11.201
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_roller_S_1",
+   "combo": "mini_spine",
+   "fn": "roller",
+   "size": "S",
+   "w": 8,
+   "h": 1.2,
+   "len": 7,
+   "label": "combo mini_spine: centre hump 1.2 m",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     7
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      0,
+      7
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -430,
+    0,
+    221.2
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     16.201
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_qp_M_3",
+   "combo": "mini_spine",
+   "fn": "qp",
+   "size": "M",
+   "w": 8,
+   "label": "combo mini_spine: mini wall B",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     4.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -430,
+    0,
+    233.2
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     28.201
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_stairs_M_4",
+   "combo": "mini_spine",
+   "fn": "stairs",
+   "size": "M",
+   "w": 8,
+   "label": "combo mini_spine: stairs down",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     6.84
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.841
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -430,
+    0,
+    244.4
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     0,
+     0,
+     39.402
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_qp_M_4",
+   "combo": "spine_wave",
+   "fn": "qp",
+   "size": "M",
+   "w": 8,
+   "label": "combo spine_wave: end wall A",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     4.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -370,
+    0,
+    209.36
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     0,
+     0,
+     4.36
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_roller_M_1",
+   "combo": "spine_wave",
+   "fn": "roller",
+   "size": "M",
+   "w": 8,
+   "h": 2,
+   "len": 12,
+   "label": "combo spine_wave: wave 1",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     12
+    ],
+    "top": 2,
+    "out": {
+     "at": [
+      0,
+      0,
+      12
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -370,
+    0,
+    212.36
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     7.36
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_roller_M_2",
+   "combo": "spine_wave",
+   "fn": "roller",
+   "size": "M",
+   "w": 8,
+   "h": 2,
+   "len": 12,
+   "label": "combo spine_wave: wave 2",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     12
+    ],
+    "top": 2,
+    "out": {
+     "at": [
+      0,
+      0,
+      12
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -370,
+    0,
+    227.36
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     22.36
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_roller_M_3",
+   "combo": "spine_wave",
+   "fn": "roller",
+   "size": "M",
+   "w": 8,
+   "h": 2,
+   "len": 12,
+   "label": "combo spine_wave: wave 3",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     12
+    ],
+    "top": 2,
+    "out": {
+     "at": [
+      0,
+      0,
+      12
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -370,
+    0,
+    242.36
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     37.36
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_qp_M_5",
+   "combo": "spine_wave",
+   "fn": "qp",
+   "size": "M",
+   "w": 8,
+   "label": "combo spine_wave: end wall B",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     4.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -370,
+    0,
+    257.36
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     52.36
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_qp_M_6",
+   "combo": "spine_transfer",
+   "fn": "qp",
+   "size": "M",
+   "w": 8,
+   "label": "combo spine_transfer: wall A",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     4.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -310,
+    0,
+    209.36
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     0,
+     0,
+     4.36
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_spine_M_2",
+   "combo": "spine_transfer",
+   "fn": "spine",
+   "size": "M",
+   "w": 8,
+   "label": "combo spine_transfer: vert spine M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     5.92
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -310,
+    0,
+    215.36
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     10.36
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_qp_M_7",
+   "combo": "spine_transfer",
+   "fn": "qp",
+   "size": "M",
+   "w": 8,
+   "label": "combo spine_transfer: wall B",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     4.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -310,
+    0,
+    227.28
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     22.281
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_rollin_XL_2",
+   "combo": "vert_rollin",
+   "fn": "rollin",
+   "size": "XL",
+   "r": 5,
+   "w": 6,
+   "label": "combo vert_rollin: roll-in XL",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     25.36
+    ],
+    "top": 4.8
+   },
+   "at": [
+    -250,
+    0,
+    230.36
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     0,
+     0,
+     25.357
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_qp_XL_2",
+   "combo": "vert_rollin",
+   "fn": "qp",
+   "size": "XL",
+   "w": 8,
+   "label": "combo vert_rollin: vert wall XL",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     6.47
+    ],
+    "top": 4.8
+   },
+   "at": [
+    -250,
+    0,
+    242.36
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     37.357
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_wall_M_2",
+   "combo": "donut",
+   "fn": "wall",
+   "size": "M",
+   "closed": 1,
+   "face": "in",
+   "pts": [
+    [
+     40,
+     0
+    ],
+    [
+     39.52,
+     2.89
+    ],
+    [
+     38.12,
+     5.64
+    ],
+    [
+     35.85,
+     8.11
+    ],
+    [
+     32.85,
+     10.16
+    ],
+    [
+     29.24,
+     11.71
+    ],
+    [
+     25.23,
+     12.67
+    ],
+    [
+     21,
+     13
+    ],
+    [
+     16.77,
+     12.67
+    ],
+    [
+     12.76,
+     11.71
+    ],
+    [
+     9.15,
+     10.16
+    ],
+    [
+     6.15,
+     8.11
+    ],
+    [
+     3.88,
+     5.64
+    ],
+    [
+     2.48,
+     2.89
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     2.48,
+     -2.89
+    ],
+    [
+     3.88,
+     -5.64
+    ],
+    [
+     6.15,
+     -8.11
+    ],
+    [
+     9.15,
+     -10.16
+    ],
+    [
+     12.76,
+     -11.71
+    ],
+    [
+     16.77,
+     -12.67
+    ],
+    [
+     21,
+     -13
+    ],
+    [
+     25.23,
+     -12.67
+    ],
+    [
+     29.24,
+     -11.71
+    ],
+    [
+     32.85,
+     -10.16
+    ],
+    [
+     35.85,
+     -8.11
+    ],
+    [
+     38.12,
+     -5.64
+    ],
+    [
+     39.52,
+     -2.89
+    ]
+   ],
+   "deck": 2,
+   "label": "combo donut: outer wall",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     20.28,
+     32.28
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -430,
+    0,
+    270
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_wall_M_3",
+   "combo": "donut",
+   "fn": "wall",
+   "size": "M",
+   "closed": 1,
+   "face": "out",
+   "pts": [
+    [
+     28.5,
+     0
+    ],
+    [
+     27.93,
+     0.99
+    ],
+    [
+     26.3,
+     1.84
+    ],
+    [
+     23.87,
+     2.4
+    ],
+    [
+     21,
+     2.6
+    ],
+    [
+     18.13,
+     2.4
+    ],
+    [
+     15.7,
+     1.84
+    ],
+    [
+     14.07,
+     0.99
+    ],
+    [
+     13.5,
+     0
+    ],
+    [
+     14.07,
+     -0.99
+    ],
+    [
+     15.7,
+     -1.84
+    ],
+    [
+     18.13,
+     -2.4
+    ],
+    [
+     21,
+     -2.6
+    ],
+    [
+     23.87,
+     -2.4
+    ],
+    [
+     26.3,
+     -1.84
+    ],
+    [
+     27.93,
+     -0.99
+    ]
+   ],
+   "deck": 0.4,
+   "label": "combo donut: island wall",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10.92,
+     21.04
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -430,
+    0,
+    270
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_deck_M_2",
+   "combo": "donut",
+   "fn": "deck",
+   "size": "M",
+   "pts": [
+    [
+     28.5,
+     0
+    ],
+    [
+     27.93,
+     0.99
+    ],
+    [
+     26.3,
+     1.84
+    ],
+    [
+     23.87,
+     2.4
+    ],
+    [
+     21,
+     2.6
+    ],
+    [
+     18.13,
+     2.4
+    ],
+    [
+     15.7,
+     1.84
+    ],
+    [
+     14.07,
+     0.99
+    ],
+    [
+     13.5,
+     0
+    ],
+    [
+     14.07,
+     -0.99
+    ],
+    [
+     15.7,
+     -1.84
+    ],
+    [
+     18.13,
+     -2.4
+    ],
+    [
+     21,
+     -2.6
+    ],
+    [
+     23.87,
+     -2.4
+    ],
+    [
+     26.3,
+     -1.84
+    ],
+    [
+     27.93,
+     -0.99
+    ]
+   ],
+   "label": "combo donut: island top",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5.2,
+     15
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -430,
+    0,
+    270
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_bowl_M_2",
+   "combo": "volcano_bowl",
+   "fn": "bowl",
+   "size": "M",
+   "rc": 9,
+   "label": "combo volcano_bowl: bowl M (r 9)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     26.72,
+     26.72
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -370,
+    0,
+    283.36
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     13.36
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_volcano_M_3",
+   "combo": "volcano_bowl",
+   "fn": "volcano",
+   "size": "M",
+   "top": 1.5,
+   "label": "combo volcano_bowl: volcano M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10.79,
+     10.79
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -370,
+    0,
+    283.36
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     13.36
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_bowl_L_2",
+   "combo": "drum_bowl",
+   "fn": "bowl",
+   "size": "L",
+   "rc": 8,
+   "label": "combo drum_bowl: bowl L (r 8)",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     26.86,
+     26.86
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -310,
+    0,
+    283.43
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     13.429
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_drum_S_2",
+   "combo": "drum_bowl",
+   "fn": "drum",
+   "size": "S",
+   "R": 2.2,
+   "h": 1.2,
+   "label": "combo drum_bowl: drum 1.2 m",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4.4,
+     4.4
+    ],
+    "top": 1.2,
+    "rails": 1
+   },
+   "at": [
+    -310,
+    0,
+    283.43
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     13.429
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_frustum_M_4",
+   "combo": "aframe",
+   "fn": "frustum",
+   "size": "M",
+   "len": 10,
+   "w": 0.8,
+   "banks": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "rails": 1,
+   "label": "combo aframe: A-frame M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     11.09,
+     20.29
+    ],
+    "top": 2.4,
+    "rails": 3
+   },
+   "at": [
+    -250,
+    0,
+    281.15
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     11.147
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_stairs_M_5",
+   "combo": "stair_sets",
+   "fn": "stairs",
+   "size": "M",
+   "label": "combo stair_sets: stairs M + handrails",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     6.84
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.841
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -430,
+    0,
+    335
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_bank_M_1",
+   "combo": "stair_sets",
+   "fn": "bank",
+   "size": "M",
+   "w": 4,
+   "label": "combo stair_sets: bank M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     5.15
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -436,
+    0,
+    336.69
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -6,
+     0,
+     1.694
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_platform_M_1",
+   "combo": "stair_sets",
+   "fn": "platform",
+   "size": "M",
+   "w": 12,
+   "d": 4,
+   "label": "combo stair_sets: top deck",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12,
+     4
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -432,
+    0,
+    341.84
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -2,
+     0,
+     6.841
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_stairs_M_6",
+   "combo": "stair_sets",
+   "fn": "stairs",
+   "size": "M",
+   "hubba": 1,
+   "label": "combo stair_sets: stairs M + hubbas",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5.4,
+     6.84
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.841
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -430,
+    0,
+    352.68
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     0,
+     0,
+     17.682
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_ledge_S_3",
+   "combo": "stair_sets",
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.6,
+   "len": 10,
+   "label": "combo stair_sets: ledge 0.6",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     10
+    ],
+    "top": 0.6,
+    "out": {
+     "at": [
+      0,
+      0.6,
+      10
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -424,
+    0,
+    336
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     6,
+     0,
+     1
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_frustum_M_5",
+   "combo": "funbox_gaps",
+   "fn": "frustum",
+   "size": "M",
+   "len": 6,
+   "w": 5,
+   "banks": [
+    1,
+    1,
+    0,
+    0
+   ],
+   "rails": 1,
+   "label": "combo funbox_gaps: funbox M + rails",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     16.29
+    ],
+    "top": 2.4,
+    "rails": 3
+   },
+   "at": [
+    -370,
+    0,
+    344.15
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     9.147
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_gap_S_1",
+   "combo": "funbox_gaps",
+   "fn": "gap",
+   "size": "S",
+   "gap": 4,
+   "label": "combo funbox_gaps: gap S (west)",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     11.43
+    ],
+    "top": 0.72
+   },
+   "at": [
+    -378.5,
+    0,
+    337
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -8.5,
+     0,
+     2
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_gap_S_2",
+   "combo": "funbox_gaps",
+   "fn": "gap",
+   "size": "S",
+   "gap": 4,
+   "label": "combo funbox_gaps: gap S (east)",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     11.43
+    ],
+    "top": 0.72
+   },
+   "at": [
+    -361.5,
+    0,
+    337
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     8.5,
+     0,
+     2
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_wall_M_4",
+   "combo": "wave_wall",
+   "fn": "wall",
+   "size": "M",
+   "pts": [
+    [
+     12,
+     -20
+    ],
+    [
+     12,
+     -15
+    ],
+    [
+     12,
+     -10
+    ],
+    [
+     12,
+     -5
+    ],
+    [
+     12,
+     0
+    ],
+    [
+     12,
+     5
+    ],
+    [
+     12,
+     10
+    ],
+    [
+     12,
+     15
+    ],
+    [
+     12,
+     20
+    ]
+   ],
+   "H": [
+    1.2,
+    2.4,
+    1.2,
+    2.4,
+    1.2,
+    2.4,
+    1.2,
+    2.4,
+    1.2
+   ],
+   "face": [
+    0,
+    0
+   ],
+   "smooth": 1,
+   "deck": 2,
+   "label": "combo wave_wall: wave wall",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     40,
+     1.43
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -310,
+    0,
+    335
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_bank_M_2",
+   "combo": "euro_gap",
+   "fn": "bank",
+   "size": "M",
+   "w": 5,
+   "label": "combo euro_gap: bank up",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     5.15
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -250,
+    0,
+    335
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_platform_M_2",
+   "combo": "euro_gap",
+   "fn": "platform",
+   "size": "M",
+   "w": 5,
+   "d": 6,
+   "label": "combo euro_gap: deck",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     6
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -250,
+    0,
+    340.15
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     5.147
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_bank_M_3",
+   "combo": "euro_gap",
+   "fn": "bank",
+   "size": "M",
+   "w": 5,
+   "label": "combo euro_gap: landing bank",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     5.15
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -250,
+    0,
+    355.29
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     0,
+     0,
+     20.294
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_loop360_M_2",
+   "combo": "thread_needle",
+   "fn": "loop360",
+   "size": "M",
+   "label": "combo thread_needle: loop 360 M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     20
+    ],
+    "top": 7,
+    "rails": 1
+   },
+   "at": [
+    -433,
+    0,
+    404
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -3,
+     0,
+     4
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_rail_M_4",
+   "combo": "thread_needle",
+   "fn": "rail",
+   "size": "M",
+   "len": 24,
+   "h": 3.01,
+   "label": "combo thread_needle: rail through the loop",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     24
+    ],
+    "top": 3.01,
+    "out": {
+     "at": [
+      0,
+      3.01,
+      24
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -444,
+    0,
+    412
+   ],
+   "yaw_deg": 90,
+   "local": {
+    "at": [
+     -14,
+     0,
+     12
+    ],
+    "yaw_deg": 90
+   }
+  },
+  {
+   "name": "fn_bank_L_1",
+   "combo": "corkscrew",
+   "fn": "bank",
+   "size": "L",
+   "w": 5,
+   "label": "combo corkscrew: bank L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     7.72
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -373,
+    0,
+    400
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -3,
+     0,
+     0
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_platform_L_1",
+   "combo": "corkscrew",
+   "fn": "platform",
+   "size": "L",
+   "w": 6,
+   "d": 6,
+   "label": "combo corkscrew: deck L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     6
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -373,
+    0,
+    407.72
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -3,
+     0,
+     7.72
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_helix_L_1",
+   "combo": "corkscrew",
+   "fn": "helix",
+   "size": "L",
+   "h": 4.1,
+   "turns": 2,
+   "r": 4,
+   "label": "combo corkscrew: helix L, two turns",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     8
+    ],
+    "top": 4.1,
+    "out": {
+     "at": [
+      0,
+      1.7,
+      0
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -370,
+    0,
+    413.72
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     13.72
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_railY_S_1",
+   "combo": "corkscrew",
+   "fn": "railY",
+   "size": "S",
+   "h": 1.6999999999999997,
+   "len": 12,
+   "at": [
+    -370,
+    0,
+    413.72
+   ],
+   "label": "combo corkscrew: Y",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3.98,
+     12
+    ],
+    "top": 1.7,
+    "out": {
+     "at": [
+      0,
+      1.7,
+      12
+     ],
+     "yaw_deg": 0
+    },
+    "out2": {
+     "at": [
+      3.483,
+      1.7,
+      9.512
+     ],
+     "yaw_deg": 40
+    },
+    "rails": 2
+   },
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     0,
+     0,
+     13.72
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_roller_S_2",
+   "combo": "pump_track",
+   "fn": "roller",
+   "size": "S",
+   "label": "combo pump_track: roller S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     5
+    ],
+    "top": 0.7,
+    "out": {
+     "at": [
+      0,
+      0,
+      5
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -317,
+    0,
+    412
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -7,
+     0,
+     12
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_roller_S_3",
+   "combo": "pump_track",
+   "fn": "roller",
+   "size": "S",
+   "label": "combo pump_track: roller S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     5
+    ],
+    "top": 0.7,
+    "out": {
+     "at": [
+      0,
+      0,
+      5
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -317,
+    0,
+    417
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -7,
+     0,
+     17
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_berm_M_2",
+   "combo": "pump_track",
+   "fn": "berm",
+   "size": "M",
+   "deg": 180,
+   "r": 7,
+   "label": "combo pump_track: berm M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     17.5,
+     17.5
+    ],
+    "top": 1.44,
+    "out": {
+     "at": [
+      14,
+      0,
+      0
+     ],
+     "yaw_deg": 180
+    }
+   },
+   "at": [
+    -317,
+    0,
+    422
+   ],
+   "yaw_deg": 0,
+   "local": {
+    "at": [
+     -7,
+     0,
+     22
+    ],
+    "yaw_deg": 0
+   }
+  },
+  {
+   "name": "fn_roller_S_4",
+   "combo": "pump_track",
+   "fn": "roller",
+   "size": "S",
+   "label": "combo pump_track: roller S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     5
+    ],
+    "top": 0.7,
+    "out": {
+     "at": [
+      0,
+      0,
+      5
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -303,
+    0,
+    422
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     7,
+     0,
+     22
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_roller_S_5",
+   "combo": "pump_track",
+   "fn": "roller",
+   "size": "S",
+   "label": "combo pump_track: roller S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     5
+    ],
+    "top": 0.7,
+    "out": {
+     "at": [
+      0,
+      0,
+      5
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -303,
+    0,
+    417
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     7,
+     0,
+     17
+    ],
+    "yaw_deg": 180
+   }
+  },
+  {
+   "name": "fn_berm_M_3",
+   "combo": "pump_track",
+   "fn": "berm",
+   "size": "M",
+   "deg": 180,
+   "r": 7,
+   "label": "combo pump_track: berm M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     17.5,
+     17.5
+    ],
+    "top": 1.44,
+    "out": {
+     "at": [
+      14,
+      0,
+      0
+     ],
+     "yaw_deg": 180
+    }
+   },
+   "at": [
+    -303,
+    0,
+    412
+   ],
+   "yaw_deg": 180,
+   "local": {
+    "at": [
+     7,
+     0,
+     12
+    ],
+    "yaw_deg": 180
+   }
   }
  ]
 }

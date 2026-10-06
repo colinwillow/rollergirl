@@ -544,3 +544,78 @@ roughly 55 degrees down, and it shows the heights — but only once you know whe
   - a launch bank M sits where his grey wedge is, and a bank M beside the south fence;
   - a low berm is his crescent north of the bowl.
 
+
+## Round pieces (r91)
+
+His park photos kept showing two things the kit could not draw: the cone in the middle of a bowl or a plaza, and the round
+pillar or planter. Both have their **origin at the centre** (a round piece has no front edge).
+
+| kind | what | options (default) |
+|------|------|-------------------|
+| `volcano` | a round cone, both creases filleted so neither the toe nor the top is a step or a kicker | `h` (half the size's height), `angle` 24 deg, `top` radius 2, `fillet` 1.2 (shrunk if the slope is too short for two), `crater` (m, a dip in the top), `dome: 1` (a smooth hump, no flat), `R` (dome radius), `rail: 1` (a ring of steel round the top edge) |
+| `drum` | a round solid: the side a wall, the top a floor, a coping ring on the top edge | `R` 2.5, `h` (the size's), `rail: 0` to leave the ring off, `planter: 1` (grass and a tree) |
+
+The gallery row is at z 182, x -445 to -225 (➤ "kit round pieces"): volcano M, volcano L with a crater and a rim rail,
+a dome hump, a 0.45 m planter, a 0.9 m drum with a coping ring, a 3.6 m pillar.
+
+## Combos (r91): small groupings, tested, exported as groups
+
+A **combo** is a list of kit pieces in its own frame, and that frame is a piece's frame one level up:
+- origin on the ground at the middle of its **entry edge**;
+- +u (glTF +Z) into it, +w (glTF +X) across it, y up.
+
+So a combo is placed like a piece (one transform). Its pieces are the same `fn_` nodes, and the library writes each combo
+as a **group node** (`combo_<key>`) with its pieces under it, relative to it. Move or turn the group in Blender and every
+piece goes with it. `levelIngest` reads the pieces through their world matrix, so the nesting costs nothing on the way back.
+
+The combos are built from `COMBO_DEFS` in `index.html` and laid out in a 4 x 4 grid in the kit world's north-west corner
+(columns x -430 / -370 / -310 / -250, rows z 205 / 270 / 335 / 400, every one entered from -z). Each has a label and a ➤
+stop (`combo <key>`), and the round pieces and the combos are the first stops on the ➤ key.
+
+| key | what | photos |
+|-----|------|--------|
+| `mini_spine` | stairs up to a deck, a mini ramp M split by a 1.2 m hump, a deck and stairs down | 1, 3, 6 |
+| `spine_wave` | three big rollers (2 m x 12 m) between two QP M walls | 4 |
+| `spine_transfer` | QP M, a vert spine M, QP M | 4, 6 |
+| `vert_rollin` | a roll-in XL across 12 m of flat to a QP XL with a deck | 4, 7 |
+| `donut` | a closed racetrack bowl M round an island M | 3 |
+| `volcano_bowl` | a round bowl M (r 9) with a volcano in the middle | 1, 5, 6 |
+| `drum_bowl` | a round bowl L (r 8) with a 1.2 m drum and its coping ring | 2, 5 |
+| `aframe` | a narrow ridge box, banks on all four sides, a ridge bar and down rails | 6 |
+| `stair_sets` | stairs + handrails beside a bank up to a shared deck, a hubba set down, a 0.6 m ledge | 1, 3, 6 |
+| `funbox_gaps` | a funbox M with rails between two gap jumps S | 1, 3 |
+| `wave_wall` | a 40 m QP whose coping rises and falls 1.2 / 2.4 m | 6 |
+| `euro_gap` | bank up to a deck, a 4 m gap, a landing bank whose back is the gap's wall | 3, 6 |
+| `thread_needle` | a 360 loop with a rail M straight through its middle | (his list) |
+| `corkscrew` | bank L to a deck L, a helix rail two turns down, into a Y | (his list) |
+| `pump_track` | rollers and two 180 berms in a closed loop | (his list) |
+
+**`npm run sim combos`** rides every one through the shipped step:
+- hands off wherever the thing can be ridden hands off (drop-ins, rollovers, the waves, the gaps, the stairs);
+- with the one input it is about where it cannot (a swipe up for the spine transfer, an ollie at the euro gap's lip, a
+  tap for each grind, the stick for a lap of the racetrack and the pump track).
+
+It also checks that every combo fits its cell, overlaps nothing, and that every ➤ stop stands her on a floor. Then it
+writes `handoff/rollergirl_combo_tests.json`, runs `npm run export:lib`, and re-imports the library's combos **turned 180
+and moved**: same pieces, same options, every raised floor (11,118 points) and every rail end back in place.
+
+**What building them found:**
+- **A spine's ridge is a crease, and a crease is a launch.** Over a 55 deg spine in a mini ramp she flew, landed on the far
+  toe and got 0.8 m up the next wall. Over three 60 deg spines she went 3.3 m up off the first one and never reached the
+  second. A cosine crest keeps her on it while v^2/R is under g, so the mini ramp has a hump and the wave is rollers.
+  A spine with a rounded ridge would be the real piece (wishlist).
+- **The shipped swipe down takes the nearest thing, and a ledge's edge at her feet beats a rail over her head.** From the
+  spots the tests use, the swipe takes a lip instead of the A-frame's rails, a handrail, the hubba steel, the funbox bar
+  and the helix start. A tap (the old catch) reaches every one of them. The sim prints both; see `docs/WISHLIST.md`.
+
+### What the library JSON says about each combo
+
+`handoff/rollergirl_kit_library.json` has a `combos` list. Each entry:
+- `combo`, `name`, `what`, `from_photos`;
+- `footprint`: `u` and `w` extents in the combo's frame, `size_m` as [across, along];
+- `entries` and `exits`: `at` [x, y, z] in the combo frame (glTF axes: x = across, z = into it), `heading_deg` about +Y
+  from +Z, and `what` (e.g. "drop in from the deck");
+- `heights`: every piece top (`levels`) and the highest point (`max`);
+- `rails`, `tested` (every row the sim measured: test, pass, numbers), `node`, `world_at`, `pieces` (the `fn_` node names).
+
+Every piece in `pieces` (the flat list) carries `combo` and a `local` transform relative to its group.

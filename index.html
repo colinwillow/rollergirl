@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r90</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r91</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r90';
+const BUILD = 'r91';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -2304,6 +2304,53 @@ Object.assign(KIT_KINDS, {
     for (const [u, w, th] of o.trees || []) kTree(T, u, w, o.h || 0.45, th || 5);
     return { ...r, h: (o.h || 0.45) };
   },
+  // ---- r91: THE ROUND PIECES his park photos kept showing and the kit did not have ----------------------------------
+  // VOLCANO: a round cone standing on the ground, ORIGIN AT ITS CENTRE (a round piece has no front), `angle` (24) on its
+  // flanks, a flat top of radius `top` (2) at H (half the size's height unless `h`), and both creases FILLETED (`fillet` 1.2 m) -- a sharp toe is a step and
+  // a sharp top is a kicker. `crater` (m) dips the top like a volcano's mouth, `dome: 1` is a smooth hump with no flat at
+  // all (cos^2 from the rim to the crown), and `rail: 1` rings the top edge in steel. The whole surface is a FLOOR: she
+  // rolls up any side, over the top and down the far one -- the bowl-centre cone and the plaza hump in his photos.
+  volcano(T, S, o) {
+    const H = o.h || S.H * 0.5, rt = o.top != null ? o.top : 2, s = Math.tan((o.angle || 24) * D2R);
+    const fl = Math.min(o.fillet != null ? o.fillet : 1.2, H / s / 2.2, rt);        // two fillets that overlap are a bump
+    const r0 = rt + H / s, Rb = o.dome ? (o.R || r0 + 1.5) : r0 + fl, cr = o.crater || 0, rc = rt * 0.8;
+    const yAt = r => {
+      if (o.dome) { const t = Math.min(1, r / Rb); return H * Math.pow(Math.cos(t * Math.PI / 2), 2); }
+      if (r >= Rb) return 0;
+      if (r >= r0 - fl) return s * Math.pow(r - Rb, 2) / (4 * fl);                       // the toe fillet, tangent to the ground
+      if (r <= rt + fl && r >= rt - fl) return H - s * Math.pow(r - (rt - fl), 2) / (4 * fl);   // the top fillet
+      if (r < rt - fl) return H - (cr && r < rc ? cr * (1 + Math.cos(Math.PI * r / rc)) / 2 : 0);
+      return H - s * (r - rt);
+    };
+    const prof = [], n = Math.max(o.dome ? 22 : 18, Math.ceil(Rb / 0.3));
+    for (let i = 0; i <= n; i++) { const r = Rb * i / n; prof.push({ u: r, y: yAt(r), c: i === Math.round(n * rt / Rb) && !o.dome ? KCOL.cope : S.tint }); }
+    // the flat top's own sample sits where the fillet starts, so the crease is drawn where it is
+    kRev(T, 0, 0, prof, 0, Math.PI * 2, o.dome ? 28 : 24);
+    let rails;
+    if (o.rail && !o.dome) { const pts = [], m = Math.max(12, Math.round(2 * Math.PI * rt / 0.6)), rr = rt + 0.05;
+      for (let i = 0; i < m; i++) { const a = 2 * Math.PI * i / m; pts.push([rr * Math.cos(a), yAt(rr) + 0.05, rr * Math.sin(a)]); }
+      pts.push(pts[0]); rails = [kRail(T, pts, { name: 'volcano rim', closed: 1, posts: false })]; }
+    return { len: 2 * Rb, wid: 2 * Rb, h: H, R: Rb, rails, round: 1 };
+  },
+  // DRUM: a round pillar or planter -- a solid cylinder of radius `R` (2.5) and height `h` (the size's; 0.45 for a
+  // planter), ORIGIN AT ITS CENTRE. The side is a wall (a ring of boxes, `cylSolid`'s rule), the top a floor, and the top
+  // edge carries a COPING RING you grind round (`rail: 0` to leave it off). `planter: 1` grasses the top and plants a tree:
+  // the round bed at the middle of his colourful plaza; a tall one is the pillar standing in the middle of a bowl.
+  drum(T, S, o) {
+    const R = o.R || 2.5, h = o.h || S.H, n = Math.max(12, Math.round(2 * Math.PI * R / 0.9)), top = o.planter ? 0x8fc98a : KCOL.deck;
+    const at = (r, y, a) => kP(T, r * Math.cos(a), y, r * Math.sin(a)), fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
+    for (let k = 0; k < n; k++) { const a0 = 2 * Math.PI * k / n, a1 = 2 * Math.PI * (k + 1) / n, am = (a0 + a1) / 2;
+      const ou = Math.cos(am), ow = Math.sin(am), out = [fx * ou + fz * ow, fz * ou - fx * ow];
+      kWall(at(R, 0, a0), at(R, 0, a1), at(R, h, a1), at(R, h, a0), out, KCOL.side); }
+    kRev(T, 0, 0, [{ u: 0, y: h, c: top }, { u: R - 0.3, y: h, c: top }, { u: R, y: h, c: KCOL.cope }], 0, Math.PI * 2, n);
+    const C = kP(T, 0, 0, 0); cylSolid(C[0], C[2], R, T.y, T.y + h - 0.02, n, 'kit drum');
+    if (o.planter) kTree(T, 0, 0, h, o.tree || 5);
+    let rails;
+    if (o.rail !== 0 && o.rail !== false) { const pts = [], rr = R + RAILKIT.edge * 0.5;
+      for (let i = 0; i < n; i++) { const a = 2 * Math.PI * i / n; pts.push([rr * Math.cos(a), h + 0.02, rr * Math.sin(a)]); }
+      pts.push(pts[0]); rails = [kRail(T, pts, { name: 'drum coping', closed: 1, posts: false })]; }
+    return { len: 2 * R, wid: 2 * R, h, R, rails, round: 1 };
+  },
 });
 // ONE ENTRY POINT. A size name or an object; options as the kinds take them. The record is what the export writes out
 // and what an `fn_` marker in a GLB carries back in.
@@ -2434,8 +2481,153 @@ function kitGallery() {
   const C = kitChain({ x: -60, y: 0, z: -275, yaw: Math.PI / 2 });
   kitLabel('rail chain', 'pieces snapped end to end', -56, 5.6, -278); CITY.spots['kit rail chain'] = [-72, 0, -275, Math.PI / 2]; KITW.go.push('kit rail chain');
   KITW.chain = C;
+  kitRoundRow();
   CITY.spots['kit start'] = [0, 0, -40, 0]; KITW.go.unshift('kit start');
   SPAWN.set(0, 0.2, -40); SPAWN.h = 0;
+}
+
+// ===================================================================================================== r91: THE COMBOS
+// *"We're going all-in on the kit: a mega kit of tested pieces plus tested combos, exported as one library GLB for
+// Blender ... small groupings worth reusing, 20-40 m each -- mini ramp pair, stair set + rail + bank, vert wall with deck
+// and roll-in, funbox with kickers, spine between two QPs, corkscrew, thread-the-needle loop with a rail through it."*
+// A COMBO IS A LIST OF KIT PIECES IN ITS OWN FRAME, and that frame is a piece's: origin on the ground at the middle of
+// its ENTRY edge, +u into it, +w across. So a combo is placed the way a piece is (one transform), its pieces are the
+// same `fn_` nodes his file already rebuilds, and the library writes each one under its own group node.
+// `io` is where a rider gets in and out, LOCAL [u, w, heading (0 = +u, + toward +w), what]; `src` is which of his park
+// photos it came from (the seven he sent with the request, numbered in the order they arrived).
+// Laid out in the kit world's empty north-west corner: a row of the r91 round pieces at z 182, then a 4 x 4 grid of
+// cells, every combo entering from -z.
+const COMBOS = { cols: [-430, -370, -310, -250], rows: [205, 270, 335, 400], roundZ: 182, list: [], by: {} };
+const KIT_ROUND_ROW = [['volcano', 'M', {}, 'volcano M'], ['volcano', 'L', { crater: 0.5, rail: 1 }, 'volcano L, crater + rim rail'], ['volcano', 'M', { dome: 1, R: 6 }, 'dome hump M'],
+  ['drum', 'S', { R: 2.5, h: 0.45, planter: 1 }, 'round planter 0.45 m'], ['drum', 'M', { R: 3, h: 0.9 }, 'drum 0.9 m + coping ring'], ['drum', 'L', { R: 1.5, rail: 0 }, 'pillar L (3.6 m)']];
+const P2 = Math.PI / 2, PI1 = Math.PI;
+const COMBO_DEFS = [
+  { key: 'mini_spine', name: 'mini ramp + hump + decks', src: [1, 3, 6], what: 'stairs up to a deck, a mini ramp M split by a 1.2 m hump, a deck and stairs down the far side',
+    build(c) { const S = KSZ.M, L = S.lip + KITW.deck, run = S.H / Math.tan(32 * D2R), top = run + 3;
+      c.p('stairs', 'M', 0, 0, 0, { w: 8 }, 'stairs up');
+      c.p('qp', 'M', top + L, 0, PI1, { w: 8 }, 'mini wall A');
+      // A HUMP, NOT A SPINE: a spine's ridge is a crease, and over it she flies and lands on the far toe -- she dropped in at
+      // 8.5 m/s and got 0.8 m up the far wall. A cosine crest keeps her on it (`roller`), and she gets the wall.
+      const sp = c.p('roller', 'S', top + L + 5, 0, 0, { w: 8, h: 1.2, len: 7 }, 'centre hump 1.2 m');
+      const uB = top + L + 5 + sp.len + 5; c.p('qp', 'M', uB, 0, 0, { w: 8 }, 'mini wall B');
+      c.p('stairs', 'M', uB + L + run + 3, 0, PI1, { w: 8 }, 'stairs down');
+      c.at = { deckA: top + 0.75, flatA: top + L + 2.5, spine: top + L + 5 + sp.len / 2, flatB: uB - 2.5, deckB: uB + L - 0.75, end: uB + L + run + 3 };
+      return { in: [[-4, 0, 0, 'up the stairs']], out: [[c.at.end + 4, 0, 0, 'down the far stairs']] }; } },
+  // THE WAVE IS ROLLERS, NOT SPINES: three spines (60 degree faces, a sharp ridge) threw her 3.3 m up off the first one and
+  // the landing on its toe took a third of her speed -- she never reached the second. A smooth crest keeps her on it while
+  // v^2 / R is under g, and a 2 m x 12 m cosine crest has R = L^2 / (2 pi^2 h) = 3.6 m: 8.5 m/s, which is what she has up there.
+  { key: 'spine_wave', name: 'triple wave', src: [4], what: 'three big rollers (2 m high, 12 m long) between two QP M walls -- she flows over all three and back',
+    build(c) { const L = KSZ.M.lip + KITW.deck, F = 3; c.p('qp', 'M', L, 0, PI1, { w: 8 }, 'end wall A'); let u = L + F; c.ridges = [];
+      for (let i = 0; i < 3; i++) { const r = c.p('roller', 'M', u, 0, 0, { w: 8, h: 2, len: 12 }, 'wave ' + (i + 1)); c.ridges.push(u + r.len / 2); u += r.len + F; }
+      c.p('qp', 'M', u, 0, 0, { w: 8 }, 'end wall B'); c.at = { start: L + F / 2, end: u - F / 2 };
+      return { in: [[c.at.start, -6, P2, 'from the side, into the first flat']], out: [[c.at.end, 6, P2, 'out the side of the last flat']] }; } },
+  { key: 'spine_transfer', name: 'spine between two QPs', src: [4, 6], what: 'QP M, a vert spine M, QP M: hands off she stays on her side; a swipe up on the spine transfers',
+    build(c) { const L = KSZ.M.lip + KITW.deck, F = 6; c.p('qp', 'M', L, 0, PI1, { w: 8 }, 'wall A');
+      const sp = c.p('spine', 'M', L + F, 0, 0, { w: 8 }, 'vert spine M'); c.p('qp', 'M', L + F + sp.len + F, 0, 0, { w: 8 }, 'wall B');
+      c.at = { A: L + F / 2, ridge: L + F + sp.len / 2, B: L + F + sp.len + F / 2 };
+      return { in: [[c.at.A, -6, P2, 'side, into pit A']], out: [[c.at.B, 6, P2, 'side, out of pit B']] }; } },
+  { key: 'vert_rollin', name: 'roll-in XL to vert wall', src: [4, 7], what: 'a roll-in XL (climb its back bank, drop in off the deck) across 12 m of flat to a QP XL vert wall with a deck',
+    build(c) { const n = kRollinLen(KSZ.XL, { r: 5 });
+      // turned round: its back bank faces the entry and its face drops in toward +u
+      const ri = c.p('rollin', 'XL', n, 0, PI1, { r: 5, w: 6 }, 'roll-in XL');
+      c.p('qp', 'XL', n + 12, 0, 0, { w: 8 }, 'vert wall XL'); c.at = { deck: n - (ri.top + 1.5), toe: n, wall: n + 12 };
+      return { in: [[-3, 0, 0, 'up the roll-in\'s back bank'], [c.at.deck, 0, 0, 'drop in from the deck']], out: [[n + 6, 6, P2, 'out the side of the flat']] }; } },
+  { key: 'donut', name: 'racetrack bowl (round the island)', src: [3], what: 'a closed bowl M round an island M: carve the oval, wall on both sides, grind either coping',
+    build(c) { const el = (a, b, n, cu) => Array.from({ length: n }, (_, i) => { const t = 2 * Math.PI * i / n; return [+(cu + a * Math.cos(t)).toFixed(2), +(b * Math.sin(t)).toFixed(2)]; });
+      c.p('wall', 'M', 0, 0, 0, { closed: 1, face: 'in', pts: el(19, 13, 28, 21), deck: 2 }, 'outer wall');
+      const isl = el(7.5, 2.6, 16, 21); c.p('wall', 'M', 0, 0, 0, { closed: 1, face: 'out', pts: isl, deck: 0.4 }, 'island wall'); c.p('deck', 'M', 0, 0, 0, { pts: isl }, 'island top');
+      c.at = { lane: [21, -8.6], centre: 21 };
+      return { in: [[0.5, 0, 0, 'drop in over the south coping']], out: [[41.5, 0, PI1, 'out over the north coping']] }; } },
+  { key: 'volcano_bowl', name: 'bowl with a volcano', src: [1, 5, 6], what: 'a round bowl M with a volcano in the middle -- carve round it, or hit it as a hip',
+    build(c) { const R = 9 + KSZ.M.lip + KITW.deck; c.p('bowl', 'M', R, 0, 0, { rc: 9 }, 'bowl M (r 9)'); c.p('volcano', 'M', R, 0, 0, { top: 1.5 }, 'volcano M');
+      c.at = { c: R, R }; return { in: [[0.6, 0, 0, 'drop in over the coping']], out: [[2 * R - 0.6, 0, 0, 'out the far side']] }; } },
+  { key: 'drum_bowl', name: 'bowl with a centre drum', src: [2, 5], what: 'a round bowl L with a 1.2 m drum in the middle, coping ring all round it',
+    build(c) { const R = 8 + KSZ.L.lip + KITW.deck; c.p('bowl', 'L', R, 0, 0, { rc: 8 }, 'bowl L (r 8)'); c.p('drum', 'S', R, 0, 0, { R: 2.2, h: 1.2 }, 'drum 1.2 m');
+      c.at = { c: R, R }; return { in: [[0.6, 0, 0, 'drop in over the coping']], out: [[2 * R - 0.6, 0, 0, 'out the far side']] }; } },
+  { key: 'aframe', name: 'A-frame with a ridge rail', src: [6], what: 'a narrow ridge box M, banks on all four sides, a flat bar along the ridge and down rails over both ends',
+    build(c) { const Lb = KSZ.M.H / Math.tan(25 * D2R); c.p('frustum', 'M', Lb + 6, 0, 0, { len: 10, w: 0.8, banks: [1, 1, 1, 1], rails: 1 }, 'A-frame M');
+      c.at = { top: Lb + 6, end: Lb + 16 + Lb }; return { in: [[0, 0, 0, 'up the front bank']], out: [[c.at.end + 3, 0, 0, 'down the back bank']] }; } },
+  { key: 'stair_sets', name: 'stair sets + rails + bank + hubba', src: [1, 3, 6], what: 'stairs M with handrails beside a bank M up to a shared deck, a hubba set back down, a 0.6 m ledge on the street',
+    build(c) { const H = KSZ.M.H, run = H / Math.tan(32 * D2R), top = run + 3, Lb = H / Math.tan(25 * D2R);
+      c.p('stairs', 'M', 0, 0, 0, {}, 'stairs M + handrails'); c.p('bank', 'M', top - Lb, -6, 0, { w: 4 }, 'bank M');
+      c.p('platform', 'M', top, -2, 0, { w: 12, d: 4 }, 'top deck');
+      c.p('stairs', 'M', top + 4 + 3 + run, 0, PI1, { hubba: 1 }, 'stairs M + hubbas');
+      c.p('ledge', 'S', 1, 6, 0, { h: 0.6, len: 10 }, 'ledge 0.6');
+      c.at = { top, deck: top + 2, end: top + 7 + run };
+      return { in: [[-4, 0, 0, 'up the stairs'], [-4, -6, 0, 'up the bank']], out: [[c.at.end + 3, 0, 0, 'down the hubba set']] }; } },
+  { key: 'funbox_gaps', name: 'funbox + rails between two gap lines', src: [1, 3], what: 'a funbox M with a flat bar and down rails, flanked by two gap jumps S',
+    build(c) { const Lb = KSZ.M.H / Math.tan(25 * D2R); c.p('frustum', 'M', 4 + Lb, 0, 0, { len: 6, w: 5, banks: [1, 1, 0, 0], rails: 1 }, 'funbox M + rails');
+      c.p('gap', 'S', 2, -8.5, 0, { gap: 4 }, 'gap S (west)'); c.p('gap', 'S', 2, 8.5, 0, { gap: 4 }, 'gap S (east)');
+      c.at = { box: 4 + Lb, end: 4 + Lb * 2 + 6 }; return { in: [[0, 0, 0, 'at the funbox'], [-2, -8.5, 0, 'at a gap']], out: [[c.at.end + 3, 0, 0, 'off the back']] }; } },
+  { key: 'wave_wall', name: 'wave wall', src: [6], what: 'a 40 m QP whose coping rises and falls 1.2 <-> 2.4 m, carved along its length',
+    build(c) { const pts = [], Hs = []; for (let i = 0; i <= 8; i++) { pts.push([12, -20 + 5 * i]); Hs.push(i % 2 ? 2.4 : 1.2); }
+      c.p('wall', 'M', 0, 0, 0, { pts, H: Hs, face: [0, 0], smooth: 1, deck: 2 }, 'wave wall'); c.at = { u: 12 };
+      return { in: [[0, -18, 0, 'along the wall']], out: [[0, 18, 0, 'off the far end']] }; } },
+  { key: 'euro_gap', name: 'euro gap', src: [3, 6], what: 'a bank up to a deck M, a 4 m gap, and a bank down whose back is the gap\'s wall -- ollie it or fall in',
+    build(c) { const Lb = KSZ.M.H / Math.tan(25 * D2R); c.p('bank', 'M', 0, 0, 0, { w: 5 }, 'bank up'); c.p('platform', 'M', Lb, 0, 0, { w: 5, d: 6 }, 'deck');
+      c.p('bank', 'M', Lb + 6 + 4 + Lb, 0, PI1, { w: 5 }, 'landing bank'); c.at = { lip: Lb + 6, land: Lb + 10, end: 2 * Lb + 10 };
+      return { in: [[-4, 0, 0, 'up the bank']], out: [[c.at.end + 3, 0, 0, 'down the landing']] }; } },
+  { key: 'thread_needle', name: 'thread the needle', src: [], what: 'a 360 loop with a rail M crossing straight through its middle -- loop it, or grind the rail through it',
+    build(c) { c.p('loop360', 'M', 4, -3, 0, {}, 'loop 360 M'); const lp = c.recs[c.recs.length - 1];
+      const R = KSZ.M.H * 1.25, hr = +(1 + R * 0.67).toFixed(2); c.p('rail', 'M', 12, -14, P2, { len: 24, h: hr }, 'rail through the loop');
+      c.at = { loopIn: 4, centre: 12, railY: hr, R }; void lp;
+      return { in: [[0, -3, 0, 'onto the loop\'s lead-in'], [12, -16, P2, 'at the rail']], out: [[24, -1.4, 0, 'off the loop'], [12, 12, P2, 'off the rail']] }; } },
+  { key: 'corkscrew', name: 'corkscrew to a Y', src: [], what: 'a bank L to a deck L, a helix rail spiralling two turns down off its edge, into a Y you steer',
+    build(c) { const H = KSZ.L.H, Lb = H / Math.tan(25 * D2R); c.p('bank', 'L', 0, -3, 0, { w: 5 }, 'bank L'); c.p('platform', 'L', Lb, -3, 0, { w: 6, d: 6 }, 'deck L');
+      const u0 = Lb + 6, h0 = H + 0.5; const hx = c.p('helix', 'L', u0, 0, 0, { h: h0, turns: 2, r: 4 }, 'helix L, two turns');
+      c.p('railY', 'S', u0, 0, 0, { h: hx.out.y, len: 12, at: 4 }, 'Y');
+      c.at = { deck: Lb + 3, start: u0, h0, h1: hx.out.y }; return { in: [[-4, -3, 0, 'up the bank']], out: [[u0 + 13, 0, 0, 'off the Y, straight'], [u0 + 12, 8, 0.7, 'off the Y, the branch']] }; } },
+  { key: 'pump_track', name: 'pump track', src: [], what: 'rollers and two 180 berms in a closed loop -- lean into the berm and it turns her round',
+    build(c) { const r = 7, run = (T0, dir) => c.run(T0, [['roller', 'S', {}], ['roller', 'S', {}], ['berm', 'M', { deg: 180, r }], ['roller', 'S', {}], ['roller', 'S', {}], ['berm', 'M', { deg: 180, r }]]);
+      run(c.f(12, -r, 0)); c.at = { r }; return { in: [[9, -r, 0, 'onto the first roller']], out: [[9, -r, PI1, 'off where it began']] }; } },
+];
+// how long a roll-in is, without building one (`rollin`'s own arithmetic)
+function kRollinLen(S, o) { const ang = (o.angle || 42) * D2R, rb = o.r || 4, R = o.lipR != null ? o.lipR : 5, eu = rb * Math.sin(ang), ey = rb * (1 - Math.cos(ang));
+  const run = Math.max(0, (S.H - R * (1 - Math.cos(ang)) - ey) / Math.tan(ang)), ud = eu + run + (R > 0 ? R * Math.sin(ang) : 0);
+  return ud + (o.deck || 3) + S.H / Math.tan((o.back || 20) * D2R); }
+// a combo's local frame -> world, the piece's own convention
+function comboBuild(def, T) {
+  const c = { T, recs: [], def };
+  c.f = (u, w, dy) => kT(T, u, w, dy);
+  c.p = (kind, size, u, w, dy, o, label, y) => { if (!kind) return null;
+    const t = kT(T, u, w, dy || 0); if (y) t.y = T.y + y;
+    const r = kitPiece(kind, size, t, o || {}); if (!r) return null;
+    r.combo = def.key; r.label = 'combo ' + def.key + ': ' + (label || kind + ' ' + size); c.recs.push(r); return r; };
+  // a snapped run inside a combo (`kitRun`'s rule, with the combo's tags): each piece at the last one's `out`
+  c.run = (T0, steps) => { let t = T0; for (const [kind, size, o] of steps) { const q = kitPiece(kind, size, t, o || {}); if (!q) break;
+      q.combo = def.key; q.label = 'combo ' + def.key + ': ' + kind + ' ' + size; c.recs.push(q);
+      if (!q.out) break; t = { ...kT(t, q.out.u, q.out.w, q.out.dyaw), y: t.y }; } };
+  const io = def.build(c) || {};
+  // what it occupies, in its own frame: every piece's drawn box, corners carried back into (u, w)
+  const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), fp = [1e9, -1e9, 1e9, -1e9]; let ymax = 0;
+  const add = (x, y, z) => { const dx = x - T.x, dz = z - T.z, u = dx * fx + dz * fz, w = dx * fz - dz * fx; ymax = Math.max(ymax, y - T.y);
+    fp[0] = Math.min(fp[0], u); fp[1] = Math.max(fp[1], u); fp[2] = Math.min(fp[2], w); fp[3] = Math.max(fp[3], w); };
+  for (const r of c.recs) { if (r.bb) for (const x of [r.bb[0], r.bb[3]]) for (const z of [r.bb[2], r.bb[5]]) add(x, r.bb[4], z);
+    // a rail or a loop has no drawn box of its own: its points are what it occupies
+    for (const R of r.rails || (r.rail ? [r.rail] : [])) for (const sg of R.segs) { add(sg.a.x, sg.a.y, sg.a.z); add(sg.b.x, sg.b.y, sg.b.z); } }
+  const hs = [...new Set(c.recs.map(r => +(+r.h || 0).toFixed(2)).filter(h => h > 0))].sort((a, b) => a - b);
+  const C = { key: def.key, name: def.name, what: def.what, src: def.src, T: { ...T }, recs: c.recs, at: c.at || {}, ridges: c.ridges,
+    in: io.in || [], out: io.out || [], fp: fp.map(v => +v.toFixed(2)), heights: { levels: hs, max: +ymax.toFixed(2) }, rails: c.recs.reduce((n, r) => n + ((r.rails && r.rails.length) || (r.rail ? 1 : 0)), 0) };
+  COMBOS.list.push(C); COMBOS.by[def.key] = C;
+  return C;
+}
+// the r91 round pieces, centre-origin, along a row -- called from `kitGallery`, so they are gallery pieces in every
+// list the export and its round trip keep in order
+function kitRoundRow() {
+  KIT_ROUND_ROW.forEach(([kind, size, o, label], i) => { const x = -445 + 44 * i, rec = kitPiece(kind, size, { x, y: 0, z: COMBOS.roundZ, yaw: 0 }, o);
+    if (!rec) return; rec.label = label; kitLabel(label, size + ' · ' + (rec.h).toFixed(2) + ' m tall · r ' + rec.R.toFixed(1), x, rec.h + 3.2, COMBOS.roundZ - rec.R - 1); });
+  CITY.spots['kit round pieces'] = [-460, 0, COMBOS.roundZ - 10, P2]; KITW.go.push('kit round pieces');
+}
+function kitCombos() {
+  COMBO_DEFS.forEach((def, i) => {
+    const T = { x: COMBOS.cols[i % 4], y: 0, z: COMBOS.rows[Math.floor(i / 4)], yaw: 0 }, C = comboBuild(def, T);
+    kitLabel(def.name, 'combo · ' + (C.fp[1] - C.fp[0]).toFixed(0) + ' x ' + (C.fp[3] - C.fp[2]).toFixed(0) + ' m · ' + C.heights.levels.map(h => h.toFixed(1)).join(' / ') + ' m', T.x, 5.5, T.z - 4);
+    const e = C.in[0] || [0, 0, 0], E = kT(T, e[0], e[1], 0), name = 'combo ' + def.key;
+    CITY.spots[name] = [E.x - Math.sin(T.yaw + e[2]) * 6, 0, E.z - Math.cos(T.yaw + e[2]) * 6, T.yaw + e[2]]; KITW.go.push(name);
+  });
+  // the newest thing in the world goes first on the ➤ key: the round pieces, then every combo in order
+  const mine = ['kit round pieces', ...COMBO_DEFS.map(d => 'combo ' + d.key)];
+  KITW.go = mine.concat(KITW.go.filter(n => !mine.includes(n)));
 }
 
 // ===================================================================================================== r70: THE MEGA PARK
@@ -2784,7 +2976,7 @@ function kitRailsDraw(into) {      // r90: `into` collects them to be merged by 
 function kitWorld() {
   CITY.on = 0;
   kitFloor(); const nF = MESH.pos.length;
-  kitGallery(); kitPark(); kitSheet(); KITW.nGallery = KITW.pieces.length;
+  kitGallery(); kitPark(); kitSheet(); kitCombos(); KITW.nGallery = KITW.pieces.length;
   triBuild(); solidBuild();
   kitRailsDraw(); railLink();
   ORB.built = 1; splashMake(m => scene.add(m));
@@ -11225,7 +11417,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  PARKD, parkDistrict, parkApron, triMasked, get GO() { return GO; },
+  PARKD, parkDistrict, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

@@ -74,7 +74,8 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
 - `handoff/` — **the level-building brief for his Blender session (r83)**: `LEVEL_BUILDING.md`, `rollergirl_blender.py`,
-  and `rollergirl_kit_library.glb/.json` (regenerate with `npm run export:lib`; it IS committed, unlike `exports/`).
+  and `rollergirl_kit_library.glb/.json` (regenerate with `npm run export:lib`; it IS committed, unlike `exports/`). Since r91
+  the library carries the combos as `combo_<key>` groups, and `rollergirl_combo_tests.json` is what `npm run sim combos` measured.
 - `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`, `export.mjs` (`npm run export`, the world as GLB for Blender; `npm run export:kit`, the ramp kit -- see `docs/RAMP_KIT.md`).
 - `icons/` — `npm run icons [art.png]` (`tools/icons.mjs`, City's tool, needs the `sharp` dev dependency)
   turns one square artwork (`icons/source.png`, his alien-on-skates art since r31) into the 180/167/152
@@ -92,6 +93,31 @@ way round. Measuring components made a six-frame stride and a static clip look i
 honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
+
+- **COMBOS: TESTED GROUPINGS OF KIT PIECES, EXPORTED AS GROUP NODES (r91, `COMBO_DEFS`, `comboBuild`, `kitCombos`, `volcano`,
+  `drum`, `npm run sim combos`, `docs/WISHLIST.md`).** *"A mega kit of tested pieces plus tested combos, exported as one library
+  GLB for Blender ... each combo under its own group node ... a JSON listing each combo's footprint, entry/exit points and
+  heights."* The park photos he sent were read as shopping lists (not recreated): two new round kinds (`volcano`, `drum`,
+  origin at the centre) and 15 combos in the kit world's north-west corner (a 4 x 4 grid at x -430..-250, z 205..400, every
+  one entered from -z, labelled, first on the ➤ key after the round-piece row at z 182).
+  - **A COMBO'S FRAME IS A PIECE'S FRAME ONE LEVEL UP**: origin at the middle of its entry edge, +u into it. `c.p(kind, size,
+    u, w, dyaw, o, label)` places in it; `c.run` snaps a list at `out` like `kitRun`. Footprint, heights and rail count are
+    measured off what was built (drawn boxes AND rail points -- a loop and a rail have no box).
+  - **The export writes `combo_<key>` groups with `fn_` children RELATIVE to them** (`writePiece`'s `G`), so moving the group
+    in Blender moves the combo, and `levelIngest` already reads world matrices. The JSON's `combos` carry footprint,
+    entries/exits (glTF frame), heights and every row `sim combos` measured (`handoff/rollergirl_combo_tests.json`, which that
+    case writes and `export:lib` embeds).
+  - **The round pieces are built from `kitGallery` (`kitRoundRow`), not from `kitCombos`**, and the combos go to the export
+    LAST: `kit`'s round trip pairs gallery and copy BY INDEX, and the copy comes back in node order (`ramp_kit`,
+    `example_park`, `combos`). A piece built after the park but written before it shifted every rail pair: "132 off, worst 687 m".
+  - **A SPINE'S RIDGE IS A CREASE, AND A CREASE IS A LAUNCH.** Three 60 deg spines threw her 3.3 m up and she never reached
+    the second; a 55 deg mini-ramp spine left her 0.8 m up the far wall. The wave and the mini ramp use `roller`s (a cosine
+    crest keeps her on while v^2/R < g). A rounded-ridge spine is on the wishlist.
+  - **The rides run with `GRIND.intent` ON** (the shipped default): with it off she auto-caught the A-frame's ridge bar on a
+    hands-off ride and the test passed on a grind nobody asked for. Grinds are judged by the established TAP (intent off,
+    `ledgeClear()` first -- ledge paths from the swipe run persist and the old catch grabs them).
+  - **AND THE SHIPPED SWIPE DOWN IS REPORTED, NOT JUDGED -- a ledge's edge at her feet beats a rail over her head** (A-frame,
+    handrails, hubbas, funbox bar, helix start; `grindTarget` counts height at half). Found, not fixed: a gameplay call.
 
 - **THE MEGA PARK IS THE MAIN WORLD'S NORTH DISTRICT, WHERE THE CITY STOOD (r90, `PARKD`, `parkDistrict`, `parkApron`,
   `TRI.mask`, `kitSheet`'s `X`, `parkDress`, `npm run sim parkd`).** *"The way you built the skatepark is perfect and this

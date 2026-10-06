@@ -42,7 +42,7 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 (0, eval)(stubs);
 // r64: WHICH WORLD. Every case but `zones` measures the built-in park, and his zones stand on the same ground, so
 // the page is booted in the world the case is about (`rg.world` is what the game reads at load).
-globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : '0');
+globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : '0');
 // r90: the main world's north district is the skate park now; the City it replaced is one switch away, and `city` boots with it
 if (process.argv[2] === 'city') globalThis.localStorage.setItem('rg.city', '1');
 
@@ -4106,6 +4106,210 @@ CASES.intent = () => {
   return ok;
 };
 
+// r91: THE COMBOS AND THE ROUND PIECES, each ridden through the shipped step -- hands off wherever the thing can be ridden
+// hands off, and with the one input it is about (a swipe for a transfer, a tap for a grind or an ollie) where it cannot
+CASES.combos = async () => {
+  let ok = true;
+  let cur = 'all'; const tested = {};
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(60)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false;
+    (tested[cur] = tested[cur] || []).push({ test: label.replace(/^[^:]*: /, ''), pass: !!good, measured: msg.trim() }); };
+  if (rg.WORLD.zones !== 2) { console.log('  booted in another world -- run `npm run sim combos`'); return false; }
+  const K = rg.KITW, C = rg.COMBOS, g = rg.SK.g, KSZ = rg.KSZ, city = () => rg.stepCity(DT), PI = Math.PI, P2 = Math.PI / 2;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.kicked = 0; P.drift = 0; rg.ORB.safe = null; P.kickRail = null; P.grindWant = 0; P.jump = 0; };
+  const L = (T, u, w) => rg.kT(T, u, w, 0);
+  let trT = null;
+  const go = (T, u, w, phi, v, y) => { trT = T; reset(); const t = L(T, u, w); place(t.x, y != null ? y + 0.2 : 0.2, t.z, T.yaw + phi, v); if (y != null) { const q = rg.groundAt(t.x, t.z, y + 0.5, 1); if (q.hit) P.pos.y = q.floor; } };
+  const loc = T => { const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), dx = P.pos.x - T.x, dz = P.pos.z - T.z; return { u: dx * fx + dz * fz, w: dx * fz - dz * fx }; };
+  const steer = h => { rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  // run, recording what happened -- and how deep she ever got inside a surface (a surface within 2 m over her feet)
+  const tr = [];
+  const ride = (sec, drive) => { const r = { top: -99, airMax: 0, falls: rg.ORB.falls || 0, bail: 0, deep: 0, grind: new Set(), minUp: 1 }; let a = 0; const up = new THREE.Vector3();
+    run(sec, (t, i) => { if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city(); r.top = Math.max(r.top, P.pos.y);
+      if (!P.grounded && !P.grind) { a += DT; r.airMax = Math.max(r.airMax, a); } else a = 0; if (P.bailT > 0) r.bail = 1;
+      if (P.grind) { r.grind.add(P.grind.rail.path); r.minUp = Math.min(r.minUp, up.set(0, 1, 0).applyQuaternion(P.bq).y); }
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit && !P.grind) r.deep = Math.max(r.deep, q.floor - P.pos.y);
+      if (process.env.CTRACE && trT && i % 6 === 0) { const l = loc(trT); tr.push(`u${fix(l.u, 1)} w${fix(l.w, 1)} y${fix(P.pos.y)} v${fix(P.speed || 0, 1)}${P.grounded ? 'g' : P.grind ? 'R' : 'a'}${P.vertLock ? 'L' : ''}`); } });
+    if (process.env.CTRACE) { console.log('    ' + tr.join(' | ')); tr.length = 0; }
+    r.falls = (rg.ORB.falls || 0) - r.falls; r.clean = !r.bail && !r.falls && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const pathsOf = recs => new Set(recs.flatMap(r => r.rails || (r.rail ? [r.rail] : [])));
+  // THE WAY A PLAYER GETS ON (r71): a tap beside it -- with the shipped `GRIND.intent` on, so nothing is caught on
+  // its own and every hands-off ride above it is honest (with it off she auto-caught the A-frame's ridge bar and rode it)
+  // Pass/fail is the harness's established TAP (`railHome`, `GRIND.intent` 0 -- `kit`'s R2/R3 rule), because what is under
+  // test is whether the rail is REACHABLE where it was put. The shipped swipe (intent on) is run from the same spot and
+  // REPORTED: it takes the nearest thing, and a ledge's edge at her feet can outrank a rail over her head (see the wishlist).
+  const swipes = [];
+  const tapGrind = (T, recs, u, w, phi, v, sec, y) => { const want = pathsOf(recs), nm = ps => [...ps].map(p => (p.name || '?').replace(/^kit /, '')).join('+');
+    go(T, u, w, phi, v, y); rg.girl.ready = false; const what = rg.rightFlick(0, 60); const s0 = ride(sec || 2.5);
+    const sw = [...s0.grind].some(p => want.has(p)) ? 'the rail' : s0.grind.size ? nm(s0.grind) : String(what || 'nothing');
+    rg.GRIND.intent = 0; rg.ledgeClear(); go(T, u, w, phi, v, y); P.jump = 1; const r = ride(sec || 2.5); rg.GRIND.intent = 1;
+    r.on = [...r.grind].some(p => want.has(p)); r.got = r.grind.size ? nm(r.grind) : 'no grind'; swipes.push(`${recs[0].label.replace(/^combo /, '')}: swipe -> ${sw}`); return r; };
+  rg.GRIND.intent = 1;
+  // 0. THEY ARE THERE, IN THEIR CELLS, AND ON NOTHING ELSE
+  const D = rg.COMBO_DEFS;
+  say(`${C.list.length} combos built (${D.length} defined), every one with pieces`, C.list.length === D.length && C.list.every(c => c.recs.length), C.list.map(c => c.key + ':' + c.recs.length).join(' '));
+  { const bad = []; for (const c of C.list) { const f = c.fp; if (f[0] < -1.5 || f[1] - f[0] > 64 || f[2] < -29 || f[3] > 29) bad.push(`${c.key} [${f.join(', ')}]`); }
+    say('every combo inside its 60 x 64 m cell, entered from u 0', !bad.length, bad.join('; ') || C.list.map(c => `${c.key} ${fix(c.fp[1] - c.fp[0], 0)}x${fix(c.fp[3] - c.fp[2], 0)}`).join(' ')); }
+  { const ours = K.pieces.filter(p => p.combo || rg.KIT_ROUND_ROW.some(r => r[3] === p.label)), others = K.pieces.filter(p => !ours.includes(p)), bad = [];
+    for (const a of ours) for (const b of others) { if (!a.bb || !b.bb) continue; const o = [0, 1, 2].map(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k])); if (o.every(v => v > 0.05)) bad.push(`${a.label} x ${b.label}`); }
+    say('nothing of theirs overlaps the rest of the kit world', !bad.length, bad.slice(0, 4).join('; ') || `${ours.length} pieces clear of ${others.length}`); }
+  say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
+  { const mine = K.go.filter(n => /^combo |^kit round/.test(n)), bad = [];
+    for (const n of mine) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; });
+      if (gr < 30 || Math.abs(P.pos.y - y0) > 0.1) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every combo ➤ stop stands her on a floor, and they come first', !bad.length && K.go[0] === 'kit round pieces' && mine.length === C.list.length + 1, bad.join('; ') || `${mine.length} stops, first on the key`); }
+  // 1. THE ROUND PIECES
+  cur = 'round';
+  const RP = rg.KIT_ROUND_ROW.map(r => K.pieces.find(p => p.label === r[3]));
+  const RT = pc => ({ x: pc.T.x, y: 0, z: pc.T.z, yaw: 0 });
+  for (const i of [0, 1, 2]) { const pc = RP[i], T = RT(pc), v = Math.sqrt(2 * g * pc.h) + 4; go(T, -pc.R - 6, 0.3, 0, v); const r = ride(3.5);
+    say(`${pc.label}: rolled straight over it`, r.top > pc.h * 0.85 && loc(T).u > pc.R && r.clean, `${fix(v, 1)} m/s in, up to ${fix(r.top)} (h ${fix(pc.h)}), ends u ${fix(loc(T).u, 1)}${cl(r)}`); }
+  { const pc = RP[1], T = RT(pc); const r = tapGrind(T, [pc], -(pc.o.top || 2) - 3, 0.6, 0, 6);
+    say(`${pc.label}: a tap beside the rim grinds it`, r.on && r.clean, r.on ? 'grinding the rim' : `${r.got || ''} ends y ${fix(P.pos.y)}${cl(r)}`); }
+  for (const i of [3, 4, 5]) { const pc = RP[i], T = RT(pc); go(T, -pc.R - 6, 0, 0, 8); const r = ride(2);
+    const d = Math.hypot(loc(T).u, loc(T).w);
+    say(`${pc.label}: a wall from the side`, d > pc.R - 0.05 || P.pos.y > pc.h - 0.05, `ends ${fix(d, 2)} m from its middle (R ${pc.R}) at y ${fix(P.pos.y)}${cl(r)}`); }
+  { const pc = RP[4], T = RT(pc); const r = tapGrind(T, [pc], -pc.R - 1.6, 0.8, 0, 5);
+    say(`${pc.label}: a tap beside it grinds the ring`, r.on && r.clean, r.on ? 'on the coping ring' : `${r.got || ''} ends y ${fix(P.pos.y)}${cl(r)}`); }
+  // 2. THE COMBOS
+  const by = C.by, T_ = k => (cur = k, by[k].T), at = k => by[k].at;
+  // MINI RAMP + SPINE: drop in off deck A with no input -- over the spine, up B, and it stays in the mini; then the stairs
+  { const T = T_('mini_spine'), A = at('mini_spine'); go(T, A.deckA, 0, 0, 3, KSZ.M.H); let over = 0, up = 0;
+    const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; const l = loc(T); if (l.u > A.spine + 1) over = 1; if (l.u > A.flatB && P.pos.y > 1.2) up = 1; });
+    const l = loc(T); say('mini ramp: dropped in hands-off, over the hump and up B', over && up && l.u > A.deckA - 1 && l.u < A.deckB + 1 && r.clean, `${over ? 'over the hump' : 'NEVER OVER'}, ${up ? 'up B' : 'never up B'}, ends u ${fix(l.u, 1)}${cl(r)}`);
+    go(T, -6, 0, 0, Math.sqrt(2 * g * KSZ.M.H) + 2); let on = 0; const r2 = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && Math.abs(P.pos.y - KSZ.M.H) < 0.06) on = 1; });
+    say('mini ramp: up the stairs onto deck A', on && r2.clean, on ? 'on the deck' : `${r2.got || ''} ends y ${fix(P.pos.y)}${cl(r2)}`); }
+  // SPINE WAVE: rolls over all three hands-off
+  { const T = T_('spine_wave'), A = at('spine_wave'), rid = by.spine_wave.ridges; go(T, A.start, 0, 0, Math.sqrt(2 * g * KSZ.M.H) + 2.5); let n = 0;
+    const r = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; while (n < 3 && loc(T).u > rid[n] + 0.5) n++; });
+    say('spine wave: over all three spines, hands-off', n === 3 && r.clean, `crossed ${n} of 3, ends u ${fix(loc(T).u, 1)}${cl(r)}`); }
+  // SPINE TRANSFER: hands-off she comes back; a swipe up the spine's face takes her over
+  { const T = T_('spine_transfer'), A = at('spine_transfer'), v = Math.sqrt(2 * g * KSZ.M.H) + 1.5;
+    go(T, A.A - 1, 0, 0, v); let max = -9; const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; max = Math.max(max, loc(T).u); });
+    say('spine transfer: hands-off, straight up and back', max < A.ridge && r.clean, `furthest u ${fix(max, 1)} (ridge ${fix(A.ridge, 1)})${cl(r)}`);
+    go(T, A.A - 1, 0, 0, v); let sw = 0; const r2 = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!sw && P.grounded && P.n.y < 0.5 && P.vel.y > 0) { rg.rightFlick(0, -52); sw = 1; } });
+    const l = loc(T); say('spine transfer: a swipe up the face takes her over', sw && l.u > A.ridge + 1 && r2.clean, `${sw ? 'swiped' : 'never swiped'}, ends u ${fix(l.u, 1)} (pit B ${fix(A.B, 1)})${cl(r2)}`); }
+  // ROLL-IN TO VERT: off the deck with no input, across, and up the XL wall
+  { const T = T_('vert_rollin'), A = at('vert_rollin'); go(T, A.deck, 0, 0, 1.5, KSZ.XL.H); let vb = 0;
+    const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && P.pos.y < 0.1) vb = Math.max(vb, P.speed); });
+    say('roll-in to vert: dropped in hands-off, up the XL wall', r.top > KSZ.XL.H * 0.85 && loc(T).u > A.toe && r.clean, `${fix(vb, 1)} m/s at the bottom, up the wall to ${fix(r.top)} (H ${KSZ.XL.H})${cl(r)}`); }
+  // RACETRACK: dropped in, it stays in; then steered round the lane, a whole lap
+  { const T = T_('donut'), A = at('donut'); go(T, 0.4, 0, 0, 3, KSZ.M.H); let maxR = 0;
+    const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    const l = loc(T); say('racetrack: dropped in hands-off, stays in the bowl', l.u > 1 && l.u < 41 && r.clean, `ends u ${fix(l.u, 1)} w ${fix(l.w, 1)}${cl(r)}`);
+    const a0 = 13.25, b0 = 7.8, lane = t => L(T, A.centre + a0 * Math.cos(t), b0 * Math.sin(t)); let th = -Math.PI / 2, swept = 0;
+    { const s = lane(th); reset(); place(s.x, 0.2, s.z, T.yaw + 0, 8); }
+    const r2 = ride(14, () => { const l2 = loc(T), t = Math.atan2(l2.w / b0, (l2.u - A.centre) / a0); let d = t - th; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; swept += d; th = t;
+      const q = lane(t + 0.35); steer(Math.atan2(q.x - P.pos.x, q.z - P.pos.z)); maxR = Math.max(maxR, Math.hypot((l2.u - A.centre) / (a0 + 3), l2.w / (b0 + 3))); });
+    say('racetrack: steered round the island, a whole lap', swept > 2 * Math.PI && r2.clean, `swept ${fix(swept / Math.PI * 180, 0)} deg${cl(r2)}`); }
+  // VOLCANO BOWL: dropped in, over the volcano, up the far wall, still in
+  { const T = T_('volcano_bowl'), A = at('volcano_bowl'); go(T, 0.4, 0.4, 0, 3, KSZ.M.H); let over = 0;
+    const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (Math.hypot(loc(T).u - A.c, loc(T).w) < 1.5 && P.pos.y > 1) over = 1; });
+    const d = Math.hypot(loc(T).u - A.c, loc(T).w); say('volcano bowl: dropped in hands-off, over the volcano, stays in', over && d < A.R && r.clean, `${over ? 'over the top' : 'MISSED IT'}, up to ${fix(r.top)}, ends ${fix(d, 1)} m from the middle${cl(r)}`); }
+  // DRUM BOWL: dropped in beside the drum, across and back; a tap at the drum grinds its ring
+  { const T = T_('drum_bowl'), A = at('drum_bowl'); go(T, 0.4, 4, 0, 3, KSZ.L.H); const r = ride(5);
+    const d = Math.hypot(loc(T).u - A.c, loc(T).w); say('drum bowl: dropped in hands-off past the drum, stays in', d < A.R && d > 2.1 && r.clean && r.top > KSZ.L.H * 0.8, `up to ${fix(r.top)}, ends ${fix(d, 1)} m from the middle${cl(r)}`);
+    const pc = by.drum_bowl.recs.find(p => p.kind === 'drum'); const r2 = tapGrind(T, [pc], A.c - 4, 0.8, 0, 5);
+    say('drum bowl: a tap beside the drum grinds its ring', r2.on && r2.clean, r2.on ? 'on the ring' : `${r2.got || ''} ends y ${fix(P.pos.y)}${cl(r2)}`); }
+  // A-FRAME: straight over it hands-off; a tap beside the ridge grinds the bar
+  { const T = T_('aframe'), A = at('aframe'); go(T, -8, 0, 0, Math.sqrt(2 * g * KSZ.M.H) + 3); const r = ride(4);
+    say('A-frame: up, along the ridge, down, hands-off', r.top > KSZ.M.H * 0.9 && loc(T).u > A.end && r.clean, `up to ${fix(r.top)}, ends u ${fix(loc(T).u, 1)}${cl(r)}`);
+    const r2 = tapGrind(T, by.aframe.recs, A.top - 2, 2.6, 0, 7);
+    say('A-frame: a tap from the bank grinds a rail', r2.on && r2.clean, r2.on ? 'grinding' : `${r2.got || ''} ends y ${fix(P.pos.y)}${cl(r2)}`); }
+  // STAIR SETS: up the stairs and down the hubba set, hands-off; up the bank; a tap onto a handrail, a hubba, the ledge
+  { const T = T_('stair_sets'), A = at('stair_sets'), Hm = KSZ.M.H, v = Math.sqrt(2 * g * Hm) + 2;
+    go(T, -6, 0, 0, v); let deck = 0; const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && Math.abs(P.pos.y - Hm) < 0.06) deck = 1; });
+    say('stair sets: up the stairs, across, down the hubba set, hands-off', deck && loc(T).u > A.end && P.pos.y < 0.1 && r.clean, `${deck ? 'over the deck' : 'never on the deck'}, ends u ${fix(loc(T).u, 1)} y ${fix(P.pos.y)}${cl(r)}`);
+    go(T, -6, -6, 0, v); let d2 = 0; const r2 = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && Math.abs(P.pos.y - Hm) < 0.06) d2 = 1; });
+    say('stair sets: up the bank onto the deck', d2 && r2.clean, d2 ? 'on the deck' : `${r2.got || ''} ends y ${fix(P.pos.y)}${cl(r2)}`);
+    const recs = by.stair_sets.recs, st = recs[0], hb = recs.find(p => p.o.hubba), le = recs.find(p => p.kind === 'ledge');
+    const a = tapGrind(T, [st], A.top + 1, 0, PI, 5, 3, Hm); say('stair sets: a tap on the landing takes a handrail down', a.on && a.clean, a.on ? 'grinding' : `${a.got || ''} ends y ${fix(P.pos.y)}${cl(a)}`);
+    const b = tapGrind(T, [hb], A.top + 4.5, 0.8, 0, 5, 3, Hm); say('stair sets: a tap at the top of the far set takes a hubba', b.on && b.clean, b.on ? 'grinding' : `${b.got || ''} ends y ${fix(P.pos.y)}${cl(b)}`);
+    const c2 = tapGrind(T, [le], 2, 4.2, 0, 6); say('stair sets: a tap beside the ledge grinds it', c2.on && c2.clean, c2.on ? 'grinding' : `${c2.got || ''} ends y ${fix(P.pos.y)}${cl(c2)}`); }
+  // FUNBOX + GAPS: over the funbox hands-off; both gaps cleared rolling in; a tap onto the funbox rail
+  { const T = T_('funbox_gaps'), A = at('funbox_gaps'); go(T, -6, 0, 0, Math.sqrt(2 * g * KSZ.M.H) + 2.5); const r = ride(6);
+    say('funbox + gaps: over the funbox, hands-off', r.top > KSZ.M.H * 0.9 && loc(T).u > A.end && r.clean, `up to ${fix(r.top)}, ends u ${fix(loc(T).u, 1)}${cl(r)}`);
+    for (const sd of [-8.5, 8.5]) { const gp = by.funbox_gaps.recs.find(p => p.kind === 'gap' && Math.abs(loc(T).w) >= 0 && Math.abs(((p.T.x - T.x) * Math.cos(T.yaw) - (p.T.z - T.z) * Math.sin(T.yaw)) - sd) < 0.1);
+      const hk = KSZ.S.H * 0.6, u0 = 2 + gp.len - 3 - hk / Math.tan(18 * Math.PI / 180); let land = null; go(T, -8, sd, 0, 12);
+      const r2 = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; const l = loc(T); if (!land && P.grounded && l.u > u0 - 0.5 && P.pos.y > 0.05) land = l; });
+      say(`funbox + gaps: the ${sd < 0 ? 'west' : 'east'} gap cleared at 12 m/s`, !!land && r2.clean, land ? `landed at u ${fix(land.u, 1)} (landing from ${fix(u0, 1)})` : `never landed${cl(r2)}`); }
+    const r3 = tapGrind(T, [by.funbox_gaps.recs[0]], A.box - 3, 1.6, 0, 7);
+    say('funbox + gaps: a tap from the front bank grinds a rail', r3.on && r3.clean, r3.on ? 'grinding' : `${r3.got || ''} ends y ${fix(P.pos.y)}${cl(r3)}`); }
+  // WAVE WALL: hit it square at a low point and at a high point, hands-off -- up the face and back off it
+  { const T = T_('wave_wall'), A = at('wave_wall'); for (const w of [-15, -10, 0]) { const H0 = Math.abs(w / 5) % 2 ? 2.4 : 1.2; go(T, A.u - 8, w, 0, Math.sqrt(2 * g * H0) + 2); const r = ride(3);
+      say(`wave wall: square at w ${w} (coping ${H0} m), up and back`, r.top > H0 * 0.8 && loc(T).u < A.u && r.clean, `up to ${fix(r.top)}, ends u ${fix(loc(T).u, 1)}${cl(r)}`); }
+    go(T, A.u - 4, -17, P2 - 0.35, 10); const r = ride(4); const l = loc(T);
+    say('wave wall: carved along it at a slant, hands-off', l.w > -8 && r.clean, `travelled to w ${fix(l.w, 1)}, up to ${fix(r.top)}${cl(r)}`); }
+  // EURO GAP: up the bank, along the deck, a tap at the lip -- onto the landing; and no ollie is the gap
+  { const T = T_('euro_gap'), A = at('euro_gap'), v = Math.sqrt(2 * g * KSZ.M.H) + 1.5; let land = null, popped = 0;
+    go(T, -6, 0, 0, v); const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; const l = loc(T); if (!popped && P.grounded && l.u > A.lip - 0.8) { P.jump = 1; popped = 1; }
+      if (!land && popped && P.grounded && l.u > A.land && P.pos.y > 0.05) land = l; });
+    say('euro gap: an ollie off the lip clears the gap', !!land && r.clean, land ? `landed at u ${fix(land.u, 1)} y ${fix(P.pos.y)} (the landing's top at ${fix(A.land, 1)})` : `never landed${cl(r)}`);
+    go(T, -6, 0, 0, v); let lo = 0; const r2 = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; const l = loc(T); if (l.u > A.lip + 0.5 && l.u < A.land && P.pos.y < 1.2 && P.grounded) lo = 1; });
+    say('euro gap: no ollie, and she is in the gap', lo || loc(T).u < A.land, `ends u ${fix(loc(T).u, 1)} y ${fix(P.pos.y)}`); }
+  // THREAD THE NEEDLE: round the loop; and the rail straight through the middle of it
+  { const T = T_('thread_needle'), A = at('thread_needle'), lp = by.thread_needle.recs.find(p => p.kind === 'loop360'), rl = by.thread_needle.recs.find(p => p.kind === 'rail');
+    const S0 = lp.rail.segs[0]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 8); P.grounded = false; rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 10, side: 'left' });
+    const r = ride(3); say('thread the needle: round the loop, upside down at the top', r.minUp < -0.6 && !r.falls, `her up got to ${fix(r.minUp)}`);
+    const R0 = rl.rails[0]; let through = 0; const r2 = tapGrind(T, [rl], A.centre - 2.6, -13, P2, 6, 4);
+    reset(); const S1 = R0.segs[0]; place(S1.a.x, S1.a.y, S1.a.z, Math.atan2(S1.hx, S1.hz), 8); P.grounded = false; rg.enterGrind({ rail: S1, t: 0, dir: 1, s: 8, side: 'left' });
+    const r3 = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && loc(T).w > -1) through = 1; });
+    say('thread the needle: a tap from the ground catches the rail', r2.on && r2.clean, r2.on ? 'grinding' : `${r2.got || ''} ends y ${fix(P.pos.y)}${cl(r2)}`);
+    say('thread the needle: the rail runs straight through the loop', through && !r3.falls, through ? `through the loop at y ${fix(A.railY)} (loop centre ${fix(1 + A.R)})` : 'came off before the loop'); }
+  // CORKSCREW: up the bank to the deck; a tap at the deck edge, two turns down, onto the Y
+  { const T = T_('corkscrew'), A = at('corkscrew'), Hl = KSZ.L.H; go(T, -6, -3, 0, Math.sqrt(2 * g * Hl) + 2); let deck = 0;
+    const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && Math.abs(P.pos.y - Hl) < 0.06) { deck = 1; P.vel.multiplyScalar(0.9); } });
+    say('corkscrew: up the bank onto the deck', deck && r.clean, deck ? 'on the deck' : `${r.got || ''} ends y ${fix(P.pos.y)}${cl(r)}`);
+    const hx = by.corkscrew.recs.find(p => p.kind === 'helix'), y = by.corkscrew.recs.find(p => p.kind === 'railY'); let onY = 0, lowH = 99;
+    const r2 = tapGrind(T, [hx], A.start - 1.5, -0.8, 0, 4, 0.6, Hl); let onH = r2.on;
+    if (onH) { const r3 = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind) { if (y.rails.includes(P.grind.rail.path)) onY = 1; else lowH = Math.min(lowH, P.pos.y); } });
+      say('corkscrew: a tap at the deck edge, two turns down, onto the Y', onY && r3.clean, `${onY ? 'onto the Y' : 'never reached the Y'}, helix down to ${fix(lowH)}${cl(r3)}`); }
+    else say('corkscrew: a tap at the deck edge catches the helix', false, `${r2.got || ''} ends y ${fix(P.pos.y)}${cl(r2)}`); }
+  // PUMP TRACK: steered round the loop of rollers and berms, a whole lap
+  { const T = T_('pump_track'), r0 = at('pump_track').r; const cx = 17, way = []; for (let i = 0; i <= 40; i++) { const s = i / 40 * 2;
+      // a stadium: straight w -r from u 12 -> 22, round (22, 0), back along w +r, round (12, 0)
+      if (s < 0.5) way.push([12 + 20 * s, -r0]); else if (s < 1) { const a = (s - 0.5) * 2 * Math.PI; way.push([22 + r0 * Math.sin(a), -r0 * Math.cos(a)]); }
+      else if (s < 1.5) way.push([22 - 20 * (s - 1), r0]); else { const a = (s - 1.5) * 2 * Math.PI; way.push([12 - r0 * Math.sin(a), r0 * Math.cos(a)]); } }
+    go(T, 12.5, -r0, 0, 8); let k = 0, laps = 0;
+    const r = ride(16, () => { const l = loc(T); let bi = k; for (let j = 0; j < 6; j++) { const q = way[(k + j) % way.length]; if (Math.hypot(q[0] - l.u, q[1] - l.w) < 2.2) bi = k + j + 1; } if (bi >= way.length) laps++; k = bi % way.length;
+      const q = way[(k + 1) % way.length], t = L(T, q[0], q[1]); steer(Math.atan2(t.x - P.pos.x, t.z - P.pos.z)); });
+    say('pump track: steered round the berms, a whole lap', laps >= 1 && r.clean, `${laps} lap(s), ${k} of ${way.length} waypoints, top ${fix(r.top)}${cl(r)}`); void cx; }
+  console.log('  the shipped swipe down from the same spots (reported, not judged):');
+  for (const l of swipes) console.log('    ' + l);
+  // WHAT WAS MEASURED GOES OUT WITH THE LIBRARY: `export:lib` puts each combo's rows on its group node and in the JSON
+  fs.writeFileSync('handoff/rollergirl_combo_tests.json', JSON.stringify({ note: 'written by `npm run sim combos`: every ride through the shipped step', tests: tested, swipes }, null, 1) + '\n');
+  // 3. THE LIBRARY ROUND TRIP: `npm run export:lib` written, parsed back through the vendored GLTFLoader, and its COMBOS
+  //    alone handed to the shipped `levelIngest` turned 180 and moved -- every combo group comes back with its pieces, the
+  //    same kinds and options, every raised floor at the same height and every rail end in place. This is the file he
+  //    takes into Blender; the group nodes are what he moves, and the pieces have to follow them.
+  cur = 'library';
+  { const { spawnSync } = await import('child_process');
+    const ex = spawnSync(process.execPath, ['tools/export.mjs', 'kit', 'lib'], { encoding: 'utf8', maxBuffer: 64 << 20 });
+    const file = 'handoff/rollergirl_kit_library.glb';
+    if (ex.status !== 0 || !fs.existsSync(file)) { say('export:lib runs', false, (ex.stderr || '').split('\n').slice(-4).join(' | ')); return ok; }
+    const gl = await realGLB(file), J = JSON.parse(fs.readFileSync('handoff/rollergirl_kit_library.json', 'utf8'));
+    const groups = []; gl.scene.traverse(o => { if (/^combo_/.test(o.name || (o.userData && o.userData.name) || '')) groups.push(o); });
+    const kids = g => { let n = 0; g.traverse(o => { if (o !== g && o.userData && o.userData.fn) n++; }); return n; };
+    say('every combo is a group node in the library, its pieces under it', groups.length === C.list.length && groups.every((g, i) => kids(g) === C.list[i].recs.length) && J.combos.length === C.list.length,
+      `${groups.length} groups, ${groups.map(kids).reduce((p, q) => p + q, 0)} pieces under them; JSON lists ${J.combos.length} with entries, exits and heights`);
+    const all = C.list.flatMap(c => c.recs), gf = (x, z) => { const q = rg.groundAt(x, z, 30, 0); return q.hit ? q.floor : -1; }, samp = [];
+    for (const pc of all) { if (!pc.bb) continue; for (let x = pc.bb[0] - 1 + 0.0137; x <= pc.bb[3] + 1; x += 0.6) for (let z = pc.bb[2] - 1 + 0.0291; z <= pc.bb[5] + 1; z += 0.6) { const a = gf(x, z); if (a >= 0.05) samp.push([-x - 300, -z + 300, a, pc.label]); } }
+    const ends = all.flatMap(pc => (pc.rails || (pc.rail ? [pc.rail] : [])).map(R => [R.segs[0].a, R.segs[R.segs.length - 1].b].map(v => [-v.x - 300, v.y, -v.z + 300])));
+    rg.colliderReset(); const n0 = K.pieces.length, root = new THREE.Group(); for (const g of groups) root.add(g.clone()); root.updateMatrixWorld(true);
+    const place = new THREE.Matrix4().makeTranslation(-300, 0, 300).multiply(new THREE.Matrix4().makeRotationY(Math.PI));
+    const st = rg.levelIngest(root, root, place, 'libglb'), got = K.pieces.slice(n0);
+    const sig = p => p.kind + ' ' + p.size + ' ' + JSON.stringify(Object.fromEntries(Object.entries(p.o || {}).filter(([k]) => k !== 'yaw').sort()));
+    const A = all.map(sig).sort().join('|'), B = got.map(sig).sort().join('|');
+    say('its combos rebuild: same pieces, same options', got.length === all.length && A === B, `${st.fn} fn_ nodes -> ${got.length} pieces (${all.length} in the gallery)`);
+    let bad = 0, worst = 0; for (const [x, z, a] of samp) { const d = Math.abs(a - gf(x, z)); worst = Math.max(worst, d); if (d > 0.02) bad++; }
+    say('every raised floor of every combo at the same height on the copy', samp.length > 5000 && !bad, `${samp.length} points, ${bad} off, worst ${fix(worst, 3)} m`);
+    const gotEnds = got.flatMap(pc => (pc.rails || (pc.rail ? [pc.rail] : [])).flatMap(R => [R.segs[0].a, R.segs[R.segs.length - 1].b]));
+    let rbad = 0; for (const e of ends.flat()) { const d = Math.min(...gotEnds.map(v => Math.hypot(v.x - e[0], v.y - e[1], v.z - e[2]))); if (d > 0.01) rbad++; }
+    say('every combo rail comes back with both ends in place', ends.length > 10 && !rbad, `${ends.length * 2} rail ends, ${rbad} off`); }
+  return ok;
+};
+
 // A one-off trace, so a question that is not worth a permanent case still gets measured
 // rather than reasoned about: SIM_PROBE=tools/probe-lip.mjs npm run sim
 if (process.env.SIM_PROBE) {
@@ -4134,10 +4338,10 @@ for (const k of Object.keys(CASES)) {
   console.log(`\n== ${k} ==`);
   let ok = false;
   // the zones case needs a page booted in the OTHER world, so a full run hands it to a process of its own
-  if ((k === 'zones' || k === 'kit' || k === 'parkref' || k === 'city') && !only) {
+  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city') && !only) {
     const { spawnSync } = await import('child_process');
     const r = spawnSync(process.execPath, [process.argv[1], k], { encoding: 'utf8', maxBuffer: 64 << 20 });
-    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|parkref|city) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
+    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
   try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on

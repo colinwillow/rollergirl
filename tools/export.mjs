@@ -109,7 +109,9 @@ function glbWriter() {
 }
 
 // one kit piece as an `fn_` node (shared by `export:kit`, `export:lib` and r88's `export:park`)
-function writePiece(W, pc, parent, cnt, spec, K) {
+// `G` (r91): the frame of the group node it is written under ({x, y, z, yaw}) -- the piece's transform is then RELATIVE to
+// it (a glTF Y turn by a takes local +Z to (sin a, cos a), the game's yaw sense, so the inverse is the same turn by -a)
+function writePiece(W, pc, parent, cnt, spec, K, G) {
     const T = pc.T, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
     const toLocal = (X, Y, Z) => { const dx = X - T.x, dz = Z - T.z; return [dx * fz - dz * fx, Y - T.y, dx * fx + dz * fz]; };
     const n = cnt[pc.kind + pc.size] = (cnt[pc.kind + pc.size] || 0) + 1, name = `fn_${pc.kind}_${pc.size}_${n}`;
@@ -124,7 +126,9 @@ function writePiece(W, pc, parent, cnt, spec, K) {
       out: pc.out ? { at: [+pc.out.w.toFixed(3), +pc.out.y.toFixed(3), +pc.out.u.toFixed(3)], yaw_deg: +(pc.out.dyaw * 180 / Math.PI).toFixed(2) } : undefined,
       out2: pc.out2 ? { at: [+pc.out2.w.toFixed(3), +pc.out2.y.toFixed(3), +pc.out2.u.toFixed(3)], yaw_deg: +(pc.out2.dyaw * 180 / Math.PI).toFixed(2) } : undefined,
       rails: paths.length || undefined } };
-    const node = { translation: [T.x, T.y, T.z], rotation: [0, Math.sin(T.yaw / 2), 0, Math.cos(T.yaw / 2)], extras };
+    let tr = [T.x, T.y, T.z], yaw = T.yaw;
+    if (G) { const dx = T.x - G.x, dz = T.z - G.z, c = Math.cos(G.yaw), sn = Math.sin(G.yaw); tr = [dx * c - dz * sn, T.y - G.y, dx * sn + dz * c].map(v => +v.toFixed(5)); yaw = T.yaw - G.yaw; }
+    const node = { translation: tr, rotation: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)], extras };
     // r67: A RAIL IS DRAWN BY `railDraw`, NOT INTO THE PIECE'S TRIANGLES -- so a rail-only piece would arrive in Blender
     // as an empty. Each path gets a six-sided tube along its points (its TOP is the line she rides), steel or booster pink.
     const wpos = (pc.pos || []).slice(), wcol = (pc.col || []).slice();
@@ -152,7 +156,8 @@ function writePiece(W, pc, parent, cnt, spec, K) {
       pts.forEach((q, i) => pos.set(toLocal(q.x, q.y, q.z), i * 3));
       W.J.meshes.push({ name: gn, primitives: [{ attributes: { POSITION: W.acc(pos, 'VEC3', 5126, true) }, mode: 3 }] });
       W.node(gn, ni, { mesh: W.J.meshes.length - 1, extras: { part_of: name, info: { boost: R.boost, closed: !!R.closed } } }); });
-    spec.push({ name, park: pc.park || undefined, area: pc.area || undefined, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI) });
+    spec.push({ name, park: pc.park || undefined, area: pc.area || undefined, combo: pc.combo || undefined, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI),
+      local: G ? { at: tr.map(v => +v.toFixed(3)), yaw_deg: +(yaw * 180 / Math.PI).toFixed(2) } : undefined });
   return name;
 }
 
@@ -298,15 +303,35 @@ if (KITMODE) {
   const root = W.node('ramp_kit', null), cnt = {}, park = W.node('example_park', null), zones = {};
   const zoneOf = z => zones[z] != null ? zones[z] : (zones[z] = W.node('park_' + z.replace(/[^a-z0-9]+/gi, '_'), park));
   for (const pc of K.pieces) {
-    if (LIBMODE && pc.park) continue;
+    if ((LIBMODE && pc.park) || pc.combo) continue;
     writePiece(W, pc, pc.park ? zoneOf(pc.park) : root, cnt, spec, K);
+  }
+  // r91: THE COMBOS, each under its own group node at its own frame (origin on the ground at the middle of its entry
+  // edge, +Z into it, +X across -- a piece's convention, one level up), its pieces `fn_` nodes RELATIVE to it. Move or
+  // turn the group in Blender and every piece goes with it; `levelIngest` reads the pieces through `matrixWorld`.
+  const C = rg.COMBOS, combos = [], cnode = C.list.length ? W.node('combos', null) : null;
+  // what `npm run sim combos` measured riding each one, if it has been run (it writes this file, then calls this export)
+  const TF = 'handoff/rollergirl_combo_tests.json', TESTS = fs.existsSync(TF) ? JSON.parse(fs.readFileSync(TF, 'utf8')).tests || {} : {};
+  // a combo-local [u, w, heading, what] in the glTF frame: [x = w, y, z = u], heading in degrees about +Y from +Z
+  const io = (q, y) => ({ at: [+(+q[1]).toFixed(2), +(y || 0).toFixed(2), +(+q[0]).toFixed(2)], heading_deg: +((q[2] || 0) * 180 / Math.PI).toFixed(1), what: q[3] });
+  for (const c of C.list) {
+    const T = c.T, yq = [0, Math.sin(T.yaw / 2), 0, Math.cos(T.yaw / 2)];
+    const at = q => { const P = rg.kT(T, q[0], q[1], 0), g = rg.groundAt(P.x, P.z, 30, 0); return g.hit ? g.floor - T.y : 0; };
+    const meta = { combo: c.key, name: c.name, what: c.what, from_photos: c.src,
+      footprint: { u: [c.fp[0], c.fp[1]], w: [c.fp[2], c.fp[3]], size_m: [+(c.fp[3] - c.fp[2]).toFixed(1), +(c.fp[1] - c.fp[0]).toFixed(1)], note: 'u = along +Z (into it), w = along +X' },
+      entries: c.in.map(q => io(q, at(q))), exits: c.out.map(q => io(q, at(q))), heights: c.heights, rails: c.rails, tested: TESTS[c.key] || undefined };
+    const g = W.node('combo_' + c.key, cnode, { translation: [T.x, T.y, T.z], rotation: yq, extras: meta });
+    const names = c.recs.map(pc => writePiece(W, pc, g, cnt, spec, K, T));
+    combos.push({ ...meta, node: 'combo_' + c.key, world_at: [T.x, T.y, T.z], world_yaw_deg: Math.round(T.yaw * 180 / Math.PI), pieces: names });
   }
   const base = LIBMODE ? 'handoff/rollergirl_kit_library' : `${OUT}/rollergirl_kit`;
   if (LIBMODE) fs.mkdirSync('handoff', { recursive: true });
   const sz = W.write(`${base}.glb`);
   fs.writeFileSync(`${base}.json`, JSON.stringify({ sizes: Object.fromEntries(Object.entries(rg.KSZ).map(([k, v]) => [k, { H: v.H, r: +v.r.toFixed(3), lip: +v.lip.toFixed(3), sweep_deg: Math.round(v.sweep * 180 / Math.PI) }])),
-    width: K.W, deck: K.deck, coping: K.cope, rail_step: 1.2, pieces: spec }, null, 1));
-  console.log(`kit: ${spec.length} pieces -> ${base}.glb (${(sz / 1e6).toFixed(2)} MB) + ${base}.json`);
+    width: K.W, deck: K.deck, coping: K.cope, rail_step: 1.2,
+    combo_frame: 'origin on the ground at the middle of the entry edge, +Z into the combo, +X across, +Y up; entries/exits are [x, y, z] in that frame, heading in degrees about +Y from +Z',
+    combos, pieces: spec }, null, 1));
+  console.log(`kit: ${spec.length} pieces (${combos.length} combos) -> ${base}.glb (${(sz / 1e6).toFixed(2)} MB) + ${base}.json`);
   process.exit(0);
 }
 

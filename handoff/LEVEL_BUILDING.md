@@ -20,7 +20,9 @@ physics, and reports anything that does not work.
 |---|---|
 | `handoff/LEVEL_BUILDING.md` | **this brief.** Start here. |
 | `handoff/rollergirl_blender.py` | Blender helpers. They write the names and properties below for you: `rail()`, `lane()`, `spawn()`, `spot()`, `launcher()`, `trampoline()`, `gem()`, `water()`, `floor()`, `box()`, `box_new()`, `kit()`, `piece_local()`, `check()`, `export_zone()`. **Not yet run inside Blender** (the game session has no Blender), so if a call errors, this brief says what its result must be. |
-| `handoff/rollergirl_kit_library.glb` (+ `.json`) | **The ramp kit**: 103 tested pieces, every kind at its sizes, laid out in rows. Import it, then duplicate and place pieces. |
+| `handoff/rollergirl_kit_library.glb` (+ `.json`) | **The ramp kit**: 109 tested pieces, every kind at its sizes, laid out in rows, and **15 tested combos** (r91), each a `combo_<key>` group with its pieces under it. Import it, then duplicate and place pieces or whole combos. The JSON lists every combo's footprint, entries, exits, heights and what the sim measured riding it. |
+| `handoff/rollergirl_combo_tests.json` | what `npm run sim combos` measured, row by row, for every combo and round piece. |
+| `docs/WISHLIST.md` | what the kit cannot do yet, and why. |
 | `docs/RAMP_KIT.md` | Every kit piece's options, the piece frame, and how pieces snap together. |
 | `docs/BLENDER_HANDOFF.md` | Art rules: materials, transparency, decals, UVs, budgets, export settings. **Still current.** Section 1's naming table is superseded by section 3 here. |
 | `zones/ZONES_README.md` | Your own notes from the first zone export (`zone_skyline`). |
@@ -193,6 +195,17 @@ modelled. Rules learned the hard way:
 - **Every solid under a deck needs a walkable top**, or it is a wall she stops against a body's width short of the edge.
 - **No gaps between pieces.** Meeting edges must share vertices or overlap slightly. A 5 cm crack is a place her wheels
   find.
+
+### Combos (r91): place a whole grouping at once
+
+A combo is a group of kit pieces that work together: a mini ramp with decks and stairs, a roll-in to a vert wall, a
+racetrack bowl, a corkscrew, and so on (the list and what each was tested for: `docs/RAMP_KIT.md`, Combos).
+- **The group node is the combo's frame:** origin on the ground at the middle of its entry edge, local −Y in Blender
+  (glTF +Z) into it. Move and turn the group; its `fn_` children follow and come back where you put them.
+- **Nesting is safe:** the game reads each piece's world matrix, so a combo can sit inside your own collections and
+  transforms. A child's options are still on it as custom properties, so one piece of a combo can be edited like any piece.
+- **Entries and exits** are on the group's custom properties and in the JSON, in the group's frame. Line up an exit with
+  the next combo's entry and the run flows.
 
 ## 6. Your world (the screenshots), feature by feature
 

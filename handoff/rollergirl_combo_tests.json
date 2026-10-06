@@ -1,0 +1,286 @@
+{
+ "note": "written by `npm run sim combos`: every ride through the shipped step",
+ "tests": {
+  "all": [
+   {
+    "test": "15 combos built (15 defined), every one with pieces",
+    "pass": true,
+    "measured": "mini_spine:5 spine_wave:5 spine_transfer:3 vert_rollin:2 donut:3 volcano_bowl:2 drum_bowl:2 aframe:1 stair_sets:5 funbox_gaps:3 wave_wall:1 euro_gap:3 thread_needle:2 corkscrew:4 pump_track:6"
+   },
+   {
+    "test": "every combo inside its 60 x 64 m cell, entered from u 0",
+    "pass": true,
+    "measured": "mini_spine 41x8 spine_wave 57x8 spine_transfer 27x8 vert_rollin 44x8 donut 42x30 volcano_bowl 27x27 drum_bowl 27x27 aframe 20x11 stair_sets 19x15 funbox_gaps 18x22 wave_wall 5x40 euro_gap 20x5 thread_needle 17x24 corkscrew 26x14 pump_track 31x21"
+   },
+   {
+    "test": "nothing of theirs overlaps the rest of the kit world",
+    "pass": true,
+    "measured": "53 pieces clear of 310"
+   },
+   {
+    "test": "no NaN vertex anywhere",
+    "pass": true,
+    "measured": ""
+   },
+   {
+    "test": "every combo ➤ stop stands her on a floor, and they come first",
+    "pass": true,
+    "measured": "16 stops, first on the key"
+   }
+  ],
+  "round": [
+   {
+    "test": "rolled straight over it",
+    "pass": true,
+    "measured": "10.9 m/s in, up to 1.20 (h 1.20), ends u 18.4"
+   },
+   {
+    "test": "rolled straight over it",
+    "pass": true,
+    "measured": "12.5 m/s in, up to 1.85 (h 1.80), ends u 12.4"
+   },
+   {
+    "test": "rolled straight over it",
+    "pass": true,
+    "measured": "10.9 m/s in, up to 1.19 (h 1.20), ends u 20.3"
+   },
+   {
+    "test": "a tap beside the rim grinds it",
+    "pass": true,
+    "measured": "grinding the rim"
+   },
+   {
+    "test": "a wall from the side",
+    "pass": true,
+    "measured": "ends 3.26 m from its middle (R 2.5) at y 0.00"
+   },
+   {
+    "test": "a wall from the side",
+    "pass": true,
+    "measured": "ends 3.91 m from its middle (R 3) at y 0.00"
+   },
+   {
+    "test": "a wall from the side",
+    "pass": true,
+    "measured": "ends 2.49 m from its middle (R 1.5) at y 0.00"
+   },
+   {
+    "test": "a tap beside it grinds the ring",
+    "pass": true,
+    "measured": "on the coping ring"
+   }
+  ],
+  "mini_spine": [
+   {
+    "test": "dropped in hands-off, over the hump and up B",
+    "pass": true,
+    "measured": "over the hump, up B, ends u 9.3"
+   },
+   {
+    "test": "up the stairs onto deck A",
+    "pass": true,
+    "measured": "on the deck"
+   }
+  ],
+  "spine_wave": [
+   {
+    "test": "over all three spines, hands-off",
+    "pass": true,
+    "measured": "crossed 3 of 3, ends u 55.0"
+   }
+  ],
+  "spine_transfer": [
+   {
+    "test": "hands-off, straight up and back",
+    "pass": true,
+    "measured": "furthest u 13.2 (ridge 13.3)"
+   },
+   {
+    "test": "a swipe up the face takes her over",
+    "pass": true,
+    "measured": "swiped, ends u 22.5 (pit B 19.3)"
+   }
+  ],
+  "vert_rollin": [
+   {
+    "test": "dropped in hands-off, up the XL wall",
+    "pass": true,
+    "measured": "13.6 m/s at the bottom, up the wall to 4.80 (H 4.8)"
+   }
+  ],
+  "donut": [
+   {
+    "test": "dropped in hands-off, stays in the bowl",
+    "pass": true,
+    "measured": "ends u 8.8 w 1.1"
+   },
+   {
+    "test": "steered round the island, a whole lap",
+    "pass": true,
+    "measured": "swept 1270 deg"
+   }
+  ],
+  "volcano_bowl": [
+   {
+    "test": "dropped in hands-off, over the volcano, stays in",
+    "pass": true,
+    "measured": "over the top, up to 2.40, ends 9.3 m from the middle"
+   }
+  ],
+  "drum_bowl": [
+   {
+    "test": "dropped in hands-off past the drum, stays in",
+    "pass": true,
+    "measured": "up to 3.60, ends 4.5 m from the middle"
+   },
+   {
+    "test": "a tap beside the drum grinds its ring",
+    "pass": true,
+    "measured": "on the ring"
+   }
+  ],
+  "aframe": [
+   {
+    "test": "up, along the ridge, down, hands-off",
+    "pass": true,
+    "measured": "up to 2.62, ends u 26.8"
+   },
+   {
+    "test": "a tap from the bank grinds a rail",
+    "pass": true,
+    "measured": "grinding"
+   }
+  ],
+  "stair_sets": [
+   {
+    "test": "up the stairs, across, down the hubba set, hands-off",
+    "pass": true,
+    "measured": "over the deck, ends u 30.2 y 0.00"
+   },
+   {
+    "test": "up the bank onto the deck",
+    "pass": true,
+    "measured": "on the deck"
+   },
+   {
+    "test": "a tap on the landing takes a handrail down",
+    "pass": true,
+    "measured": "grinding"
+   },
+   {
+    "test": "a tap at the top of the far set takes a hubba",
+    "pass": true,
+    "measured": "grinding"
+   },
+   {
+    "test": "a tap beside the ledge grinds it",
+    "pass": true,
+    "measured": "grinding"
+   }
+  ],
+  "funbox_gaps": [
+   {
+    "test": "over the funbox, hands-off",
+    "pass": true,
+    "measured": "up to 2.48, ends u 38.8"
+   },
+   {
+    "test": "the west gap cleared at 12 m/s",
+    "pass": true,
+    "measured": "landed at u 8.3 (landing from 8.2)"
+   },
+   {
+    "test": "the east gap cleared at 12 m/s",
+    "pass": true,
+    "measured": "landed at u 8.3 (landing from 8.2)"
+   },
+   {
+    "test": "a tap from the front bank grinds a rail",
+    "pass": true,
+    "measured": "grinding"
+   }
+  ],
+  "wave_wall": [
+   {
+    "test": "square at w -15 (coping 2.4 m), up and back",
+    "pass": true,
+    "measured": "up to 3.25, ends u -1.5"
+   },
+   {
+    "test": "square at w -10 (coping 1.2 m), up and back",
+    "pass": true,
+    "measured": "up to 1.48, ends u 2.1"
+   },
+   {
+    "test": "square at w 0 (coping 1.2 m), up and back",
+    "pass": true,
+    "measured": "up to 1.48, ends u 2.1"
+   },
+   {
+    "test": "carved along it at a slant, hands-off",
+    "pass": true,
+    "measured": "travelled to w 2.6, up to 0.76"
+   }
+  ],
+  "euro_gap": [
+   {
+    "test": "an ollie off the lip clears the gap",
+    "pass": true,
+    "measured": "landed at u 15.7 y 1.02 (the landing's top at 15.1)"
+   },
+   {
+    "test": "no ollie, and she is in the gap",
+    "pass": true,
+    "measured": "ends u 12.5 y 1.34"
+   }
+  ],
+  "thread_needle": [
+   {
+    "test": "round the loop, upside down at the top",
+    "pass": true,
+    "measured": "her up got to -1.00"
+   },
+   {
+    "test": "a tap from the ground catches the rail",
+    "pass": true,
+    "measured": "grinding"
+   },
+   {
+    "test": "the rail runs straight through the loop",
+    "pass": true,
+    "measured": "through the loop at y 3.01 (loop centre 4.00)"
+   }
+  ],
+  "corkscrew": [
+   {
+    "test": "up the bank onto the deck",
+    "pass": true,
+    "measured": "on the deck"
+   },
+   {
+    "test": "a tap at the deck edge, two turns down, onto the Y",
+    "pass": true,
+    "measured": "onto the Y, helix down to 1.70"
+   }
+  ],
+  "pump_track": [
+   {
+    "test": "steered round the berms, a whole lap",
+    "pass": true,
+    "measured": "3 lap(s), 32 of 41 waypoints, top 1.63"
+   }
+  ]
+ },
+ "swipes": [
+  "volcano L, crater + rim rail: swipe -> the rail",
+  "drum 0.9 m + coping ring: swipe -> the rail",
+  "drum_bowl: drum 1.2 m: swipe -> the rail",
+  "aframe: A-frame M: swipe -> ledge",
+  "stair_sets: stairs M + handrails: swipe -> ledge",
+  "stair_sets: stairs M + hubbas: swipe -> ledge",
+  "stair_sets: ledge 0.6: swipe -> the rail",
+  "funbox_gaps: funbox M + rails: swipe -> ledge",
+  "thread_needle: rail through the loop: swipe -> the rail",
+  "corkscrew: helix L, two turns: swipe -> ledge"
+ ]
+}
