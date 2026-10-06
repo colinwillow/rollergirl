@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r93</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r94</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r93';
+const BUILD = 'r94';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -6868,10 +6868,14 @@ function slBuilding(x0, x1, z0, z1, top, face, o) {   // face: 'z' (looks +z, fr
     slDecal('decal', 'saturn', [ax, ay + 0.3, fz + nz * 0.56], [nz, 0, 0], [0, 1, 0], 0.45, 0.45, 0.005); }
   if (o.poster) slDecal('decal', o.poster, [x0 + 1.6, sy + 1.6, fz + nz * 0.02], [nz, 0, 0], [0, 1, 0], 1.2);
   // rooftop bits seen from far away: a water tank, a vent
+  // r94: a roof somebody skates has no tank on it (`tank: false` -- the random draw is still taken, so nothing downstream
+  // moves), and a tank that IS there is solid now: the roofs are part of the world, not a skyline
   if (o.roof !== false) { const rx = x0 + (x1 - x0) * (0.25 + slr() * 0.5), rz = (z0 + z1) / 2;
+    if (o.tank !== false) {
     slGeo('metal', new THREE.CylinderGeometry(1.0, 1.0, 1.8, 12), slMat(rx, top + 1.3, rz), { smooth: true });
     for (const s of [-1, 1]) for (const t of [-1, 1]) slGeo('metal', new THREE.BoxGeometry(0.1, 0.5, 0.1), slMat(rx + s * 0.7, top + 0.25, rz + t * 0.7));
-    slBox('metal', rx - 1.1, top + 2.2, rz - 1.1, rx + 1.1, top + 2.35, rz + 1.1, { bev: 0.02 }); }
+    slBox('metal', rx - 1.1, top + 2.2, rz - 1.1, rx + 1.1, top + 2.35, rz + 1.1, { bev: 0.02 });
+    solidAdd(rx, rz, 1.0, 1.0, top, top + 2.35, 0, { top: true, tag: 'slice tank' }); } }
 }
 function slShop(x0, x1, fz, nz, sy, s) {
   const w = x1 - x0, cx = (x0 + x1) / 2, gw = Math.min(w - 2, s.w || 7);
@@ -7361,6 +7365,8 @@ const ACR = { on: 1, built: 0, rails: [], stops: [],
   PN: { x: -158, z: 240, y: 46, R: 19.5, rc: 8, col: 14.6, n: 64 },   // r93: the Pantheon -- centre, deck, rim, bowl, colonnade
   STOA: { x0: -178, x1: -138, z0: 58.5, z1: 67.5 },     // r93: the stoa along the agora's south side
   FT: { x: -143, z: 160, r: 4.2 },                      // r93: the agora fountain
+  CRYPT: { x0: -232, tx: -205, z0: 90, z1: 110, t0: 97.5, t1: 102.5, h: 3.2 },   // r94: the chamber, the tunnel's west end, its sides
+  RL: { A: { x0: -204, x1: -172, z0: 21.5, z1: 38, y: 25 }, D: { x0: -137, x1: -96, z0: 22.6, z1: 40, y: 17 } },   // r94: the canal street's roofs
   cream: 0xf3e7d2, sand: 0xe6cfae, trim: 0xfbf4e8, gold: 0xffc84a };
 // a frame: (x, z) on the line where the upper level stops, +u = (sin yaw, cos yaw) away from it (down the slope), +w across
 function acP(F, u, w, y) { const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw); return [F.x + fx * u + fz * w, F.y + y, F.z + fz * u - fx * w]; }
@@ -7590,7 +7596,7 @@ function buildPantheon() {
   // THE SKY BRIDGE: a booster off the sky agora's north-east, through the parapet line and in through the west gap
   { const I = ACR.IS, a = [I.x + I.h - 14, I.y + 1.0, C.z], bx = C.x - (C.col + R - 0.7) / 2, pts = [];
     for (let i = 0; i <= 30; i++) { const t = i / 30; pts.push([a[0] + (bx - a[0]) * t, a[1] + (y + 0.95 - a[1]) * Math.min(1, t / 0.86), C.z]); }
-    ACR.rails.push({ pts, name: 'acro sky bridge', boost: 16, hgt: 0, tube: 1, arms: 5, postMax: 10 }); ACR.bridge = pts; }
+    ACR.rails.push({ pts, gems: 8, name: 'acro sky bridge', boost: 16, hgt: 0, tube: 1, arms: 5, postMax: 10 }); ACR.bridge = pts; }
   // THE LAUNCHER on the agora, south-east of the island, onto the ambulatory
   { const lx = -138, lz = 210, A = Math.atan2(lx - C.x, lz - C.z), tP = acRP(C.x, C.z, (C.col + R - 0.7) / 2, A, y);
     ORB.launch.push({ x: lx, z: lz, y: 0, r: 1.7, tx: tP[0], ty: y, tz: tP[2], apex: 3, cool: 0, name: 'acro pantheon launch' });
@@ -7606,7 +7612,14 @@ function buildPantheon() {
     const W = [[C.x, C.z + r0], [C.x, 268], [-200, 268], [-200, 280], [-134, 280], [-134, 260]];
     const pts = acPoly(W, 2.6, 0.9); let S2 = 0; const sl = [0]; for (let i = 1; i < pts.length; i++) { S2 += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sl.push(S2); }
     const flat = R - r0 + 0.8, s1 = S2 - 6, P3 = pts.map(([x, z], i) => [x, sl[i] <= flat ? top : sl[i] >= s1 ? bot : top + (bot - top) * (sl[i] - flat) / (s1 - flat), z]);
-    ACR.rails.push({ pts: P3, name: 'acro cascade', hgt: 0, tube: 1, maxV: 17, arms: 5, postMax: 14 }); ACR.cascade = P3; }
+    ACR.rails.push({ pts: P3, gems: 14, name: 'acro cascade', hgt: 0, tube: 1, maxV: 17, arms: 5, postMax: 14 }); ACR.cascade = P3; }
+  // r94: THE MEGA DROP -- the Pantheon's other way down: out of the east gap, north over the promenade, east along the park
+  // district's north street above the shopfronts, square south over the fence, and off the end onto the mega vert's deck
+  // heading straight into its drop-in. The Acropolis and the skate park, joined at the top of the biggest ramp in either
+  { const r0 = (C.col + R - 0.7) / 2, top = y + 0.95, bot = 15.35, W = [[C.x + r0, C.z], [-126, C.z], [-126, 258], [-95, 258], [-95, 248.6]];
+    const pts = acPoly(W, 2.5, 0.9); let S2 = 0; const sl = [0]; for (let i = 1; i < pts.length; i++) { S2 += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sl.push(S2); }
+    const flat = R - r0 + 0.8, s1 = S2 - 3.2, P3 = pts.map(([x, z], i) => [x, sl[i] <= flat ? top : sl[i] >= s1 ? bot : top + (bot - top) * (sl[i] - flat) / (s1 - flat), z]);
+    ACR.rails.push({ pts: P3, name: 'acro mega drop', hgt: 0, tube: 1, maxV: 17, arms: 5, postMax: 14, gems: 10 }); ACR.megaDrop = P3; }
   CITY.spots['acro pantheon'] = [C.x + (C.col + R - 0.7) / 2, y, C.z, 0];
 }
 // THE AGORA (r93): a stoa along its south side -- a colonnade you roll in under, a back wall, a long marble bench to grind --
@@ -7652,6 +7665,79 @@ function acAgora() {
   for (const [dx, dz] of [[-7, -7], [7, -7], [-7, 7], [7, 7]]) acCypress(F.x + dx, 0, F.z + dz, 4.5);
   CITY.spots['acro agora'] = [F.x + 10, 0, F.z - 6, -Math.PI / 2];
 }
+// THE ROOFLINE (r94): the first piece of CONNECTIVE TISSUE between districts. One booster rail off the Acropolis stylobate,
+// up over the terrace and the open ground onto the canal street's 25 m roof, square round east along it, over the two
+// roofs between, and down onto the 17 m roof -- a rooftop half pipe now. From that roof's far corner, THE HUB RUN: a long
+// down rail over the hub's west bank onto the hub deck. Acropolis -> canal-street rooftops -> hub, without touching the
+// ground. Every roof it stops on gets the parapets its picture already drew, as solids.
+function buildRoofline() {
+  const A = ACR.RL.A, D = ACR.RL.D;
+  // PARAPETS: roof A on every side (its front only needs a solid -- slBuilding drew it), roof D on the north and its corners
+  acParapet('x', A.z1 - 0.35, A.x0, A.x1, A.y, 0.6); acParapet('z', A.x0 + 0.35, A.z0 + 0.4, A.z1 - 0.7, A.y, 0.6); acParapet('z', A.x1 - 0.35, A.z0 + 0.4, A.z1 - 0.7, A.y, 0.6);
+  solidAdd((A.x0 + A.x1) / 2, A.z0 + 0.17, (A.x1 - A.x0) / 2, 0.18, A.y, A.y + 0.8, 0, { top: true, tag: 'roof parapet' });
+  acParapet('x', D.z1 - 0.35, D.x0, -100, D.y, 0.6); acParapet('z', D.x1 - 0.35, D.z0 + 0.4, 25.2, D.y, 0.6); acParapet('z', D.x1 - 0.35, 37.4, D.z1 - 0.7, D.y, 0.6);
+  solidAdd((D.x0 + D.x1) / 2, D.z0 + 0.17, (D.x1 - D.x0) / 2, 0.18, D.y, D.y + 0.8, 0, { top: true, tag: 'roof parapet' });
+  // a little life on roof A: two braziers, a planter, a neon arrow painted on it pointing the way
+  acBrazier(A.x0 + 2.2, A.y, A.z0 + 2.2); acBrazier(A.x1 - 2.2, A.y, A.z0 + 2.2); slPlanter(-188, A.y, A.z0 + 2.2, 3, 1.2, 0.5);
+  for (let i = 0; i < 3; i++) slDecal('decal', 'chevron', [-186 + i * 4, A.y + 0.012, 30], [0, 0, -1], [1, 0, 0], 1.6, null, 0.012);
+  // THE ROOFLINE: one path, one booster
+  { const W = [[-216, 96], [-201, 34], [-124, 34]], pts = acPoly(W, 4, 0.9);
+    const yAt = (x, z) => z > 93 ? 8.95 : z > 41.6 ? 8.95 + 17 * (93 - z) / (93 - 41.6) : x < -178 ? 25.95 : x < -137 ? 25.95 - 2.95 * (x + 178) / 41 : x < -126 ? 23.0 - 5.05 * (x + 137) / 11 : 17.95;
+    const P3 = pts.map(([x, z]) => [x, yAt(x, z), z]);
+    ACR.rails.push({ pts: P3, gems: 10, name: 'acro roofline', boost: 16, hgt: 0, tube: 1, arms: 5, postMax: 14 }); ACR.roofline = P3; }
+  // THE HUB RUN: off roof D's north-east corner, over the gap and the hub's west bank, square onto the hub deck heading east
+  { const W = [[-106, 38.8], [-91, 41], [-69, 58.5], [-55, 58.5]], pts = acPoly(W, 3, 0.9);
+    const P3 = pts.map(([x, z]) => [x, x < -95 ? 17.95 : x > -60 ? 3.35 : 17.95 - 14.6 * (x + 95) / 35, z]);
+    ACR.rails.push({ pts: P3, gems: 8, name: 'acro hub run', hgt: 0, tube: 1, maxV: 17, arms: 5, postMax: 14 }); ACR.hubRun = P3; }
+  // THE ROOFTOP HALF PIPE: a quarter pipe at each end of roof D, a funbox with rails between -- the kit's own tested pieces
+  { const K = { ...KCOL }, Tn = {}; for (const k in KSZ) Tn[k] = KSZ[k].tint;
+    Object.assign(KCOL, PARKD.pal.kcol); for (const k in PARKD.pal.size) if (KSZ[k]) KSZ[k].tint = PARKD.pal.size[k];
+    const n0 = KITW.pieces.length, Lq = KSZ.M.lip + KITW.deck, zc = 31;
+    const p = (kind, size, x, z, yaw, o, label) => { const r = kitPiece(kind, size, { x, y: D.y, z, yaw }, o || {}); if (r) r.label = 'roof: ' + label; return r; };
+    try {
+      // the half pipe runs along z 27.5; the roofline lands along z 34 (beside the short west QP) into the long east one
+      p('qp', 'M', D.x1 - 0.7 - Lq, zc, Math.PI / 2, { w: 14 }, 'rooftop QP east');
+      p('qp', 'M', D.x0 + 0.7 + Lq, 27.5, -Math.PI / 2, { w: 7 }, 'rooftop QP west');
+      p('frustum', 'S', -121, 37.4, Math.PI / 2, { len: 5, w: 2.6, banks: [1, 1, 0, 0], rails: 1 }, 'rooftop funbox');
+    } finally { Object.assign(KCOL, K); for (const k in Tn) KSZ[k].tint = Tn[k]; }
+    for (const r of KITW.pieces.slice(n0)) ACR.kit.push(r); }
+  CITY.spots['roof line'] = [-188, A.y, 28, Math.PI / 2];
+  CITY.spots['rooftop park'] = [-118, D.y, 34.5, Math.PI / 2];
+  ACR.roofStops = ['roof line', 'rooftop park'];
+}
+// THE CRYPT (r94): a secret. A dark doorway in the pyramid's east face between the grand stair and the ascent, a 5 m tunnel
+// under the terrace, and a chamber under the stylobate: gold, firelight, a ring of gems round a gold obelisk, a stone ledge
+// along the back wall. Not on the ➤ key -- it is found, not visited.
+function buildCrypt() {
+  const CR = ACR.CRYPT, P = ACR.P, h = CR.h, T4 = 4, zm = (CR.t0 + CR.t1) / 2;
+  // the roof slabs: the ceiling seen from inside, the terrace floor on top
+  slBox('stone', CR.x0, h, CR.z0, CR.tx, T4, CR.z1, { top: 'paving', bev: 0.02, solid: true, tag: 'acro crypt roof', tint: 0xb89a74, skip: '' });
+  slBox('stone', CR.tx, h, CR.t0, P.x1, T4, CR.t1, { top: 'paving', bev: 0.02, solid: true, tag: 'acro crypt roof', tint: 0xb89a74, skip: '' });
+  // the doorway: a gold lintel and two jambs proud of the face, braziers either side, an arrow of light on the floor
+  slBox('neon', P.x1 - 0.05, h - 0.35, CR.t0 - 0.4, P.x1 + 0.25, h + 0.1, CR.t1 + 0.4, { bev: 0.02, tint: ACR.gold, skip: 'y' });
+  for (const z of [CR.t0 - 0.25, CR.t1 + 0.25]) slBox('stone', P.x1 - 0.05, 0, z - 0.25, P.x1 + 0.3, h - 0.35, z + 0.25, { bev: 0.03, tint: ACR.trim, skip: 'y' });
+  for (const z of [CR.t0 - 3, CR.t1 + 3]) acBrazier(P.x1 + 2, 0, z);
+  // inside: a floor of dark paving (paint over the ground, which is the floor), gold bands on the walls, sconces down the tunnel
+  slQuad('paving', [CR.x0, 0.012, CR.z0], [CR.tx, 0.012, CR.z0], [CR.tx, 0.012, CR.z1], [CR.x0, 0.012, CR.z1], [0, 1, 0], { tint: 0x8a7258 });
+  slQuad('paving', [CR.tx, 0.012, CR.t0], [P.x1, 0.012, CR.t0], [P.x1, 0.012, CR.t1], [CR.tx, 0.012, CR.t1], [0, 1, 0], { tint: 0x8a7258 });
+  for (let x = P.x1 - 3; x > CR.tx; x -= 5) for (const z of [CR.t0 + 0.05, CR.t1 - 0.05]) { slGlow(x, 2.2, z, 1.4, 0xffb060, 0.8); slBox('neon', x - 0.15, 2.0, z - 0.06, x + 0.15, 2.3, z + 0.06, { bev: 0, tint: 0xffa040 }); }
+  for (const [x0, z0, x1, z1] of [[CR.x0, CR.z0 + 0.02, CR.tx, CR.z0 + 0.08], [CR.x0, CR.z1 - 0.08, CR.tx, CR.z1 - 0.02]]) slBox('neon', x0, 2.6, z0, x1, 2.72, z1, { bev: 0, tint: ACR.gold, skip: 'yY' });
+  slBox('neon', CR.x0 + 0.02, 2.6, CR.z0, CR.x0 + 0.08, 2.72, CR.z1, { bev: 0, tint: ACR.gold, skip: 'yY' });
+  // the treasure: a gold obelisk on a stone dais, a ring of gems round it, braziers in the corners
+  const cx = (CR.x0 + CR.tx) / 2 - 2, cz = zm;
+  slBox('stone', cx - 1.6, 0, cz - 1.6, cx + 1.6, 0.35, cz + 1.6, { top: 'stone', bev: 0.04, solid: true, tag: 'acro crypt dais', tint: ACR.trim, base: 0 });
+  slGeo('neon', new THREE.CylinderGeometry(0.32, 0.55, 2.2, 4).rotateY(Math.PI / 4), slMat(cx, 1.45, cz), { tint: ACR.gold });
+  slGeo('neon', new THREE.ConeGeometry(0.4, 0.5, 4).rotateY(Math.PI / 4), slMat(cx, 2.8, cz), { tint: 0xfff0b0 });
+  solidAdd(cx, cz, 0.6, 0.6, 0.35, 3.0, 0, { top: false, tag: 'acro crypt obelisk' });
+  slGlow(cx, 2.4, cz, 4.5, 0xffd27a, 0.8);
+  for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; gem(cx + Math.cos(a) * 4.2, 0.9, cz + Math.sin(a) * 4.2); }
+  for (let x = P.x1 - 4; x > CR.tx + 1; x -= 4) gem(x, 0.9, zm);       // a line of them down the tunnel, the breadcrumbs in
+  for (const [x, z] of [[CR.x0 + 1.4, CR.z0 + 1.4], [CR.x0 + 1.4, CR.z1 - 1.4], [CR.tx - 1.4, CR.z0 + 1.4], [CR.tx - 1.4, CR.z1 - 1.4]]) acBrazier(x, 0, z);
+  // a stone ledge along the back (west) wall to grind, steel on its edge
+  slBox('stone', CR.x0 + 0.4, 0, cz - 6, CR.x0 + 1.3, 0.5, cz + 6, { top: 'stone', bev: 0.03, solid: true, tag: 'acro crypt ledge', tint: ACR.trim, base: 0 });
+  slBox('metal', CR.x0 + 1.25, 0.45, cz - 6, CR.x0 + 1.35, 0.52, cz + 6, { bev: 0.01, skip: 'y' });
+  ACR.crypt = { x: cx, z: cz };
+}
 // ---- THE BUILD ----------------------------------------------------------------------------------------------------------
 function buildAcro() {
   if (!ACR.on || !PARKD.on) return;
@@ -7659,7 +7745,14 @@ function buildAcro() {
   _slseed = 9292;
   // THE PYRAMID: the terrace block and the upper block, faced in ashlar, pilasters on every face but where a stair is
   const stairZ = (z, half) => Math.abs(z - cz) < half + 1.2;
-  acBlock(P.x0, P.z0, P.x1, P.z1, 0, T4, { pil: 8, skipPil: (ax, t, f) => (ax === 'z' && f === P.x1 && stairZ(t, 17.6)) || (ax === 'x' && t > -232 && t < -199) });
+  // r94: THE TERRACE BLOCK IS HOLLOW NOW -- built round THE CRYPT, a tunnel in from the agora under the terrace and a chamber
+  // under the stylobate. Five blocks and two roof slabs instead of one; the top is the same floor at 4 m
+  { const CR = ACR.CRYPT, sk = (ax, t, f) => (ax === 'z' && f === P.x1 && stairZ(t, 17.6)) || (ax === 'x' && t > -232 && t < -199);
+    acBlock(P.x0, P.z0, P.x1, CR.z0, 0, T4, { pil: 8, skipPil: sk });
+    acBlock(P.x0, CR.z1, P.x1, P.z1, 0, T4, { pil: 8, skipPil: sk });
+    acBlock(P.x0, CR.z0, CR.x0, CR.z1, 0, T4, {});
+    acBlock(CR.tx, CR.z0, P.x1, CR.t0, 0, T4, {}); acBlock(CR.tx, CR.t1, P.x1, CR.z1, 0, T4, {});
+    buildCrypt(); }
   acBlock(U.x0, U.z0, U.x1, U.z1, T4, T8, { pil: 8, skipPil: (ax, t, f) => (ax === 'z' && f === U.x1 && stairZ(t, 17.6)) || (ax === 'x' && t > -253 && t < -226) });
   // THE GRAND STAIR, two flights stacked on the east face: the agora to the terrace, then the terrace to the stylobate
   const g1 = acTwin({ x: P.x1, z: cz, yaw: Math.PI / 2, y: 0 }, T4);
@@ -7705,7 +7798,7 @@ function buildAcro() {
   slBox('stone', TP.x0 + 4.5, cy, tcz - 5, TP.x0 + 6, cy + 0.6, tcz + 5, { top: 'stone', bev: 0.05, solid: true, tag: 'acro altar', tint: ACR.trim, base: cy });
   acBrazier(TP.x0 + 5.2, cy, tcz - 7.5); acBrazier(TP.x0 + 5.2, cy, tcz + 7.5);
   // DRESSING: cypresses down the agora edge, obelisks on the terrace corners, braziers on the stylobate corners
-  for (let z = 76; z <= 192; z += 12) if (Math.abs(z - cz) > 22 && Math.abs(z - 88.5) > 6) acCypress(-168, 0, z, 5 + (z % 3));
+  for (let z = 76; z <= 192; z += 12) if (Math.abs(z - cz) > 22 && Math.abs(z - 88.5) > 6 && Math.abs(z - 100) > 3) acCypress(-168, 0, z, 5 + (z % 3));
   for (const [x, z] of [[P.x0 + 3, P.z0 + 3], [P.x0 + 3, P.z1 - 3], [P.x1 - 3, P.z0 + 3], [P.x1 - 3, P.z1 - 3]]) acObelisk(x, T4, z, 0.6, 7);
   for (const [x, z] of [[U.x0 + 2.5, U.z0 + 2.5], [U.x0 + 2.5, U.z1 - 2.5]]) acBrazier(x, T8, z);
   for (let x = -166; x <= -146; x += 10) for (const z of [84, 184]) slLamp(x, 0, z);
@@ -7745,9 +7838,10 @@ function buildAcro() {
     const flat = Math.abs(ox - R0 - (I.x + h - 1.5)) - 2.2, pts = acPoly(W, 2.2, 0.9);
     let S = 0; const sl = [0]; for (let i = 1; i < pts.length; i++) { S += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sl.push(S); }
     const s1 = S - 5, P3 = pts.map(([x, z], i) => [x, sl[i] <= flat ? top : sl[i] >= s1 ? bot : top + (bot - top) * (sl[i] - flat) / (s1 - flat), z]);
-    ACR.rails.push({ pts: P3, name: 'acro descent', hgt: 0, tube: 1, maxV: 17, arms: 2.2, armTo: [ox, oz] }); ACR.descent = P3; }
+    ACR.rails.push({ pts: P3, gems: 14, name: 'acro descent', hgt: 0, tube: 1, maxV: 17, arms: 2.2, armTo: [ox, oz] }); ACR.descent = P3; }
   // r93: THE THIRD LEVEL and the agora's dressing
   buildPantheon(); acAgora();
+  if (SLC.on) buildRoofline();     // r94: the roofs it lands on are the slice's
   // THE ➤ STOPS (first on the key) and the dropping-in points the harness rides from
   const S = CITY.spots;
   S['acropolis'] = [-150, 0, cz, -Math.PI / 2];
@@ -7755,7 +7849,7 @@ function buildAcro() {
   S['acro stylobate'] = [-206, T8, cz + 26, -Math.PI / 2];
   S['acro temple'] = [-226, TP.y, tcz + 10, -Math.PI / 2];
   S['acro sky'] = [I.x - 6, I.y, I.z - 10, Math.PI];
-  ACR.stops = ['acropolis', 'acro agora', 'acro terrace', 'acro stylobate', 'acro temple', 'acro sky', 'acro pantheon'];
+  ACR.stops = ['acropolis', 'acro agora', 'acro terrace', 'acro stylobate', 'acro temple', 'acro sky', 'acro pantheon', ...(ACR.roofStops || [])];
   ACR.built = 1;
 }
 // THE KIT PIECES ON THE LEVELS (their own tested shapes, in the park district's palette): quarter pipes along the stylobate's
@@ -7819,7 +7913,10 @@ function acroRails() {
     const opt = { name: R.name, boost: R.boost || 0, boostK: R.boost ? 10 : 0, maxV: R.maxV || (R.boost ? 22 : 0) };
     const P = R.closed ? railLoop(top.map(V), opt) : railPath(top.map(V), opt);
     ACR.paths.push(P);
+    if (R.gems) gemsAlong(P, R.gems, 0.9, R.gems / 2);
   }
+  // r94: the gems (the crypt's, and the ones strung along the long rails) -- the counter under the speed counts them
+  if (GEM.list.length) { if (GEM.mesh) { scene.remove(GEM.mesh); GEM.mesh.geometry.dispose(); GEM.mesh.material.dispose(); GEM.mesh = null; } gemBuild(); }
 }
 function hubDress() {
   if (!HUB.on) return;
@@ -8124,7 +8221,7 @@ function buildSlice() {
   slDecal('decal', 'smile', [-132.5, 11.6 - 0.1, 21.5], [-1, 0, 0], [0, 1, 0], 2.4);
   slIvy(-96, 21.45, -137, 21.45, 10.4, 0, -1, 1.1, 0.8, 3.2);
   // behind it, a taller block so the wall reads as a retaining wall with the town above
-  slBuilding(-137, -96, 22.6, 40, 17, 'Z', { tint: 0xe9dcef, street: 10.5, flowers: 0.3, ivy: 0.2, shut: 0x5aa89a });
+  slBuilding(-137, -96, 22.6, 40, 17, 'Z', { tint: 0xe9dcef, street: 10.5, flowers: 0.3, ivy: 0.2, shut: 0x5aa89a, tank: false });
 
   // THE TERRACE above the quay: its front an arcade of blind arches, ivy pouring over the parapet
   slBox('masonry', -188, 0, 10, -137, TER, 21.5, { top: 'paving', bev: 0, solid: true, skip: 'yX', base: Q, topT: 4.8 });
@@ -8141,7 +8238,7 @@ function buildSlice() {
   // the terrace's own row of buildings, and its furniture
   slBuilding(-155, -137, 21.5, 38, 22, 'Z', { tint: 0xf4e6c8, street: TER, shop: { sign: 'roll', signW: 2.0, col: 0xff8a5c, neon: 0xffa040, glow: 0xffffff }, balc: [1, 3], shut: 0x6b8fd0 });
   slBuilding(-172, -155, 21.5, 36, 19, 'Z', { tint: 0xd4eae2, street: TER, balc: [2] });
-  slBuilding(-204, -172, 21.5, 38, 25, 'Z', { tint: 0xf4d4c8, street: Q, flowers: 0.5, balc: [2, 4], shut: 0x3f9e8c });
+  slBuilding(-204, -172, 21.5, 38, 25, 'Z', { tint: 0xf4d4c8, street: Q, flowers: 0.5, balc: [2, 4], shut: 0x3f9e8c, tank: false });
   slVending(-150, TER, 20.5, Math.PI); slPlanter(-160, TER, 19.5, 3.4, 1.4, 0.7);
   slBench(-145, TER, 19.8, Math.PI); slLamp(-147, TER, 11.2); slLamp(-170, TER, 11.2);
 

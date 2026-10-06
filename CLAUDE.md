@@ -94,6 +94,26 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **CONNECTIVE TISSUE: THE DISTRICTS JOIN UP (r94, `buildRoofline`, `buildCrypt`, `ACR.RL`, `ACR.CRYPT`, the mega drop).**
+  *"I want to blend the areas between so they don't feel like separate sections -- one giant cohesive system with a lot
+  of connective tissue, lots of different ways to get, lots of secret locations."* (His hero assets -- a centre tower with
+  balconies -- are coming from another session; this is the tissue they will plug into.)
+  - **THE ROOFLINE**: one booster rail off the Acropolis stylobate, over the terrace and the open ground onto the canal
+    street's 25 m roof (A), square east along it, over the 19 and 22 m roofs, down onto the 17 m roof (D) -- now a rooftop
+    half pipe (QP M each end, a funbox). **THE HUB RUN** leaves D's north-east corner, crosses the hub's west bank and
+    lands on the hub deck heading east. Acropolis -> canal-street roofs -> hub with no ground in between.
+  - **THE MEGA DROP**: the Pantheon's east gap, north over the promenade, east along the park district's north street above
+    the shopfronts, south over the fence, off the end onto the mega vert's deck straight into its drop-in (18.8 m/s at
+    the bottom). The Acropolis and the skate park meet at the top of the biggest ramp in either.
+  - **THE CRYPT**, a secret: a doorway in the pyramid's east face at z 100, a 5 m tunnel under the terrace, a gold chamber
+    under the stylobate. The terrace block is five blocks and two roof slabs now; the floors above are unchanged (tested).
+    Not on the ➤ key on purpose.
+  - **GEMS IN THE MAIN WORLD** for the first time: down the crypt's tunnel, round its obelisk, and strung along the long
+    rails (`R.gems` in `ACR.rails`). `acroRails` rebuilds the instanced mesh after adding them.
+  - **`slBuilding` ROOF TANKS ARE SOLID NOW, and `tank: false` drops one** (the random draw is still taken, so nothing
+    downstream moves). A roof somebody skates is part of the world, not skyline.
+  - Every roof the line stops on gets its parapets AS SOLIDS: `slBuilding` drew the front one as picture only, and she
+    rolled through it off a 25 m roof.
 - **THE PANTHEON: A THIRD LEVEL AT 46 m, AND THE AGORA DRESSED (r93, `ACR.PN`, `buildPantheon`, `acAgora`, `acDisc`,
   `acWallRing`, `acRingSolid`, `acFlip`).** *"Sounds good!"* -- to a third level above the island and more on the agora.
   A round deck (r 19.5) floating over the agora's north end (-158, 240): a kit bowl M sunk in it with a volcano M under the

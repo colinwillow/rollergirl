@@ -4130,7 +4130,7 @@ CASES.acro = () => {
   { const bad = []; for (let i = 0; i < A.kit.length; i++) for (let j = i + 1; j < A.kit.length; j++) { const a = A.kit[i], b = A.kit[j]; if (!a.bb || !b.bb || (a.nest && a.nest === b.nest)) continue;
       if ([0, 1, 2].every(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k]) > 0.05)) bad.push(a.label + ' x ' + b.label); }
     // and nothing of the kit's stands on a rail's line: every booster and the descent clear of every piece by a body
-    for (const R of A.paths.filter(P0 => /ascent|sky stair|descent|sky bridge|cascade/.test(P0.name))) for (const sg of R.segs) for (const k of A.kit) if (k.bb && sg.a.x > k.bb[0] - 0.8 && sg.a.x < k.bb[3] + 0.8 && sg.a.z > k.bb[2] - 0.8 && sg.a.z < k.bb[5] + 0.8 && sg.a.y < k.bb[4] + 1.8 && sg.a.y > k.bb[1] - 0.5) { bad.push(k.label + ' on the ' + R.name); break; }
+    for (const R of A.paths.filter(P0 => /ascent|sky stair|descent|sky bridge|cascade|roofline|hub run|mega drop/.test(P0.name))) for (const sg of R.segs) for (const k of A.kit) if (k.bb && sg.a.x > k.bb[0] - 0.8 && sg.a.x < k.bb[3] + 0.8 && sg.a.z > k.bb[2] - 0.8 && sg.a.z < k.bb[5] + 0.8 && sg.a.y < k.bb[4] + 1.8 && sg.a.y > k.bb[1] - 0.5) { bad.push(k.label + ' on the ' + R.name); break; }
     say('the Acropolis kit: nothing inside anything, nothing on a rail\'s line', !bad.length, bad.slice(0, 4).join('; ') || `${A.kit.length} pieces`); }
   // 0. EVERY ➤ STOP stands her on a floor
   { const bad = []; for (const n of A.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
@@ -4224,12 +4224,50 @@ CASES.acro = () => {
     say('the cascade: off the Pantheon, every right angle, onto the ground', reached && gr && !r.bail, `${reached ? 'reached the end in ' + fix(tE, 1) + ' s' : off ? 'CAME OFF at ' + fix(P.pos.x, 1) + ',' + fix(P.pos.y, 1) + ',' + fix(P.pos.z, 1) : 'never reached the end'}, top speed ${fix(r.vmax, 1)}, ${gr ? 'rolling on the ground' : 'ends y ' + fix(P.pos.y)}`);
     const rr = (C.col + C.R - 0.7) / 2; rg.GRIND.intent = 0; rg.ledgeClear(); go(C.x - 1.1, C.z + rr - 2.5, N, 5, C.y); P.jump = 1;
     const r2 = ride(3); say('a tap beside the cascade\'s start catches it', r2.grind.has(R), r2.grind.has(R) ? 'grinding it' : `${[...r2.grind].map(p => p.name).join('+') || 'nothing'}, ends y ${fix(P.pos.y)}${cl(r2)}`); }
+  // the mega drop: out of the east gap, over the street, off the end into the park's mega vert -- and down it
+  { const R = A.paths.find(P0 => /mega drop/.test(P0.name)), S0 = R.segs[0], G = R.segs[R.segs.length - 1]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 5); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 5, side: 'left' }); let reached = 0, off = 0, down = 0, tE = 0; const r = ride(14, (t) => { rg.stick.L.x = rg.stick.L.y = 0;
+      if (P.grind && P.grind.rail.path === R) { if (Math.hypot(P.pos.x - G.b.x, P.pos.z - G.b.z) < 2 && !reached) { reached = 1; tE = t; } } else if (!reached && !off) off = [P.pos.x, P.pos.y, P.pos.z];
+      if (reached && P.grounded && P.pos.y < 1 && P.pos.x > -107 && P.pos.x < -84) down = Math.max(down, P.speed || 0); });
+    say('the mega drop: off the Pantheon onto the mega vert, and down it', reached && down && !r.bail, `${reached ? 'end in ' + fix(tE, 1) + ' s' : off ? 'CAME OFF at ' + off.map(v => fix(v, 1)).join(',') : 'never reached the end'}, ${down ? fix(down, 1) + ' m/s at the bottom of the vert' : 'NEVER DOWN, ends ' + fix(P.pos.x, 1) + ',' + fix(P.pos.y, 1) + ',' + fix(P.pos.z, 1)}${r.bail ? ' BAIL' : ''}`);
+    const rr = (C.col + C.R - 0.7) / 2; rg.GRIND.intent = 0; rg.ledgeClear(); go(C.x + rr - 2.5, C.z - 1.1, E, 5, C.y); P.jump = 1;
+    const r2 = ride(3); say('a tap beside the mega drop\'s start catches it', r2.grind.has(R), r2.grind.has(R) ? 'grinding it' : `${[...r2.grind].map(p => p.name).join('+') || 'nothing'}, ends y ${fix(P.pos.y)}${cl(r2)}`); }
   // 11. THE AGORA: into the stoa over its step and stopped by its wall; the fountain's rim is a wall, its water a floor
   { const T = A.STOA; go(-157, 80, S, 8); let up = 0; const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && Math.abs(P.pos.y - 0.28) < 0.05) up = 1; });
     say('the stoa: rolled in under the colonnade, up its step, stopped by the back wall', up && P.pos.z > T.z0 - 0.05 && r.clean, `${up ? 'on its floor' : 'NEVER UP'}, ends z ${fix(P.pos.z, 2)} (wall ${T.z0})${cl(r)}`); }
   { const F = A.FT; go(F.x + F.r + 6, F.z, W, 7); const r = ride(2); const d = Math.hypot(P.pos.x - F.x, P.pos.z - F.z);
     say('the fountain: its rim is a wall from outside', d > F.r - 0.05, `ends ${fix(d, 2)} m from its middle (rim ${F.r})${cl(r)}`);
     go(F.x + 2.4, F.z, N, 0, 0.4); const r2 = ride(1); say('the fountain: the water is a floor at 0.4', on(0.4, 0.03), `stands at y ${fix(P.pos.y)}${cl(r2)}`); }
+  // 12. r94: THE ROOFLINE -- Acropolis to the canal street's roofs to the hub, without touching the ground
+  { const RA = A.RL.A, RD = A.RL.D, inD = () => P.pos.x > RD.x0 && P.pos.x < RD.x1 && P.pos.z > RD.z0 && P.pos.z < RD.z1 && Math.abs(P.pos.y - RD.y) < 0.1 && P.grounded;
+    const R = A.paths.find(P0 => /roofline/.test(P0.name)), S0 = R.segs[0], goal = R.segs[R.segs.length - 1]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 6); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 6, side: 'left' }); let reached = 0, off = 0, land = 0, tE = 0;
+    const r = ride(14, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === R) { if (P.grind.rail === goal && !reached) { reached = 1; tE = t; } } else if (!reached && !off) off = [P.pos.x, P.pos.y, P.pos.z]; if (reached && inD()) land = 1; });
+    say('the roofline: stylobate up onto the roofs, along them, onto the rooftop park', reached && land && r.clean, `${reached ? 'end in ' + fix(tE, 1) + ' s' : off ? 'CAME OFF at ' + off.map(v => fix(v, 1)).join(',') : 'never reached the end'}, ${land ? 'on the 17 m roof' : 'ends ' + fix(P.pos.x, 1) + ',' + fix(P.pos.y, 1) + ',' + fix(P.pos.z, 1)}, top speed ${fix(r.vmax, 1)}${cl(r)}`);
+    rg.GRIND.intent = 0; rg.ledgeClear(); go(S0.a.x + 1.1, S0.a.z - 0.4, S, 4, 8); P.jump = 1;
+    const r2 = ride(3); say('a tap beside the roofline\'s foot catches it', r2.grind.has(R), r2.grind.has(R) ? 'grinding it' : `${[...r2.grind].map(p => p.name).join('+') || 'nothing'}, ends y ${fix(P.pos.y)}${cl(r2)}`);
+    // on roof A: rolled at each parapet, she stays on the roof
+    const bad = []; for (const [x, z, h] of [[-188, 26, S], [-188, 34, N], [-198, 30, W], [-178, 26, E]]) { go(x, z, h, 9, RA.y); const r3 = ride(2); if (P.pos.y < RA.y - 0.1 || r3.falls) bad.push(`${x},${z} -> y ${fix(P.pos.y)}`); }
+    say('roof A: a parapet on every side, she stays up', !bad.length, bad.join('; ') || 'four sides');
+    // the rooftop half pipe: east up the QP and back, west up the other and back, still on the roof
+    go(-118, 27.5, E, 12, RD.y); let ups = 0, side = 0; const r4 = ride(12, (t, i) => { if (process.env.ATRACE && i % 20 === 0) console.log("    hp", fix(P.pos.x, 1), fix(P.pos.y), fix(P.pos.z, 1), fix(P.speed || 0, 1)); rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.y > RD.y + 0.8) { const sd = P.pos.x > -116 ? 1 : -1; if (sd !== side) { ups++; side = sd; } } });
+    say('the rooftop half pipe: up one end, across, up the other, hands off', ups >= 2 && P.pos.y > RD.y - 0.1 && P.pos.y < RD.y + 3 && r4.clean, `${ups} walls, ends y ${fix(P.pos.y)}${cl(r4)}`);
+    // the hub run: off the roof's corner onto the hub deck
+    const H = A.paths.find(P0 => /hub run/.test(P0.name)), H0 = H.segs[0], hg = H.segs[H.segs.length - 1]; reset(); place(H0.a.x, H0.a.y, H0.a.z, Math.atan2(H0.hx, H0.hz), 5); P.grounded = false;
+    rg.enterGrind({ rail: H0, t: 0, dir: 1, s: 5, side: 'left' }); let hr = 0, hoff = 0, deck = 0; const r5 = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0;
+      if (P.grind && P.grind.rail.path === H) { if (Math.hypot(P.pos.x - hg.b.x, P.pos.z - hg.b.z) < 2) hr = 1; } else if (!hr && !hoff) hoff = [P.pos.x, P.pos.y, P.pos.z]; if (hr && on(2.4, 0.08) && P.pos.x > -64 && P.pos.x < -30) deck = 1; });
+    say('the hub run: off the rooftop park, over the hub\'s bank, onto the hub deck', hr && deck && !r5.bail, `${hr ? 'reached the end' : hoff ? 'CAME OFF at ' + hoff.map(v => fix(v, 1)).join(',') : 'never reached the end'}, ${deck ? 'on the hub deck' : 'ends ' + fix(P.pos.x, 1) + ',' + fix(P.pos.y, 1) + ',' + fix(P.pos.z, 1)}, top speed ${fix(r5.vmax, 1)}`);
+    rg.GRIND.intent = 0; rg.ledgeClear(); go(H0.a.x - 1.5, H0.a.z - 1.0, E, 4, RD.y); P.jump = 1;
+    const r6 = ride(3); say('a tap on the rooftop park catches the hub run', r6.grind.has(H), r6.grind.has(H) ? 'grinding it' : `${[...r6.grind].map(p => p.name).join('+') || 'nothing'}, ends y ${fix(P.pos.y)}${cl(r6)}`); }
+  // 13. r94: THE CRYPT -- in through the doorway, down the tunnel, into the chamber, round the gems; the floors above intact
+  { const CR = A.CRYPT, g0 = rg.GEM.got; go(-174, (CR.t0 + CR.t1) / 2, W, 8); let inC = 0, hi = 0;
+    const r = ride(6, (t) => { const c = A.crypt, a = t * 1.6, tx = c.x + Math.cos(a) * 4.2, tz = c.z + Math.sin(a) * 4.2;
+      if (P.pos.x < CR.tx - 2) { inC = 1; steer(Math.atan2(tx - P.pos.x, tz - P.pos.z)); } else { rg.stick.L.x = rg.stick.L.y = 0; } hi = Math.max(hi, P.pos.y); });
+    const got = rg.GEM.got - g0;
+    say('the crypt: in through the doorway, down the tunnel, into the chamber', inC && hi < CR.h - 1.5 && r.clean, `${inC ? 'in the chamber' : 'NEVER IN, ends ' + fix(P.pos.x, 1) + ',' + fix(P.pos.z, 1)}, highest y ${fix(hi)}, ${got} gems${cl(r)}`);
+    say('the crypt: gems down the tunnel and round the obelisk', got >= 3, `${got} picked up`);
+    const bad = []; for (const [x, z, y] of [[-190, 100, 4], [-200, 95, 4], [-220, 100, 8], [-228, 92, 8]]) { const q = rg.groundAt(x, z, y + 0.5, 0); if (!q.hit || Math.abs(q.floor - y) > 0.02) bad.push(`${x},${z}: ${q.hit ? fix(q.floor) : 'none'}`); }
+    say('over the crypt the terrace and the stylobate are still floors', !bad.length, bad.join('; ') || '4 points'); }
   rg.GRIND.intent = 0;
   return ok;
 };
