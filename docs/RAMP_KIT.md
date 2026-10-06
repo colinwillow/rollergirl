@@ -489,3 +489,37 @@ zoom at half strength, so the build's errors are read on the same grid as his dr
 - **The rooftop stairs** are a flight between two banks (`stairBank` with `side: 0`).
 - **The shades and the fence** are retraced.
 
+## His angled view (r77): `npm run oblique`, `npm run heights`
+
+A top-down plan says where everything is and nothing about how tall it is. His second picture is the same park from
+roughly 55 degrees down, and it shows the heights — but only once you know where the camera was.
+
+- **`npm run oblique -- <angled render>` fits that camera.**
+  - Every pixel of the angled view is cast as a ray onto the ground.
+  - Each ray is looked up in the top-down plan through the schematic's own `pin` and `mpp`.
+  - The camera position, yaw, pitch, roll and focal length that make the two pictures agree best wins (a grid of starting
+    guesses, then Nelder-Mead).
+  - It writes `oblique: { image, size, cam, fit }` into the schematic.
+  - His picture fits at **0.85**: camera about 690 m out, 55 deg down, a 16 deg lens.
+- **`npm run plan` renders the build from that camera.** It writes `shots/plan_<name>_oblique_side.png` (his | ours) and
+  `_oblique_overlay.png`.
+- **`npm run heights -- '[["name", px, py], ...]'`** marks where a plan point would appear in his angled view at 0, 2, 4 ...
+  m up. Probe the FOOT of a wall and read its drawn top against the marks.
+  - **His top-down picture is itself slightly tilted**, so tall things are drawn north of their feet in it too. AI renders
+    are not consistent geometry, so read heights as a guide, not as a measurement.
+
+**What it showed:**
+- **His pool and his big bowl are SUNK.** Their rims are at the ground; there is no raised deck with walls around them.
+- **The vert is the tallest thing in the park by a distance.**
+
+**A sunk piece is a closed `wall` with `sink: 1` in the schematic.**
+- Its rim is set at the ground, its floor `rim` metres below, and its piece origin at `y - rim`.
+- The park's FIRST `ground` polygon becomes its floor: it collides, and it is triangulated with a hole the shape of each
+  sunk piece's deck back edge.
+- `kitFloor` leaves out the checker cells wholly inside that polygon. A cell under the hole would put the floor back across
+  the bowl.
+- Because the pool deck is gone:
+  - the upper plaza's east edge is now a drop;
+  - the bowl's banks are gone, and a berm along its south side is his tan wave;
+  - the bridge's ramp now carries straight on off the walkway's end toward the bowl.
+

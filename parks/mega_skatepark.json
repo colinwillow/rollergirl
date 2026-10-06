@@ -568,7 +568,7 @@
   {
    "id": 10,
    "name": "gap and drop",
-   "sub": "a pool L, his kidney, its deck joined to the upper plaza",
+   "sub": "a pool L, his kidney, sunk with its rim at the ground",
    "label": [
     618,
     301.2
@@ -639,27 +639,10 @@
       "closed": 1,
       "deck": 1.5
      },
-     "outer": [
-      [
-       482.8,
-       224.2
-      ],
-      [
-       753.2,
-       224.2
-      ],
-      [
-       753.2,
-       374.4
-      ],
-      [
-       482.8,
-       374.4
-      ]
-     ],
      "tint": "concrete",
      "id": "pool",
-     "label": "pool L, his kidney"
+     "label": "pool L, his kidney, sunk into the ground",
+     "sink": 1
     }
    ]
   },
@@ -719,7 +702,7 @@
      },
      "tint": "concrete",
      "id": "upperPlaza",
-     "label": "upper plaza L, joins the pool deck"
+     "label": "upper plaza L"
     },
     {
      "kind": "terrace",
@@ -1164,7 +1147,7 @@
   {
    "id": 4,
    "name": "bowl complex",
-   "sub": "his peanut and clover as one bowl, a bank down its west and south edges, a bank up from the vert",
+   "sub": "his peanut and clover as one bowl, sunk; a berm along its south side",
    "label": [
     1210,
     440
@@ -1174,8 +1157,7 @@
      1395,
      290
     ],
-    "dir": 225,
-    "y": 3.6
+    "dir": 225
    },
    "pieces": [
     {
@@ -1341,124 +1323,54 @@
       ],
       "deck": 1.5
      },
-     "outer": [
+     "tint": "concrete",
+     "id": "bowl",
+     "label": "bowl complex, his peanut and clover, sunk (2.4 m at the shallow ends, 3.6 deep)",
+     "sink": 1
+    },
+    {
+     "kind": "wall",
+     "size": "L",
+     "pts": [
       [
-       1005,
-       330
-      ],
-      [
-       1050,
-       290
-      ],
-      [
-       1130,
-       282
-      ],
-      [
-       1401,
-       282
-      ],
-      [
-       1401,
-       612
-      ],
-      [
-       1390,
-       620
-      ],
-      [
-       1240,
-       612
-      ],
-      [
-       1200,
-       585
+       1010,
+       560
       ],
       [
        1060,
-       585
+       598
       ],
       [
-       1005,
-       545
-      ]
-     ],
-     "tint": "concrete",
-     "id": "bowl",
-     "label": "bowl complex, his peanut and clover (2.4 m at the shallow ends, 3.6 deep)"
-    },
-    {
-     "kind": "bank",
-     "size": "L",
-     "p": [
-      1250,
-      232.4
-     ],
-     "dir": 180,
-     "o": {
-      "w": 24
-     },
-     "tint": "wood",
-     "id": "bowlBankN",
-     "label": "bank L from the vert onto the bowl deck"
-    },
-    {
-     "kind": "wall",
-     "size": "L",
-     "pts": [
-      [
-       1005,
-       412
-      ],
-      [
-       1005,
-       540
-      ]
-     ],
-     "face": [
-      960,
-      480
-     ],
-     "o": {
-      "profile": "bank",
-      "angle": 30,
-      "H": 3.6,
-      "deck": 0.3
-     },
-     "tint": "wood",
-     "id": "bowlBankW",
-     "label": "bank L down the bowl deck's west edge"
-    },
-    {
-     "kind": "wall",
-     "size": "L",
-     "pts": [
-      [
-       1200,
-       585
-      ],
-      [
-       1240,
+       1130,
        612
       ],
       [
-       1384,
-       619
+       1195,
+       595
+      ],
+      [
+       1240,
+       578
+      ],
+      [
+       1285,
+       603
+      ],
+      [
+       1300,
+       622
       ]
      ],
-     "face": [
-      1300,
-      700
-     ],
+     "face": "both",
      "o": {
       "profile": "bank",
-      "angle": 30,
-      "H": 3.6,
-      "deck": 0.3
+      "H": 1.2,
+      "top": 1.2,
+      "smooth": 1
      },
      "tint": "wood",
-     "id": "bowlBankS",
-     "label": "bank L down the bowl deck's south edge (his tan band)"
+     "id": "bowlBerm",
+     "label": "berm S along the bowl's south side (his tan wave)"
     }
    ]
   },
@@ -1483,16 +1395,16 @@
      "size": "L",
      "pts": [
       [
-       958,
-       375
+       961,
+       350
       ],
       [
-       962,
-       330
+       966,
+       320
       ],
       [
-       975,
-       300
+       978,
+       297
       ],
       [
        1003,
@@ -1585,18 +1497,18 @@
        3.6
       ],
       [
-       932.9,
-       455.2,
+       950,
+       478.2,
        2.4
       ],
       [
-       936.7,
-       424.4,
-       1
+       972,
+       470.7,
+       1.2
       ],
       [
-       938.6,
-       405.2,
+       993,
+       463.5,
        0
       ]
      ],
@@ -1606,7 +1518,7 @@
      },
      "tint": "wood",
      "id": "bridgeRamp",
-     "label": "ramp down off the walkway"
+     "label": "ramp down off the walkway's end, toward the bowl"
     }
    ]
   },
@@ -1829,7 +1741,7 @@
      "size": "S",
      "c": [
       1122.1,
-      630.4
+      642
      ],
      "dir": 90,
      "o": {
@@ -2546,5 +2458,23 @@
     }
    ]
   }
- ]
+ ],
+ "oblique": {
+  "image": "parks/mega_skatepark_oblique.webp",
+  "size": [
+   1448,
+   1086
+  ],
+  "cam": [
+   -320.5423,
+   494.374,
+   303.9271,
+   -0.0505,
+   -0.9583,
+   0.0426,
+   3897.6684
+  ],
+  "fit": 0.846,
+  "note": "camera [x, y, z, yaw, pitch, roll, focal px] fitted by npm run oblique; npm run plan renders the build from it"
+ }
 }

@@ -91,6 +91,19 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **HIS ANGLED VIEW HAS A CAMERA, AND `npm run oblique` FINDS IT (r77, `tools/oblique.mjs`, `tools/heights.mjs`, `sink`).**
+  *"Use this in conjunction with the top-down view."*
+  - **The fit casts every pixel of his view onto the ground and looks it up in the top-down plan** through the schematic's
+    own pin/mpp. The camera that makes the two agree wins: **0.85** correlation, 55 deg down.
+  - `npm run plan` then renders OUR build from his camera, side by side with his view.
+  - **What it showed first: his pool and bowl are sunk, rims at grade**, where r73-r76 had them on 3.6 m decks.
+  - **`sink: 1` on a closed `wall`** puts its rim at the ground. The park's first `ground` polygon becomes the collided floor,
+    with a hole per sunk piece, and `kitFloor` drops its cells there.
+  - Harness rows now measure a sunk piece from its own floor (`rimY - h`), not from zero.
+  - **AN AI RENDER IS NOT CONSISTENT GEOMETRY:** his "top-down" is itself tilted, so heights read off `npm run heights` are a
+    guide, not a measurement.
+  - **`shot.mjs` used ONE viewport per query group**, so the perspective shot had been rendering at the top-down's size all
+    along. Each shot's `view` is applied now.
 - **HIS SECOND PLAN IS A RE-RENDER, NOT AN UPSCALE, AND `npm run rebase` SAYS SO (r76, `tools/rebase.mjs`, `trace --over`).**
   *"I'm wondering if this better image will help."* It does: twice the detail, and the same park redrawn.
   - **The rebase registers it against the old drawing** (cross-correlation; correlation **0.48**, an upscale would read near

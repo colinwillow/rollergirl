@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r76</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r77</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r76';
+const BUILD = 'r77';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"fa178499","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
+const ASSETS = {"parks/mega_skatepark.json":"dee1e93f","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -2374,7 +2374,13 @@ KIT_KINDS.bankDeck = (T, S, o) => {
 const KIT_FITS = { S: 'H 1.2 m', M: 'H 2.4 m', L: 'H 3.6 m', XL: 'H 4.8 m', XXL: 'H 7.2 m', MEGA: 'H 9.6 m' };
 function kitFloor() {
   const s = KITW.floorS;
+  // r77: inside the sheet park the PARK's own ground is the floor (it has holes where a bowl is sunk), so the checker cells
+  // wholly inside it are left out -- a cell under a hole would put the floor back across the bowl
+  const J = SHEET.data, G = J && J.ground && J.ground[0], m = J && J.mpp;
+  const P = G ? G.pts.map(p => [J.pin.world[0] + (p[0] - J.pin.px[0]) * m, J.pin.world[1] + (p[1] - J.pin.px[1]) * m]) : null;
+  const inP = (x, z) => { let c = 0; for (let i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > z) !== (P[j][1] > z) && x < (P[j][0] - P[i][0]) * (z - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) c ^= 1; return c; };
   for (let x = KITW.x0; x < KITW.x1; x += s) for (let z = KITW.z0; z < KITW.z1; z += s) {
+    if (P && inP(x, z) && inP(x + s, z) && inP(x, z + s) && inP(x + s, z + s)) continue;
     const odd = ((Math.round(x / s) + Math.round(z / s)) & 1);
     quad([x, 0, z], [x, 0, z + s], [x + s, 0, z + s], [x + s, 0, z], odd ? KCOL.floorA : KCOL.floorB);
   }
@@ -2586,7 +2592,7 @@ function kitPark() {
 //   ground        flat colour under it all (concrete, grass), drawn only -- it is how the render reads like his plan
 // The drawing itself sits beside the file (`image`), and `npm run plan` renders the built park from straight above at the
 // drawing's own scale and lays it over the drawing -- the check that the trace is where he drew it.
-const SHEET = { x0: -450, x1: -160, z0: -270, z1: 150, spawn: null, at: {}, areas: [], url: 'parks/mega_skatepark.json', data: null, err: null };
+const SHEET = { holes: [], x0: -450, x1: -160, z0: -270, z1: 150, spawn: null, at: {}, areas: [], url: 'parks/mega_skatepark.json', data: null, err: null };
 async function schematicLoad() {
   try { const r = await fetch(A(SHEET.url)); if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
     SHEET.data = await r.json(); }
@@ -2646,8 +2652,12 @@ function kitSheet(J) {
         o.pts = q.pts.map(pp => q.kind === 'walk' ? [...loc(pp), pp[2]] : loc(pp));
         if (q.outer) o.outer = q.outer.map(loc); if (q.holes) o.holes = q.holes.map(H => H.map(loc));
         if (Array.isArray(q.face)) o.face = loc(q.face); else if (q.face) o.face = q.face;
+        // r77: SUNK -- the rim at the ground and the floor `rim` below it, as his angled view shows the pool and the bowl; the
+        // park's ground gets a hole the shape of the deck's back edge (below)
+        let yy = y; if (q.sink) { const Hs = o.rim != null ? o.rim : (KSZ[size] || KSZ.M).H; o.rim = Hs; yy = y - Hs; }
         if (q.bumps) o.bumps = q.bumps.map(([bx, by, r, h]) => [...loc([bx, by]), r, h]); if (q.trees) o.trees = q.trees.map(t => [...loc(t), t[2]]);      // r75
-        const r = put(q.kind, size, A0[0], A0[1], 0, o, q.label, y, q.group); if (r && q.id) SHEET.at[q.id] = r;
+        const r = put(q.kind, size, A0[0], A0[1], 0, o, q.label, yy, q.group); if (r && q.id) SHEET.at[q.id] = r;
+        if (q.sink && r && r.line) { const dk = o.deck != null ? o.deck : KITW.deck; r.sunk = 1; SHEET.holes.push(r.line.map((pp, i) => [pp[0] - r.side[i][0] * dk, pp[1] - r.side[i][1] * dk])); }
         continue;
       }
       const yaw = yawOf(q.dir);
@@ -2661,13 +2671,15 @@ function kitSheet(J) {
     SHEET.areas.push({ id: Ar.id, name: Ar.name, recs }); all.push(...recs);
   }
   // the ground he drew: concrete under the park, grass where it is landscaped -- picture only, a hair over the floor
-  for (const G of J.ground || []) {
-    const P = G.pts.map(W), col = SHEET_C(G.color, J), y = 0.004 + (G.lift || 0);
-    const tris = THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), []);
-    for (const [a, b, c] of tris) { const A3 = [P[a][0], y, P[a][1]], B3 = [P[b][0], y, P[b][1]], C3 = [P[c][0], y, P[c][1]];
+  // r77: the FIRST polygon is the park's floor -- collided, since `kitFloor` leaves its cells out, and cut by every sunk piece
+  (J.ground || []).forEach((G, gi) => {
+    const P = G.pts.map(W), col = SHEET_C(G.color, J), y = 0.004 + (G.lift || 0), Hs = gi === 0 ? SHEET.holes : [];
+    const tris = THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), Hs.map(H => H.map(([x, z]) => new THREE.Vector2(x, z))));
+    const V = P.concat(...Hs);
+    for (const [a, b, c] of tris) { const A3 = [V[a][0], y, V[a][1]], B3 = [V[b][0], y, V[b][1]], C3 = [V[c][0], y, V[c][1]];
       const up = (B3[2] - A3[2]) * (C3[0] - A3[0]) - (B3[0] - A3[0]) * (C3[2] - A3[2]);
-      if (up > 0) kTri(A3, B3, C3, col, false); else kTri(A3, C3, B3, col, false); }
-  }
+      if (up > 0) kTri(A3, B3, C3, col, gi === 0); else kTri(A3, C3, B3, col, gi === 0); }
+  });
   // the bounds the harness holds the park to: the fence, or everything
   const fx = [], fz = []; for (const r of all) if (r.bb && (r.kind === 'fence' || !all.some(q => q.kind === 'fence'))) { fx.push(r.bb[0], r.bb[3]); fz.push(r.bb[2], r.bb[5]); }
   if (fx.length) Object.assign(SHEET, { x0: Math.min(...fx), x1: Math.max(...fx), z0: Math.min(...fz), z1: Math.max(...fz) });

@@ -27,6 +27,8 @@ try {
   await page.waitForFunction(() => window.rg && window.rg.girl && window.rg.girl.ready, null, { timeout: 180000 });
   await page.addStyleTag({ content: 'body > *:not(canvas){visibility:hidden !important}' });
   for (const s of group) {
+    // r77: a shot's own `view` -- the group shares one page, and the oblique and the perspective each want their own size
+    if (s.view) { await page.setViewportSize({ width: s.view[0], height: s.view[1] }); await page.waitForTimeout(300); }
     await page.evaluate(s => {
       const rg = window.rg;
       if (s.spot) rg.goSpot(s.spot);

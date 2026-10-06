@@ -15,6 +15,8 @@
     "shot": "node tools/shot.mjs",
     "export": "node tools/export.mjs",
     "export:kit": "node tools/export.mjs kit",
+    "heights": "node tools/heights.mjs",
+    "oblique": "node tools/oblique.mjs",
     "rebase": "node tools/rebase.mjs",
     "plan": "node tools/plan.mjs",
     "trace": "node tools/trace.mjs"
