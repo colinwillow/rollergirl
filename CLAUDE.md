@@ -91,6 +91,25 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **DETAIL PIECES: TERRAIN, KERB TERRACES, STAIRS + BANK, PLANTED ISLANDS (r75, `terrain`, `terrace`, `stairBank`, `island`,
+  `kNoise`).** *"Lots of little ups and downs ... take a 50 x 50 plane and deform it by large noises and small noises."*
+  - **`terrain` is that plane.** It is a grid of a broad noise, a fine noise and hand-placed `bumps`, faded to the ground over
+    `edge`, and drawn only where it is above the ground (the plaza is the lows).
+    - The noise is hashed from the seed and the piece's LOCAL coordinates, so a harness measures the same hills the game
+      draws.
+    - `maxSlope` (28 deg) is enforced by LOWERING peaks until no grid step is too steep. That bounds every triangle's own
+      slope, so every face is a ramp she can ride.
+    - It returns `hAt`, and `npm run sim kit` requires she is never under it. It returns `ground: 1`, so the overlap check
+      lets trees and lamps stand on it.
+  - **`terrace`** is tiers of 0.4 m. That is under `SK.step`, so she ROLLS up them. Each tier is a full-height column: a
+    wall from the side, a floor on top.
+  - **`stairBank`** is stairs with a bank over the same run (`angle` sets both).
+  - **`island`** is a 0.45 m curbed bed with trees.
+  - **His NW corner is rebuilt as the UPPER PLAZA**, a deck at 3.6 m joined to the pool deck: terrace north, stairs west,
+    long stairs + bank south. The roof's bank moved to the roof's south side, where his drawing has it; it was sitting in
+    the plaza's footprint. The poolWalk is gone, because the plaza does that job now.
+  - **The schematic overlap check (S1) tests a `deck`/`island` by its outline (`poly`)**, not its box. A diagonal stair's
+    box covers half the hub, and the island beside it read as inside it.
 - **PATH PIECES, THE DASH, THE TAP TRANSFER, AND A DIVE THAT NEVER TURNS HER ROUND (r74, `wall`/`deck`/`walk`, `kProfile`,
   `kPathSample`, `kOutline`, `DASH`, `dashOk`/`dashGo`, `VERT.tapXfer`, `GRIND.aheadCos`, `npm run trace`).**
   *"I need a fully modular kit system ... you see those odd shapes, we gotta be able to build those."* Every curved piece

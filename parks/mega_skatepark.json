@@ -568,7 +568,7 @@
   {
    "id": 10,
    "name": "gap and drop",
-   "sub": "a pool L, a bank up to its deck, a drop off the far end",
+   "sub": "a pool L, his kidney, its deck joined to the upper plaza",
    "label": [
     528,
     202
@@ -660,40 +660,155 @@
      "tint": "concrete",
      "id": "pool",
      "label": "pool L, his kidney"
-    },
+    }
+   ]
+  },
+  {
+   "id": 25,
+   "name": "upper plaza",
+   "sub": "a deck L off the pool deck: a kerb terrace, stairs, long stairs + bank, a rail",
+   "label": [
+    420,
+    180
+   ],
+   "labelY": 15,
+   "stop": {
+    "p": [
+     420,
+     190
+    ],
+    "dir": 270,
+    "y": 3.6
+   },
+   "pieces": [
     {
-     "kind": "walk",
+     "kind": "deck",
      "size": "L",
      "pts": [
       [
-       416,
-       288,
-       0
+       386,
+       145
       ],
       [
-       434,
-       268,
-       1.4
+       458,
+       145
       ],
       [
-       449,
-       251,
-       2.7
+       458,
+       221
       ],
       [
-       460,
-       238,
-       3.6
+       448,
+       231.3
+      ],
+      [
+       369,
+       231.3
+      ],
+      [
+       369,
+       196
+      ],
+      [
+       386,
+       196
       ]
      ],
      "o": {
-      "w": 6,
-      "rails": 1,
-      "under": "solid"
+      "h": 3.6
      },
      "tint": "concrete",
-     "id": "poolWalk",
-     "label": "walkway L up to the pool deck"
+     "id": "upperPlaza",
+     "label": "upper plaza L, joins the pool deck"
+    },
+    {
+     "kind": "terrace",
+     "size": "L",
+     "p": [
+      412.5,
+      111
+     ],
+     "dir": 180,
+     "o": {
+      "w": 10.5,
+      "n": 9,
+      "rise": 0.4,
+      "run": 1.13
+     },
+     "tint": "concrete",
+     "id": "plazaTerrace",
+     "label": "kerb terrace L, down off the north side"
+    },
+    {
+     "kind": "stairs",
+     "size": "L",
+     "p": [
+      365.8,
+      171
+     ],
+     "dir": 90,
+     "o": {
+      "w": 10,
+      "land": 0.3
+     },
+     "tint": "concrete",
+     "id": "plazaStairsW",
+     "label": "stairs L + handrails"
+    },
+    {
+     "kind": "stairBank",
+     "size": "L",
+     "p": [
+      395.3,
+      262
+     ],
+     "dir": 0,
+     "o": {
+      "w": 9,
+      "bw": 7,
+      "land": 0.3,
+      "angle": 22,
+      "bankTint": "wood"
+     },
+     "tint": "concrete",
+     "id": "plazaStairsS",
+     "label": "long stairs L + bank, down the south side"
+    },
+    {
+     "kind": "rail",
+     "size": "S",
+     "p": [
+      433,
+      192
+     ],
+     "dir": 142,
+     "y": 3.6,
+     "o": {
+      "len": 8.5
+     },
+     "label": "plaza rail"
+    },
+    {
+     "kind": "trees",
+     "pts": [
+      [
+       383,
+       134
+      ],
+      [
+       450,
+       131
+      ]
+     ]
+    },
+    {
+     "kind": "lamps",
+     "pts": [
+      [
+       466,
+       140
+      ]
+     ]
     }
    ]
   },
@@ -1335,7 +1450,7 @@
       [
        693,
        266,
-       1.0
+       1
       ],
       [
        694,
@@ -1356,7 +1471,7 @@
   {
    "id": 3,
    "name": "central hub",
-   "sub": "the open flat, a QP S",
+   "sub": "the open flat, a QP S, a planted island",
    "label": [
     600,
     368
@@ -1383,6 +1498,56 @@
      "tint": "wood",
      "id": "hubQP",
      "label": "QP S"
+    },
+    {
+     "kind": "island",
+     "size": "S",
+     "pts": [
+      [
+       590,
+       357
+      ],
+      [
+       612,
+       353
+      ],
+      [
+       624,
+       352
+      ],
+      [
+       631,
+       358
+      ],
+      [
+       631,
+       374
+      ],
+      [
+       603,
+       391
+      ],
+      [
+       590,
+       386
+      ]
+     ],
+     "trees": [
+      [
+       602,
+       368
+      ],
+      [
+       620,
+       365
+      ]
+     ],
+     "o": {
+      "h": 0.45
+     },
+     "tint": "grass",
+     "id": "hubIsland",
+     "label": "planted island, curbed"
     }
    ]
   },
@@ -1920,16 +2085,16 @@
      "kind": "bank",
      "size": "XL",
      "p": [
-      380,
-      232
+      322,
+      312.3
      ],
-     "dir": 270,
+     "dir": 0,
      "o": {
-      "w": 14
+      "w": 11
      },
      "tint": "wood",
      "id": "roofBank",
-     "label": "bank XL up to the roof"
+     "label": "bank XL up the south side of the roof"
     },
     {
      "kind": "ledge",
@@ -2050,10 +2215,6 @@
      "kind": "trees",
      "pts": [
       [
-       380,
-       132
-      ],
-      [
        645,
        183
       ],
@@ -2118,6 +2279,37 @@
        410
       ]
      ]
+    },
+    {
+     "kind": "terrain",
+     "size": "S",
+     "pts": [
+      [
+       596,
+       528
+      ],
+      [
+       800,
+       528
+      ],
+      [
+       800,
+       566
+      ],
+      [
+       596,
+       566
+      ]
+     ],
+     "o": {
+      "amp": 0.9,
+      "scale": 7,
+      "seed": 5,
+      "edge": 2.5
+     },
+     "tint": "grass",
+     "id": "southHills",
+     "label": "landscaped hills (terrain)"
     }
    ]
   },
@@ -2151,10 +2343,6 @@
       [
        895,
        545
-      ],
-      [
-       450,
-       150
       ],
       [
        760,

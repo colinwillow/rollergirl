@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r74</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r75</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r74';
+const BUILD = 'r75';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"fd8a2550","parks/mega_skatepark.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
+const ASSETS = {"parks/mega_skatepark.json":"4d358bf6","parks/mega_skatepark.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -1357,7 +1357,7 @@ function perimeter(S, r, sweep, back, apron) {
 // named assemblies too, because one object is easier to place than six.
 // =====================================================================================================
 const KITW = { W: 4, deck: 1.5, cope: 0.3, seg: 28, rseg: 16, rc: 1.5, floorS: 10, built: 0, pieces: [], go: [], labels: [], keep: !!globalThis.__kitKeep,
-  x0: -470, x1: 470, z0: -420, z1: 470 };     // r72: west to -470 for the sheet park, and room for two more rows
+  x0: -470, x1: 470, z0: -470, z1: 470 };     // r75: south to -470 for the detail row     // r72: west to -470 for the sheet park, and room for two more rows
 const D2R = Math.PI / 180;
 const KSZ = {
   S:  { H: 1.2, sweep: 70 * D2R, tint: 0xdff5ec },
@@ -2138,7 +2138,7 @@ Object.assign(KIT_KINDS, {
     for (const [a, b, c] of tri) kTri(V[a], V[b], V[c], o.tint != null ? S.tint : KCOL.deck);
     kOutline(O, T.y, y1, 'kit deck'); for (const H of Hs) kOutline(H, T.y, y1, 'kit deck', true);
     const xs = O.map(p => p[0]), zs = O.map(p => p[1]);
-    return { len: Math.max(...zs) - Math.min(...zs), wid: Math.max(...xs) - Math.min(...xs), h };
+    return { len: Math.max(...zs) - Math.min(...zs), wid: Math.max(...xs) - Math.min(...xs), h, poly: O };
   },
   // WALK: a ribbon `w` wide along `pts` [u, w, y] -- every point its own height -- with a side wall down to the ground, a
   // railing that grinds along each edge (`rails`), and either solid underneath (`under` 'solid', the default for a ramp
@@ -2174,6 +2174,103 @@ function kOutline(O, y0, y1, tag, hole) {
     // comes up a bank onto the deck, because her feet are still a hair under its top there
     solidAdd((p[0] + q[0]) / 2 + nI[0] * b, (p[1] + q[1]) / 2 + nI[1] * b, b, L / 2, y0, y1, Math.atan2(q[0] - p[0], q[1] - p[1]), { tag }); }
 }
+// ===================================================================================================== r75: DETAIL PIECES
+// *"There's a lot of little ups and downs and ramp and elevation changes ... imagine a topographical map for the
+// elevations, highs and lows ... take a 50 x 50 plane and deform it by some large noises and some small noises."* So the
+// kit gets a TERRAIN piece -- that plane, rideable everywhere -- and the small pieces his plan is full of: a KERB TERRACE
+// (tiers she rolls up), STAIRS WITH A BANK beside them, and a PLANTED ISLAND (a curbed bed with trees on it).
+// TERRAIN IS DETERMINISTIC: value noise hashed off the piece's own seed and LOCAL coordinates, so the same options build
+// the same hills wherever the piece is placed, on every phone, and `npm run sim` measures the shape the game draws.
+const kHash = (i, j, s) => { let h = Math.imul(i, 374761393) ^ Math.imul(j, 668265263) ^ Math.imul(s, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+function kNoise(x, y, s) {
+  const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  const a = kHash(i, j, s), b = kHash(i + 1, j, s), c = kHash(i, j + 1, s), d = kHash(i + 1, j + 1, s);
+  return 2 * (a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy) - 1;
+}
+const kInPoly = (O, u, w) => { let c = 0; for (let i = 0, j = O.length - 1; i < O.length; j = i++) { const [ui, wi] = O[i], [uj, wj] = O[j];
+  if ((wi > w) !== (wj > w) && u < (uj - ui) * (w - wi) / (wj - wi) + ui) c ^= 1; } return !!c; };
+const kSegD = (O, u, w) => { let m = 1e9; for (let i = 0; i < O.length; i++) { const [au, aw] = O[i], [bu, bw] = O[(i + 1) % O.length], du = bu - au, dw = bw - aw;
+  const t = Math.max(0, Math.min(1, ((u - au) * du + (w - aw) * dw) / (du * du + dw * dw || 1))); m = Math.min(m, Math.hypot(u - au - du * t, w - aw - dw * t)); } return m; };
+const kMix = (a, b, t) => { const c = k => Math.round(((a >> k) & 255) * (1 - t) + ((b >> k) & 255) * t); return (c(16) << 16) | (c(8) << 8) | c(0); };
+// a tree on a surface: a trunk you hit and a two-cone canopy, the planter's own
+function kTree(T, u, w, y, th) {
+  const t = kT(T, u, w, 0); t.y = T.y + y;
+  kBox(t, -0.15, 0.15, -0.15, 0.15, 0, th * 0.55, 0x8a6a4a, 0x8a6a4a, { floor: false, tag: 'kit trunk' });
+  const top = kP(t, 0, th, 0), mid = kP(t, 0, th * 0.62, 0), bot = kP(t, 0, th * 0.42, 0), rr = th * 0.28, ring = [];
+  for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; ring.push(kP(t, rr * Math.cos(a), th * 0.6, rr * Math.sin(a))); }
+  for (let i = 0; i < 7; i++) { const a = ring[i], b = ring[(i + 1) % 7]; kTriOut(top, a, b, mid, 0x7cc47a); kTriOut(bot, b, a, mid, 0x67ad68); }
+}
+Object.assign(KIT_KINDS, {
+  // TERRAIN: a grid every `res` (1 m) over an outline (`pts`, or `w` x `d`), raised by a broad noise (`amp` over `scale` m),
+  // a fine one (`amp2` over `scale2`), and authored `bumps` [u, w, r, h] (a negative h is a dip) on top of `base`, then
+  // FADED TO THE GROUND over `edge` metres inside its outline, so it rises out of the plaza and needs no wall. Nothing goes
+  // below the ground: where the hills fall under it the grid is simply not drawn, and the plaza shows -- that is the lows.
+  // `maxSlope` (28 deg) is enforced by LOWERING peaks until no step is too steep, so every face is a ramp she can ride.
+  terrain(T, S, o) {
+    const res = o.res || 1, w2 = (o.w || 20) / 2, d = o.d || 20, O = o.pts || [[0, -w2], [d, -w2], [d, w2], [0, w2]];
+    const amp = o.amp != null ? o.amp : 1.0, sc = o.scale || 8, amp2 = o.amp2 != null ? o.amp2 : 0.18, sc2 = o.scale2 || 2.2;
+    const base = o.base != null ? o.base : amp * 0.6, edge = o.edge != null ? o.edge : 3, seed = o.seed || 1, bumps = o.bumps || [];
+    const u0 = Math.min(...O.map(p => p[0])), u1 = Math.max(...O.map(p => p[0])), w0 = Math.min(...O.map(p => p[1])), w1 = Math.max(...O.map(p => p[1]));
+    const nu = Math.ceil((u1 - u0) / res), nw = Math.ceil((w1 - w0) / res), N = (nu + 1) * (nw + 1), Hh = new Float32Array(N).fill(NaN);
+    const id = (i, j) => i * (nw + 1) + j, U = i => u0 + i * res, Wv = j => w0 + j * res;
+    for (let i = 0; i <= nu; i++) for (let j = 0; j <= nw; j++) { const u = U(i), w = Wv(j); if (!kInPoly(O, u, w)) continue;
+      let h = base + amp * kNoise(u / sc + 0.37, w / sc + 0.71, seed) + amp2 * kNoise(u / sc2 + 5.1, w / sc2 + 2.3, seed + 17);
+      for (const [bu, bw, br, bh] of bumps) h += bh * Math.exp(-((u - bu) ** 2 + (w - bw) ** 2) / (br * br));
+      const e = kSegD(O, u, w), f = edge > 0 ? Math.max(0, Math.min(1, (e - res) / edge)) : 1;
+      Hh[id(i, j)] = Math.max(0, h) * f * f * (3 - 2 * f); }
+    // the slope limit: a step along an edge may rise `res * tan / sqrt 2`, which bounds any triangle's own slope
+    const lim = res * Math.tan((o.maxSlope || 28) * D2R) / Math.SQRT2;
+    for (let pass = 0; pass < 200; pass++) { let ch = 0;
+      for (let i = 0; i <= nu; i++) for (let j = 0; j <= nw; j++) { const a = Hh[id(i, j)]; if (!(a >= 0)) continue;
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii > nu || jj > nw) continue;
+          const b = Hh[id(ii, jj)]; if (b >= 0 && a > b + lim + 1e-6) { Hh[id(i, j)] = b + lim; ch = 1; break; } } }
+      if (!ch) break; }
+    let hmax = 0, tris = 0; const hi = 0xffffff, col = h => kMix(S.tint, hi, Math.min(0.35, 0.35 * h / Math.max(1, amp * 2)));
+    for (let i = 0; i < nu; i++) for (let j = 0; j < nw; j++) {
+      const a = Hh[id(i, j)], b = Hh[id(i + 1, j)], c = Hh[id(i + 1, j + 1)], dd = Hh[id(i, j + 1)];
+      if (!(a >= 0 && b >= 0 && c >= 0 && dd >= 0) || Math.max(a, b, c, dd) < 0.04) continue;
+      hmax = Math.max(hmax, a, b, c, dd);
+      const A = kP(T, U(i), a, Wv(j)), B = kP(T, U(i + 1), b, Wv(j)), C = kP(T, U(i + 1), c, Wv(j + 1)), D = kP(T, U(i), dd, Wv(j + 1)), m = (a + b + c + dd) / 4;
+      if (Math.abs(a - c) < Math.abs(b - dd)) { kTri(A, B, C, col(m)); kTri(A, C, D, col(m)); } else { kTri(A, B, D, col(m)); kTri(B, C, D, col(m)); }
+      tris += 2; }
+    // the height at a world point, for a harness: bilinear over the grid it built
+    const hAt = (x, z) => { const fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), dx = x - T.x, dz = z - T.z, u = dx * fx + dz * fz, w = dx * fz - dz * fx;
+      const i = Math.floor((u - u0) / res), j = Math.floor((w - w0) / res); if (i < 0 || j < 0 || i >= nu || j >= nw) return 0;
+      const s = (u - U(i)) / res, t = (w - Wv(j)) / res, q = (ii, jj) => { const v = Hh[id(ii, jj)]; return v >= 0 ? v : 0; };
+      return T.y + q(i, j) * (1 - s) * (1 - t) + q(i + 1, j) * s * (1 - t) + q(i, j + 1) * (1 - s) * t + q(i + 1, j + 1) * s * t; };
+    return { len: u1 - u0, wid: w1 - w0, h: hmax, tris, hAt, slope: o.maxSlope || 28, ground: 1 };      // `ground`: things stand on it
+  },
+  // KERB TERRACE: `n` tiers, each `rise` (0.4 -- under SK.step, so she ROLLS up them like kerbs) and `run` deep, `w` wide,
+  // a coping-coloured nose on each so the tiers read. Each tier is a full-height column (`kBox`): its side is a wall from
+  // the side at every height, and its top is a floor. `land` extends the top tier.
+  terrace(T, S, o) {
+    const rise = o.rise || 0.4, n = o.n || Math.max(1, Math.round(S.H / rise)), run = o.run || 1.2, w = (o.w || 6) / 2, land = o.land || 0;
+    for (let k = 1; k <= n; k++) { const ua = (k - 1) * run, ub = k * run + (k === n ? land : 0), y = k * rise;
+      kBox(T, ua, ub, -w, w, 0, y, S.tint, KCOL.side, { tag: 'kit terrace' });
+      kQuad(kP(T, ua, y + 0.006, -w), kP(T, ua + 0.14, y + 0.006, -w), kP(T, ua + 0.14, y + 0.006, w), kP(T, ua, y + 0.006, w), KCOL.cope, false); }
+    return { len: n * run + land, wid: 2 * w, h: n * rise, out: { u: n * run + land, w: 0, y: n * rise, dyaw: 0 } };
+  },
+  // STAIRS WITH A BANK: the flight (with its handrail on the far side) and a bank beside it rising over the same run, so
+  // one set of steps is two lines -- down the stairs, or ride the bank. `side` +1 puts the bank on +w.
+  stairBank(T, S, o) {
+    const sw = o.w || 5, bw = o.bw || 3, sd = o.side || 1, land = o.land || 2;
+    const st = KIT_KINDS.stairs(kT(T, 0, -sd * bw / 2, 0), S, { w: sw, land, rails: false, angle: o.angle });
+    const run = st.len - land, ang = Math.atan2(S.H, run) / D2R, bt = kT(T, 0, sd * sw / 2, 0);
+    const Sb = o.bankTint != null ? { ...S, tint: o.bankTint } : S;      // the bank can be painted apart from the flight
+    KIT_KINDS.bank(bt, Sb, { w: bw, angle: ang }); KIT_KINDS.platform(kT(bt, run, 0, 0), S, { w: bw, d: land });
+    const hr = RAILKIT.hr, ww = -sd * (bw / 2 + sw / 2 - 0.25);
+    const rails = [kRail(T, [[-1, hr, ww], [0, hr, ww], [run, S.H + hr, ww], [run + land - 0.5, S.H + hr, ww]], { name: 'handrail' })];
+    return { len: run + land, wid: sw + bw, h: S.H, rails, out: { u: run + land, w: 0, y: S.H, dyaw: 0 } };
+  },
+  // ISLAND: a raised bed of any outline (`pts`), `h` (0.45) high -- a curb you grind or roll off, too tall to roll up --
+  // planted (`trees` [u, w]), grass on top
+  island(T, S, o) {
+    const r = KIT_KINDS.deck(T, { ...S, tint: o.tint != null ? S.tint : 0x8fc98a }, { ...o, h: o.h || 0.45, tint: 1 });
+    for (const [u, w, th] of o.trees || []) kTree(T, u, w, o.h || 0.45, th || 5);
+    return { ...r, h: (o.h || 0.45) };
+  },
+});
 // ONE ENTRY POINT. A size name or an object; options as the kinds take them. The record is what the export writes out
 // and what an `fn_` marker in a GLB carries back in.
 function kitPiece(kind, size, T, o) {
@@ -2248,6 +2345,10 @@ const KIT_NEW_ROWS = [
     ['wall', 'S', { face: 'both', profile: 'box', H: 0.6, top: 1.4, pts: [[-11, -5], [-4, -6], [4, 6], [11, 5]], smooth: 1 }, 'curved ledge 0.6'],
     ['deck', 'M', { pts: [[-12, -8], [4, -8], [4, 0], [12, 0], [12, 8], [-12, 8]] }, 'deck M, any outline'],
     ['walk', 'L', { pts: [[-14, -6, 0], [-5, -6, 1.2], [3, 0, 2.4], [10, 7, 3.6], [14, 7, 3.6]], w: 4, rails: 1, smooth: 1 }, 'walkway climbing to L']]],
+  // r75: THE DETAIL PIECES -- the small ups and downs his plan is full of, and his noise-deformed plane
+  ['detail pieces (r75)', -440, [['terrain', 'M', { w: 24, d: 22, seed: 3 }, 'terrain 24 x 22 (noise)'], ['terrain', 'M', { w: 24, d: 22, seed: 7, amp: 0.35, amp2: 0.12, base: 0, bumps: [[11, -5, 4.5, 2.6], [8, 6, 3, -0.4], [15, 6, 3.5, 1.4]] }, 'terrain: two hills (bumps)'],
+    ['terrace', 'M', { w: 8 }, 'kerb terrace M (0.4 m tiers)'], ['terrace', 'L', { w: 6, run: 0.9 }, 'kerb terrace L'], ['stairBank', 'M', {}, 'stairs M + bank'],
+    ['island', 'S', { pts: [[0, -6], [4, -9], [10, -8], [12, -2], [9, 6], [2, 7]], trees: [[4, -4], [8, 2]] }, 'planted island']]],
   ['giants (r72)', 412, [['qp', 'XXL', { w: 8 }, 'QP XXL'], ['qp', 'MEGA', { w: 8 }, 'QP MEGA'], ['halfpipe', 'XXL', { flat: 8, len: 12 }, 'half pipe XXL'],
     ['halfpipe', 'MEGA', { flat: 10, len: 12, deck: 3 }, 'half pipe MEGA'], ['freeBowl', 'XXL', { R: 15, lobes: 3, amp: 0.2, shallow: 4 }, 'clover bowl XXL'], ['rollin', 'MEGA', { r: 8 }, 'roll-in MEGA']]],
 ];
@@ -2502,6 +2603,7 @@ function kitSheet(J) {
     for (const q of Ar.pieces || []) {
       const o = { ...(q.o || {}) }, size = q.size || 'S', y = q.y || 0;
       if (q.tint != null) o.tint = SHEET_C(q.tint, J);
+      if (typeof o.bankTint === 'string') o.bankTint = SHEET_C(o.bankTint, J);      // r75
       if (q.kind === 'pipePath') {
         // straights between the corners, an elbow of the corner's own angle at each, the half bowl at either end
         const P = q.pts.map(W), S = KSZ[size], F = o.flat || 6, Rc = KITW.deck + S.lip + F / 2, seg = [];
@@ -2537,11 +2639,12 @@ function kitSheet(J) {
       }
       // r74: THE PATH PIECES TAKE THE DRAWING'S PIXELS -- `pts`, `outer`, `holes` and a point `face` are traced off the plan;
       // the piece is anchored at its first point (yaw 0, so a local [u, w] is just [z, x] from there)
-      if (q.kind === 'wall' || q.kind === 'deck' || q.kind === 'walk') {
+      if (q.kind === 'wall' || q.kind === 'deck' || q.kind === 'walk' || q.kind === 'terrain' || q.kind === 'island') {
         const A0 = W(q.pts[0]), loc = pp => { const [x, z] = W(pp); return [+(z - A0[1]).toFixed(3), +(x - A0[0]).toFixed(3)]; };
         o.pts = q.pts.map(pp => q.kind === 'walk' ? [...loc(pp), pp[2]] : loc(pp));
         if (q.outer) o.outer = q.outer.map(loc); if (q.holes) o.holes = q.holes.map(H => H.map(loc));
         if (Array.isArray(q.face)) o.face = loc(q.face); else if (q.face) o.face = q.face;
+        if (q.bumps) o.bumps = q.bumps.map(([bx, by, r, h]) => [...loc([bx, by]), r, h]); if (q.trees) o.trees = q.trees.map(t => [...loc(t), t[2]]);      // r75
         const r = put(q.kind, size, A0[0], A0[1], 0, o, q.label, y, q.group); if (r && q.id) SHEET.at[q.id] = r;
         continue;
       }

@@ -404,6 +404,47 @@ Copings and edges grind for free, because r71's lips find them.
 
 The gallery row `path pieces (r74)` at z -385 has one of each, and `npm run sim kit` rides all of them.
 
+## Detail pieces (r75): ups and downs
+
+His plan is full of small changes of level: a raised plaza with steps off it, stairs with a bank beside them, curbed beds,
+and his idea of a noise-deformed plane. Four new kinds:
+
+| kind | what | options (default) |
+|------|------|-------------------|
+| `terrain` | **a grid deformed by noise**: a broad noise, a fine noise and hand-placed bumps, faded to the ground at its edges | `w` 20 x `d` 20, or an outline `pts`; `res` 1 m; `amp` 1.0 over `scale` 8 m; `amp2` 0.18 over `scale2` 2.2 m; `base` (amp x 0.6); `bumps` [[u, w, r, h]] (a negative h is a dip); `edge` 3 m; `seed`; `maxSlope` 28 deg |
+| `terrace` | **kerb steps**: `n` tiers, each `rise` 0.4 m (under the 0.42 m she rolls over) and `run` 1.2 m deep, `w` 6 | `n` (size height / rise), `rise`, `run`, `w`, `land` |
+| `stairBank` | **a flight of stairs with a bank beside it**, both rising over the same run; handrail on the far side | `w` 5 (the stairs), `bw` 3 (the bank), `side` +1 (bank on +w), `angle` (the stairs', 32), `land` 2, `bankTint` |
+| `island` | **a raised bed** of any outline, `h` 0.45 (a curb: too tall to roll up, a lip to grind), grass on top, trees | `pts`, `h`, `trees` [[u, w, height]] |
+
+How terrain behaves:
+- **It is deterministic.** The noise is hashed from the piece's seed and its own local coordinates, so the same options
+  make the same hills wherever the piece is placed.
+- **Nothing goes below the ground.** Where the hills fall under it, the grid is simply not drawn and the plaza shows
+  through. Those are the lows.
+- **No face is steeper than `maxSlope`.** Peaks are lowered until no step is too steep, so every face is a ramp she can
+  ride over. The gallery's two reach 25 and 26.5 deg.
+- **In a schematic it takes `pts`, `bumps` and `trees` in drawing pixels**, like the path pieces. Things may stand on it:
+  the overlap check skips it.
+
+The gallery row `detail pieces (r75)` at z -440 has one of each. `npm run sim kit` rides them:
+- both terrains are crossed four ways and never ridden through;
+- both terraces are rolled up tier by tier from 3 m/s;
+- the stair-bank is ridden up its bank and down its stairs;
+- the island's curb stops her, and she can stand on top.
+
+**His sheet as of r75:** the north-west corner is rebuilt level by level from the zoom. It is the **upper plaza**, a deck at
+3.6 m that joins the pool deck, with:
+- a kerb terrace down its north side;
+- stairs down its west side;
+- a long stair-and-bank (22 deg) down its south side;
+- a rail on top.
+
+Elsewhere:
+- **Rooftop:** the bank up to the roof moved to the roof's south side, where he drew it. The old walkway up to the pool
+  deck is gone, because the plaza does that job now.
+- **Central hub:** the planted island in the middle of it, curbed.
+- **South:** the grass strip is a field of low landscaped hills.
+
 ## Tracing (r74): `npm run trace`
 
 `npm run trace -- <image> <x0> <y0> <x1> <y1> [zoom]` writes a gridded zoom of a region of the drawing, every 10 px
@@ -411,9 +452,8 @@ lined and every 50 labelled, in the drawing's own pixels. That is how the outlin
 
 **His sheet as of r74:** the bowl complex, the pool (kidney), the snake run (pill), the funbox (U), the spine (S), the C
 bank, the vert, the raised walkway with its ramp, the walkway up to the pool deck, and the rooftop are all traced shapes now.
-**Still to close the gap with his picture:**
+**Still to close the gap with his picture (after r75):**
 - the inner hips inside his bowl;
 - the long walkway system from the rooftop to the quarter-pipe deck;
-- his planted islands and their curbs;
-- the multi-level hub with its stair runs;
+- the rest of his planted beds;
 - the colours and materials, which the kit draws in pastel.
