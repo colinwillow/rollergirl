@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r98</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r99</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r98';
+const BUILD = 'r99';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -10682,7 +10682,7 @@ const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turn
   // flick UP on a steep face, just off one, or in the first `tapWin` of a locked air is the BOOST (more air, still locked);
   // the right pad held UP for `holdT` during a locked air is the transfer (`vertRelease`). `holdT` is past a flick's own
   // window (`FLICK.let`), so a flick up in the air can never also be a held transfer. `flickBoost` 0 is r81.
-  flickBoost: 1, holdT: 0.32,
+  flickBoost: 0, holdT: 0.32,      // r98: off again -- the flick up is the transfer (his ask), not a boost
   // r80: THE AIR FOLLOWS THE LIP (`vlipFind`, `vlipStep`). *"In Tony Hawk if you launch off a vert ramp and the side of the
   // bowl curves around, your character follows the edge of the lip -- not physically accurate, but more fun, so you come
   // back down the ramp even if you go round a curve."* `follow` 0 is the old straight line out of the bowl. `lipR` is how
@@ -10722,7 +10722,12 @@ const DASH = { on: 1, n: 0.95, win: 0.5, add: 4.5, cap: 30, fx: 0.45 };
 //     window (`FLICK.let`) -- and a flip that fires drops any grab;
 //   - in a locked vert air the right thumb held UP is r86's transfer, so up is never a grab there.
 // And the right thumb held from the ground (a camera drag) never grabs: the press must begin in the air (`p.rAir`, r87's rule).
-const CTRL = { map: 4, rotDelay: 0.18, grabDelay: 0.28 };
+// r98: *"Make the swipe down on the right stick the grind again, turn the left stick back into the flip stick, and the right
+// stick the melee stick -- tap right to launch straight up on vert, flick up launches you forward (the transfer)."* That
+// is map 1 (r81's layout), now the default again: RIGHT tap = jump (straight up and back on vert), flick up on/just off
+// vert = transfer, flick down = grind (the dive), any other flick = melee; LEFT flick in the air = flip, on the ground up =
+// boost and down/sideways = slide, tap = swivel; air holds: left = turn, right = grab. Maps 2-4 stay on the panel.
+const CTRL = { map: 1, rotDelay: 0.18, grabDelay: 0.28 };
 const ctrl82 = () => CTRL.map > 1.5;
 const ctrl84 = () => CTRL.map > 2.5;
 const airR = () => CTRL.map > 1.5 && CTRL.map < 3.5;      // map 2/3: the RIGHT thumb turns her in the air and the left grabs
@@ -11207,7 +11212,7 @@ function stepAir(dt) {
   const c82 = airR(), rOn = c82 && stick.R.down && p.rHold > CTRL.rotDelay;
   const sk2 = c82 ? (rOn ? Math.sign(stick.R.x) * clamp((Math.abs(stick.R.x) - 0.08) / Math.max(0.05, AIR.spinFull - 0.08), 0, 1) : 0) : sk;
   if (AIR.aim > 0.5) {
-    const lOn = CTRL.map < 3.5 || (p.lDown || 0) > CTRL.rotDelay;      // r89: in map 4 a left FLICK is a strike, never a spin
+    const lOn = (CTRL.map > 1.5 && CTRL.map < 3.5) || !stick.L.down || (p.lDown || 0) > CTRL.rotDelay;      // r89: in map 4 a left FLICK is a strike, never a spin (r99: in map 1 a flip; keys steer at once)
     const w = c82 ? (rOn ? padWorld(stick.R) : { x: 0, z: 0, mag: 0 }) : lOn ? stickWorld() : { x: 0, z: 0, mag: 0 }, held = w.mag > 0, a = held ? Math.atan2(w.x, w.z) : 0;
     // a thumb pushed for a while already is the run-up's; one pushed just now is meant for the air
     if (p.airT <= dt + 1e-9) { p.aimA0 = held && (c82 ? p.rHold - CTRL.rotDelay : p.lHold) > AIR.aimFresh ? a : null; p.aimOn = 0; p.aimW = 0; p.aimPrev = held ? a : null; }
@@ -11286,7 +11291,7 @@ function stepAir(dt) {
   // ONCE IT HAS STARTED OVER A RAMP IT HOLDS for as long as the thumb does: a narrow vert face is a fraction of a second
   // of flight wide in plan, and letting go of it the moment she drifts past would hand her straight back her speed.
   const SP = airR() ? stick.L : stick.R;      // r82: the settle is held down on whichever pad grabs (r89: the right in map 4)
-  const padDown = AIR.settleRamp > 0.5 && SP.down && (airR() ? p.lAir : CTRL.map > 3.5 ? p.rAir : true) && SP.y > AIR.settleAt && Math.abs(SP.x) < SP.y;
+  const padDown = AIR.settleRamp > 0.5 && SP.down && (airR() ? p.lAir : p.rAir) && SP.y > AIR.settleAt && Math.abs(SP.x) < SP.y;
   if (!padDown) p.settleLatch = 0; else if (overRamp) p.settleLatch = 1;
   const settle = !p.flip && ((padDown && p.settleLatch) || keys.f);
   p.settling = !!settle;
@@ -11601,10 +11606,10 @@ function stepMelee(dt) {
 // when the hold begins; let go, land, grind or bail and it is over.
 function grabStep() {
   const p = player, m = girl.moves, c82 = airR(), R = c82 ? stick.L : stick.R, hold = c82 ? (p.lDown || 0) : p.rHold;      // r82: the LEFT pad grabs (r89: map 4, the right)
-  const m4 = CTRL.map > 3.5;
+  const m4 = CTRL.map > 3.5, rg1 = m4 || CTRL.map < 1.5;      // r99: map 1 grabs on the right thumb too, so a press must begin in the air (r55's quick pushed grab is kept)
   const air = !p.grounded && !p.grind && p.bailT <= 0;
   if (p.xferHold) { if (!R.down) p.xferHold = 0; p.grab = null; return; }     // r47: that hold was a transfer
-  if (!air || !R.down || (c82 && !p.lAir) || (m4 && (!p.rAir || hold < CTRL.grabDelay)) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
+  if (!air || !R.down || (c82 && !p.lAir) || (rg1 && !p.rAir) || (m4 && hold < CTRL.grabDelay) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
   // r55: *"The grabs don't really work."* Two reasons, both fixed. The direction was decided ONCE, at `grabAt` after
   // the press -- and the stick floats, so the thumb lands as the centre and at 0.3 s it had often not moved yet:
   // every grab came out as the centre one, and pushing the thumb over afterwards changed nothing. And held DOWN it was
@@ -12416,7 +12421,7 @@ const TAILUI = [
   ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
   ['MELEE.boost',    'Ground strike speed boost', 0, 8, 0.25, ''],
   ['VERT.faceArm',   'Swipe on the wall counts for', 0.1, 1.5, 0.05, 's'],
-  ['CTRL.map',       'Controls 4 = r89 (air: L hold rotates, R hold grabs) 3 = r84 (air: R hold rotates, L hold grabs) 2 = r82 1 = old', 1, 4, 1, ''],
+  ['CTRL.map',       'Controls 1 = r98 (L flick flips, R flick melee, R swipe down grinds, up transfers) 4 = r89 3 = r84 2 = r82', 1, 4, 1, ''],
   ['STOP.on',        'Left flick down = speed stop (r84)', 0, 1, 1, ''],
   ['STOP.decel',     'Speed stop strength', 10, 90, 1, 'm/s2'],
   ['SK.hardK',       'Hard push strength (full stick)', 0.8, 2.5, 0.05, ''],
@@ -12503,8 +12508,8 @@ const UI_DEF = {}; for (const k of TAILKEYS) UI_DEF[k] = uiGet(k);
 // in this file never reaches a phone that has saved once. (Shredworld lost five builds to exactly this.) The store carries
 // a version, and the rows named for each later version are DROPPED from an older store and take the file's new default;
 // everything else he tuned is kept. **Bump `UI_VER` and name the row in the same commit that changes its default.**
-const UI_VER = 89;
-const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'] };
+const UI_VER = 98;
+const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'], 98: ['CTRL.map', 'VERT.flickBoost', 'VERT.swipeXfer'] };
 function tailSave() {
   try { const o = { mode: TAIL.mode, ver: UI_VER, lookStyle: LOOK.at === undefined ? LOOK.style : LOOK.at };
     for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}

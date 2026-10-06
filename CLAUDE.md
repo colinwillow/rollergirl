@@ -94,6 +94,25 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **BACK TO THE OLD PADS: MAP 1 IS THE DEFAULT AGAIN (r99, `CTRL.map` 1, `VERT.flickBoost` 0, `UI_VER` 98, `npm run sim ctrl98`).**
+  *"Make the swipe down on the right stick the grind again, turn the left stick back into the flip stick, and the right
+  stick the melee stick -- tap right to launch up vert, flick up launches you forward transfer."* That is r81's layout:
+      RIGHT  tap = jump (on vert: straight up and back, the lock); flick UP on / just off a vert face = the transfer, forward;
+             swipe DOWN = the grind (a hop onto a rail or ledge in reach on the ground, the dive in the air); any other flick
+             = melee (on the flat a flick up is a strike too); held in the air = grab; on a rail = pop / grind tricks
+      LEFT   flick in the air = flip (up front, down back, sides twists); on the ground up = boost, down/sideways = slide;
+             tap = swivel; held in the air = turn her
+  - **`UI_VER` 98 drops his saved `CTRL.map`, `VERT.flickBoost` and `VERT.swipeXfer`**, or the phone keeps map 4 and the r86
+    boost for ever (Shredworld's five-build lesson). Maps 2-4 are still on the panel.
+  - **Map 1's right-pad grab needs a press that BEGAN in the air** (`rg1` / `p.rAir` in `grabStep`, map 4's gate): a camera
+    drag held through a takeoff grabbed. Revert-tested: `GRAB up`. r55's quick pushed grab (`grabMin`) is kept -- map 4's
+    `grabDelay` is not applied. The settle (right held down over a ramp) takes `rAir` too, so a harness pressing it must
+    clear `P.rHold` first (`place` runs no frame).
+  - **A fresh left TOUCH in the air turns her only after `CTRL.rotDelay`** (r82's rule), so the left flick is a flip, not a
+    spin. A thumb held since the ground, and the keys (`!stick.L.down`), steer at once -- the route cases drive the stick
+    without `down` and lost their air steering for one run until that was true.
+  - `npm run sim ctrl98` reads the SHIPPED defaults (`UI_DEF`) and drives both pads through the real bindings: 17 rows.
+    Every other case already ran on map 1 with the boost off, so the suite measures what ships now.
 - **HIS SKYLINE PACK IS IN SK8 SKY, AND THE TOWER IS HIS (r98, `SKYART`, `skyArt`, `skyArtLoad`, `skyIngest`, `skyFlush`,
   `S3.core`, `S3ISLES`, `s3Art`, `dynRect`).** *"I just pushed all the assets we'd already made for that skyline -- if you want
   to use any of that, feel free."* `zones/zone_skyline/assets_skyline/`: 48 GLBs, art only, metres, Y-up.

@@ -2236,6 +2236,67 @@ CASES.vertair = () => {
   if (!(e.grab && e.land.z < lip && f.land.z > lip + 1 && !f.grab)) ok = false;
   return ok;
 };
+// r98: *"Make the swipe down on the right stick the grind again, turn the left stick back into the flip stick, and the right
+// stick the melee stick -- tap right to launch up vert, flick up launches you forward (transfer)."* THE SHIPPED DEFAULT
+// (map 1, the flick-up boost off), through the real pads -- every row reads what the game ships, not what this file sets.
+CASES.ctrl98 = async () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(56)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const D = rg.UI_DEF; say('shipped: map 1, flick-up boost off, swipe-up transfer on', D['CTRL.map'] === 1 && D['VERT.flickBoost'] === 0 && D['VERT.swipeXfer'] === 1, `map ${D['CTRL.map']}, flickBoost ${D['VERT.flickBoost']}, swipeXfer ${D['VERT.swipeXfer']}`);
+  rg.CTRL.map = D['CTRL.map']; rg.VERT.flickBoost = D['VERT.flickBoost']; rg.VERT.swipeXfer = D['VERT.swipeXfer']; rg.GRIND.intent = 1;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const keep = { m: rg.girl.moves, r: rg.girl.ready, lock: P.stanceLock };
+  rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves; rg.girl.ready = false; P.stanceLock = true;
+  const L = document.getElementById('stkL'), R = document.getElementById('stkR');
+  const ev = (el, id) => (type, x, y) => ({ type, pointerId: id, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: el });
+  const eL = ev(L, 81), eR = ev(R, 82);
+  const flick = async (e, el, dx, dy, frames) => { await wait(160); el.dispatchEvent(e('pointerdown', 150, 150)); el.dispatchEvent(e('pointermove', 150 + dx, 150 + dy));
+    if (frames) run(frames); await wait(30); el.dispatchEvent(e('pointerup', 150 + dx, 150 + dy)); };
+  const tap = async (e, el) => { await wait(160); el.dispatchEvent(e('pointerdown', 150, 150)); await wait(20); el.dispatchEvent(e('pointerup', 150, 150)); };
+  const clear = () => { P.rHold = 0; P.lDown = 0; P.boostT = 0; P.boostCool = 0; P.mel = null; P.melQ = null; P.flip = null; P.stance = 1; P.stopT = 0; P.dive = null; P.grab = null; P.grindWant = 0; P.grindCool = 0; P.grindLast = null; P.kickRail = null; rg.ledgeClear(); rg.cam.az = 0; };
+  const ground = (v) => { place(60, 1, -60, 0, v == null ? 10 : v); clear(); };
+  const air = () => { ground(6); P.grounded = false; P.coyote = 0; P.pos.y += 7; P.vel.y = 2; P.airT = 0.3; };
+  // THE RIGHT PAD: melee, grind, jump
+  ground(); await flick(eR, R, 70, 0); say('ground, RIGHT flick sideways: a melee strike', P.mel && P.mel.kind === 'strike' && !(P.boostT > 0), P.mel ? P.mel.kind : 'nothing');
+  ground(); await flick(eR, R, 0, -70); say('ground (flat), RIGHT flick up: a melee strike, not a boost', P.mel && P.mel.kind === 'strike' && !(P.boostT > 0), P.mel ? P.mel.kind : (P.boostT > 0 ? 'a BOOST' : 'nothing'));
+  const R0 = rg.PATHS.find(Q => Q.name === 'park'), a0 = R0.segs[0].a, b0 = R0.segs[0].b, ux = (b0.x - a0.x), uz = (b0.z - a0.z), ul = Math.hypot(ux, uz);
+  { ground(4); const g = rg.groundAt(a0.x + uz / ul * 1.6 + ux / ul * 1.5, a0.z - ux / ul * 1.6 + uz / ul * 1.5, 5, 1);
+    place(a0.x + uz / ul * 1.6 + ux / ul * 1.5, (g.hit ? g.floor : 0) + 0.1, a0.z - ux / ul * 1.6 + uz / ul * 1.5, Math.atan2(ux, uz), 4); clear();
+    await flick(eR, R, 0, 70); let got = null; run(1.6, () => { if (P.grind && !got) got = P.grind.rail.path; });
+    say('ground beside rail 0, RIGHT swipe down: hops onto it, grinds', got === R0, got === R0 ? 'grinding rail 0' : got ? 'grinding ' + got.name : 'no grind'); }
+  { air(); P.pos.set(a0.x + ux / ul * 2, a0.y + 5, a0.z + uz / ul * 2); P.vel.set(ux / ul * 6, 2, uz / ul * 6); clear();
+    await flick(eR, R, 0, 70); const dv = !!P.dive; let got = null; run(1.5, () => { if (P.grind && !got) got = P.grind.rail.path; });
+    say('air over rail 0, RIGHT swipe down: the dive onto it', dv && !P.flip && got === R0, got === R0 ? 'grinding rail 0' : (P.flip ? 'a FLIP' : 'no grind')); }
+  air(); await flick(eR, R, 70, 0, 0.1); say('air, RIGHT flick sideways: the air strike, no flip', P.mel && P.mel.kind === 'strike' && !P.flip, P.mel ? P.mel.kind : (P.flip ? 'a FLIP' : 'nothing'));
+  ground(0); run(0.2); await tap(eR, R); run(0.1); say('ground, RIGHT tap: a jump', !P.grounded && P.vel.y > 3, `vy ${fix(P.vel.y, 1)}`);
+  // THE LEFT PAD: the flips
+  for (const [dx, dy, want] of [[0, -70, 'up'], [0, 70, 'down'], [70, 0, 'right'], [-70, 0, 'left']]) {
+    air(); await flick(eL, L, dx, dy, 0.15); say(`air, LEFT flick ${want}: a flip`, P.flip && P.flip.dir === want && !P.mel, P.flip ? P.flip.dir + ' flip' : (P.mel ? 'a STRIKE' : 'nothing')); }
+  ground(); await flick(eL, L, 0, -70); say('ground, LEFT flick up: the boost', P.boostT > 0, `boostT ${fix(P.boostT || 0, 2)}`);
+  ground(); await flick(eL, L, 0, 70); say('ground, LEFT flick down: the slide', P.mel && P.mel.kind === 'slide', P.mel ? P.mel.kind : 'nothing');
+  // VERT: a tap goes straight up and back in; a flick up on the wall launches her forward, out onto the deck
+  { const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep) + rg.PARK.cope;
+    const vride = (opt) => { place(0, 3, 29, 0, 15); clear(); P.dashed = 0; let air2 = false, land = null, did = null;
+      run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+        if (!P.grounded && !air2) air2 = true;
+        if (opt.tap && did === null && P.grounded && P.n.y < 0.7) { did = 'tap'; P.jump = 1; }
+        if (opt.flick && did === null && P.grounded && P.n.y < 0.7) did = rg.rightFlick(0, -52);
+        if (air2 && P.grounded && !land) land = { z: P.pos.z, stance: P.stance }; }); return { land, did }; };
+    const where = r => r.land ? `down at z ${fix(r.land.z, 2)} -- ${r.land.z > lip ? 'ON THE DECK' : 'back in the pipe'}${r.land.z > lip ? (r.land.stance > 0 ? ', forward' : ', FAKIE') : ''}` : 'never landed';
+    const t = vride({ tap: 1 }), f = vride({ flick: 1 });
+    say('vert, RIGHT tap on the wall: straight up and back in', t.land && t.land.z < lip, where(t));
+    say('vert, RIGHT flick up on the wall: the transfer, forward', f.did === 'transfer' && f.land && f.land.z > lip + 1 && f.land.stance > 0, `${f.did}, ${where(f)}`); }
+  // THE AIR HOLDS: the right thumb pressed IN THE AIR grabs; one carried off the ground (a camera drag) never does
+  { ground(8); run(0.1); let grab = null;
+    run(0.3, () => { rg.stick.R.down = 1; rg.stick.R.x = 0; rg.stick.R.y = -1; }); P.jump = 1;
+    run(0.9, () => { rg.stick.R.down = 1; rg.stick.R.x = 0; rg.stick.R.y = -1; if (!P.grounded && P.grab) grab = grab || P.grab.k; });
+    say('right thumb held from the ground through a jump: no grab', !grab, grab ? `GRAB ${grab}` : 'the air pose');
+    rg.stick.R.down = 0; rg.stick.R.y = 0; ground(8); run(0.1); P.jump = 1; run(0.15); grab = null;
+    run(0.7, () => { rg.stick.R.down = 1; rg.stick.R.x = 0; rg.stick.R.y = -1; if (!P.grounded && P.grab) grab = grab || P.grab.k; });
+    say('...pressed in the air and held: the grab', !!grab, grab ? `grab ${grab}` : 'NONE');
+    rg.stick.R.down = 0; rg.stick.R.x = rg.stick.R.y = 0; P.grab = null; }
+  rg.girl.moves = keep.m; rg.girl.ready = keep.r; P.stanceLock = keep.lock; clear(); rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = 0;
+  return ok;
+};
 // r86: *"Flick or tap the right stick, she launches off the vert straight up regardless -- the flick gets you a boost. Only
 // if you then press and HOLD forward on the right stick in the air does she transfer out."* And *"she's not doing the in-air
 // pose, she's just doing the idle pose"*: the left thumb (the grab since r82) is down on every takeoff because it steers.
@@ -2658,7 +2719,7 @@ CASES.feel = () => {
     chk('settle: held down over a ramp, she dives onto it with speed', touch !== null && touch > 11 && after > 11 && so < 12,
         touch !== null ? `4 m/s across -> ${fix(touch, 1)} m/s at touchdown, ${fix(after, 1)} on the ramp, body ${fix(so, 1)} deg off the face` : 'never landed');
     { const keepS = rg.AIR.slam; rg.AIR.slam = 0; rg.AIR.settleRamp = 1;
-      place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
+      place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3; P.rHold = 0;      // r99: a fresh press in the air (`place` runs no frame to clear it)
       Object.assign(rg.stick.R, { down: 1, x: 0, y: 1 }); run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
       const hs = Math.hypot(P.vel.x, P.vel.z); Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); rg.AIR.slam = keepS; rg.AIR.settleRamp = keepSP;
       chk('settle with the dive off is the old brake', hs < 1.5, `8 m/s -> ${fix(hs, 2)} m/s across`); }
