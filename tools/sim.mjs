@@ -2020,6 +2020,16 @@ CASES.levelkit = () => {
   place(ox + 5, oy, oz - 3, 0, 4); run(1.2, () => rg.stepCity(DT));
   say('  skating through the gem picks it up', gi >= 0 && rg.GEM.list[gi].got && rg.GEM.got > got0, `got ${rg.GEM.got - got0}`);
   console.log(`  ingest: ${JSON.stringify(st)}`);
+  // r85: A LIFT. A pad at the foot of a 24 m wide tower, the target in the middle of its roof, 14 m in: no parabola clears the tower's side,
+  // so it goes straight up the column and across at the top (`launchSolve` 'lift', `stepOrbital`'s second half)
+  { const c2 = new THREE.Group(); const tw = new THREE.Mesh(new THREE.BoxGeometry(24, 30, 24).translate(0, 15, -30), mat); tw.name = 'bld_tower2'; c2.add(tw);
+    const f2 = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2).translate(10, 0, -30), mat); f2.name = 'deck_floor2'; c2.add(f2);
+    const pd = new THREE.Object3D(); pd.name = 'marker_launcher_lift'; pd.position.set(14, 0, -30); pd.userData = { kind: 'launcher', target_gltf: JSON.stringify([0, 30.1, -30]), apex: 34, radius: 2 }; c2.add(pd);
+    c2.updateMatrixWorld(true); rg.levelIngest(null, c2, new THREE.Matrix4().makeTranslation(-300, 80, -300), 'lk2');
+    const L = rg.ORB.launch.at(-1); place(L.x, L.y, L.z, Math.PI, 0); let land = null, air = false;
+    run(6, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.stepCity(DT); if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
+    say('a pad at the foot of a tower lifts her onto its roof', L.clear === 'lift' && !!land && Math.abs(land.y - L.ty) < 0.5 && Math.hypot(land.x - L.tx, land.z - L.tz) < 2,
+      `arc ${L.clear}, ${land ? `landed ${fix(Math.hypot(land.x - L.tx, land.z - L.tz), 1)} m from the target at y ${fix(land.y, 1)} (roof ${fix(L.ty, 1)})` : 'never landed'}`); }
   return ok;
 };
 // r84: *"get her up to speed from a dead stop quicker ... really pull the stick hard and she speed skates ... a quick speed stop
@@ -2841,96 +2851,84 @@ CASES.score = () => {
 // The VISUAL is draco and node has no Worker to decode it, so it is not loaded here: what is tested is everything
 // she touches, which is the collision file and nothing else.
 CASES.zones = async () => {
+  // r85: HIS r83 SKYLINE -- the riding surfaces are the ramp kit now (244 `fn_` pieces), so the old rows that named his
+  // bridges and chutes are gone with them. This answers his checklist, every row through the real loader and the shipped
+  // `levelIngest`: does every kit piece build, does it stand where it should, does every walk join without a lip or a gap,
+  // does every steep walk keep its floor, does every launcher land, and does the spawn work.
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(50)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
-  // WHAT HIS FILE SAYS, as opposed to what the game does with it: a launcher aimed under a canopy is his to move,
-  // and the case must not fail on it -- but it must say so, every run, until it is fixed in the export
-  const warns = [], warn = (label, good, msg) => { console.log(`  ${label.padEnd(50)} ${good ? 'ok' : 'EXPORT'} ${msg}`); if (!good) warns.push(label); };
+  // WHAT HIS FILE SAYS, as opposed to what the game does with it: those rows report, they do not fail the build
+  const warns = [], warn = (label, good, msg) => { console.log(`  ${label.padEnd(50)} ${good ? 'ok' : 'EXPORT'} ${msg}`); if (!good) warns.push(label.trim()); };
   if (!rg.WORLD.zones) { console.log('  booted in the park world -- run `npm run sim zones`'); return false; }
   const g = await realGLB('zones/zone_skyline/zone_skyline_collision.glb');
+  let nFn = 0, nLaunch = 0; g.scene.traverse(o => { if (/^fn_/.test(o.name)) nFn++; if (/^marker_launcher_/.test(o.name)) nLaunch++; });
+  const K = rg.KITW.pieces, k0 = K.length;
   const t0 = performance.now(), st = rg.levelIngest(null, g.scene, new THREE.Matrix4(), 'skyline');
-  console.log(`  ingest ${fix(performance.now() - t0, 0)} ms: ${JSON.stringify(st)}`);
-  console.log(`  rail network: ${rg.RAILNET.joins} joins, ${rg.RAILNET.branches} branches; ➤ stops: ${rg.LEVEL.go.join(', ')}`);
-  const O = rg.ORB, city = () => rg.stepCity(DT), path = n => rg.PATHS.find(q => q.name === 'skyline ' + n);
+  console.log(`  ingest ${fix(performance.now() - t0, 0)} ms: ${JSON.stringify({ ...st, bad: undefined })}`);
+  console.log(`  rail network: ${rg.RAILNET.joins} joins, ${rg.RAILNET.branches} branches; ➤ stops: ${rg.LEVEL.go.length}`);
+  const O = rg.ORB, city = () => rg.stepCity(DT);
   const fwd = h => { rg.cam.az = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
-  const ptsOf = Pt => [Pt.segs[0].a, ...Pt.segs.map(q => q.b)];
-  say('every rail line read', st.rails >= 251 && rg.PATHS.filter(q => q.zone === 'skyline').length === 251, `${rg.PATHS.filter(q => q.zone === 'skyline').length} lines, ${st.loops || 0} loops, ${st.rails - 251} metal-box rails, ${st.dupes || 0} fence boxes left to their lines`);
-  say('launchers, spawn', st.launchers === 4 && rg.LEVEL.spawned === 'skyline', `${st.launchers} launchers, spawn ${rg.LEVEL.spawned ? 'at ' + [rg.SPAWN.x, rg.SPAWN.y, rg.SPAWN.z].map(v => fix(v, 1)).join(',') + ' facing ' + fix(rg.SPAWN.h * 180 / Math.PI, 0) + ' deg' : 'NOT SET'}`);
-  // 1. SPAWN: she drops in on the start island and stays on it
+  // 1. EVERY KIT PIECE BUILDS
+  say('every kit piece in the file builds', st.fn === nFn, `${st.fn} of ${nFn}` + (st.bad ? ' -- ' + st.bad.join('; ') : ''));
+  say('every launcher is read', O.launch.length === nLaunch && nLaunch > 0, `${O.launch.length} of ${nLaunch}`);
+  say('the spawn is his', rg.LEVEL.spawned === 'skyline', `at ${[rg.SPAWN.x, rg.SPAWN.y, rg.SPAWN.z].map(v => fix(v, 1)).join(',')} facing ${fix(rg.SPAWN.h * 57.3, 0)} deg`);
+  const mine = K.slice(k0), walks = mine.filter(r => r.kind === 'walk'), others = mine.filter(r => !/^(walk|wall)$/.test(r.kind));
+  // 2. EVERY OTHER PIECE STANDS ON WHAT IS UNDER IT: the floor half a metre back off its toe is the ground she rides in on
+  { const off = [];
+    for (const r of others) { const T = r.T, bx = T.x - Math.sin(T.yaw) * 0.5, bz = T.z - Math.cos(T.yaw) * 0.5, gq = rg.groundAt(bx, bz, T.y + 0.6, 0);
+      const d = gq.hit ? T.y - gq.floor : Infinity; if (Math.abs(d) > 0.2) off.push(`${r.kind}_${r.size} at ${fix(T.x, 0)},${fix(T.y, 1)},${fix(T.z, 0)} ` + (gq.hit ? (d > 0 ? `${fix(d, 2)} m ABOVE the floor` : `${fix(-d, 2)} m BELOW it`) : 'over nothing')); }
+    warn('every placed piece sits on the floor at its toe', !off.length, off.length ? `${off.length} of ${others.length}: ${off.slice(0, 12).join('; ')}${off.length > 12 ? ' ...' : ''}` : `${others.length} pieces`); }
+  // 3. THE WALKS: stations along each centreline (its own control points, which the smoothing passes through)
+  const W = walks.map(r => { const T = r.T, pts = r.o.pts.map(q => { const P3 = rg.kP ? rg.kP(T, q[0], q[2] ?? 0, q[1]) : null; return new THREE.Vector3(P3[0], P3[1], P3[2]); });
+    const st = []; for (let i = 0; i < pts.length - 1; i++) { const n = Math.max(1, Math.ceil(pts[i].distanceTo(pts[i + 1]) / 1.5)); for (let k = 0; k < n; k++) st.push(pts[i].clone().lerp(pts[i + 1], k / n)); }
+    st.push(pts.at(-1).clone()); let slope = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z); if (d > 0.05) slope = Math.max(slope, Math.atan2(Math.abs(pts[i].y - pts[i - 1].y), d)); }
+    return { r, pts, st, slope, name: r.o.src || 'walk' }; });
+  // 3a. the floor is there all the way along -- nothing flattened, nothing rejected as too steep
+  { const bad = []; for (const w of W) { let miss = 0; let first = null; for (const q of w.st) { const gq = rg.groundAt(q.x, q.z, q.y + 0.5, 0); if (!gq.hit || Math.abs(gq.floor - q.y) > 0.5) { miss++; first = first || q; } } if (miss) bad.push(`${w.name} (${fix(w.slope * 57.3, 0)} deg) ${miss}/${w.st.length} from ${fix(first.x, 0)},${fix(first.y, 1)},${fix(first.z, 0)}`); }
+    const steep = W.filter(w => w.slope > 0.52).map(w => `${w.name} ${fix(w.slope * 57.3, 0)}`);
+    warn('every walk has its floor all the way along', !bad.length, bad.length ? 'stations with no floor at the path: ' + bad.join('; ') : `${W.length} walks, steepest ${steep.join(', ') || 'none over 30 deg'}`); }
+  // 3b. THE JOINS: just past each end of a walk, the floor she rolls onto -- a step up or down is a lip, nothing is a gap
+  { const lips = [], gaps = [];
+    for (const w of W) for (const [e, f] of [[w.pts[0], w.pts[1]], [w.pts.at(-1), w.pts.at(-2)]]) {
+      const dx = e.x - f.x, dz = e.z - f.z, l = Math.hypot(dx, dz) || 1, ox = e.x + dx / l * 0.8, oz = e.z + dz / l * 0.8, gq = rg.groundAt(ox, oz, e.y + 0.5, 0);
+      if (!gq.hit || e.y - gq.floor > 1.0) gaps.push(`${w.name} end at ${fix(e.x, 0)},${fix(e.y, 1)},${fix(e.z, 0)}` + (gq.hit ? ` drops ${fix(e.y - gq.floor, 1)} m` : ' (nothing)'));
+      else if (Math.abs(gq.floor - e.y) > 0.12) lips.push(`${w.name} ${fix(gq.floor - e.y, 2)} m at ${fix(e.x, 0)},${fix(e.z, 0)}`); }
+    warn('every walk end meets a floor (no gap)', !gaps.length, gaps.length ? `${gaps.length}: ${gaps.join('; ')}` : `${W.length * 2} ends`);
+    warn('every walk end meets it level (no lip)', !lips.length, lips.length ? `${lips.length}: ${lips.join('; ')}` : `${W.length * 2} ends`); }
+  // 3c. RIDE EVERY WALK, top end to bottom end, steering down its middle: she must never come off it
+  { const bad = [];
+    for (const w of W) { const S = w.st[0].y >= w.st.at(-1).y ? w.st : w.st.slice().reverse(), n = S.length - 1;
+      place(S[0].x, S[0].y + 0.3, S[0].z, Math.atan2(S[Math.min(n, 2)].x - S[0].x, S[Math.min(n, 2)].z - S[0].z), 5);
+      const f0 = O.falls || 0; let far = 0, off = 0, done = false; const len = w.st.length * 1.5;
+      // nearest station in 3D, and only a few ahead of the last: a helix and a switchback lie over themselves in plan, and a
+      // nearest-in-plan station jumps to another turn; and arriving STOPS her -- rolling on off the end is not the walk's fault
+      let bi = 0;
+      run(Math.min(40, len / 4 + 4), () => { if (done) { rg.stick.L.y = 0; P.vel.set(0, 0, 0); return; }
+        let bd = 1e9, b0 = bi; for (let i = b0; i <= Math.min(n, b0 + 6); i++) { const q = S[i], d = Math.hypot(q.x - P.pos.x, (q.y - P.pos.y) * 2, q.z - P.pos.z); if (d < bd) { bd = d; bi = i; } }
+        far = Math.max(far, bi); if (P.grounded && P.pos.y < S[bi].y - 1.5) off++; if (bi >= n - 1) done = true;
+        const t = S[Math.min(n, bi + 3)]; fwd(Math.atan2(t.x - P.pos.x, t.z - P.pos.z)); city(); });
+      const fell = (O.falls || 0) - f0, at = `${fix(P.pos.x, 0)},${fix(P.pos.y, 1)},${fix(P.pos.z, 0)}`, sb = rg.solidAt(P.pos.x, P.pos.y + 0.8, P.pos.z, 0.6);
+      if (fell || far < n - 1 || off > 6) bad.push(`${w.name}: ${fell ? `FELL off near ${fix(S[far].x, 0)},${fix(S[far].y, 1)},${fix(S[far].z, 0)}` : far < n - 1 ? `stopped dead ${fix((n - far) * 1.5, 0)} m short, at ${at}${sb ? ' against ' + sb.tag.replace('col:', '') : ''}` : `came off its end onto ${at}`}`); }
+    warn('every walk ridden end to end, downhill', !bad.length, bad.length ? `${bad.length} of ${W.length}: ${bad.join('; ')}` : `${W.length} walks`); }
+  // 4. SPAWN: she drops in and stays
   { rg.respawn(); const y0 = P.pos.y; run(1.5, () => city());
-    if (process.env.DBG3) { const b = rg.solidAt(P.pos.x, P.pos.y - 0.1, P.pos.z, 0.3); console.log('    under spawn', b && b.tag, b && fix(b.y1)); }
-    const b = rg.solidAt(P.pos.x, P.pos.y - 0.05, P.pos.z, 0.05);
-    say('spawned on the start island, and stays there', P.grounded && Math.abs(P.pos.y - y0) < 0.05 && Math.abs(y0 - rg.SPAWN.y) < 0.5 && Math.hypot(P.pos.x - rg.SPAWN.x, P.pos.z - rg.SPAWN.z) < 0.5, `at ${fix(P.pos.x, 1)}, ${fix(P.pos.y, 2)}, ${fix(P.pos.z, 1)}` + (b ? ` on ${b.tag}` : '')); }
-  // 2. OFF THE EDGE OF AN ISLAND: past -40 she is put back where she last stood
-  { let hole = null; for (let r = 4; r < 120 && !hole; r += 2) for (let a = 0; a < 6.28 && !hole; a += 0.2) { const x = -75 + Math.cos(a) * r, z = 43 + Math.sin(a) * r; if (!rg.groundAt(x, z, 300, 0).hit) hole = [x, z]; }
+    say('spawned at his marker, and stays there', P.grounded && Math.abs(P.pos.y - y0) < 0.05 && Math.abs(y0 - rg.SPAWN.y) < 0.5 && Math.hypot(P.pos.x - rg.SPAWN.x, P.pos.z - rg.SPAWN.z) < 0.5, `at ${fix(P.pos.x, 1)}, ${fix(P.pos.y, 2)}, ${fix(P.pos.z, 1)}`); }
+  // 5. OFF THE EDGE: past -40 she is put back where she last stood
+  { let hole = null; for (let r = 4; r < 160 && !hole; r += 2) for (let a = 0; a < 6.28 && !hole; a += 0.2) { const x = rg.SPAWN.x + Math.cos(a) * r, z = rg.SPAWN.z + Math.sin(a) * r; if (!rg.groundAt(x, z, 300, 0).hit) hole = [x, z]; }
     rg.respawn(); run(1, () => city()); const f0 = O.falls || 0, safe = O.safe && O.safe.pos.clone();
-    P.pos.set(hole[0], 6, hole[1]); P.grounded = false; P.vel.set(0, 0, 0); let low = 99; run(5, () => { city(); low = Math.min(low, P.pos.y); });
-    say('falling off an island: back where she stood', (O.falls || 0) === f0 + 1 && P.grounded && !!safe && P.pos.distanceTo(safe) < 0.01, `fell from ${fix(hole[0], 0)},${fix(hole[1], 0)} to ${fix(low, 1)} m, falls ${(O.falls || 0) - f0}, back at ${fix(P.pos.x, 1)},${fix(P.pos.y, 1)},${fix(P.pos.z, 1)}`); }
-  // 3. EVERY LAUNCHER, from its ➤ stop: roll onto the pad, land on what it aims at
+    if (hole) { P.pos.set(hole[0], 6, hole[1]); P.grounded = false; P.vel.set(0, 0, 0); let low = 99; run(5, () => { city(); low = Math.min(low, P.pos.y); });
+      say('falling off an island: back where she stood', (O.falls || 0) === f0 + 1 && P.grounded && !!safe && P.pos.distanceTo(safe) < 0.01, `fell from ${fix(hole[0], 0)},${fix(hole[1], 0)} to ${fix(low, 1)} m, back at ${fix(P.pos.x, 1)},${fix(P.pos.y, 1)},${fix(P.pos.z, 1)}`); } }
+  // 6. EVERY LAUNCHER, from its ➤ stop: roll onto the pad, land on what it aims at
   O.launch.forEach((L, i) => { rg.goSpot('skyline pad ' + (i + 1)); const h = P.heading; let air = false, land = null, top = -99, fired = null;
-    let kk = 0; run(9, () => { if (process.env.DBG3 && kk++ % 10 === 0) console.log('    L', i, fix(kk / 60, 2), fix(P.pos.x, 1), fix(P.pos.y, 1), fix(P.pos.z, 1), 'v', fix(P.vel.x, 1), fix(P.vel.y, 1), fix(P.vel.z, 1), P.grounded, rg.ORB.wedged || '');
-      if (!air) fwd(h); else rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); if (!fired && L.cool > 0.5) fired = P.vel.y; if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
+    run(9, () => { if (!air) fwd(h); else rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); if (!fired && L.cool > 0.5) fired = P.vel.y; if (!P.grounded) air = true; else if (air && !land) land = P.pos.clone(); });
     const d = land ? Math.hypot(land.x - L.tx, land.z - L.tz) : 99;
-    (L.buried ? warn : say)(`skate onto ${L.name} from its stop: it fires`, fired > 5, (fired ? `up at ${fix(fired, 1)} m/s` : 'never fired') + (L.buried ? ` -- the pad is INSIDE ${L.buried}` : ''));
-    warn(`  and it lands her on its target (${fix(L.ty, 0)} m)`, !!land && d < 6 && Math.abs(land.y - L.ty) < 1.5, (land ? `landed ${fix(d, 1)} m from its target at y ${fix(land.y, 1)}, apex ${fix(top, 1)}` : `never landed (y ${fix(P.pos.y, 1)}, top ${fix(top, 1)})`) + (L.clear > 0 ? `, arc raised ${L.clear} m to clear` : L.clear < 0 ? ', NO CLEAR ARC' : '')); });
-  // 4. A TAP NEAR A RAIL LINE GRINDS IT -- a ring, a coping, a street rail, a bridge rail
-  for (const nm of ['SK_Bowl_Coping_Rail', 'SK_Start_RingRail_Rail', 'SK_Market_StreetRail_Rail', 'SK_HQ_RingRail_Rail', 'SK_B_HQ_Dock_RailTop', 'SK_Bridge_Sky0_RailTop']) {
-    const Pt = rg.PATHS.find(q => q.name.startsWith('skyline ' + nm + '_')); if (!Pt) { say(`tap onto ${nm}`, false, 'no such path'); continue; }
-    const R = Pt.segs[Math.floor(Pt.segs.length * (Pt.closed ? 0.5 : 0.3))], mx = (R.a.x + R.b.x) / 2, mz = (R.a.z + R.b.z) / 2, my = (R.a.y + R.b.y) / 2;
-    let spot = null;
-    for (const off of [2.5, 3.5, 1.8]) for (const sd of [1, -1]) { if (spot) break; const x = mx - R.hz * off * sd, z = mz + R.hx * off * sd, gr = rg.groundAt(x, z, my, 0);
-      if (gr.hit && my - gr.floor > 0.2 && my - gr.floor < 4 && !rg.solidAt(x, gr.floor + 0.5, z, 0.3)) spot = [x, gr.floor, z]; }
-    if (!spot) { const x = mx - R.hz * 2, z = mz + R.hx * 2; place(x, my, z, Math.atan2(R.hx, R.hz), 3); P.grounded = false; P.pos.y = my + 4; P.vel.y = -1; }
-    else { place(spot[0], spot[1], spot[2], Math.atan2(R.hx, R.hz), 0); if (P.pos.y > my + 0.5) P.pos.y = spot[1]; }     // not on a deck OVER the rail
-    if (process.env.DBG4) console.log('    tap from', spot ? spot.map(v => fix(v, 1)).join(',') : 'air', 'rail mid', fix(mx, 1), fix(my, 1), fix(mz, 1), 'P', fix(P.pos.x, 1), fix(P.pos.y, 1), fix(P.pos.z, 1), P.grounded);
-    P.jump = 1; let on = null, kk = 0; run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (process.env.DBG4 && kk++ % 10 === 0) console.log('     ', fix(P.pos.x, 1), fix(P.pos.y, 2), fix(P.pos.z, 1), P.grounded, P.grind ? P.grind.rail.path.name : ''); if (P.grind && !on) on = P.grind.rail.path; });
-    // the two edge rails of a bridge are one feature: a tap between them may take either
-    const same = on && (on === Pt || (/RailTop$/.test(nm) && on.name.startsWith('skyline ' + nm)));
-    say(`tap onto ${nm}`, same, on ? (same ? 'GRINDING ' + on.name.replace('skyline ', '') : 'grinding ' + on.name) : 'missed' + (spot ? '' : ' (from the air)'));
-  }
-  // 5. THE CHUTES: on at the top, grind it to the bottom, land on something
-  for (const nm of ['SK_SkyChute_Start_Rail_42', 'SK_AlienChute_Rail_43']) {
-    const Pt = path(nm), S0 = Pt.segs[0]; place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 6); P.grounded = false;
-    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 6, side: 'left' }); let vmax = 0, rode = 0, landed = null, fell = 0; const f0 = O.falls || 0;
-    run(30, () => { if (landed) return; city(); if (P.grind && P.grind.rail.path === Pt) { rode += DT; vmax = Math.max(vmax, P.grind.s); } else if (P.grounded && !P.grind) { landed = P.pos.clone(); fell = (O.falls || 0) - f0; } });
-    const end = ptsOf(Pt).at(-1);
-    say(`down ${nm}`, rode > 1 && !!landed && !fell, `rode ${fix(rode, 1)} s, top ${fix(vmax, 1)} m/s, ${landed ? 'landed ' + fix(landed.distanceTo(end), 1) + ' m from its end, y ' + fix(landed.y, 1) : 'never landed'}`);
-  }
-  // 6. THE LOOP TRACK RAIL turns her over
-  { const Pt = path('SK_LoopTrack_RailTop_46'); const S0 = Pt.segs[0]; place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 10); P.grounded = false;
-    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 10, side: 'left' }); let minUp = 1, rode = 0; const up = new THREE.Vector3();
-    run(12, () => { city(); if (P.grind && P.grind.rail.path === Pt) { rode += DT; minUp = Math.min(minUp, up.set(0, 1, 0).applyQuaternion(P.bq).y); } });
-    say('round the loop track rail', !!Pt.ups && minUp < -0.5 && rode > 1, `${Pt.ups ? 'a loop' : 'NOT a loop'}, rode ${fix(rode, 1)} s, her up got to ${fix(minUp)}`); }
-  // 7. THE REBUILT BRIDGE DECKS: ride each one end to end
-  for (const pre of ['SK_B_HQ_Dock_RailTop', 'SK_B_Garden_Dock_RailTop', 'SK_B_Tower_HQTop_RailTop', 'SK_Bridge_Sky0_RailTop']) {
-    const two = rg.PATHS.filter(q => q.name.startsWith('skyline ' + pre)), A = ptsOf(two[0]), B = ptsOf(two[1]);
-    const rev = A[0].distanceTo(B[0]) > A[0].distanceTo(B.at(-1)), Bb = rev ? B.slice().reverse() : B;
-    // stations by ARC LENGTH, the way the deck was cut
-    const n = 40, at = (P3, k) => { const cum = [0]; for (let i = 1; i < P3.length; i++) cum.push(cum[i - 1] + P3[i].distanceTo(P3[i - 1]));
-      const sx = cum.at(-1) * k; let i = 0; while (i < P3.length - 2 && cum[i + 1] < sx) i++; return P3[i].clone().lerp(P3[i + 1], Math.min(1, Math.max(0, (sx - cum[i]) / ((cum[i + 1] - cum[i]) || 1)))); };
-    const mid = []; for (let k = 0; k <= n; k++) mid.push(at(A, k / n).lerp(at(Bb, k / n), 0.5));
-    // up the bridge from its LOW end
-    if (mid[0].y > mid[n].y) mid.reverse();
-    if (process.env.DBG2) { for (const [x, z] of [[50.4, -37.3], [51.2, -37.8], [51.9, -38.3], [52.5, -38.7]]) { const gq = rg.groundAt(x, z, 40, 0), g2 = rg.groundAt(x, z, 28.5, 0); console.log("    probe", x, z, gq.hit ? fix(gq.floor, 2) : "-", g2.hit ? fix(g2.floor, 2) : "-", rg.solidAt(x, 27, z, 0.3)?.tag); }
-      for (const P3 of [A, Bb]) console.log('    rail', P3.filter(q => q.x > 47 && q.x < 56).map(q => `${fix(q.x, 1)},${fix(q.y, 1)},${fix(q.z, 1)}`).join(' ')); }
-    if (process.env.DBG2) for (let k = 28; k <= 36; k++) { const q = mid[k], a = at(A, k / n), b = at(Bb, k / n); let row = '';
-      for (let f = -0.2; f <= 1.21; f += 0.1) { const x = a.x + (b.x - a.x) * f, z = a.z + (b.z - a.z) * f, gq = rg.groundAt(x, z, q.y, 0); row += gq.hit && gq.floor > q.y - 2 ? '#' : '.'; } console.log('    row', k, row); }
-    if (process.env.DBG) for (let k = 0; k <= n; k += 2) { const q = mid[k], gq = rg.groundAt(q.x, q.z, q.y - 0.2, 0), a = at(A, k / n), b = at(Bb, k / n); console.log('    mid', k, fix(q.x, 1), fix(q.y, 2), fix(q.z, 1), 'floor', gq.hit ? fix(gq.floor, 2) : '-', 'w', fix(a.distanceTo(b), 1)); }
-    const s0 = mid[0], gr = rg.groundAt(s0.x, s0.z, s0.y, 0); place(s0.x, gr.floor, s0.z, Math.atan2(mid[3].x - s0.x, mid[3].z - s0.z), 7);
-    let low = 99, best = 1e9; const f0 = O.falls || 0; rg.ORB.wedged = null;
-    // the deck itself: a floor under the middle of it at every station, within reach of the rails above
-    let gaps = 0; for (const q of mid) { const gq = rg.groundAt(q.x, q.z, q.y + 0.5, 0); if (!gq.hit || q.y - gq.floor > 1.8) { gaps++; if (process.env.DBG5) console.log('     gap', fix(q.x, 1), fix(q.y, 1), fix(q.z, 1), gq.hit ? fix(gq.floor, 2) : '-'); } }
-    say(`the ${pre.replace(/_RailTop$/, '')} deck is rebuilt`, gaps === 0, `${n + 1} stations, ${gaps} with no deck under them`);
-    let kk = 0; run(22, () => { if (process.env.DBG && kk++ % 30 === 0) { const gq = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 0.5, 1); console.log('    t', fix(kk / 60, 1), fix(P.pos.x, 1), fix(P.pos.y, 2), fix(P.pos.z, 1), 'v', fix(P.speed), P.grounded, 'floor', gq.hit ? fix(gq.floor, 2) : '-', 'n', fix(gq.ny)); }
-      let bi = 0, bd = 1e9; mid.forEach((q, i) => { const d = Math.hypot(q.x - P.pos.x, q.z - P.pos.z); if (d < bd) { bd = d; bi = i; } });
-      if (best < 4) { rg.stick.L.y = 0; P.vel.set(0, 0, 0); return; }      // there: stop, or she rolls off the far side of the tower
-      const t = mid[Math.min(n, bi + 3)]; fwd(Math.atan2(t.x - P.pos.x, t.z - P.pos.z)); city(); low = Math.min(low, P.pos.y);
-      const e = mid[n]; if (Math.abs(P.pos.y - (e.y - 1)) < 1.5) best = Math.min(best, Math.hypot(P.pos.x - e.x, P.pos.z - e.z)); });
-    const e = mid[n];
-    say(`  and riding up it she never falls through`, (O.falls || 0) === f0, `falls ${(O.falls || 0) - f0}`);
-    warn(`  and she gets to the top`, best < 4, best < 4 ? `reached the top end` : `stopped at y ${fix(P.pos.y, 1)} (top end ${fix(e.y - 1, 1)})` + (rg.ORB.wedged ? `, wedged under ${rg.ORB.wedged}` : ''));
-  }
-  if (warns.length) console.log(`  ${warns.length} thing(s) to fix in the EXPORT, not here: ${warns.map(w => w.trim()).join('; ')}`);
+    // what is over the pad: a floor in the column she climbs is a floor she lands on (going up through a floor stands her on it)
+    const over = rg.groundAt(L.x, L.z, Math.max(L.ty, L.y) + L.apex + 2, 0), walkOver = over.hit && over.floor > L.y + 2.5 ? W.find(w => w.st.some(q => Math.hypot(q.x - L.x, q.z - L.z) < 6 && Math.abs(q.y - over.floor) < 1.5)) : null;
+    const why = over.hit && over.floor > L.y + 2.5 && over.floor < L.ty - 1 ? ` -- a floor over the pad at ${fix(over.floor, 1)} m${walkOver ? ' (' + walkOver.name + ')' : ''}` : '';
+    const dbg = `pad ${fix(L.x, 1)},${fix(L.y, 1)},${fix(L.z, 1)} -> ${fix(L.tx, 1)},${fix(L.ty, 1)},${fix(L.tz, 1)}`;
+    warn(`${L.name.replace('marker_launcher_', 'pad ')} fires and lands on its target`, fired > 5 && !!land && d < 6 && Math.abs(land.y - L.ty) < 1.5,
+      (!fired ? 'never fired' + (L.buried ? ` -- the pad is INSIDE ${L.buried}` : '') : land ? `landed ${fix(d, 1)} m from its target at y ${fix(land.y, 1)} (target ${fix(L.ty, 1)}), apex ${fix(top, 1)}${L.clear != null ? ', arc ' + L.clear : ''}` : `never landed`) + why + (d > 6 || !fired ? ' [' + dbg + ']' : '')); });
+  if (warns.length) console.log(`  ${warns.length} thing(s) to fix in the EXPORT, not here`);
   return ok;
 };
 // ---------------------------------------------------------------- the ramp kit (r66)

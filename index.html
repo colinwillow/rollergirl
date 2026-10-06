@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r84</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r85</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r84';
+const BUILD = 'r85';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
+const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -3051,6 +3051,10 @@ function railWalk(R, t, s) {
 }
 // a path whose last segment hands on to its first
 function railLoop(pts, o) {
+  // r85: CLOSING THE RING REPEATS THE FIRST POINT, SO IT REPEATS THE FIRST UP TOO. A vertical ring (his halo rings) carries an
+  // `up` per point, and without this the last segment read `ups[n]` -- undefined -- and the throw took his whole Skyline
+  // collision file down with it: no floor, nothing to skate.
+  if (o && o.ups && o.ups.length === pts.length) o = { ...o, ups: o.ups.concat([o.ups[0]]) };
   const P = railPath(pts.concat([pts[0]]), o);
   if (P.segs.length > 2) { const a = P.segs[0], z = P.segs[P.segs.length - 1]; z.next = a; a.prev = z; P.closed = true; }
   let cum = 0; for (const S of P.segs) { S.s0 = cum; cum += S.len; } P.len = cum;
@@ -3764,21 +3768,28 @@ function levelStair(B) {
 // position, and the turn about +Y (the piece's +u is the node's local +Z). Built by the same `kitPiece` the gallery
 // uses, so a piece placed in Blender plays exactly like the one in the kit world. `draw: false` in its extras builds
 // the collider and leaves the picture to his art. Each node is built once whichever file it is found in.
-const FN_RE = /^fn_([a-zA-Z0-9]+?)_(S|M|L|XL)(?:[_.]|$)/;
+const FN_RE = /^fn_([a-zA-Z0-9]+?)_(XXL|MEGA|XL|S|M|L)(?:[_.]|$)/;      // r85: XXL and MEGA too -- three of his Skyline QPs were dropped
 function levelFn(o, place, name, st) {
   const u = o.userData || {}, m = (o.name || '').match(FN_RE), kind = u.fn || (m && m[1]), size = u.size || (m && m[2]) || 'M';
-  if (!kind || !(KIT_KINDS[kind] || /^loop(360|180)$/.test(kind))) return false;
+  const fail = why => { (st.bad = st.bad || []).push(o.name + ': ' + why); return false; };
+  if (!kind || !(KIT_KINDS[kind] || /^loop(360|180)$/.test(kind))) return fail('no kit kind ' + kind);
   const key = name + '/' + o.name; LEVEL.fnSeen = LEVEL.fnSeen || {}; if (LEVEL.fnSeen[key]) return true; LEVEL.fnSeen[key] = 1;
   const M = new THREE.Matrix4().multiplyMatrices(place, o.matrixWorld), e = M.elements;
   const T = { x: e[12], y: e[13], z: e[14], yaw: Math.atan2(e[8], e[10]) };
   // `name` is GLTFLoader's own (it keeps the unsanitised node name in userData); `info` and any other object is reference
   // only -- but an ARRAY is an option (a frustum's `banks`), and dropping it rebuilt a hip as a different shape
   const opts = {}; for (const k in u) if (!/^(fn|size|kind|draw|label|footprint|name|info)$/.test(k) && (typeof u[k] !== 'object' || Array.isArray(u[k]))) opts[k] = u[k];
+  // r85: A WALK HIS ART COVERS IS ONLY ITS RIDING SURFACE. By default a walk stands on a solid box from its origin up to the
+  // deck under every segment -- right for a placeholder ramp off the ground, and a disaster under his Skyline's Core spiral
+  // (24 m round the tower) and North switchback (42 m): every upper turn stood on a solid wall planted on the turn below.
+  // With `draw: false` his art is the structure, so unless he asks for `under` there is nothing under it.
+  if (kind === 'walk' && u.draw === false && opts.under == null) opts.under = 'none';
   // r83: AN OPTION MAY ARRIVE AS JSON TEXT -- a Blender custom property holding a path (`pts`) is easiest written as a
   // string, and a string that is plainly a list or an object is parsed rather than handed to the piece as text
   for (const k in opts) if (typeof opts[k] === 'string' && /^\s*[\[{]/.test(opts[k])) { try { opts[k] = JSON.parse(opts[k]); } catch (e) {} }
-  const m0 = MESH.pos.length, rec = kitPiece(kind, size, T, opts);
-  if (!rec) return false;
+  const m0 = MESH.pos.length; let rec = null;
+  try { rec = kitPiece(kind, size, T, opts); } catch (e) { return fail('threw ' + e.message); }
+  if (!rec) return fail('kitPiece refused it');
   if (u.draw === false) { MESH.pos.length = MESH.nrm.length = MESH.col.length = m0;
     for (const P of rec.rails || (rec.rail ? [rec.rail] : [])) P.drawn = 1; }      // his art is the rail too: the grind only
   else kitFlush(m0, 'fn:' + o.name);
@@ -3850,6 +3861,9 @@ function levelIngest(vis, col, place, name) {
     const rails = [], lines = [], sloped = [];
     const base = t => (t || '').replace(/(\.\d+)+$/, '');
     const at = a => new THREE.Vector3().fromArray(a).applyMatrix4(place);     // a `*_gltf` extra is in the FILE's frame
+    // r85: A `*_gltf` EXTRA MAY BE JSON TEXT, which is how a Blender custom property carries a list (and how
+    // handoff/rollergirl_blender.py writes them). Every launcher in his r83 Skyline arrived as a string and was dropped.
+    const arr = v => { if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { return null; } } return Array.isArray(v) ? v : null; };
     col.traverse(o => {
       const nm = o.name || '', u = o.userData || {};
       if (/^fn_/.test(nm)) { levelFn(o, place, name, st); return; }
@@ -3877,13 +3891,13 @@ function levelIngest(vis, col, place, name) {
       }
       // r64: MARKERS -- a launch pad, a spawn, a fast-travel spot
       if (/^marker_/.test(nm) || u.kind === 'launcher' || u.kind === 'spawn' || u.kind === 'spot') {
-        const P = Array.isArray(u.pos_gltf) ? at(u.pos_gltf) : (pos ? W(0) : new THREE.Vector3().setFromMatrixPosition(M));
+        const P = arr(u.pos_gltf) ? at(arr(u.pos_gltf)) : (pos ? W(0) : new THREE.Vector3().setFromMatrixPosition(M));
         if (u.kind === 'gem' || /^marker_gem_/.test(nm)) { gem(P.x, P.y, P.z); st.gems = (st.gems || 0) + 1; return; }
         // r83: A TRAMPOLINE -- the Orbital mushrooms' rule: land on it (within `radius`, at its height) and it throws her up
         if (u.kind === 'trampoline' || /^marker_trampoline_/.test(nm)) { ORB.bounce.push({ x: P.x, z: P.z, y: P.y, r: +u.radius || 2, cool: 0 }); st.trampolines = (st.trampolines || 0) + 1; return; }
         if (u.kind === 'launcher' || /^marker_launcher_/.test(nm)) {
-          if (!Array.isArray(u.target_gltf)) return;
-          const T = at(u.target_gltf);
+          if (!arr(u.target_gltf)) { (st.bad = st.bad || []).push(nm + ': no target_gltf'); return; }
+          const T = at(arr(u.target_gltf));
           // HIS `apex` IS A HEIGHT IN THE WORLD (34 over a target at 30.5); the launcher's is how far over the higher end
           const extra = Math.max(1, (+u.apex || 0) - Math.max(P.y, T.y));
           const LL = { x: P.x, z: P.z, y: P.y, r: +u.radius || 2, tx: T.x, ty: T.y, tz: T.z, apex: extra, cool: 0, name: nm }; ORB.launch.push(LL);
@@ -5465,6 +5479,11 @@ function putBack(msg, col) {
   CITY.goMsg = msg; CITY.goAt = performance.now(); toast(msg + '!', col);
 }
 function stepOrbital(dt) {
+  // r85: A LIFT'S SECOND HALF -- at the top of the climb, across onto its target in the time it takes to fall to it
+  { const p = player, L = p.lift;
+    if (L && (p.grounded || p.grind)) p.lift = null;
+    else if (L && p.vel.y <= 0) { const t = Math.sqrt(2 * Math.max(0.5, p.pos.y - L.ty) / SK.g);
+      p.vel.x = (L.tx - p.pos.x) / t; p.vel.z = (L.tz - p.pos.z) / t; p.lift = null; } }
   if (!ORB.on || !ORB.built) return;
   const p = player;
   ORB.t = (ORB.t || 0) + dt;
@@ -5505,8 +5524,9 @@ function stepOrbital(dt) {
   for (const L of ORB.launch) {
     L.cool = Math.max(0, L.cool - dt);
     if (L.cool > 0 || p.grind || !p.grounded || Math.hypot(p.pos.x - L.x, p.pos.z - L.z) > L.r || Math.abs(p.pos.y - L.y) > 0.6) continue;
-    const { vy, T } = launchSolve(L, p.pos);
-    leaveGround(0, false); p.vel.set((L.tx - p.pos.x) / T, vy, (L.tz - p.pos.z) / T);
+    const { vy, T, lift } = launchSolve(L, p.pos);
+    leaveGround(0, false); p.vel.set(lift ? 0 : (L.tx - p.pos.x) / T, vy, lift ? 0 : (L.tz - p.pos.z) / T);
+    p.lift = lift ? L : null;
     p.vertLock = 0; p.xferKick = null; p.autoTurn = null; L.cool = 1; sparkBurst(16);
     p.drift = AIR.driftMax;   // the launch IS the flight: holding forward must not carry her past what it aimed at
   }
@@ -5554,16 +5574,33 @@ function stepOrbital(dt) {
 // mid-air. The arc is sampled against the solids and raised a metre at a time until it is clear (`ORB.launchClear`).
 function launchSolve(L, from) {
   const g = SK.g, dy = L.ty - from.y, N = 64, m = SOLID.r + 0.15;
+  // r85: A FLOOR IN THE WAY IS IN THE WAY TOO -- rising through one stands her on it (`under`), so a walk crossing over a pad
+  // stopped his Skyline launches at 30 and 34 m while the old test, boxes only, called the arc clear
+  // ...and BETWEEN two samples, not only at one: on a 50 m climb the samples are 2.5 m apart and a deck fits between them
+  // (a floor at the TARGET's own height is where she is going, not in the way -- a pad under the edge of the roof it aims at
+  // rises up through that roof's edge and is stood on it, which is arriving)
+  const flr = (x, y, z, y0) => { const lo = Math.min(y, y0 == null ? y : y0), q = groundAt(x, z, Math.max(y, y0 == null ? y : y0) + 1.6, 0); return q.hit && q.floor > lo + 0.3 && Math.abs(q.floor - L.ty) > 1; };
   const arc = extra => { const a = Math.max(0, dy) + L.apex + extra, vy = Math.sqrt(2 * g * a); return { vy, T: (vy + Math.sqrt(Math.max(0, vy * vy - 2 * g * dy))) / g }; };
   for (let extra = 0; extra <= ORB.launchClear; extra += 1) {
     const A = arc(extra); if (!ORB.launchClear) return A;
     // her whole height -- feet, middle, head -- every 1/64th of the way, the take-off and touchdown left out
-    let hit = false;
+    let hit = false, yp = null;
     for (let k = 2; k < N - 2 && !hit; k++) { const t = A.T * k / N, x = from.x + (L.tx - from.x) * k / N, z = from.z + (L.tz - from.z) * k / N, y = from.y + A.vy * t - 0.5 * g * t * t;
-      hit = !!(solidAt(x, y + 0.2, z, m) || solidAt(x, y + 0.85, z, m) || solidAt(x, y + 1.5, z, m)); }
+      hit = !!(solidAt(x, y + 0.2, z, m) || solidAt(x, y + 0.85, z, m) || solidAt(x, y + 1.5, z, m)) || (k < N - 4 && flr(x, y, z, yp)); yp = y; }
     if (!hit) { L.clear = extra; return A; }
   }
-  // nothing clears it (a pad under an overhang, a target under a canopy): the arc he authored, and the chip says so
+  // r85: A LIFT, NOT AN ARC. His Skyline puts a pad at the foot of a tower and the target on its roof a few metres in --
+  // and a parabola moves sideways at a constant rate, so half way up it is inside the tower whatever its height. Launchers
+  // there stand in for LIFTS, so they behave like one: straight up the column over the pad to the apex, then across
+  // onto the target on the way down (`stepOrbital` does the second half). Only when the column and the pass at the top
+  // are both clear; otherwise the arc he authored, and the chip says so.
+  { const A = arc(0), top = from.y + A.vy * A.vy / (2 * g); let hit = false;
+    for (let k = 1; k < N && !hit; k++) { const y = from.y + (top - from.y) * k / N; hit = !!(solidAt(from.x, y + 0.85, from.z, m) || solidAt(from.x, y + 1.5, from.z, m)) || flr(from.x, y, from.z, from.y + (top - from.y) * (k - 1) / N); }
+    // (the roof she is landing on is not in the way of the pass over it: his apexes sit a metre over it)
+    const notRoof = b => Math.abs(b.y1 - L.ty) > 1;
+    for (let k = 1; k < N && !hit; k++) { const x = from.x + (L.tx - from.x) * k / N, z = from.z + (L.tz - from.z) * k / N, y = top - (top - L.ty) * Math.pow(k / N, 2);
+      hit = !!(solidAt(x, y + 0.2, z, m, notRoof) || solidAt(x, y + 1.5, z, m, notRoof)); }
+    if (!hit) { L.clear = 'lift'; return { ...A, lift: true }; } }
   L.clear = -1; return arc(0);
 }
 // a point a distance `s` along a path (a closed one wraps)
@@ -9221,7 +9258,7 @@ function vertRelease(flick) {
 function respawn() {
   const p = player;
   SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0; p.spinAcc = 0; p.spinPrev = null; p.wasAir = false;
-  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null; p.dive = null; p.diveFx = 0;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null; p.dive = null; p.diveFx = 0; p.lift = null;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
@@ -10984,7 +11021,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

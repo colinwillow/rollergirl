@@ -219,6 +219,35 @@ lines (`gems: 6`), lava pools, fast-travel spots at every area.
 6. A sky chute with 67 m of drop ran away with her (the game caps rails at 32 m/s). Long drops are fine; just know
    she arrives fast.
 
+## 7b. Faults from the r83 export (`zone_skyline`, 244 kit pieces), found by the game at r85
+
+The game now reports these on every import (`npm run sim zones`, rows marked EXPORT). What the r85 import changed on
+its side, so you do not need to work around it:
+- a kit `walk` with `draw: false` and no `under` gets **no** solid under it (`under: 'none'`). A default solid skirt
+  would wall in a spiral or a switchback that passes under itself. Give `under: 'solid'` or `'posts'` explicitly if
+  you want one;
+- `target_gltf` / `pos_gltf` may be JSON text (what `launcher()` writes) or a real array;
+- `fn_<kind>_XXL` and `fn_<kind>_MEGA` build (they were refused before);
+- a closed vertical rail ring (a loop) no longer stops the whole file loading;
+- a launcher's arc is tested against **floors** as well as boxes, between samples too; a floor at the target's own
+  height is not "in the way". When no arc clears, but the column straight up over the pad and the pass at the top
+  do, the pad works as a **lift**: straight up, then across onto the target on the way down.
+
+Still to fix in the file:
+1. **A floor over a launch pad.** She rises into it and is stood on it (SE_60 under R_Mid_E at 30.2 m, SW_56 under
+   R_Mid_W at 34.1 m). Keep the column over every pad clear up to its apex.
+2. **A pad under the edge of the roof it aims at** (W2_56) or with the target's spiral over the line (SK8_56). Move
+   the pad out from under the roof's edge.
+3. **A pad she cannot reach** (SE_30 never fires from its ➤ stop). A pad must sit on a floor she can stand on.
+4. **Walk ends that stop short or above the floor** (15, worst E_HelixLink 25.6 m, Core_MidClimb 27.3, Core_MidU
+   32.1, PlazaT_SWT 32.7, KW_Stair 13.5), and **lips** where a walk ends 0.82 m below the floor it meets (11). An end
+   must meet the next floor within 0.42 m.
+5. **A long downhill walk with no walls** runs away with her (CoreSpiral reaches ~30 m/s and slides off its edge).
+   Put a `lane_` with `governed: 1` on it, or side walls.
+6. **A walk ending against a box** stops her dead (Core_S at bld_B_S_B, CoreNorth at bld_C_K_NE, PlazaT_SWT at
+   bld_T_SWMid_Lantern). Leave a gap or move the box.
+7. `rail_S` at (-56, 72, -111) is in the air with nothing under it.
+
 Run `check()` before every export. It flags:
 - names the game ignores;
 - mirrored objects, tilted boxes, and walkways exported as boxes;

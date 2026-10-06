@@ -93,6 +93,32 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **HIS r83 SKYLINE IS THE KIT NOW, AND THE IMPORT HAD FIVE FAULTS OF ITS OWN (r85, `railLoop`, `levelFn`, `FN_RE`,
+  `launchSolve` floors + lift, `npm run sim zones`).** *"Load the new Skyline ... report any kit piece that fails, any walk
+  join with a lip or gap, any walk too steep, any launcher whose arc fails, and tell me the spawn works."* 244 `fn_`
+  pieces (64 `walk`s with `draw: false`), 169 rails, 21 launchers.
+  - **ONE CLOSED VERTICAL RING TOOK DOWN THE WHOLE FILE.** `railLoop` appends the first point to close the path but not
+    its up vector, so an `ups` loop was one short and `railPath` read `undefined.clone()`. The import threw, and NOTHING of
+    his collision loaded.
+  - **0 OF 21 LAUNCHERS WERE READ**, because `target_gltf` arrived as JSON TEXT, which is exactly what our own
+    `rollergirl_blender.py` writes. `*_gltf` arrays are parsed from either form now.
+  - **`FN_RE` KNEW S..XL ONLY**, so `fn_qp_XXL` / `fn_qp_MEGA` were "no kit kind null". `levelFn` records every refusal in
+    `st.bad` and the case requires all of them to build.
+  - **A `draw: false` WALK DEFAULTED TO A SOLID SKIRT UNDER IT**, which walled in his spiral and his switchback where they
+    pass under themselves. It is `under: 'none'` unless he asks.
+  - **THE LAUNCH SOLVER ONLY TESTED BOXES.** A walk crossing over a pad stood her on it at 30 m (the "under" rule). Floors
+    are tested now, BETWEEN samples too (on a 50 m climb the samples are 2.5 m apart); a floor at the target's own height
+    is exempt, or a pad under the edge of the roof it aims at gets worse. And when no arc clears, the pad works as a LIFT
+    (`p.lift`): straight up the column, then across onto the target on the way down. `npm run sim levelkit` builds a 24 m
+    tower with a pad at its foot and requires `clear === 'lift'` and a landing on the roof. **The roof she lands on is not
+    in the way of the pass over it**: his apexes sit one metre over it, so the pass test skips a box whose top is the target.
+  - **THE RIDE HARNESS FOLLOWS A WALK BY ITS 3D-NEAREST STATION, IN A WINDOW.** 2D nearest jumped between the turns of a
+    helix and the legs of a switchback, and read both false passes and false fails. And it stops her on arrival, or a
+    pass rolls on and fails on the next thing.
+  - **What is left is HIS** (rows marked EXPORT, listed in `handoff/LEVEL_BUILDING.md` §7b): 16 of 21 launchers land, 15
+    walk ends gap, 11 lip, 7 of 64 walks cannot be ridden end to end, one rail is in the air. The steepest walk is 40 deg
+    and the kit takes it. The spawn holds, and a fall puts her back.
+
 - **THE LEFT FLICK DOWN IS THE STOP AND THE DIVE; EVERY RIGHT FLICK IN THE AIR IS A FLIP (r84, `CTRL.map` 3, `STOP`,
   `speedStop`, `p.drive`).** *"A flick down on the right stick does the grind thing, so that stick can't do a backflip --
   change the flick down on the LEFT stick to the grind, which frees the right stick for flips."*
