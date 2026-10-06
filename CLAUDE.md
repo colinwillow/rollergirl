@@ -94,6 +94,33 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE ACROPOLIS: THE WORLD GOES UP (r92, `ACR`, `buildAcro`, `acroKit`, `acroRails`, `acTwin`, `acSlope`, `acPoly`, `npm run sim
+  acro`).** *"Start thinking vertically -- a skate park on the ground, a giant building you launch or grind a rail up, a full
+  skate park on top of it that leads to another level, floating islands ... an upper platform, stairs down either side, one
+  continuous rail along the platform, down the stairs, along the lower platform, in right angles ... like the Pantheon,
+  pyramids, Greek architecture."* In the empty NW of the main world (x -270..-135, z 70..256), beside the park district:
+      AGORA 0 m      ledges, a pad, a funbox, a kicker and pyramid; the grand stair's foot; the ascent rail's foot
+      TERRACE 4 m    a ring round the stepped pyramid (20 m deep on the east, so the stair's two flights stack)
+      STYLOBATE 8 m  quarter pipes, funbox, pyramid, ledges, pad, bar; THE TEMPLE, a podium at 12 m with a colonnade
+      SKY AGORA 28 m a floating island (inverted ziggurat under it): two QPs, a pyramid, a ledge, a bar
+  Up: the grand stair (two stacked twin stairs), ziggurat ramps along the north and south faces, THE ASCENT (a booster rail
+  over the terrace onto the stylobate). Up again: a launcher and THE SKY STAIR (a booster). Down: THE DESCENT, one rail
+  spiralling square round an obelisk, 4 laps, 17 s, onto the ground.
+  - **`acTwin` IS THE MOTIF HE DESCRIBED, AND EVERY CLIMB USES IT**: a bank in the middle (filleted top and toe, `acSlope`, so it
+    rolls on and off instead of launching), a hubba either side, a flight either side of those, and on each outer edge ONE rail
+    in a U: along the upper edge toward the stair, square round, down the flight, square round, out along the lower level.
+    Corners are fillets (r 1.4) and the sim grinds all six end to end with no stick.
+  - **The architecture is the slice's builders** (`slBox` ashlar, paving tops, bands, pilasters, `acColumn`, `acObelisk`,
+    `acBrazier`, `acCypress`), so it is textured and chunked like the slice; the riding pieces on the levels are KIT pieces in
+    the park district's palette (`acroKit`), so they are the tested shapes.
+  - **AND THE SWIPE NOW TAKES A RAIL OVER A FOUND LEDGE (`GRIND.ledgePen` 1.0, was a hard-coded 0.15).** r91 found it and this is
+    where it bit: the U rail runs along a deck edge, the edge is a lip 0.5 m from it at her feet, and the swipe took the lip from
+    the ground and from the air. A ledge must now be a metre nearer to win. `intent`'s hub-deck row accepts the railing on that
+    edge now; the r91 combo swipes went 5 -> 8 of 10 onto their rails (the A-frame's and the funbox's still take an edge).
+  - **A harness that places her beside a rail must put her on the floor beside it**: the first swipe row put her 0.9 m to the
+    side that was the DROP, `go` found the level below, and she swiped at a rail 4 m over her head. And beside it, not behind
+    its start: from 3 m behind, the rail's led target is out of `homeR` and only the edge is in reach.
+
 - **COMBOS: TESTED GROUPINGS OF KIT PIECES, EXPORTED AS GROUP NODES (r91, `COMBO_DEFS`, `comboBuild`, `kitCombos`, `volcano`,
   `drum`, `npm run sim combos`, `docs/WISHLIST.md`).** *"A mega kit of tested pieces plus tested combos, exported as one library
   GLB for Blender ... each combo under its own group node ... a JSON listing each combo's footprint, entry/exit points and

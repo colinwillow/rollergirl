@@ -4094,7 +4094,9 @@ CASES.intent = () => {
     else { const mx = E.a[0] + (E.b[0] - E.a[0]) * 0.12, mz = E.a[2] + (E.b[2] - E.a[2]) * 0.12, ex = E.b[0] - E.a[0], ez = E.b[2] - E.a[2];
       place(mx + E.ox * 1.6, 1, mz + E.oz * 1.6, Math.atan2(ex, ez), 6); fresh();
       what = rg.rightFlick(0, 60); r = watch(2);
-      row('beside the hub deck, swipe down', what === 'ledge' && r.got && Math.abs(r.got.y - E.a[1]) < 0.15,
+      // r92: a RAILING standing on that edge now wins over the edge itself (`GRIND.ledgePen`) -- either is that edge, in plan
+      const ex2 = E.b[0] - E.a[0], ez2 = E.b[2] - E.a[2], el = Math.hypot(ex2, ez2), off = r.got ? Math.abs((r.got.x - E.a[0]) * ez2 - (r.got.z - E.a[2]) * ex2) / el : 9;
+      row('beside the hub deck, swipe down', r.got && off < 0.8 && ((what === 'ledge' && Math.abs(r.got.y - E.a[1]) < 0.15) || (what === 'grind' && r.got.y > E.a[1] + 0.3)),
           `${what}, ${r.got ? `grinding at ${fix(r.got.y, 2)} (${fix(r.got.x, 1)},${fix(r.got.z, 1)}) for the ${fix(E.a[1], 2)} m edge from ${fix(mx + E.ox * 1.6, 1)},${fix(mz + E.oz * 1.6, 1)}` : 'NO GRIND'}`); } }
   // 11. NOTHING NEAR ON THE GROUND: the swipe is the strike it always was
   place(60, 1, -60, 0, 5); fresh(); rg.girl.ready = false;
@@ -4106,6 +4108,96 @@ CASES.intent = () => {
   return ok;
 };
 
+// r92: THE ACROPOLIS -- every link between its four levels ridden through the shipped step, every rail end to end through its
+// square corners, and the launcher, the boosters and the descent each delivering her where they say
+CASES.acro = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const A = rg.ACR; if (!A.built) { console.log('  the Acropolis was not built'); return false; }
+  const city = () => rg.stepCity(DT), g = rg.SK.g;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.kicked = 0; P.drift = 0; rg.ORB.safe = null; P.kickRail = null; P.grindWant = 0; P.jump = 0; P.lift = null; };
+  const go = (x, z, h, v, y) => { reset(); P.flatT = 0; place(x, (y || 0) + 0.3, z, h, v); const q = rg.groundAt(x, z, (y || 0) + 0.6, 1); if (q.hit) P.pos.y = q.floor; };
+  const ride = (sec, drive) => { const r = { top: -99, bail: 0, deep: 0, falls: rg.ORB.falls || 0, grind: new Set(), vmax: 0 };
+    run(sec, (t, i) => { if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city(); r.top = Math.max(r.top, P.pos.y); if (P.bailT > 0) r.bail = 1; r.vmax = Math.max(r.vmax, P.speed || 0);
+      if (P.grind) r.grind.add(P.grind.rail.path);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit && !P.grind) r.deep = Math.max(r.deep, q.floor - P.pos.y); });
+    r.falls = (rg.ORB.falls || 0) - r.falls; r.clean = !r.bail && !r.falls && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const steer = h => { rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  const W = -Math.PI / 2, E = Math.PI / 2, N = 0, S = Math.PI, cz = (A.P.z0 + A.P.z1) / 2;
+  const on = (y, tol) => P.grounded && Math.abs(P.pos.y - y) < (tol || 0.08);
+  say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
+  { const bad = []; for (let i = 0; i < A.kit.length; i++) for (let j = i + 1; j < A.kit.length; j++) { const a = A.kit[i], b = A.kit[j]; if (!a.bb || !b.bb) continue;
+      if ([0, 1, 2].every(k => Math.min(a.bb[k + 3], b.bb[k + 3]) - Math.max(a.bb[k], b.bb[k]) > 0.05)) bad.push(a.label + ' x ' + b.label); }
+    // and nothing of the kit's stands on a rail's line: every booster and the descent clear of every piece by a body
+    for (const R of A.paths.filter(P0 => /ascent|sky stair|descent/.test(P0.name))) for (const sg of R.segs) for (const k of A.kit) if (k.bb && sg.a.x > k.bb[0] - 0.8 && sg.a.x < k.bb[3] + 0.8 && sg.a.z > k.bb[2] - 0.8 && sg.a.z < k.bb[5] + 0.8 && sg.a.y < k.bb[4] + 1.8 && sg.a.y > k.bb[1] - 0.5) { bad.push(k.label + ' on the ' + R.name); break; }
+    say('the Acropolis kit: nothing inside anything, nothing on a rail\'s line', !bad.length, bad.slice(0, 4).join('; ') || `${A.kit.length} pieces`); }
+  // 0. EVERY ➤ STOP stands her on a floor
+  { const bad = []; for (const n of A.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.1) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Acropolis ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${A.stops.length} stops`); }
+  // 1. THE GRAND STAIR'S BANKS: up one, up both, and back down both, hands off
+  { go(-150, cz, W, Math.sqrt(2 * g * 4) + 2.5); let t4 = 0, tr = []; const r = ride(4, (t, i) => { rg.stick.L.x = rg.stick.L.y = 0; if (on(4) && P.pos.x < -183) t4 = 1; if (process.env.ATRACE && i % 10 === 0) tr.push(`x${fix(P.pos.x, 1)} y${fix(P.pos.y)} v${fix(P.speed || 0, 1)}${P.grounded ? 'g' : 'a'}`); });
+    if (tr.length) console.log('    ' + tr.join(' | '));
+    say('grand stair: the agora up the bank onto the terrace', t4 && r.clean, `${t4 ? 'on the terrace' : 'never'}, up to ${fix(r.top)}${cl(r)}`); }
+  { go(-140, cz, W, 12); let t8 = 0; const r = ride(6, () => { steer(W); if (on(8) && P.pos.x < -203) t8 = 1; });
+    say('grand stair: pushing up both banks, onto the stylobate', t8 && r.clean, `${t8 ? 'on the stylobate' : 'never'}, up to ${fix(r.top)}${cl(r)}`); }
+  { go(-206, cz, E, 6, 8); const r = ride(5); say('grand stair: down both banks from the stylobate, hands off', P.pos.x > -175 && on(0) && r.clean, `ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}, top speed ${fix(r.vmax, 1)}${cl(r)}`); }
+  // 2. THE ZIGGURAT RAMPS: north and south, ground to terrace and terrace to stylobate, each onto its landing
+  for (const R of A.ramps) { const nm = R.sg > 0 ? 'north' : 'south';
+    go(R.a.x + 4, R.a.z, W, Math.sqrt(2 * g * 4) + 2); let la = 0; const ra = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on(4, 0.1) && P.pos.x < R.a.to.x + 4.5) la = 1; });
+    say(`${nm} face: ramp from the ground onto its landing at 4 m`, la && ra.clean, `${la ? 'on the landing' : 'never'}, ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}${cl(ra)}`);
+    go(R.b.x - 4, R.b.z, E, Math.sqrt(2 * g * 4) + 2, 4); let lb = 0; const rb = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on(8, 0.1) && P.pos.x > R.b.to.x - 4.5) lb = 1; });
+    say(`${nm} face: ramp from the terrace onto its landing at 8 m`, lb && rb.clean, `${lb ? 'on the landing' : 'never'}, ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}${cl(rb)}`); }
+  // 3. THE TEMPLE: up its bank from the stylobate, hands off
+  { const TP = A.TP; go(-205, (TP.z0 + TP.z1) / 2, W, Math.sqrt(2 * g * 4) + 2.5, 8); let t12 = 0; const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on(12) && P.pos.x < TP.x1 - 0.5) t12 = 1; });
+    say('temple: up its bank onto the podium', t12 && r.clean, `${t12 ? 'on the podium' : 'never'}, up to ${fix(r.top)}${cl(r)}`); }
+  // 4. EVERY U RAIL END TO END: on at its upper end, no stick -- along the edge, square down the flight, square along the bottom
+  { const U = A.paths.filter(P0 => P0.name === 'kit acro stair rail' || P0.name === 'acro stair rail'), bad = [];
+    for (const R of U) { const S0 = R.segs[0], goal = R.segs[R.segs.length - 1]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 7); P.grounded = false;
+      rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 7, side: 'left' }); let reached = 0, off = 0;
+      run(6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === R) { if (P.grind.rail === goal) reached = 1; } else if (!reached) off = 1; });
+      if (!reached) bad.push(`${fix(S0.a.x, 1)},${fix(S0.a.z, 1)}: ${off ? 'came off' : 'never reached the end'}`); }
+    say(`every U rail grinds end to end through both corners (${U.length})`, U.length === 6 && !bad.length, bad.join('; ') || 'all of them'); }
+  // a tap riding along the upper edge toward the stair -- the way a player gets on
+  { const R = A.paths.find(P0 => /stair rail/.test(P0.name)), S0 = R.segs[0], h = Math.atan2(S0.hx, S0.hz), yd = S0.a.y - 0.9;
+    // beside it ON THE UPPER LEVEL: the side of the rail that has the deck under it, not the drop
+    const sd = [1, -1].find(k => { const q = rg.groundAt(S0.a.x + Math.sin(h) * 1.5 + Math.cos(h) * 0.9 * k, S0.a.z + Math.cos(h) * 1.5 - Math.sin(h) * 0.9 * k, yd + 0.5, 0); return q.hit && Math.abs(q.floor - yd) < 0.1; }) || 1;
+    const bx = S0.a.x + Math.sin(h) * 1.5 + Math.cos(h) * 0.9 * sd, bz = S0.a.z + Math.cos(h) * 1.5 - Math.sin(h) * 0.9 * sd;
+    rg.GRIND.intent = 0; rg.ledgeClear(); go(bx, bz, h, 6, yd); P.jump = 1;
+    const r = ride(3); say('a tap riding beside it along the upper edge catches the U rail', r.grind.has(R) && r.clean, r.grind.has(R) ? 'grinding it' : `ends y ${fix(P.pos.y)}${cl(r)}`);
+    // and the shipped swipe down from the same spot, on the ground and just after an ollie
+    rg.GRIND.intent = 1; rg.ledgeClear(); go(bx, bz, h, 6, yd); rg.girl.ready = false;
+    const wg = rg.rightFlick(0, 60), r2 = ride(3);
+    rg.ledgeClear(); go(bx, bz, h, 6, yd); P.jump = 1; let wa = null;
+    const r3 = ride(3, (t, i) => { rg.stick.L.x = rg.stick.L.y = 0; if (i === 12) wa = rg.rightFlick(0, 60); });
+    say('the shipped swipe down beside the U rail takes it (ground / air)', r2.grind.has(R) && r3.grind.has(R), `ground: ${r2.grind.has(R) ? 'the rail' : (wg || 'nothing')}, air: ${r3.grind.has(R) ? 'the rail' : (wa || 'nothing')}`); rg.GRIND.intent = 0; }
+  // 5. THE ASCENT: a tap from the agora beside its foot, and the booster carries her onto the stylobate
+  { const R = A.paths.find(P0 => /ascent/.test(P0.name)); rg.GRIND.intent = 0; rg.ledgeClear(); go(-148, 87.2, W, 7); P.jump = 1; let land = 0;
+    const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!P.grind && on(8) && P.pos.x < -203) land = 1; });
+    say('the ascent: a tap at its foot, boosted up onto the stylobate', r.grind.has(R) && land && r.clean, `${r.grind.has(R) ? 'grinding' : 'NEVER CAUGHT'}, ${land ? 'landed on the stylobate' : 'ends y ' + fix(P.pos.y)}${cl(r)}`); }
+  // 6. THE LAUNCHER: stood on it, she lands on the island
+  { go(A.launch.x, A.launch.z, N, 0, 8); let isl = 0; const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on(A.IS.y, 0.12) && Math.abs(P.pos.z - A.IS.z) < A.IS.h) isl = 1; });
+    say('the launcher throws her onto the sky island', isl && r.clean, `${isl ? 'on the island' : 'ends ' + fix(P.pos.x, 1) + ',' + fix(P.pos.y, 1) + ',' + fix(P.pos.z, 1)}, up to ${fix(r.top)}${cl(r)}`); }
+  // 7. THE SKY STAIR: from its foot, the booster takes her up onto the island
+  { const R = A.paths.find(P0 => /sky stair/.test(P0.name)), S0 = R.segs[0]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 6); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 6, side: 'left' }); let isl = 0; const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!P.grind && on(A.IS.y, 0.12)) isl = 1; });
+    say('the sky stair: boosted up from the stylobate onto the island', isl && r.clean, `${isl ? 'on the island' : 'ends y ' + fix(P.pos.y)}, top speed ${fix(r.vmax, 1)}${cl(r)}`); }
+  // 8. THE DESCENT: off the island, round and round the obelisk, onto the ground -- without coming off
+  { const R = A.paths.find(P0 => /descent/.test(P0.name)), S0 = R.segs[0], goal = R.segs[R.segs.length - 1]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 5); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 5, side: 'left' }); let reached = 0, off = 0, tE = 0, gr = 0; const r = ride(40, (t) => { rg.stick.L.x = rg.stick.L.y = 0;
+      if (P.grind && P.grind.rail.path === R) { if (P.grind.rail === goal && !reached) { reached = 1; tE = t; } } else if (!reached) off = 1; if (reached && on(0, 0.1)) gr = 1; });
+    say('the descent: off the island, four laps round the obelisk, onto the ground', reached && gr && !r.bail, `${reached ? 'reached the end in ' + fix(tE, 1) + ' s' : off ? 'CAME OFF at y ' + fix(P.pos.y) : 'never reached the end'}, top speed ${fix(r.vmax, 1)}, ${gr ? 'rolling on the ground' : 'ends y ' + fix(P.pos.y)}`); }
+  // 9. THE QUARTER PIPES up top, hands off: up the face and back onto the level they stand on
+  for (const k of A.kit.filter(p => p.kind === 'qp')) { const T = k.T, S2 = rg.KSZ[k.size], fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
+    go(T.x - fx * 8, T.z - fz * 8, T.yaw, Math.sqrt(2 * g * (S2.H + 1)) + 1, T.y); let back = 0, pk = 0;
+    const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.y > T.y + S2.H * 0.85) pk = 1; if (pk && on(T.y, 0.12)) back = 1; });
+    if (process.env.ATRACE && !back) console.log('    ', k.label, fix(P.pos.x, 1), fix(P.pos.y, 2), fix(P.pos.z, 1));
+    say(`${k.label}: up the face and back down onto its level`, pk && back && r.clean, `up to ${fix(r.top - T.y)} over its level, ${back ? 'back down' : 'NEVER BACK, ends y ' + fix(P.pos.y)}${cl(r)}`); }
+  // 10. A RAIL ACROSS THE GROUND IS NOT A WALL: nothing in the agora stops a run at the grand stair
+  rg.GRIND.intent = 0;
+  return ok;
+};
 // r91: THE COMBOS AND THE ROUND PIECES, each ridden through the shipped step -- hands off wherever the thing can be ridden
 // hands off, and with the one input it is about (a swipe for a transfer, a tap for a grind or an ollie) where it cannot
 CASES.combos = async () => {

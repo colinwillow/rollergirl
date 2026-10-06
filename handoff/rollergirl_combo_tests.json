@@ -276,11 +276,11 @@
   "drum 0.9 m + coping ring: swipe -> the rail",
   "drum_bowl: drum 1.2 m: swipe -> the rail",
   "aframe: A-frame M: swipe -> ledge",
-  "stair_sets: stairs M + handrails: swipe -> ledge",
-  "stair_sets: stairs M + hubbas: swipe -> ledge",
+  "stair_sets: stairs M + handrails: swipe -> the rail",
+  "stair_sets: stairs M + hubbas: swipe -> the rail",
   "stair_sets: ledge 0.6: swipe -> the rail",
   "funbox_gaps: funbox M + rails: swipe -> ledge",
   "thread_needle: rail through the loop: swipe -> the rail",
-  "corkscrew: helix L, two turns: swipe -> ledge"
+  "corkscrew: helix L, two turns: swipe -> the rail"
  ]
 }

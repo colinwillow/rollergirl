@@ -25,10 +25,9 @@ says why, so the next attempt starts from the reason and not from scratch.
   Hands off she rides straight up the first berm, because a banked turn does not steer a skater by itself.
 - **Scaffold towers, fences, shade structures as art** (photo 4). These are Blender art over kit pieces, not physics.
 
-## Found, not fixed (a gameplay call for him)
+## Found, then fixed (r92)
 
-- **The swipe down picks a ledge's edge at her feet over a rail above her.** `grindTarget` scores by distance with height
-  counted at half, plus 0.15 m for a ledge. A handrail 1.2 m up therefore loses to the stair set's own side edge 0.25 m
-  away. In the combo tests the swipe took a lip, not the rail, beside the A-frame, the stair handrails, the hubbas, the
-  funbox bar and the helix start. The tap reached every one. Raising the ledge penalty, or preferring a rail whenever
-  one is above her, would change it; both change which edge wins everywhere else too.
+- **The swipe down picked a ledge's edge at her feet over a rail above her.** `grindTarget` added 0.15 m for a ledge; it is now
+  `GRIND.ledgePen` 1.0 m, so a rail wins unless the ledge is clearly nearer. The r91 combo swipes went from 5 to 8 of 10 onto
+  their rails; the A-frame's and the funbox's still take an edge from the spot the test uses (the box's own top edge is
+  nearer than the bar 0.45 m over it).

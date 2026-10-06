@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r91</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r92</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r91';
+const BUILD = 'r92';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -756,6 +756,10 @@ const RAIL_DEF = [
 // HOW A GRIND IS CAUGHT AND HELD. Caught in the AIR only -- dropping onto a rail or ollieing onto
 // one -- so riding past a rail can never snag her.
 const GRIND = {
+  // r92: A RAIL IS A FEATURE SOMEBODY PUT THERE; A LEDGE IS GEOMETRY THE GAME FOUND. The swipe takes the nearest thing, and with
+  // only 0.15 m between them a deck's own edge under a handrail (0.5 m out, at her feet) always beat the rail 0.9 m over it --
+  // the Acropolis's stair rails, the A-frame's bars, every handrail. A ledge now has to be this much nearer to win.
+  ledgePen: 1.0,
   catchR: 0.55,      // how close in PLAN her feet must pass to the bar
   above: 0.35,       // ...and how far above its top, or
   below: 0.25,       //    below it (the frame sampled her a little past it), still counts
@@ -3045,6 +3049,7 @@ function buildPark() {
   funBox(14, -16, Math.PI / 2, 4.0, 8, 1.6, 4.5);
   bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
   if (PARKD.on) { CITY.on = 0; parkDistrict(); parkApron(); }      // r90: the skate park district, where the City stood
+  acroKit();         // r92: the Acropolis's kit pieces (its stone is built with the slice, below)
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
@@ -3055,6 +3060,7 @@ function buildPark() {
   if (PARKD.on) kitRailsDraw([]);    // r90: the park district's rails, posts measured down to its floors, merged
   orbitalRails();    // before cityRails, whose gemBuild has to see this district's gems too
   sliceRails();
+  acroRails();       // r92
   cityRails();
   railWeave();       // r59: connectors between railings that stop just short of each other
   railLink();        // r59: every rail end joined to whatever it touches
@@ -3089,7 +3095,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift('park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(ACR.built ? ACR.stops : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -3599,7 +3605,7 @@ function grindTarget(air) {
     if (p.grindCool > 0 && samePath(W.R, p.grindLast)) return;
     // straight ahead is cheaper than behind, and a rail a hair nearer than a ledge wins the tie
     const ahead = ((q.x - p.pos.x) * fx + (q.z - p.pos.z) * fz) / Math.max(0.5, Math.hypot(q.x - p.pos.x, q.z - p.pos.z));
-    const sc = Math.hypot(d, dy * 0.5) * (1.25 - 0.25 * ahead) + (ledge ? 0.15 : 0);
+    const sc = Math.hypot(d, dy * 0.5) * (1.25 - 0.25 * ahead) + (ledge ? GRIND.ledgePen : 0);
     if (sc < bs) { bs = sc; best = { R: W.R, t: W.t, cx: q.x, cy: q.y + 0.02, cz: q.z, dir, E: ledge }; }
   };
   for (const R of RAILS) {
@@ -3611,7 +3617,7 @@ function grindTarget(air) {
     const L = lipEdges(px, pz, reach, p.pos.y - down, p.pos.y + up).sort((A, B) => A.d - B.d).slice(0, 6);
     for (const E of L) {
       const ex = E.a[0] + (E.b[0] - E.a[0]) * E.t, ey = E.a[1] + (E.b[1] - E.a[1]) * E.t, ez = E.a[2] + (E.b[2] - E.a[2]) * E.t;
-      if (Math.hypot(E.d, (ey - p.pos.y) * 0.5) * 0.8 > bs) continue;
+      if (Math.hypot(E.d, (ey - p.pos.y) * 0.5) * 0.8 + GRIND.ledgePen > bs) continue;
       const P = ledgePath(E), n = railNear(P, _ve.set(ex - E.ox * GRIND.lipIn, ey, ez - E.oz * GRIND.lipIn));
       if (n) take(n.R, n.t, E);
     }
@@ -6987,8 +6993,8 @@ function slStairs(ax, az, bx, bz, y0, y1, w, o) {
   slQuad('concrete', C(0, -w / 2, y0), C(0, w / 2, y0), C(L, w / 2, y1), C(L, -w / 2, y1), [0, 1, 0], { solid: true, noDraw: true });
   for (let i = 0; i < n; i++) { const t = (i + 0.5) * run, y = y0 + rise * (i + 1), h = y - y0 + 0.02, c = C(t, 0, y0 + h / 2 - 0.02);
     slGeo(o.k || 'concrete', new THREE.BoxGeometry(w, h, run + 0.03), slMat(c[0], c[1], c[2], ry), { base: y - rise - 0.25, T: 3 });
-    slGeo('neon', new THREE.BoxGeometry(w * 0.92, 0.025, 0.03), slMat(...C(t - run / 2 + 0.03, 0, y + 0.0), ry), { tint: o.led || 0xffc23f }); }
-  for (const s of [-1, 1]) { const a = C(0.2, s * (w / 2 - 0.12), y0), b = C(L - 0.1, s * (w / 2 - 0.12), y1);
+    if (o.led !== false) slGeo('neon', new THREE.BoxGeometry(w * 0.92, 0.025, 0.03), slMat(...C(t - run / 2 + 0.03, 0, y + 0.0), ry), { tint: o.led || 0xffc23f }); }
+  if (o.rails !== false) for (const s of [-1, 1]) { const a = C(0.2, s * (w / 2 - 0.12), y0), b = C(L - 0.1, s * (w / 2 - 0.12), y1);
     const top = slRailing([a, b], 1.0, { step: 1.8 }); SLC.railQ.push(top); }
 }
 function slShroom(x, y, z, h, col) {
@@ -7327,6 +7333,320 @@ function parkDress() {
     if (k % 2) slShroom(97.6, 0, z + 6.5, 1.0 + (k % 3) * 0.3, [0xff6fd0, 0xc9a2ff, 0x7cf0ff][k % 3]); else slLamp(96.4, 0, z + 6.5); }
   for (const z of [140, 192]) { slBench(-131.5, 0, z, Math.PI / 2); slBench(101, 0, z, -Math.PI / 2); }
   CITY.spots['park gate'] = [cx, 0, 92, 0];
+}
+// ===================================================================================================== r92: THE ACROPOLIS
+// *"I want that same thing but I wanna start thinking vertically -- a skate park on the ground layer, then a giant building
+// you launch or grind a rail up, and on top of it a full-fledged skate park of itself, and that level leads to another
+// level ... floating islands ... an upper platform with stairs down on either side and a rail that goes from the upper
+// platform, along the stairs, down to the lower platform -- one continuous grind rail, in right angles, very neat and
+// concise ... like the Pantheon, pyramids, old Greek architecture -- nice angles everywhere."*
+// In the empty north-west of the main world, beside the park district's west promenade. Four levels, every link ridden in
+// `npm run sim acro`:
+//   THE AGORA       ground (y 0), x -175..-135: the forecourt, ledges and pads, the foot of everything
+//   THE TERRACE     y 4: a 12 m ring round the pyramid (20 m on the east face, so the two flights of the grand stair stack
+//                   with a landing between them), reached by the grand stair and by ramps along the north and south faces
+//   THE STYLOBATE   y 8: the pyramid's top, 56 x 104 m, a skate park: quarter pipes on the north edge, funboxes, ledges,
+//                   manual pads, and in the middle THE TEMPLE, a podium at 12 m with a colonnade and its own twin stair
+//   THE SKY AGORA   y 28: a floating island, an inverted ziggurat under a paved deck, a park of its own -- up by a launcher
+//                   and a booster rail, down by THE DESCENT, a rail spiralling square round an obelisk to the ground
+// Every face is axis-aligned and every stair is the same piece: `acTwin`, a bank between two flights with a hubba either
+// side, and on each outer edge ONE rail that runs along the upper edge, turns square down the flight and turns square
+// again along the lower level.
+const ACR = { on: 1, built: 0, rails: [], stops: [],
+  P: { x0: -270, x1: -182, z0: 70, z1: 198 },          // the terrace block's footprint (top 4)
+  U: { x0: -258, x1: -202, z0: 82, z1: 186 },          // the upper block (top 8)
+  TP: { x0: -246, x1: -222, z0: 116, z1: 152, y: 12 },  // the temple podium
+  IS: { x: -222, z: 228, h: 18, y: 28 },               // the sky island: centre, half size, deck height
+  OB: { x: -188, z: 228, h: 3, top: 30 },              // the obelisk the descent spirals round
+  cream: 0xf3e7d2, sand: 0xe6cfae, trim: 0xfbf4e8, gold: 0xffc84a };
+// a frame: (x, z) on the line where the upper level stops, +u = (sin yaw, cos yaw) away from it (down the slope), +w across
+function acP(F, u, w, y) { const fx = Math.sin(F.yaw), fz = Math.cos(F.yaw); return [F.x + fx * u + fz * w, F.y + y, F.z + fz * u - fx * w]; }
+// the floor height of a filleted slope from H at u 0 to 0 at u Lt: concave at the toe, convex at the top, so neither end is a
+// step or a kicker (`volcano`'s rule). `a` is how far each fillet reaches.
+function acSlope(u, H, s, a) { const Lt = H / s + 2 * a;
+  return u <= 0 ? H : u >= Lt ? 0 : u < 2 * a ? H - s * u * u / (4 * a) : u > Lt - 2 * a ? s * (Lt - u) * (Lt - u) / (4 * a) : H - s * a - s * (u - 2 * a); }
+// A RAMP between two levels on its own (the ziggurat's face ramps): width `w`, from the frame's line down along +u, walled
+// both sides down to the lower level, filleted both ends. Returns its length.
+function acRamp(F, H, w, o) {
+  o = o || {};
+  const s = Math.tan((o.ang || 20) * D2R), a = o.a || 1.4, Lt = H / s + 2 * a, N = Math.max(8, Math.ceil(Lt / 0.6));
+  for (let i = 0; i < N; i++) { const u0 = Lt * i / N, u1 = Lt * (i + 1) / N, y0 = acSlope(u0, H, s, a), y1 = acSlope(u1, H, s, a);
+    slQuad(o.k || 'concrete', acP(F, u0, -w / 2, y0), acP(F, u1, -w / 2, y1), acP(F, u1, w / 2, y1), acP(F, u0, w / 2, y0), [0, 1, 0], { solid: true, base: F.y, tint: o.tint });
+    for (const sg of [-1, 1]) { const n = acP(F, 0, sg, 0), c = acP(F, 0, 0, 0); if (o.side === sg) continue;
+      slQuad('stone', acP(F, u0, sg * w / 2, 0), acP(F, u1, sg * w / 2, 0), acP(F, u1, sg * w / 2, y1), acP(F, u0, sg * w / 2, y0), [n[0] - c[0], 0, n[2] - c[2]], { base: F.y, tint: ACR.sand }); } }
+  return Lt;
+}
+// THE TWIN STAIR. A bank in the middle, a hubba either side of it, a flight of stairs either side of those, and on each outer
+// edge one continuous rail: along the upper edge toward the stair, square round the top corner, down the flight, square round
+// the bottom corner, and out along the lower level. `F` is the middle of the top edge, `H` the drop.
+function acTwin(F, H, o) {
+  o = o || {};
+  const bw = o.bw || 8, hw = o.hw || 0.8, sw = o.sw || 6, s = Math.tan((o.ang || 35) * D2R), a = o.a || 0.9, Lt = H / s + 2 * a;
+  const yS = u => H * (1 - Math.min(1, Math.max(0, u / Lt)));
+  // THE BANK -- collided, filleted, so it rolls on and off rather than launching her at the top
+  const N = Math.max(10, Math.ceil(Lt / 0.45));
+  for (let i = 0; i < N; i++) { const u0 = Lt * i / N, u1 = Lt * (i + 1) / N, y0 = acSlope(u0, H, s, a), y1 = acSlope(u1, H, s, a);
+    slQuad('concrete', acP(F, u0, -bw / 2, y0), acP(F, u1, -bw / 2, y1), acP(F, u1, bw / 2, y1), acP(F, u0, bw / 2, y0), [0, 1, 0], { solid: true, base: F.y, tint: 0xf1e6d6 }); }
+  // THE HUBBAS -- a stone ledge 0.55 m proud of the step noses either side of the bank: a sloped floor on top (collided), a
+  // stepped solid body under it (so from the side it is a wall), steel on its outer top edge
+  const hh = 0.55, rails = [];
+  for (const sg of [-1, 1]) {
+    const w0 = sg * bw / 2, w1 = sg * (bw / 2 + hw), lo = Math.min(w0, w1), hi = Math.max(w0, w1), nb = 8;
+    slQuad('stone', acP(F, 0, lo, H + hh), acP(F, Lt, lo, hh), acP(F, Lt, hi, hh), acP(F, 0, hi, H + hh), [0, 1, 0], { solid: true, tint: ACR.trim, base: F.y });
+    for (const ww of [lo, hi]) { const n = acP(F, 0, ww === lo ? -1 : 1, 0), c = acP(F, 0, 0, 0);
+      slQuad('stone', acP(F, 0, ww, 0), acP(F, Lt, ww, 0), acP(F, Lt, ww, hh), acP(F, 0, ww, H + hh), [n[0] - c[0], 0, n[2] - c[2]], { base: F.y, tint: ACR.sand }); }
+    { const f = acP(F, 1, 0, 0), c = acP(F, 0, 0, 0); slQuad('stone', acP(F, Lt, lo, 0), acP(F, Lt, hi, 0), acP(F, Lt, hi, hh), acP(F, Lt, lo, hh), [f[0] - c[0], 0, f[2] - c[2]], { base: F.y, tint: ACR.sand }); }
+    for (let i = 0; i < nb; i++) { const u0 = Lt * i / nb, u1 = Lt * (i + 1) / nb, M = acP(F, (u0 + u1) / 2, (lo + hi) / 2, 0);
+      solidAdd(M[0], M[2], Math.abs(Math.cos(F.yaw)) > 0.5 ? hw / 2 : (u1 - u0) / 2, Math.abs(Math.cos(F.yaw)) > 0.5 ? (u1 - u0) / 2 : hw / 2, F.y, F.y + hh + yS(u1) - 0.04, 0, { top: false, tag: 'acro hubba' }); }
+    rails.push({ pts: [acP(F, 0.15, sg * (bw / 2 + hw - 0.06), H + hh + 0.03), acP(F, Lt - 0.15, sg * (bw / 2 + hw - 0.06), hh + 0.03)], name: 'acro hubba', bare: 1 });
+  }
+  // THE FLIGHTS -- collided as a slope under the step noses, the steps drawn; no handrails of their own (the rail is the U)
+  for (const sg of [-1, 1]) { const wc = sg * (bw / 2 + hw + sw / 2), A = acP(F, Lt, wc, 0), B = acP(F, 0, wc, H);
+    slStairs(A[0], A[2], B[0], B[2], F.y, F.y + H, sw, { k: 'stone', rails: false, led: false }); }
+  // THE U RAIL on each outer edge: along the upper edge, square round, down the flight, square round, along the lower level
+  const wo = bw / 2 + hw + sw - 0.32, r = o.r || 1.4, ext = o.ext || 6, ua = -0.5, ue = Lt + 0.5;
+  const surf = u => u <= 0 ? H : u >= Lt ? 0 : yS(u);
+  for (const sg of [-1, 1]) {
+    const L = [], add = (u, w) => L.push([u, w]);
+    for (let w = wo + ext; w > wo + r + 0.01; w -= 1.2) add(ua, w);
+    for (let k = 0; k <= 6; k++) { const ph = Math.PI + (Math.PI / 2) * k / 6; add(ua + r + r * Math.cos(ph), wo + r + r * Math.sin(ph)); }
+    for (let u = ua + r + 0.6; u < ue - r - 0.01; u += 0.6) add(u, wo);
+    for (let k = 0; k <= 6; k++) { const ph = -Math.PI / 2 + (Math.PI / 2) * k / 6; add(ue - r + r * Math.cos(ph), wo + r + r * Math.sin(ph)); }
+    for (let w = wo + r + 1.2; w <= wo + ext + 0.01; w += 1.2) add(ue, w);
+    const pts = L.map(([u, w]) => acP(F, u, sg * w, surf(u)));
+    rails.push({ pts, name: 'acro stair rail', hgt: 0.9 });
+  }
+  // two plinths with a brazier at the bottom of the outer edges, and a pair of obelisks at the top
+  for (const sg of [-1, 1]) {
+    const b = acP(F, ue + 1.6, sg * (wo + ext + 1.4), 0), t = acP(F, -2.2, sg * (wo + ext + 1.4), H);
+    acBrazier(b[0], b[1], b[2]); acObelisk(t[0], t[1], t[2], 0.55, 5.5);
+  }
+  for (const R of rails) ACR.rails.push(R);
+  return { Lt, half: bw / 2 + hw + sw, rails };
+}
+// ---- the classical vocabulary --------------------------------------------------------------------------------------------
+// a block of the pyramid: ashlar faces, paving top, a pale band at the top and the bottom, shallow pilasters on the long faces
+function acBlock(x0, z0, x1, z1, y0, y1, o) {
+  o = o || {};
+  slBox('stone', x0, y0, z0, x1, y1, z1, { top: 'paving', bev: 0.08, solid: true, tag: o.tag || 'acro', tint: o.tint || ACR.sand, base: y0, skip: 'y' });
+  // the bands: a cornice course and a plinth course, a touch proud, never solid (they are paint, not ledges)
+  slBox('stone', x0 - 0.06, y1 - 0.55, z0 - 0.06, x1 + 0.06, y1 - 0.05, z1 + 0.06, { bev: 0.04, tint: ACR.trim, skip: 'yY' });
+  slBox('stone', x0 - 0.08, y0, z0 - 0.08, x1 + 0.08, y0 + 0.45, z1 + 0.08, { bev: 0.04, tint: 0xd6bd98, skip: 'yY' });
+  if (o.pil) { const step = o.pil, ph = (y1 - y0) - 1.0;
+    for (const [ax, lo, hi, fixed, sgn] of [['x', x0, x1, z0, -1], ['x', x0, x1, z1, 1], ['z', z0, z1, x0, -1], ['z', z0, z1, x1, 1]])
+      for (let t = lo + step / 2; t < hi - 1; t += step) { if (o.skipPil && o.skipPil(ax, t, fixed)) continue;
+        if (ax === 'x') slBox('stone', t - 0.6, y0 + 0.45, fixed, t + 0.6, y0 + 0.45 + ph, fixed + sgn * 0.22, { bev: 0.05, tint: ACR.trim, skip: 'yY' });
+        else slBox('stone', fixed, y0 + 0.45, t - 0.6, fixed + sgn * 0.22, y0 + 0.45 + ph, t + 0.6, { bev: 0.05, tint: ACR.trim, skip: 'yY' }); } }
+}
+// a parapet: a low stone ledge (a wall to her, an edge to grind) along x or z, from a to b
+function acParapet(ax, x, z0, z1, y, h) {
+  h = h || 0.5;
+  if (ax === 'z') slBox('stone', x - 0.35, y, z0, x + 0.35, y + h, z1, { top: 'stone', bev: 0.05, solid: true, tag: 'acro parapet', tint: ACR.trim, base: y });
+  else slBox('stone', z0, y, x - 0.35, z1, y + h, x + 0.35, { top: 'stone', bev: 0.05, solid: true, tag: 'acro parapet', tint: ACR.trim, base: y });
+}
+// a fluted column with a base and a capital -- the shaft a lathe, solid as a square the column's width
+function acColumn(x, y, z, h, r) {
+  r = r || 0.55;
+  const prof = [[r * 1.3, 0], [r * 1.3, 0.22], [r * 1.12, 0.3], [r * 1.05, 0.42], [r, 0.5], [r * 0.86, h - 0.62], [r * 0.95, h - 0.5], [r * 1.25, h - 0.32], [r * 1.25, h - 0.3], [0, h - 0.3]].map(([a, b]) => new THREE.Vector2(a, b));
+  slGeo('stone', new THREE.LatheGeometry(prof, 16), slMat(x, y, z), { smooth: true, tint: ACR.cream, base: y });
+  slBox('stone', x - r * 1.45, y + h - 0.3, z - r * 1.45, x + r * 1.45, y + h, z + r * 1.45, { bev: 0.04, tint: ACR.trim, skip: '' });
+  solidAdd(x, z, r * 0.95, r * 0.95, y, y + h, 0, { top: false, tag: 'acro column' });
+}
+function acObelisk(x, y, z, r, h) {
+  slBox('stone', x - r * 1.6, y, z - r * 1.6, x + r * 1.6, y + 0.6, z + r * 1.6, { bev: 0.05, tint: ACR.trim, solid: true, tag: 'acro obelisk', base: y });
+  slGeo('stone', new THREE.CylinderGeometry(r * 0.62, r, h, 4, 1).rotateY(Math.PI / 4), slMat(x, y + 0.6 + h / 2, z), { tint: ACR.cream, base: y + 0.6 });
+  slGeo('neon', new THREE.ConeGeometry(r * 0.66, r * 1.2, 4).rotateY(Math.PI / 4), slMat(x, y + 0.6 + h + r * 0.6, z), { tint: ACR.gold });
+  solidAdd(x, z, r, r, y, y + 0.6 + h, 0, { top: false, tag: 'acro obelisk' });
+  slGlow(x, y + 0.6 + h + r * 0.6, z, 2.2, 0xffd27a, 0.6);
+}
+function acBrazier(x, y, z) {
+  slBox('stone', x - 0.7, y, z - 0.7, x + 0.7, y + 1.1, z + 0.7, { bev: 0.06, tint: ACR.trim, solid: true, tag: 'acro brazier', base: y });
+  slGeo('metal', new THREE.CylinderGeometry(0.55, 0.3, 0.45, 12, 1, true), slMat(x, y + 1.32, z), { smooth: true });
+  slGeo('neon', new THREE.SphereGeometry(0.34, 10, 6), slMat(x, y + 1.5, z), { smooth: true, tint: 0xffa84a });
+  slGlow(x, y + 1.7, z, 3.4, 0xffb060, 0.7);
+}
+// a cypress: the dark column of a tree every classical garden has
+function acCypress(x, y, z, h) {
+  slPlanter(x, y, z, 1.4, 1.4, 0.5);
+  slGeo('paint', new THREE.CylinderGeometry(0.1, 0.12, h * 0.25, 6), slMat(x, y + 0.5 + h * 0.12, z), { tint: 0x6b4a32 });
+  slGeo('paint', new THREE.SphereGeometry(0.75, 10, 8).scale(1, h / 1.6, 1), slMat(x, y + 0.5 + h * 0.55, z), { smooth: true, tint: 0x2f6a3e });
+}
+// a polyline through waypoints [x, z] with every interior corner rounded to radius `r`, sampled every `step` metres
+function acPoly(W, r, step) {
+  const out = [], push = (x, z) => { const l = out[out.length - 1]; if (!l || Math.hypot(x - l[0], z - l[1]) > 0.05) out.push([x, z]); };
+  let cur = W[0]; push(cur[0], cur[1]);
+  for (let i = 1; i < W.length; i++) { const c = W[i], last = i === W.length - 1, d = Math.hypot(c[0] - cur[0], c[1] - cur[1]), ux = (c[0] - cur[0]) / d, uz = (c[1] - cur[1]) / d;
+    const stop = last ? d : d - r;
+    for (let t = step; t < stop - 0.01; t += step) push(cur[0] + ux * t, cur[1] + uz * t);
+    if (last) { push(c[0], c[1]); break; }
+    const n = W[i + 1], dn = Math.hypot(n[0] - c[0], n[1] - c[1]), vx = (n[0] - c[0]) / dn, vz = (n[1] - c[1]) / dn;
+    const A = [c[0] - ux * r, c[1] - uz * r], B = [c[0] + vx * r, c[1] + vz * r];
+    for (let k = 0; k <= 8; k++) { const t = k / 8, q0 = [A[0] + (c[0] - A[0]) * t, A[1] + (c[1] - A[1]) * t], q1 = [c[0] + (B[0] - c[0]) * t, c[1] + (B[1] - c[1]) * t];
+      push(q0[0] + (q1[0] - q0[0]) * t, q0[1] + (q1[1] - q0[1]) * t); }
+    cur = B; }
+  return out;
+}
+// ---- THE BUILD ----------------------------------------------------------------------------------------------------------
+function buildAcro() {
+  if (!ACR.on || !PARKD.on) return;
+  const P = ACR.P, U = ACR.U, T4 = 4, T8 = 8, cz = (P.z0 + P.z1) / 2;
+  _slseed = 9292;
+  // THE PYRAMID: the terrace block and the upper block, faced in ashlar, pilasters on every face but where a stair is
+  const stairZ = (z, half) => Math.abs(z - cz) < half + 1.2;
+  acBlock(P.x0, P.z0, P.x1, P.z1, 0, T4, { pil: 8, skipPil: (ax, t, f) => (ax === 'z' && f === P.x1 && stairZ(t, 17.6)) || (ax === 'x' && t > -232 && t < -199) });
+  acBlock(U.x0, U.z0, U.x1, U.z1, T4, T8, { pil: 8, skipPil: (ax, t, f) => (ax === 'z' && f === U.x1 && stairZ(t, 17.6)) || (ax === 'x' && t > -253 && t < -226) });
+  // THE GRAND STAIR, two flights stacked on the east face: the agora to the terrace, then the terrace to the stylobate
+  const g1 = acTwin({ x: P.x1, z: cz, yaw: Math.PI / 2, y: 0 }, T4);
+  const g2 = acTwin({ x: U.x1, z: cz, yaw: Math.PI / 2, y: T4 }, T4);
+  ACR.grand = [g1, g2];
+  // THE ZIGGURAT RAMPS: along the north and south faces, the agora up to the terrace and the terrace up to the stylobate.
+  // Each lands on a square landing flush with the level above, so she turns onto it rather than flying off the end.
+  ACR.ramps = [];
+  for (const sg of [-1, 1]) {
+    const zf = sg > 0 ? P.z1 : P.z0, zu = sg > 0 ? U.z1 : U.z0, yaw = -Math.PI / 2;      // they climb toward -x (west)
+    // ground -> terrace, outside the terrace block, its high end at x -208 against a landing
+    const zr = zf + sg * 2.2, L1 = acRamp({ x: -214, z: zr, yaw: Math.PI / 2, y: 0 }, T4, 4.4, { ang: 18, side: sg });
+    slBox('stone', -222, 0, zr - 2.2, -214, T4, zr + 2.2, { top: 'paving', bev: 0.06, solid: true, tag: 'acro landing', tint: ACR.sand, base: 0, skip: 'y' });
+    // terrace -> stylobate, inside the terrace ring against the upper block, climbing the other way
+    const zr2 = zu + sg * 2.2, L2 = acRamp({ x: -236, z: zr2, yaw: -Math.PI / 2, y: T4 }, T4, 4.4, { ang: 18, side: -sg });
+    slBox('stone', -236, T4, zr2 - 2.2, -228, T8, zr2 + 2.2, { top: 'paving', bev: 0.06, solid: true, tag: 'acro landing', tint: ACR.sand, base: T4, skip: 'y' });
+    ACR.ramps.push({ sg, a: { x: -214 + L1, z: zr, y: 0, to: { x: -218, z: zr, y: T4 } }, b: { x: -236 - L2, z: zr2, y: T4, to: { x: -232, z: zr2, y: T8 } } });
+    void yaw;
+  }
+  // PARAPETS round the terrace's outer edge and the stylobate's, with openings where something arrives
+  const open = (t, ivs) => ivs.some(([a, b]) => t > a && t < b);
+  const para = (ax, fixed, lo, hi, y, gaps) => { let a = lo; const cuts = gaps.slice().sort((p, q) => p[0] - q[0]);
+    for (const [g0, g1] of cuts) { if (g0 - a > 1) acParapet(ax, fixed, a, g0, y); a = Math.max(a, g1); } if (hi - a > 1) acParapet(ax, fixed, a, hi, y); };
+  para('x', P.z1 - 0.35, P.x0 + 0.4, P.x1 - 0.4, T4, [[-226, -210]]); para('x', P.z0 + 0.35, P.x0 + 0.4, P.x1 - 0.4, T4, [[-226, -210]]);
+  para('z', P.x0 + 0.35, P.z0 + 0.4, P.z1 - 0.4, T4, []);
+  para('x', U.z1 - 0.35, U.x0 + 0.4, U.x1 - 0.4, T8, [[-240, -224]]); para('x', U.z0 + 0.35, U.x0 + 0.4, U.x1 - 0.4, T8, [[-240, -224]]);
+  para('z', U.x0 + 0.35, U.z0 + 0.4, U.z1 - 0.4, T8, []);
+  void open;
+  // THE TEMPLE: a podium at 12 m, its own twin stair on the east, a colonnade round the other three sides, an entablature
+  const TP = ACR.TP, tcz = (TP.z0 + TP.z1) / 2;
+  acBlock(TP.x0, TP.z0, TP.x1, TP.z1, T8, TP.y, { tint: ACR.cream });
+  ACR.temple = acTwin({ x: TP.x1, z: tcz, yaw: Math.PI / 2, y: T8 }, TP.y - T8, { sw: 5, ext: 3 });
+  const ch = 6.4, cy = TP.y, col = [];
+  for (let x = TP.x0 + 1.4; x <= TP.x1 - 1.3; x += 3.4) col.push([x, TP.z0 + 1.4], [x, TP.z1 - 1.4]);
+  for (let z = TP.z0 + 4.8; z <= TP.z1 - 4.7; z += 3.4) { col.push([TP.x0 + 1.4, z]); if (Math.abs(z - tcz) > ACR.temple.half + 0.8) col.push([TP.x1 - 1.4, z]); }
+  for (const [x, z] of col) acColumn(x, cy, z, ch);
+  // the entablature: architrave, frieze (gold band), cornice -- a ring over the columns, solid, out of reach
+  for (const [x0, z0, x1, z1] of [[TP.x0 + 0.6, TP.z0 + 0.6, TP.x1 - 0.6, TP.z0 + 2.2], [TP.x0 + 0.6, TP.z1 - 2.2, TP.x1 - 0.6, TP.z1 - 0.6], [TP.x0 + 0.6, TP.z0 + 2.2, TP.x0 + 2.2, TP.z1 - 2.2]]) {
+    slBox('stone', x0, cy + ch, z0, x1, cy + ch + 1.0, z1, { bev: 0.05, tint: ACR.trim, skip: '', solid: true, tag: 'acro entablature' });
+    slBox('neon', x0 - 0.02, cy + ch + 1.0, z0 - 0.02, x1 + 0.02, cy + ch + 1.25, z1 + 0.02, { bev: 0, tint: ACR.gold, skip: 'yY' });
+    slBox('stone', x0 - 0.35, cy + ch + 1.25, z0 - 0.35, x1 + 0.35, cy + ch + 1.75, z1 + 0.35, { bev: 0.06, tint: ACR.cream, skip: '', solid: true, tag: 'acro entablature' }); }
+  // at the back of the podium, an altar ledge to grind and two braziers
+  slBox('stone', TP.x0 + 4.5, cy, tcz - 5, TP.x0 + 6, cy + 0.6, tcz + 5, { top: 'stone', bev: 0.05, solid: true, tag: 'acro altar', tint: ACR.trim, base: cy });
+  acBrazier(TP.x0 + 5.2, cy, tcz - 7.5); acBrazier(TP.x0 + 5.2, cy, tcz + 7.5);
+  // DRESSING: cypresses down the agora edge, obelisks on the terrace corners, braziers on the stylobate corners
+  for (let z = 76; z <= 192; z += 12) if (Math.abs(z - cz) > 22 && Math.abs(z - 88.5) > 6) acCypress(-168, 0, z, 5 + (z % 3));
+  for (const [x, z] of [[P.x0 + 3, P.z0 + 3], [P.x0 + 3, P.z1 - 3], [P.x1 - 3, P.z0 + 3], [P.x1 - 3, P.z1 - 3]]) acObelisk(x, T4, z, 0.6, 7);
+  for (const [x, z] of [[U.x0 + 2.5, U.z0 + 2.5], [U.x0 + 2.5, U.z1 - 2.5]]) acBrazier(x, T8, z);
+  for (let x = -166; x <= -146; x += 10) for (const z of [84, 184]) slLamp(x, 0, z);
+  // THE SKY AGORA: a paved deck 36 m square at 28 m, an inverted ziggurat under it, a parapet with two openings
+  const I = ACR.IS, h = I.h;
+  slBox('stone', I.x - h, I.y - 1.6, I.z - h, I.x + h, I.y, I.z + h, { top: 'paving', bev: 0.08, solid: true, tag: 'acro island', tint: ACR.sand, base: I.y - 1.6, skip: '' });
+  slBox('stone', I.x - h - 0.06, I.y - 0.6, I.z - h - 0.06, I.x + h + 0.06, I.y - 0.1, I.z + h + 0.06, { bev: 0.04, tint: ACR.trim, skip: 'yY' });
+  for (let k = 1; k <= 4; k++) { const hh = h - k * 3.6, y1 = I.y - 1.6 - (k - 1) * 1.7;
+    slBox('stone', I.x - hh, y1 - 1.7, I.z - hh, I.x + hh, y1, I.z + hh, { bev: 0.06, tint: k % 2 ? ACR.cream : ACR.sand, skip: 'Y' }); }
+  slGeo('neon', new THREE.ConeGeometry(1.4, 3.2, 4).rotateX(Math.PI).rotateY(Math.PI / 4), slMat(I.x, I.y - 1.6 - 4 * 1.7 - 1.6, I.z), { tint: ACR.gold });
+  slGlow(I.x, I.y - 1.6 - 4 * 1.7 - 2.4, I.z, 7, 0xffd27a, 0.6);
+  para('x', I.z - h + 0.35, I.x - h + 0.4, I.x + h - 0.4, I.y, [[-238.5, -230.5]]); para('z', I.x + h - 0.35, I.z - h + 0.4, I.z + h - 0.4, I.y, [[I.z - 3, I.z + 3]]);
+  for (const [x, z] of [[I.x - h + 2, I.z - h + 2], [I.x + h - 2, I.z - h + 2], [I.x + h - 2, I.z + h - 2]]) acObelisk(x, I.y, z, 0.45, 4);
+  // THE OBELISK the descent spirals round: square, tapering, a gold pyramidion with a light on it you can see from the hub
+  const O = ACR.OB;
+  slBox('stone', O.x - O.h - 0.6, 0, O.z - O.h - 0.6, O.x + O.h + 0.6, 1.2, O.z + O.h + 0.6, { top: 'stone', bev: 0.06, tint: ACR.trim, solid: true, tag: 'acro obelisk', base: 0 });
+  slGeo('stone', new THREE.CylinderGeometry(O.h * 0.62 * Math.SQRT2, O.h * Math.SQRT2, O.top - 1.2, 4, 6).rotateY(Math.PI / 4), slMat(O.x, 1.2 + (O.top - 1.2) / 2, O.z), { tint: ACR.cream, base: 1.2 });
+  slGeo('neon', new THREE.ConeGeometry(O.h * 0.66 * Math.SQRT2, 3.4, 4).rotateY(Math.PI / 4), slMat(O.x, O.top + 1.7, O.z), { tint: ACR.gold });
+  slGlow(O.x, O.top + 2.2, O.z, 9, 0xffd27a, 0.75);
+  solidAdd(O.x, O.z, O.h, O.h, 0, O.top + 3, 0, { top: false, tag: 'acro obelisk' });
+  // THE LAUNCHER from the stylobate's north edge onto the island, and the pad drawn as a gold ring
+  { const lx = -222, lz = 178; ORB.launch.push({ x: lx, z: lz, y: T8, r: 1.7, tx: I.x, ty: I.y, tz: I.z - 8, apex: 3, cool: 0, name: 'acro launch' });
+    slGeo('neon', new THREE.TorusGeometry(1.55, 0.14, 6, 28).rotateX(Math.PI / 2), slMat(lx, T8 + 0.06, lz), { tint: ACR.gold });
+    for (let k = 0; k < 3; k++) slGeo('neon', new THREE.TorusGeometry(1.15 - k * 0.28, 0.05, 4, 20).rotateX(Math.PI / 2), slMat(lx, T8 + 0.6 + k * 0.7, lz), { tint: 0xfff0b0 });
+    slGlow(lx, T8 + 1.2, lz, 4, 0xffd27a, 0.6); ACR.launch = { x: lx, z: lz }; }
+  // THE ASCENT: a booster rail from the agora, over the terrace, onto the stylobate -- the rail up the building
+  { const z = 88.5, pts = []; for (let i = 0; i <= 30; i++) { const t = i / 30, x = -150 + (-210 + 150) * t; pts.push([x, 1.15 + (T8 + 0.9 - 1.15) * Math.min(1, t / 0.86), z]); }
+    ACR.rails.push({ pts, name: 'acro ascent', boost: 15, hgt: 0, tube: 1, arms: 6 }); ACR.ascent = pts; }
+  // THE SKY STAIR: a booster rail from the stylobate's north-west up onto the island
+  { const a = [-236, T8 + 1.0, 176], b = [-236, I.y + 0.95, I.z - h + 3], pts = [];
+    for (let i = 0; i <= 30; i++) { const t = i / 30; pts.push([a[0], a[1] + (b[1] - a[1]) * Math.min(1, t / 0.9), a[2] + (b[2] - a[2]) * t]); }
+    ACR.rails.push({ pts, name: 'acro sky stair', boost: 17, hgt: 0, tube: 1, arms: 5 }); ACR.skyStair = pts; }
+  // THE DESCENT: off the island's east opening, round the obelisk in a square spiral, onto the ground -- one rail, every
+  // corner a fillet, and a constant fall along its length (`acPoly`)
+  { const R0 = 7, ox = O.x, oz = O.z, top = I.y + 0.9, bot = 1.0, lap = [[ox - R0, oz - R0], [ox + R0, oz - R0], [ox + R0, oz + R0], [ox - R0, oz + R0]];
+    const W = [[I.x + h - 1.5, oz], [ox - R0, oz]]; for (let L = 0; L < 16; L++) W.push(lap[L % 4]); W.push([ox - R0, oz - 4]);
+    const flat = Math.abs(ox - R0 - (I.x + h - 1.5)) - 2.2, pts = acPoly(W, 2.2, 0.9);
+    let S = 0; const sl = [0]; for (let i = 1; i < pts.length; i++) { S += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sl.push(S); }
+    const s1 = S - 5, P3 = pts.map(([x, z], i) => [x, sl[i] <= flat ? top : sl[i] >= s1 ? bot : top + (bot - top) * (sl[i] - flat) / (s1 - flat), z]);
+    ACR.rails.push({ pts: P3, name: 'acro descent', hgt: 0, tube: 1, maxV: 17, arms: 2.2, armTo: [ox, oz] }); ACR.descent = P3; }
+  // THE ➤ STOPS (first on the key) and the dropping-in points the harness rides from
+  const S = CITY.spots;
+  S['acropolis'] = [-150, 0, cz, -Math.PI / 2];
+  S['acro terrace'] = [-186, T4, cz + 22, -Math.PI / 2];
+  S['acro stylobate'] = [-206, T8, cz + 26, -Math.PI / 2];
+  S['acro temple'] = [-226, TP.y, tcz + 10, -Math.PI / 2];
+  S['acro sky'] = [I.x - 6, I.y, I.z - 10, Math.PI];
+  ACR.stops = ['acropolis', 'acro terrace', 'acro stylobate', 'acro temple', 'acro sky'];
+  ACR.built = 1;
+}
+// THE KIT PIECES ON THE LEVELS (their own tested shapes, in the park district's palette): quarter pipes along the stylobate's
+// north edge, a funbox with rails and a pyramid on it, ledges and manual pads in the south, and the island's own park
+function acroKit() {
+  if (!ACR.on || !PARKD.on) return;
+  const K = { ...KCOL }, Tn = {}; for (const k in KSZ) Tn[k] = KSZ[k].tint;
+  Object.assign(KCOL, PARKD.pal.kcol); for (const k in PARKD.pal.size) if (KSZ[k]) KSZ[k].tint = PARKD.pal.size[k];
+  const n0 = KITW.pieces.length, U = ACR.U, I = ACR.IS, T8 = 8, M = KSZ.M, Lq = M.lip + KITW.deck;
+  const p = (kind, size, x, z, yaw, y, o, label) => { const r = kitPiece(kind, size, { x, y, z, yaw }, o || {}); if (r) r.label = 'acro: ' + (label || kind + ' ' + size); return r; };
+  try {
+    // the stylobate's north edge: two quarter pipes facing south, the gap between them is where the ramp arrives
+    p('qp', 'M', -248, U.z1 - 0.7 - Lq, 0, T8, { w: 16 }, 'stylobate QP west');
+    p('qp', 'M', -211, U.z1 - 0.7 - Lq, 0, T8, { w: 10 }, 'stylobate QP east');
+    // the south edge: one long quarter pipe looking north over the stylobate
+    p('qp', 'L', -247, U.z0 + 0.7 + KSZ.L.lip + KITW.deck, Math.PI, T8, { w: 14 }, 'stylobate QP L south');
+    // a funbox with rails and a pyramid in the north half
+    p('frustum', 'S', -238, 160, Math.PI / 2, T8, { len: 6, w: 4, banks: [1, 1, 0, 0], rails: 1 }, 'stylobate funbox');
+    p('frustum', 'S', -250, 166, 0, T8, { len: 3, w: 3, banks: [1, 1, 1, 1] }, 'stylobate pyramid');
+    // ledges and manual pads in the south
+    p('ledge', 'S', -250, 100, Math.PI / 2, T8, { h: 0.5, len: 10, w: 1.4 }, 'stylobate ledge');
+    p('ledge', 'S', -232, 96, Math.PI / 2, T8, { h: 0.35, len: 8, w: 3 }, 'stylobate manual pad');
+    p('rail', 'S', -232, 106, Math.PI / 2, T8, { h: 0.7, len: 10 }, 'stylobate flat bar');
+    // THE ISLAND'S PARK: quarter pipes on the north and west edges, a pyramid in the middle, a ledge in the south
+    p('qp', 'M', -228, I.z + I.h - 0.7 - Lq, 0, I.y, { w: 20 }, 'sky QP north');
+    p('qp', 'M', I.x - I.h + 0.7 + Lq, I.z + 2, -Math.PI / 2, I.y, { w: 18 }, 'sky QP west');
+    p('frustum', 'M', -218, 230, 0, I.y, { len: 3, w: 4, banks: [1, 1, 1, 1] }, 'sky pyramid');
+    p('ledge', 'S', -226, I.z - I.h + 4, Math.PI / 2, I.y, { h: 0.5, len: 8, w: 1.2 }, 'sky ledge');
+    p('rail', 'S', -214, I.z - I.h + 6, Math.PI / 2, I.y, { h: 0.6, len: 8 }, 'sky flat bar');
+    // THE AGORA: two long ledges flanking the grand stair's approach, a manual pad, a funbox, a kicker into a pyramid
+    const cz = (ACR.P.z0 + ACR.P.z1) / 2;
+    p('ledge', 'S', -166, cz + 24, Math.PI / 2, 0, { h: 0.55, len: 16, w: 1.2 }, 'agora ledge north');
+    p('ledge', 'S', -166, cz - 24, Math.PI / 2, 0, { h: 0.55, len: 16, w: 1.2 }, 'agora ledge south');
+    p('ledge', 'S', -158, cz + 44, Math.PI / 2, 0, { h: 0.35, len: 10, w: 3 }, 'agora manual pad');
+    p('frustum', 'S', -152, cz - 58, Math.PI / 2, 0, { len: 6, w: 4, banks: [1, 1, 0, 0], rails: 1 }, 'agora funbox');
+    p('kicker', 'S', -142, cz + 58, -Math.PI / 2, 0, {}, 'agora kicker');
+    p('frustum', 'M', -163, cz + 58, -Math.PI / 2, 0, { len: 3, w: 4, banks: [1, 1, 1, 1] }, 'agora pyramid');
+  } finally { Object.assign(KCOL, K); for (const k in Tn) KSZ[k].tint = Tn[k]; }
+  ACR.kit = KITW.pieces.slice(n0);
+}
+// THE RAILS: after the collider, like every other district's
+function acroRails() {
+  if (!ACR.built) return;
+  const V = q => SLV(q[0], q[1], q[2]);
+  ACR.paths = [];
+  for (const R of ACR.rails) {
+    let top;
+    if (R.tube) { top = R.pts; slTube('orange', top, 0.06);
+      // brackets: on the descent, arms back to the obelisk at each corner; elsewhere, a post down to whatever is under it
+      let acc = 0; for (let i = 0; i < top.length; i++) { if (i) acc += Math.hypot(top[i][0] - top[i - 1][0], top[i][2] - top[i - 1][2]); if (i && acc < R.arms) continue; acc = 0;
+        const [x, y, z] = top[i];
+        if (R.armTo) { const tx = R.armTo[0] + Math.sign(x - R.armTo[0]) * Math.min(ACR.OB.h * 0.8, Math.abs(x - R.armTo[0])), tz = R.armTo[1] + Math.sign(z - R.armTo[1]) * Math.min(ACR.OB.h * 0.8, Math.abs(z - R.armTo[1]));
+          slTube('metal', [[x, y - 0.08, z], [tx, y - 0.6, tz]], 0.05); }
+        else { const g = groundAt(x, z, y - 0.2, 0), y0 = g.hit ? g.floor : 0; if (y - y0 > 0.3) slGeo('metal', new THREE.CylinderGeometry(0.05, 0.07, y - y0, 6, 1, true), slMat(x, (y + y0) / 2, z), { smooth: true }); } } }
+    else if (R.bare) { top = R.pts; slTube('metal', top, 0.035); }
+    else top = slRailing(R.pts, R.hgt || 0.9, { step: 1.8 });
+    const P = railPath(top.map(V), { name: R.name, boost: R.boost || 0, boostK: R.boost ? 10 : 0, maxV: R.maxV || (R.boost ? 22 : 0) });
+    ACR.paths.push(P);
+  }
 }
 function hubDress() {
   if (!HUB.on) return;
@@ -7775,6 +8095,7 @@ function buildSlice() {
   sliceLayers();
   hubDress();       // r58: the park she starts in -- the deck, the ledges, the plinth, the edges
   parkDress();      // r90: and the skate park district north of it, dressed like the Nexus
+  buildAcro();      // r92: and the Acropolis west of that, four levels up
   Object.assign(CITY.spots, { slice: [-97.8, Q, -5.25, -Math.PI / 2], 'slice bridge': [BR.x, yB(BR.zc), BR.zc + 6, Math.PI], 'slice terrace': [-140, TER, 15, -Math.PI / 2] });
   SLC.built = 1;
 }
@@ -11417,7 +11738,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  PARKD, parkDistrict, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  PARKD, parkDistrict, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
