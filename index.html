@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r88</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r89</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r88';
+const BUILD = 'r89';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -9118,9 +9118,20 @@ const DASH = { on: 1, n: 0.95, win: 0.5, add: 4.5, cap: 30, fx: 0.45 };
 //            cut away), any other way = a strike . tap swivel (vert face: the transfer) . FLICK DOWN = switch stance
 //   air      HOLD = grab . FLICK DOWN = THE GRIND DIVE (the   HOLD = rotate . FLICK = flip, all four ways, always
 //            slide tackle's pose, no shove), others = strike
-const CTRL = { map: 3, rotDelay: 0.18 };
+// r89 (map 4): *"I want the left stick to still control rotation in the air -- a press and hold on the left stick. The
+// left flick can still do melees, and the right stick flick controls flips, which means grabs are the press and hold on
+// the right stick."* So map 4 is map 3 with the two AIR HOLDS swapped back: left hold = she points where it points (r55's
+// rule, with its thrust), right hold = the grab by direction. Every flick and every ground gesture is map 3's.
+//   air (map 4)   LEFT HOLD = rotate . FLICK DOWN = grind dive, others = strike   RIGHT HOLD = grab . FLICK = flip
+// Two holds that could collide with something, and how they don't:
+//   - a right FLICK passes through a short right hold on its way, so the grab waits `grabDelay` -- past a flick's whole
+//     window (`FLICK.let`) -- and a flip that fires drops any grab;
+//   - in a locked vert air the right thumb held UP is r86's transfer, so up is never a grab there.
+// And the right thumb held from the ground (a camera drag) never grabs: the press must begin in the air (`p.rAir`, r87's rule).
+const CTRL = { map: 4, rotDelay: 0.18, grabDelay: 0.28 };
 const ctrl82 = () => CTRL.map > 1.5;
 const ctrl84 = () => CTRL.map > 2.5;
+const airR = () => CTRL.map > 1.5 && CTRL.map < 3.5;      // map 2/3: the RIGHT thumb turns her in the air and the left grabs
 // r84: THE SPEED STOP. *"A quick speed stop and then cut the other way -- I want her to be a little more maneuverable."* A
 // skid: she turns side-on to her travel (`yaw` of it, eased) and sheds speed at `decel`, ending when she is stopped, after
 // `dur`, or the moment the left thumb is back down asking to go somewhere (after `min`) -- which is the cut.
@@ -9599,10 +9610,11 @@ function stepAir(dt) {
   let thrust = 0;
   // r82: with the pads swapped the RIGHT thumb turns her (after `rotDelay`, so a flick is a flip and not a spin), and the
   // left is the grabs -- so there is no air thrust from it
-  const c82 = ctrl82(), rOn = c82 && stick.R.down && p.rHold > CTRL.rotDelay;
+  const c82 = airR(), rOn = c82 && stick.R.down && p.rHold > CTRL.rotDelay;
   const sk2 = c82 ? (rOn ? Math.sign(stick.R.x) * clamp((Math.abs(stick.R.x) - 0.08) / Math.max(0.05, AIR.spinFull - 0.08), 0, 1) : 0) : sk;
   if (AIR.aim > 0.5) {
-    const w = c82 ? (rOn ? padWorld(stick.R) : { x: 0, z: 0, mag: 0 }) : stickWorld(), held = w.mag > 0, a = held ? Math.atan2(w.x, w.z) : 0;
+    const lOn = CTRL.map < 3.5 || (p.lDown || 0) > CTRL.rotDelay;      // r89: in map 4 a left FLICK is a strike, never a spin
+    const w = c82 ? (rOn ? padWorld(stick.R) : { x: 0, z: 0, mag: 0 }) : lOn ? stickWorld() : { x: 0, z: 0, mag: 0 }, held = w.mag > 0, a = held ? Math.atan2(w.x, w.z) : 0;
     // a thumb pushed for a while already is the run-up's; one pushed just now is meant for the air
     if (p.airT <= dt + 1e-9) { p.aimA0 = held && (c82 ? p.rHold - CTRL.rotDelay : p.lHold) > AIR.aimFresh ? a : null; p.aimOn = 0; p.aimW = 0; p.aimPrev = held ? a : null; }
     if (!held) { p.aimA0 = null; p.aimPrev = null; }        // let go: the next push takes over at once
@@ -9679,8 +9691,8 @@ function stepAir(dt) {
   const overRamp = below.hit && below.ny < AIR.settleN;
   // ONCE IT HAS STARTED OVER A RAMP IT HOLDS for as long as the thumb does: a narrow vert face is a fraction of a second
   // of flight wide in plan, and letting go of it the moment she drifts past would hand her straight back her speed.
-  const SP = ctrl82() ? stick.L : stick.R;      // r82: the settle is the LEFT pad held down, with the grabs
-  const padDown = AIR.settleRamp > 0.5 && SP.down && (!ctrl82() || p.lAir) && SP.y > AIR.settleAt && Math.abs(SP.x) < SP.y;
+  const SP = airR() ? stick.L : stick.R;      // r82: the settle is held down on whichever pad grabs (r89: the right in map 4)
+  const padDown = AIR.settleRamp > 0.5 && SP.down && (airR() ? p.lAir : CTRL.map > 3.5 ? p.rAir : true) && SP.y > AIR.settleAt && Math.abs(SP.x) < SP.y;
   if (!padDown) p.settleLatch = 0; else if (overRamp) p.settleLatch = 1;
   const settle = !p.flip && ((padDown && p.settleLatch) || keys.f);
   p.settling = !!settle;
@@ -9994,10 +10006,11 @@ function stepMelee(dt) {
 // THE GRAB (r42): the right pad HELD in the air past `MOVES.grabAt`, picking a pose by the thumb's direction
 // when the hold begins; let go, land, grind or bail and it is over.
 function grabStep() {
-  const p = player, m = girl.moves, c82 = ctrl82(), R = c82 ? stick.L : stick.R, hold = c82 ? (p.lDown || 0) : p.rHold;      // r82: the LEFT pad grabs
+  const p = player, m = girl.moves, c82 = airR(), R = c82 ? stick.L : stick.R, hold = c82 ? (p.lDown || 0) : p.rHold;      // r82: the LEFT pad grabs (r89: map 4, the right)
+  const m4 = CTRL.map > 3.5;
   const air = !p.grounded && !p.grind && p.bailT <= 0;
   if (p.xferHold) { if (!R.down) p.xferHold = 0; p.grab = null; return; }     // r47: that hold was a transfer
-  if (!air || !R.down || (c82 && !p.lAir) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
+  if (!air || !R.down || (c82 && !p.lAir) || (m4 && (!p.rAir || hold < CTRL.grabDelay)) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
   // r55: *"The grabs don't really work."* Two reasons, both fixed. The direction was decided ONCE, at `grabAt` after
   // the press -- and the stick floats, so the thumb lands as the centre and at 0.3 s it had often not moved yet:
   // every grab came out as the centre one, and pushing the thumb over afterwards changed nothing. And held DOWN it was
@@ -10005,6 +10018,8 @@ function grabStep() {
   // needs the full `grabAt`, and the grab FOLLOWS the thumb -- swing it round and she changes grab.
   const mag = Math.hypot(R.x, R.y), dirK = Math.abs(R.x) > Math.abs(R.y) ? (R.x > 0 ? 'right' : 'left') : (R.y < 0 ? 'up' : 'down');
   let k = null;
+  // r89: in a locked vert air the right thumb held UP is the transfer (r86), so up is not a grab there
+  if (m4 && p.vertLock && dirK === 'up') { p.grab = null; return; }
   if (mag > MOVES.grabPush && hold >= MOVES.grabMin) k = dirK;
   else if (p.grab && mag > MOVES.grabPush * 0.6) k = p.grab.k;           // a little hysteresis between directions
   else if (hold >= MOVES.grabAt) k = 'centre';
@@ -10108,7 +10123,8 @@ function rightFlick(dx, dy) {
     }
     // r84: the grind dive moved to the LEFT pad's flick down, so every right flick in the air is a flip
     if (!ctrl84() && dir === 'down' && GRIND.intent && grindTarget(true)) { const g = grindDown(); if (g) return g; }
-    return startFlip(flickFlip(dx, dy)) ? 'flip' : null;
+    if (startFlip(flickFlip(dx, dy))) { p.grab = null; return 'flip'; }      // r89: a flip that fires drops any grab
+    return null;
   }
   // r74: A SWIPE UP ON A RAMP, OR JUST OFF ONE, IS THE DASH -- never the melee and never (any more) the transfer
   if (dir === 'up' && !p.grind && !(p.vertLock && VERT.airFlickXfer > 0.5) && dashOk()) return dashGo() ? 'dash' : null;
@@ -10135,6 +10151,7 @@ function rightFlick(dx, dy) {
 
 function stepPlayer(dt) {
   const p = player;
+  if (stick.R.down && !(p.rHold > 0)) p.rAir = !p.grounded && !p.grind; if (!stick.R.down) p.rAir = false;      // r89: map 4's grab, r87's rule
   p.rHold = stick.R.down ? p.rHold + dt : 0;
   p.xferUpT = stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y ? (p.xferUpT || 0) + dt : 0;      // r86
   // r86: *"she's not doing the in-air pose, she's just doing the idle pose."* The LEFT thumb is the grab in the air (r82) and it
@@ -10143,7 +10160,7 @@ function stepPlayer(dt) {
   if (stick.L.down && !(p.lDown > 0)) p.lAir = !p.grounded && !p.grind; if (!stick.L.down) p.lAir = false;
   // r87: AND IT ENDS ON LANDING. Pressed in the air and still held after touchdown (it steers, so it is), the flag survived,
   // and every jump after that grabbed again until the thumb came off -- the r86 bug back, intermittently.
-  if (p.grounded || p.grind) p.lAir = false;
+  if (p.grounded || p.grind) p.lAir = p.rAir = false;
   p.lDown = stick.L.down ? (p.lDown || 0) + dt : 0;      // r82: how long the left thumb has been DOWN (the grabs ask, moved or not)
   p.lHold = stickWorld().mag > 0 ? (p.lHold || 0) + dt : 0;     // r55: how long the left thumb has been pushed (the air aim asks)
   // `jump` 1 is a TAP (constrained on vert), 2 is the right pad's SWIPE UP (the transfer)
@@ -10805,7 +10822,7 @@ const TAILUI = [
   ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
   ['MELEE.boost',    'Ground strike speed boost', 0, 8, 0.25, ''],
   ['VERT.faceArm',   'Swipe on the wall counts for', 0.1, 1.5, 0.05, 's'],
-  ['CTRL.map',       'Controls 3 = r84 (L flick down: stop / grind dive; R flicks: boost, all air flips) 2 = r82 1 = old', 1, 3, 1, ''],
+  ['CTRL.map',       'Controls 4 = r89 (air: L hold rotates, R hold grabs) 3 = r84 (air: R hold rotates, L hold grabs) 2 = r82 1 = old', 1, 4, 1, ''],
   ['STOP.on',        'Left flick down = speed stop (r84)', 0, 1, 1, ''],
   ['STOP.decel',     'Speed stop strength', 10, 90, 1, 'm/s2'],
   ['SK.hardK',       'Hard push strength (full stick)', 0.8, 2.5, 0.05, ''],
@@ -10892,8 +10909,8 @@ const UI_DEF = {}; for (const k of TAILKEYS) UI_DEF[k] = uiGet(k);
 // in this file never reaches a phone that has saved once. (Shredworld lost five builds to exactly this.) The store carries
 // a version, and the rows named for each later version are DROPPED from an older store and take the file's new default;
 // everything else he tuned is kept. **Bump `UI_VER` and name the row in the same commit that changes its default.**
-const UI_VER = 84;
-const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'] };
+const UI_VER = 89;
+const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'] };
 function tailSave() {
   try { const o = { mode: TAIL.mode, ver: UI_VER, lookStyle: LOOK.at === undefined ? LOOK.style : LOOK.at };
     for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}

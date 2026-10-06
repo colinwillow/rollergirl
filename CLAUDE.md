@@ -93,6 +93,23 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **MAP 4: THE AIR HOLDS SWAP BACK, THE FLICKS STAY (r89, `CTRL.map` 4, `airR`, `CTRL.grabDelay`, `p.rAir`).** *"I want the
+  left stick to still control rotation in the air -- a press and hold. The left flick can still do melees, the right
+  flick flips, which means grabs are the press and hold on the right stick."* Map 4 is map 3 with the two AIR HOLDS
+  swapped: left hold = r55's heading (she points where it points, with its thrust), right hold = the grab by direction
+  (and the settle, held down over a ramp). Every flick and every ground gesture is map 3's. `airR()` (map 2/3) is the one
+  question the air code asks; `ctrl82`/`ctrl84` still answer the flicks.
+  Three collisions, each closed and each in `npm run sim ctrl84` / `vert86`:
+  - **A RIGHT FLICK PASSES THROUGH A SHORT RIGHT HOLD**, so the grab waits `grabDelay` (0.28 s, past `FLICK.let`) and a
+    flip that fires drops any grab.
+  - **IN A LOCKED VERT AIR THE RIGHT THUMB UP IS r86's TRANSFER**, so up is never a grab there. Revert-tested: without
+    the rule the transfer row reads `GRABBED up`.
+  - **A RIGHT THUMB DOWN AT TAKEOFF (a camera drag) NEVER GRABS**: the press must begin in the air (`p.rAir`), cleared on
+    landing (r87's rule, the other thumb). Revert-tested on a fixed row -- `airpose`, now run under map 3 AND map 4, could
+    not see it, because its random right thumb is rarely held through a landing.
+  - **A LEFT FLICK IS NOT A SPIN**: the left thumb only turns her after `rotDelay`, r82's rule on the other pad.
+  `UI_VER` 89 drops his saved `CTRL.map` so the new default reaches the phone; the panel row goes to 4.
+
 - **THE REFERENCE PARK: SKATE PARK FIRST, LEVEL SECOND (r88, `npm run export:park`, `handoff/park_reference/`,
   `npm run sim parkref`, `?park=`).** *"It's visually very interesting but the dynamic is just not there ... we built the
   level first and tried to put a skate park on top of it. Export the current skate park -- that might act as a guide."*
