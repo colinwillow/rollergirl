@@ -3031,6 +3031,16 @@ CASES.kit = async () => {
     // `id` the schematic gives it, so moving a piece in the file moves its test with it.
     const at = id => { const r = A[id]; if (!r) say(`schematic has "${id}"`, false, 'missing'); return r; };
     const onAt = (yy, tol) => P.grounded && Math.abs(P.pos.y - yy) < (tol || 0.08);
+    // S0b. r79: THE PARK FLOOR'S HOLES ARE SIMPLE AND THE CUT FLOOR HAS THE RIGHT AREA. A sunk piece cuts its outline out of
+    // the ground; r77 cut the coping offset by a flat deck width, which crossed itself at the clover bowl's two hips, and
+    // the triangulator laid ground across the bowl -- the flap at the wall. Any garbage triangle shows up as extra area.
+    { const X = (p, q, r, t) => { const d = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); return d(p, q, r) * d(p, q, t) < 0 && d(r, t, p) * d(r, t, q) < 0; };
+      const area = P2 => { let a = 0; for (let i = 0; i < P2.length; i++) { const p = P2[i], q = P2[(i + 1) % P2.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; };
+      SH.holes.forEach((H, k) => { let c = 0; const n = H.length; for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) if (!(i === 0 && j === n - 1) && X(H[i], H[(i + 1) % n], H[j], H[(j + 1) % n])) c++;
+        say(`sunk piece ${k}: its hole in the park floor does not cross itself`, c === 0, `${c} crossings`); });
+      if (SH.floor) { const V = SH.floor.concat(...SH.holes), tris = THREE.ShapeUtils.triangulateShape(SH.floor.map(([x, z]) => new THREE.Vector2(x, z)), SH.holes.map(H => H.map(([x, z]) => new THREE.Vector2(x, z))));
+        const got = tris.reduce((s2, [a, b, c]) => s2 + area([V[a], V[b], V[c]]), 0), want = area(SH.floor) - SH.holes.reduce((s2, H) => s2 + area(H), 0);
+        say('the park floor, cut by the sunk pieces, covers its outline less the holes and nothing else', Math.abs(got - want) < 2, `${fix(got, 0)} m2 of ${fix(want, 0)}`); } }
     // S1. NOTHING IN ONE AREA INSIDE A PIECE OF ANOTHER, and nothing outside the fence
     { const bad = [], out = [];
       for (let i = 0; i < sheetP.length; i++) { const a = sheetP[i]; if (!a.bb) continue;

@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r78</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r79</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r78';
+const BUILD = 'r79';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -2125,8 +2125,10 @@ Object.assign(KIT_KINDS, {
     }
     const xs = toes.map(p => p[0]), zs = toes.map(p => p[2]);
     // `line` (the coping, world x,z) and `side` (unit normals toward the ridden side) -- what a harness steers by
+    // r79: `back` is the deck's back edge AS BUILT (miter and fold squeeze included) -- the outline a hole round this piece
+    // has to follow. The coping offset by a flat `deck` is not it: at a sharp notch that offset crosses itself.
     return { len: Math.max(...zs) - Math.min(...zs), wid: Math.max(...xs) - Math.min(...xs), h: Math.max(...H), n, rimY, closed,
-      line: Q.map(q => [q[0], q[1]]), side: Fr.map(f => kNorm(f.n)) };
+      line: Q.map(q => [q[0], q[1]]), side: Fr.map(f => kNorm(f.n)), back: sec.map(S2 => [S2[m - 1].P[0], S2[m - 1].P[2]]) };
   },
   // DECK: a platform of any outline, `h` tall, `holes` cut out of it -- a floor on top, walls round it, a band of solid
   // inside every edge so riding at it from outside stops her
@@ -2657,7 +2659,11 @@ function kitSheet(J) {
         let yy = y; if (q.sink) { const Hs = o.rim != null ? o.rim : (KSZ[size] || KSZ.M).H; o.rim = Hs; yy = y - Hs; }
         if (q.bumps) o.bumps = q.bumps.map(([bx, by, r, h]) => [...loc([bx, by]), r, h]); if (q.trees) o.trees = q.trees.map(t => [...loc(t), t[2]]);      // r75
         const r = put(q.kind, size, A0[0], A0[1], 0, o, q.label, yy, q.group); if (r && q.id) SHEET.at[q.id] = r;
-        if (q.sink && r && r.line) { const dk = o.deck != null ? o.deck : KITW.deck; r.sunk = 1; SHEET.holes.push(r.line.map((pp, i) => [pp[0] - r.side[i][0] * dk, pp[1] - r.side[i][1] * dk])); }
+        // r79: the hole is the deck's back edge AS BUILT (`r.back`). r77 offset the coping by a flat `deck`, which crosses
+        // itself at a notch tighter than the deck is wide -- the clover's two hips -- and a self-crossing hole hands the
+        // triangulator nonsense: ground triangles laid across the bowl, the flap at the wall he circled
+        if (q.sink && r && r.line) { const dk = o.deck != null ? o.deck : KITW.deck; r.sunk = 1;
+          SHEET.holes.push(r.back || r.line.map((pp, i) => [pp[0] - r.side[i][0] * dk, pp[1] - r.side[i][1] * dk])); }
         continue;
       }
       const yaw = yawOf(q.dir);
@@ -2674,6 +2680,7 @@ function kitSheet(J) {
   // r77: the FIRST polygon is the park's floor -- collided, since `kitFloor` leaves its cells out, and cut by every sunk piece
   (J.ground || []).forEach((G, gi) => {
     const P = G.pts.map(W), col = SHEET_C(G.color, J), y = 0.004 + (G.lift || 0), Hs = gi === 0 ? SHEET.holes : [];
+    if (gi === 0) SHEET.floor = P;      // r79: for the harness, which checks the cut floor's area
     const tris = THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), Hs.map(H => H.map(([x, z]) => new THREE.Vector2(x, z))));
     const V = P.concat(...Hs);
     for (const [a, b, c] of tris) { const A3 = [V[a][0], y, V[a][1]], B3 = [V[b][0], y, V[b][1]], C3 = [V[c][0], y, V[c][1]];

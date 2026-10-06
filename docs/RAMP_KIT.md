@@ -516,6 +516,8 @@ roughly 55 degrees down, and it shows the heights — but only once you know whe
 - Its rim is set at the ground, its floor `rim` metres below, and its piece origin at `y - rim`.
 - The park's FIRST `ground` polygon becomes its floor: it collides, and it is triangulated with a hole the shape of each
   sunk piece's deck back edge.
+  - r79: that edge is the one the wall actually BUILT (`r.back`: the miter and the fold squeeze included). It is not the coping
+    offset by `deck`, which crosses itself at any notch tighter than the deck is wide and lays ground across the bowl.
 - `kitFloor` leaves out the checker cells wholly inside that polygon. A cell under the hole would put the floor back across
   the bowl.
 - Because the pool deck is gone:

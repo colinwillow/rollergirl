@@ -91,6 +91,20 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE FLAP IN THE SUNK BOWL WAS THE PARK FLOOR'S HOLE CROSSING ITSELF (r79, `wall` returns `back`, sim S0b).** *"There's some
+  weirdness going on here. I think this is the bowl from the odd shape."* The wall was fine: probed for folded quads, a
+  self-crossing toe, and two surfaces over one plan point, and all three came back 0. The fault was the hole r77 cut in the
+  ground for a sunk piece. That hole was the coping offset by a flat `deck` width, and at the clover's two hips ((1140,412) and
+  (1203,548)) the notch is tighter than 1.5 m, so the offset crossed itself. A self-crossing hole gives `triangulateShape`
+  nonsense, and it laid ~29 m2 of ground triangles across the bowl's edge.
+  - The flat offset also disagreed with the deck's real back edge at 21 of 260 samples (miter and fold squeeze), which left
+    gaps and overlaps along the rim.
+  - **The hole is now the deck's back edge as built (`r.back`)**, so it cannot disagree with the deck or cross itself where
+    the deck does not.
+  - `npm run sim kit` S0b requires every hole to be simple and the cut floor's area to equal the outline less the holes
+    (within 2 m2). Revert-tested: the r77 hole fails both.
+  - **An outline derived again beside the geometry it describes is a second copy, and the copy is what broke.** Ask the piece.
+
 - **THE MEGA RAMP, AND THE PLAZA COMES DOWN A SIZE (r78).**
   - **The vert is 14.4 m**, read off his angled view with `npm run heights`. Its own 9.6 m platform has stairs XL on to the
     deck.
