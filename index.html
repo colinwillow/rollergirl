@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r99</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r100</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r99';
+const BUILD = 'r100';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3002,7 +3002,14 @@ function kitRailsDraw(into) {      // r90: `into` collects them to be merged by 
 //   Loaded after she drops in, `conc` at a time, the tower first; the chip says NO SKY ART n/m for any that never arrive.
 const SKYART = { dir: 'zones/zone_skyline/assets_skyline/', place: [], tex: 512, texBig: 1024, big: /sticker|graffiti|logo/i, conc: 2,
   failed: [], loaded: [], want: 0, mats: new Map(), keep: new Set(), bk: new Map(), mesh: new Map(), onLoad: {}, flushT: 0, tris: 0, farFog: 0.55 };
-function skyArt(f, x, y, z, yaw, o) { SKYART.place.push({ f, x, y, z, yaw: yaw || 0, s: (o && o.s) || 1, far: !!(o && o.far) }); }
+function skyArt(f, x, y, z, yaw, o) { SKYART.place.push({ f, x, y, z, yaw: yaw || 0, s: (o && o.s) || 1, far: !!(o && o.far), clip: o && o.clip != null ? o.clip : null }); }
+// r100: `clip` (file metres): every triangle wholly above it is left out -- a roof the game rides is cleared of the planters,
+// huts and masts the pack stands on it, which would otherwise be in the middle of a half pipe
+function skyClipGeo(g, y) { const P = g.attributes.position, I = g.index.array, k = [];
+  for (let i = 0; i < I.length; i += 3) { if (Math.min(P.getY(I[i]), P.getY(I[i + 1]), P.getY(I[i + 2])) > y) continue; k.push(I[i], I[i + 1], I[i + 2]); }
+  const n = g.clone(); n.setIndex(k); return n; }
+// r100: more than one callback per file (SK8 SKY's stand-in and THE STACK's both hang off the same tower)
+function skyOnLoad(f, fn) { const o = SKYART.onLoad[f]; SKYART.onLoad[f] = o ? () => { o(); fn(); } : fn; }
 function skyTex(t) {
   const im = t && t.image; if (!im || !im.width || typeof document === 'undefined') return t;
   const lim = SKYART.big.test(t.name || '') ? SKYART.texBig : SKYART.tex; if (im.width <= lim && im.height <= lim) return t;
@@ -3039,7 +3046,7 @@ function skyIngest(f, root) {
     const m = skyMat(Array.isArray(o.material) ? o.material[0] : o.material), base = skyGeo(o.geometry).applyMatrix4(o.matrixWorld);
     for (const q of P) { _skM.compose(_skP.set(q.x, q.y, q.z), _skQ.setFromAxisAngle(UP, q.yaw), _skS.set(q.s, q.s, q.s));
       const key = m.name + (q.far ? '|far' : ''); let B = SKYART.bk.get(key); if (!B) SKYART.bk.set(key, B = { m, far: q.far, gs: [], dirty: 0 });
-      B.gs.push(base.clone().applyMatrix4(_skM)); B.dirty = 1; }
+      B.gs.push((q.clip != null ? skyClipGeo(base, q.clip) : base.clone()).applyMatrix4(_skM)); B.dirty = 1; }
     base.dispose(); o.geometry.dispose();
   }
 }
@@ -3055,7 +3062,7 @@ function skyFlush() {
   let t = 0; for (const me of SKYART.mesh.values()) t += me.geometry.index.count / 3; SKYART.tris = t;
 }
 async function skyArtLoad() {
-  if (WORLD.zones !== 3 || !SKYART.place.length) return;
+  if ((WORLD.zones !== 3 && WORLD.zones !== 0) || !SKYART.place.length) return;      // r100: the main world has it too
   const order = [...new Set(SKYART.place.map(q => q.f))]; SKYART.want = order.length; let i = 0, last = performance.now();
   const one = async () => { while (i < order.length) { const f = order[i++];
       try { const g = await loadGLB(SKYART.dir + f + '.glb'); skyIngest(f, g.scene); SKYART.loaded.push(f); if (SKYART.onLoad[f]) SKYART.onLoad[f]();
@@ -3173,7 +3180,7 @@ function s3Tower() {
   for (const [x0, x1, z0, z1, y] of C.blocks) box(x0, x1, 0, y, z0, z1, 0xd9cdf2);
   { const m = new THREE.Mesh(new THREE.ConeGeometry(5, 28, 8), M(0xd9cdf2)); m.position.y = T.top + 14; g.add(m); }
   g.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); scene.add(g); S3.stand = g;
-  SKYART.onLoad.SK8_TOWER = () => { g.visible = false; };
+  skyOnLoad('SK8_TOWER', () => { g.visible = false; });
 }
 // THE DROP: a filleted bank from the art's 24 m pad's east edge to the floor, 10 m wide, walled, a down rail on each wall
 function s3Drop() {
@@ -3512,6 +3519,7 @@ function buildPark() {
   bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
   if (PARKD.on) { CITY.on = 0; parkDistrict(); parkApron(); }      // r90: the skate park district, where the City stood
   acroKit();         // r92: the Acropolis's kit pieces (its stone is built with the slice, below)
+  stackKit();        // r100: THE STACK -- his buildings, a half pipe on every roof, each one higher
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
@@ -3523,6 +3531,7 @@ function buildPark() {
   orbitalRails();    // before cityRails, whose gemBuild has to see this district's gems too
   sliceRails();
   heightsRails();    // r96: before acroRails, which builds the gem mesh
+  stackRails();      // r100
   acroRails();       // r92
   cityRails();
   railWeave();       // r59: connectors between railings that stop just short of each other
@@ -3558,7 +3567,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -8568,6 +8577,182 @@ function stepHeights(dt) {
       _htv.set(x, L.y + Math.sin(HT.t * 0.5 + i) * 1.5, z); _htq.setFromAxisAngle(UP, Math.atan2(-Math.sin(a) * L.w, Math.cos(a) * L.w)); _htm.compose(_htv, _htq, _htone); S.mesh.setMatrixAt(i, _htm); });
     S.mesh.instanceMatrix.needsUpdate = true; }
 }
+// ===== r100: THE STACK -- *"buildings arranged with jumps, so you launch up one jump to get onto a building, and there's a
+// half pipe on the top of that building, and you have to pump and gain some speed and then go onto a higher building."*
+// A ROW OF HIS SKYLINE BUILDINGS, EACH ONE STEP TALLER THAN THE LAST AND BUTTED AGAINST IT, with a half pipe on every roof:
+// a small quarter pipe on the west edge whose deck is a LANDING (`land` m deep), and a big one on the east edge that is the
+// way UP -- pump the pipe, transfer over its coping (swipe up, the r99 pads) and come down on the next building's landing
+// deck, roll over that coping and drop in. Every building is the pack's art SCALED to the height the line needs (the scale
+// is the roof height over the file's measured roof, so nothing is typed in metres) and its roof is CLEARED (`clip`) of the
+// planters and masts the pack stands on it. Its collider is the measured roof rectangle, so the line rides the same whether
+// the art has arrived or not; until it does a plain block stands in.
+// Then the summit: a launcher off the top of the line onto a 90 m tower with a bowl on it, a booster helix round it for the
+// way up without the launch, and THE PLUNGE back down -- a ladder of gap jumps west over lower roofs to the street.
+const STK = { on: 1, built: 0, z: -140, x0: 143, land: 6, rise: 6, par: 0.5, parH: 0.9, stops: [], railQ: [], roofs: [], stand: [], go: [],
+  // his roofs, read off the files: the highest flat patch big enough to be the roof -- [y, x0, x1, z0, z1], file metres
+  ROOF: { BUILDING_03: [14, -6.09, 6.51, -5.3, 5.3], BUILDING_04: [22, -5.3, 5.3, -5.3, 5.3], BUILDING_06: [18, -7.01, 7.59, -7.58, 7.02],
+          BUILDING_08: [11, -10.64, 9.96, -7.3, 7.3], BUILDING_09: [30, -6.33, 6.27, -6.3, 6.3], BUILDING_10: [16, -8.3, 8.3, -4.3, 4.3],
+          BUILDING_11: [9, -12.28, 12.32, -9.3, 9.3], BUILDING_12: [26.325, -4.8, 4.8, -4.45, 5.16], BUILDING_14: [14, -11.3, 11.3, -11.14, 11.46],
+          BUILDING_15: [20, -5.57, 5.03, -9.3, 9.3], BUILDING_16: [7.109, -14.79, 15.81, -5.95, 6.66], BUILDING_07: [12, -4.22, 4.38, -8.3, 8.3] },
+  // THE LINE: [file, roof height, yaw]. Butted end to end along +x from `x0`, centred on z = `z`.
+  line: [['BUILDING_08', 16, 0], ['BUILDING_14', 22, 0], ['BUILDING_07', 28, Math.PI / 2], ['BUILDING_03', 34, 0], ['BUILDING_15', 40, Math.PI / 2]],
+  // THE SUMMIT: BUILDING_09 scaled to its roof at `y - bowl height`, a bowl L sunk into a deck at `y`, a booster helix up to it
+  summit: { f: 'BUILDING_09', x: 268, z: -182, y: 90, rc: 6, bx: 6.3, helix: { r: 28, turns: 1.875, boost: 22, lead: -136 } },
+  // THE PLUNGE: west off the summit -- a kicker at the deck's west edge, a gap, a long landing ramp down onto the next roof,
+  // its run-out, a kicker at ITS west edge, again; then a down rail to the street. [file, roof y, length along x, gap before]
+  // The second step has NO kicker: off the first roof's west edge at ~20 m/s she falls 15 m, and a kicker there sent her 45 m
+  // -- clean over the next roof (measured). The last roof ends in a quarter pipe that turns her back, and a down rail off its
+  // north side takes her onto roof 2's landing deck: the line is a loop.
+  plunge: { kick: { h: 1.6, angle: 28, w: 7 },
+            steps: [{ f: 'BUILDING_15', y: 60, gap: 15, yaw: Math.PI / 2, land: { h: 7, deg: 20, w: 9 } },
+                    { f: 'BUILDING_15', y: 45, gap: 15, yaw: 0, land: { h: 4, deg: 20, w: 9 }, end: 1, railGap: [148, 158] }] } };
+// place the art so its roof lands on [x0 .. , cz] at `top`; returns the roof rectangle
+function stkRoof(f, top, x0, cz, yaw, name) {
+  const R = STK.ROOF[f], s = top / R[0], c = Math.cos(yaw), sn = Math.sin(yaw);
+  const C = [[R[1], R[3]], [R[2], R[3]], [R[2], R[4]], [R[1], R[4]]].map(([x, z]) => [(x * c + z * sn) * s, (-x * sn + z * c) * s]);
+  const rx0 = Math.min(...C.map(q => q[0])), rx1 = Math.max(...C.map(q => q[0])), rz0 = Math.min(...C.map(q => q[1])), rz1 = Math.max(...C.map(q => q[1]));
+  const ox = x0 - rx0, oz = cz - (rz0 + rz1) / 2;
+  skyArt(f, ox, 0, oz, yaw, { s, clip: R[0] + 0.02 });
+  const r = { f, s, name, x0, x1: x0 + rx1 - rx0, z0: oz + rz0, z1: oz + rz1, y: top, ox, oz };
+  solidAdd((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, (r.x1 - r.x0) / 2, (r.z1 - r.z0) / 2, 0, top, 0, { top: true, tag: 'stack ' + name });
+  STK.roofs.push(r); return r;
+}
+// the stand-in until his building arrives: a plain block, hidden the moment the file lands (and kept if it never does)
+function stkStand(r) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(r.x1 - r.x0, r.y, r.z1 - r.z0), new THREE.MeshStandardMaterial({ color: 0xe9e1f2, roughness: 0.85 }));
+  m.position.set((r.x0 + r.x1) / 2, r.y / 2, (r.z0 + r.z1) / 2); m.castShadow = m.receiveShadow = true; scene.add(m); STK.stand.push(m);
+  skyOnLoad(r.f, () => { m.visible = false; });
+}
+// A WALL ALONG A ROOF EDGE, as tall as whatever is beside it: a quarter pipe's transition runs right up to the edge, so a
+// knee-high parapet is one she carves over and falls 30 m (the probe did exactly that). Beside each quarter pipe the wall
+// stands a metre over its deck; along the flat it is `parH`, with a rail on its top to grind (registered after the collider).
+function stkWall(x0, x1, z, y, h, name, rail) {
+  const t = STK.par / 2;
+  slBox('stone', x0, y, z - t, x1, y + h, z + t, { top: 'stone', bev: 0.04, solid: true, tag: 'stack wall', tint: 0xf1e9f7, base: y });
+  slBox('neon', x0, y + h - 0.32, z - t - 0.02, x1, y + h - 0.2, z + t + 0.02, { bev: 0, tint: 0xff6fd0, skip: 'yY' });
+  if (rail) { STK.railQ.push({ pts: [[x0 + 0.3, y + h + 0.05, z], [x1 - 0.3, y + h + 0.05, z]], name: 'stack ' + name }); slTube('orange', [[x0 + 0.3, y + h + 0.05, z], [x1 - 0.3, y + h + 0.05, z]], 0.05); }
+}
+// THE PLUNGE (r100): every step is the same shape in its own frame -- a kicker whose lip is at the roof's west edge, a gap,
+// and on the next roof a landing ramp from its east edge, `land.h` high and `land.deg` steep, running out onto the roof; then
+// that roof's own kicker. The landing is a floor triangle strip (`kStrip`, the kit's own profile extruder) with its sides
+// drawn and a block under it, so nothing rides in underneath.
+function stkPlunge(p) {
+  const M = STK.summit, Q = STK.plunge, K = Q.kick, sw = K.angle * D2R, kr = K.h / (1 - Math.cos(sw)), klen = kr * Math.sin(sw), W = Math.PI * -0.5;
+  Q.kicks = [p('kicker', 'L', M.r.x0 + klen, M.z, W, M.y, { w: K.w, h: K.h, angle: K.angle }, 'summit kicker')];
+  let xe = M.r.x0; Q.roofs = [];
+  Q.steps.forEach((st, i) => {
+    const R = STK.ROOF[st.f], s = st.y / R[0], len = (st.yaw ? R[4] - R[3] : R[2] - R[1]) * s, y = st.y, Ld = st.land;
+    const r = stkRoof(st.f, y, xe - st.gap - len, M.z, st.yaw, 'plunge ' + (i + 1)); stkStand(r);
+    const T = { x: r.x1, y, z: M.z, yaw: W }, sl = Math.tan(Ld.deg * D2R), a = 2.2, run = Ld.h / sl + 2 * a, prof = [{ u: 0, y: 0, c: KCOL.side }, { u: 0, y: Ld.h, c: 0xff8ad8 }];
+    for (let u = 0.5; u <= run; u += 0.5) prof.push({ u, y: acSlope(u, Ld.h, sl, a), c: 0xf3d6ff });
+    kStrip(T, prof, -Ld.w / 2, Ld.w / 2, 0);
+    for (let u = 0; u < run; u += 2) { const h = acSlope(u + 2, Ld.h, sl, a), P = kP(T, u + 1, 0, 0); if (h > 0.3) solidAdd(P[0], P[2], 1, Ld.w / 2 - 0.05, y, y + h - 0.08, W, { top: false, tag: 'plunge landing' }); }
+    // walls along the roof's long sides (a landing is fast and the roof is high) -- with a gap for a rail, if it has one
+    for (const zz of [r.z0 + STK.par / 2, r.z1 - STK.par / 2]) {
+      const g = st.railGap && zz > M.z ? st.railGap : null;
+      if (g) { stkWall(r.x0, g[0], zz, y, 1.4, 'plunge wall'); stkWall(g[1], r.x1, zz, y, 1.4, 'plunge wall'); }
+      else stkWall(r.x0, r.x1, zz, y, 1.4, 'plunge ' + (i + 1) + ' wall', true); }
+    if (st.end) { r.qp = p('qp', 'M', r.x0 + KITW.deck + KSZ.M.lip, M.z, -Math.PI / 2, y, { w: (r.z1 - r.z0) - 2 * STK.par - 0.2 }, 'plunge end QP M'); }
+    r.landRun = run; Q.roofs.push(r); xe = r.x0;
+    CITY.spots['plunge ' + (i + 1)] = [r.x1 - run - 3, y, M.z, -Math.PI / 2]; STK.go.push('plunge ' + (i + 1)); });
+}
+// THE KIT ON THE ROOFS -- called beside `acroKit`, before the collider; the buildings (and their boxes) come first
+function stackKit() {
+  if (!STK.on || WORLD.zones) return;
+  const K = { ...KCOL }, Tn = {}; for (const k in KSZ) Tn[k] = KSZ[k].tint;
+  Object.assign(KCOL, PARKD.pal.kcol); for (const k in PARKD.pal.size) if (KSZ[k]) KSZ[k].tint = PARKD.pal.size[k];
+  const n0 = KITW.pieces.length, p = (kind, size, x, z, yaw, y, o, label) => { const r = kitPiece(kind, size, { x, y, z, yaw }, o || {}); if (r) r.label = 'stack: ' + (label || kind); return r; };
+  try {
+    let x = STK.x0;
+    STK.line.forEach(([f, top, yaw], i) => {
+      const r = stkRoof(f, top, x, STK.z, yaw, 'roof ' + (i + 1)); stkStand(r); x = r.x1;
+      const W = (r.z1 - r.z0) - 2 * STK.par - 0.2, cz = (r.z0 + r.z1) / 2, last = i === STK.line.length - 1;
+      // the landing: a quarter pipe M on the west edge, its deck `land` deep -- arrive on it, roll over, drop in
+      r.land = p('qp', 'M', r.x0 + STK.land + KSZ.M.lip, cz, -Math.PI / 2, top, { w: W, deck: STK.land }, 'roof ' + (i + 1) + ' landing QP M');
+      // the way up: a quarter pipe XL on the east edge, its back to the next building
+      if (!last) r.up = p('qp', 'XL', r.x1 - KITW.deck - KSZ.XL.lip, cz, Math.PI / 2, top, { w: W }, 'roof ' + (i + 1) + ' QP XL');
+      const mToe = r.x0 + STK.land + KSZ.M.lip, xToe = last ? r.x1 : r.x1 - KITW.deck - KSZ.XL.lip;
+      for (const zz of [r.z0 + STK.par / 2, r.z1 - STK.par / 2]) {
+        if (i === 0 && zz > cz) { stkWall(r.x0, r.x0 + 1.4, zz, top, KSZ.M.H + 1, 'roof 1 wall'); stkWall(r.x0 + 4.6, mToe, zz, top, KSZ.M.H + 1, 'roof 1 wall'); }   // the street rail's gap
+        else stkWall(r.x0, mToe, zz, top, KSZ.M.H + 1, 'roof ' + (i + 1) + ' wall');
+        stkWall(mToe, xToe, zz, top, STK.parH, 'roof ' + (i + 1) + ' ledge', true);
+        if (!last) stkWall(xToe, r.x1, zz, top, KSZ.XL.H + 1, 'roof ' + (i + 1) + ' wall'); }
+      // the ends of the line are walled: roof 1's street side (the pad's arc clears it) and the top roof's far end
+      if (i === 0) slBox('stone', r.x0, top, r.z0, r.x0 + STK.par, top + KSZ.M.H + 1, r.z1, { top: 'stone', bev: 0.04, solid: true, tag: 'stack wall', tint: 0xf1e9f7, base: top });
+      if (last) slBox('stone', r.x1 - STK.par, top, r.z0, r.x1, top + 1.4, r.z1, { top: 'stone', bev: 0.04, solid: true, tag: 'stack wall', tint: 0xf1e9f7, base: top });
+      CITY.spots['stack ' + (i + 1)] = [r.x0 + STK.land + KSZ.M.lip + 3, top, cz, Math.PI / 2];
+      STK.go.push('stack ' + (i + 1));
+    });
+    // THE SUMMIT. The building's roof is the bowl's FLOOR; a deck ring is solid out to the roof edge, a wall round that
+    const M = STK.summit, H = KSZ.L.H, fy = M.y - H, rs = STK.ROOF[M.f], hw = (rs[2] - rs[1]) / 2 * fy / rs[0];
+    { const r = stkRoof(M.f, fy, M.x - hw, M.z, 0, 'summit'); stkStand(r); M.r = r;
+      // a bowl L, set east of centre so the deck west of it is a run-up to the plunge's kicker
+      const R = M.rc + KSZ.L.lip + KITW.deck, bx = M.x + M.bx, b = [bx - R, bx + R, M.z - R, M.z + R];
+      M.bowl = p('bowl', 'L', bx, M.z, 0, fy, { rc: M.rc }, 'summit bowl L');
+      for (const [x0, x1, z0, z1] of [[r.x0, r.x1, r.z0, b[2]], [r.x0, r.x1, b[3], r.z1], [r.x0, b[0], b[2], b[3]], [b[1], r.x1, b[2], b[3]]])
+        if (x1 - x0 > 0.05 && z1 - z0 > 0.05) slBox('stone', x0, fy, z0, x1, M.y, z1, { top: 'paving', bev: 0.04, solid: true, tag: 'summit deck', tint: 0xf3ecf8, base: fy, skip: 'y' });
+      // the wall round the edge: gaps where the helix arrives (north-east) and where the plunge leaves (west)
+      const t = STK.par, wh = 1.1, W = (x0, z0, x1, z1) => { slBox('stone', x0, M.y, z0, x1, M.y + wh, z1, { top: 'stone', bev: 0.04, solid: true, tag: 'summit wall', tint: 0xf1e9f7, base: M.y });
+        slBox('neon', x0 - 0.02, M.y + wh - 0.3, z0 - 0.02, x1 + 0.02, M.y + wh - 0.18, z1 + 0.02, { bev: 0, tint: 0x3ff0e0, skip: 'yY' }); };
+      const kw = STK.plunge.kick.w / 2 + 0.6;
+      W(r.x0, r.z1 - t, M.x + 4, r.z1); W(r.x1 - t, r.z0, r.x1, M.z + 6);      // north (east part open for the helix), east (north part open)
+      W(r.x0, r.z0, r.x1, r.z0 + t);                                             // south
+      W(r.x0, r.z0, r.x0 + t, M.z - kw); W(r.x0, M.z + kw, r.x0 + t, r.z1);     // west, with the plunge's gap
+      stkPlunge(p);
+      CITY.spots['summit'] = [M.x + 13, M.y, M.z + 13, -Math.PI * 0.75]; STK.go.push('summit'); }
+  } finally { Object.assign(KCOL, K); for (const k in Tn) KSZ[k].tint = Tn[k]; }
+  STK.kit = KITW.pieces.slice(n0);
+  // ONTO THE FIRST ROOF: a pad on the street west of it, solved onto the landing deck
+  const r1 = STK.roofs[0], px = r1.x0 - 9, pz = (r1.z0 + r1.z1) / 2;
+  ORB.launch.push({ x: px, z: pz, y: 0, r: 1.7, tx: r1.x0 + STK.land * 0.55, ty: r1.y + KSZ.M.H, tz: pz, apex: 4, cool: 0, name: 'stack pad' });
+  slBox('stone', px - 2.2, 0, pz - 2.2, px + 2.2, 0.3, pz + 2.2, { top: 'stone', bev: 0.05, solid: true, tag: 'stack pad', tint: 0xeee8f6, base: 0 });
+  slGeo('neon', new THREE.TorusGeometry(1.55, 0.14, 6, 28).rotateX(Math.PI / 2), slMat(px, 0.36, pz), { tint: 0xff6fd0 });
+  for (let k = 0; k < 3; k++) slGeo('neon', new THREE.TorusGeometry(1.15 - k * 0.28, 0.05, 4, 20).rotateX(Math.PI / 2), slMat(px, 0.9 + k * 0.7, pz), { tint: 0xffffff });
+  slGlow(px, 1.4, pz, 4, 0xff6fd0, 0.6);
+  CITY.spots['the stack'] = [px - 12, 0, pz, Math.PI / 2]; STK.go.unshift('the stack');
+  STK.pad = { x: px, z: pz };
+  // UP TO THE SUMMIT THE QUICK WAY: a pad at the east end of the top roof, solved onto the summit deck's north-east corner
+  { const r5 = STK.roofs[STK.line.length - 1], M = STK.summit, qx = r5.x1 - 5, qz = (r5.z0 + r5.z1) / 2 + 3;
+    ORB.launch.push({ x: qx, z: qz, y: r5.y, r: 1.7, tx: M.x + 12, ty: M.y, tz: M.z + 12, apex: 6, cool: 0, name: 'summit pad' });
+    slBox('stone', qx - 2.2, r5.y, qz - 2.2, qx + 2.2, r5.y + 0.3, qz + 2.2, { top: 'stone', bev: 0.05, solid: true, tag: 'stack pad', tint: 0xeee8f6, base: r5.y });
+    slGeo('neon', new THREE.TorusGeometry(1.55, 0.14, 6, 28).rotateX(Math.PI / 2), slMat(qx, r5.y + 0.36, qz), { tint: 0x3ff0e0 });
+    for (let k = 0; k < 3; k++) slGeo('neon', new THREE.TorusGeometry(1.15 - k * 0.28, 0.05, 4, 20).rotateX(Math.PI / 2), slMat(qx, r5.y + 0.9 + k * 0.7, qz), { tint: 0xffffff });
+    slGlow(qx, r5.y + 1.4, qz, 4, 0x3ff0e0, 0.6); STK.pad5 = { x: qx, z: qz, y: r5.y }; }
+  STK.built = 1;
+}
+// AFTER THE COLLIDER: the rails
+function stackRails() {
+  if (!STK.built) return;
+  for (const q of STK.railQ) railPath(railLine(SLV(...q.pts[0]), SLV(...q.pts[1]), 2), { name: q.name });
+  // THE HELIX: a booster rail off the top roof, round the summit tower and onto its deck -- the way up that is a GRIND. A
+  // straight lead south over the roof's wall to the circle's east point (where its tangent points south), clockwise round
+  // from there, and a last leg inward onto the deck through the wall's north-east gap. Height climbs evenly all the way.
+  { const M = STK.summit, Hx = M.helix, r5 = STK.roofs[STK.line.length - 1], x = M.x + Hx.r, pts = [];
+    const lead = []; for (let z = Hx.lead; z > M.z; z -= 2) lead.push([x, z]); lead.push([x, M.z]);
+    const ring = []; const N = Math.ceil(Hx.turns * 72); for (let i = 1; i <= N; i++) { const a = Math.PI / 2 + Hx.turns * 2 * Math.PI * i / N; ring.push([M.x + Hx.r * Math.sin(a), M.z + Hx.r * Math.cos(a)]); }
+    const end = ring[ring.length - 1], inn = [[M.x + 15, M.z + 15], [M.x + 11, M.z + 11]];
+    const plan = lead.concat(ring, inn); let L = 0; const cum = [0]; for (let i = 1; i < plan.length; i++) { L += Math.hypot(plan[i][0] - plan[i - 1][0], plan[i][1] - plan[i - 1][1]); cum.push(L); }
+    const y0 = r5.y + 0.7, y1 = M.y + 0.75, Lr = cum[lead.length + ring.length - 1];
+    plan.forEach(([px, pz], i) => pts.push(SLV(px, i < lead.length + ring.length ? y0 + (y1 - y0) * cum[i] / Lr : y1, pz)));
+    void end;
+    // BRACKETS: a strut from the tower's face out to the rail every few metres round the ring, so it is held up by something
+    for (let i = 0; i < ring.length; i += 4) { const [px, pz] = ring[i], a = Math.atan2(px - M.x, pz - M.z), hw = (M.r.x1 - M.r.x0) / 2;
+      const dw = hw / Math.max(Math.abs(Math.sin(a)), Math.abs(Math.cos(a))), y = y0 + (y1 - y0) * cum[lead.length + i] / Lr;
+      slTube('metal', [[M.x + Math.sin(a) * dw, y - 1.6, M.z + Math.cos(a) * dw], [px, y - 0.12, pz]], 0.09); }
+    for (let i = 0; i < lead.length; i += 5) { const [px, pz] = lead[i], y = y0 + (y1 - y0) * cum[i] / Lr; if (pz < r5.z0 - 1) slTube('metal', [[px, y - 0.12, pz], [px, y - 3, r5.z0 + 0.2]], 0.09); }
+    STK.helix = railPath(pts, { name: 'summit helix', boost: Hx.boost, boostK: 1.5, maxV: Hx.boost + 4 });
+    railDraw(STK.helix, { mat: 'boost', postMax: 14 });
+    gemsAlong(STK.helix, 22, 0.9, 12); }
+  // THE DOWN RAILS -- a smooth curve through a few points, drawn on posts where it is low and on brackets off the walls
+  const curve = (P, name, o) => { const C = new THREE.CatmullRomCurve3(P.map(q => SLV(...q)), false, 'centripetal'), n = Math.ceil(C.getLength() / 1.5);
+    const R = railPath(C.getSpacedPoints(n), { name, ...(o || {}) }); railDraw(R, { mat: 'orange', postMax: 16 }); gemsAlong(R, 6, 0.9, 4); return R; };
+  { const D2 = STK.plunge.roofs[1], r2 = STK.roofs[1], y = D2.y, g = STK.plunge.steps[1].railGap, x = (g[0] + g[1]) / 2;
+    // off the last plunge roof, north through its wall's gap, down over roof 1 onto roof 2's landing deck -- the line loops
+    STK.loopRail = curve([[x, y + 0.7, D2.z1 - 9], [x, y + 0.6, D2.z1 - 2], [x + 2, y - 1.5, D2.z1 + 4], [x + 9, y - 8, r2.z0 + 4], [x + 16, r2.y + 6, r2.z0 + 11], [r2.x0 + 3, r2.y + KSZ.M.H + 0.7, r2.z0 + 15]], 'stack loop rail', { maxV: 24 }); }
+  { const r1 = STK.roofs[0], y = r1.y + KSZ.M.H;
+    // and off roof 1's landing deck, north over its wall and down into the street
+    STK.streetRail = curve([[r1.x0 + 3, y + 0.75, r1.z1 - 8], [r1.x0 + 3, y + 0.55, r1.z1 + 0.2], [r1.x0 + 4.5, y - 4, r1.z1 + 6], [r1.x0 + 12, y - 9.5, r1.z1 + 9.5], [r1.x0 + 26, 2.6, r1.z1 + 10.5], [r1.x0 + 38, 0.9, r1.z1 + 10.5]], 'stack street rail', { maxV: 22 }); }   // the lagoon starts at z -112: stay south of it
+}
 function hubDress() {
   if (!HUB.on) return;
   const D = HUB.deck, steel = (x0, y0, z0, x1, y1, z1) => slBox('metal', x0, y0, z0, x1, y1, z1, { bev: 0.01, skip: 'y' });
@@ -12192,7 +12377,7 @@ function hud(dt) {
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : '') +
       // a console warning is invisible on a phone, and "the sky never loaded" looks like "it is meant to be grey"
-      (LOOK.failed ? ' · NO SKY IMG' : '') + (WORLD.zones === 3 && SKYART.failed.length ? ' · NO SKY ART ' + SKYART.failed.length + '/' + SKYART.want : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
+      (LOOK.failed ? ' · NO SKY IMG' : '') + ((WORLD.zones === 3 || WORLD.zones === 0) && SKYART.failed.length ? ' · NO SKY ART ' + SKYART.failed.length + '/' + SKYART.want : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
@@ -12656,7 +12841,7 @@ async function init() {
   if (WORLD.zones === 2) { CITY.goMsg = 'RAMP KIT PARK -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('RAMP KIT PARK', '#6fcfff'); } catch (e) {} }
   // r45: the city's pictures come down AFTER she is skating -- the boxes and the collider are already up
   if (!WORLD.zones && !PARKD.on) { kitLoad(); hydLoad(); levelImports(LEVEL.imports); }
-  if (WORLD.zones === 3) skyArtLoad();                       // r98: his skyline pack, the tower first, after she is skating
+  if (WORLD.zones === 3 || WORLD.zones === 0) skyArtLoad();  // r98: his skyline pack, the tower first, after she is skating (r100: the main world too)
   document.getElementById('boot').classList.add('gone');
   setTimeout(() => { const b = document.getElementById('boot'); if (b && b.parentNode) b.parentNode.removeChild(b); }, 700);
 }
@@ -12668,7 +12853,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

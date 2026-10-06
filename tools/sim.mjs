@@ -1917,7 +1917,7 @@ CASES.steer = () => {
   let ok = true; const D = 180 / Math.PI;
   const go = (phases, latch) => {
     const keep = rg.CAM.steerLatch; rg.CAM.steerLatch = latch;
-    place(150, 0, -200, 0, 10); rg.cam.az = rg.cam.steerAz = 0; rg.cam.idle = 9; rg.cam.thA = null; rg.stick.L.down = 1;
+    place(-310, 0, -40, 0, 10); rg.cam.az = rg.cam.steerAz = 0; rg.cam.idle = 9; rg.cam.thA = null; rg.stick.L.down = 1;      // r100: the old spot (150,-200) is under THE STACK now
     let turned = 0, last = P.heading, aim = 0;
     for (const [dur, fx] of phases) { const n = Math.round(dur / DT);
       for (let i = 0; i < n; i++) { const [x, y] = fx(i / n); rg.stick.L.x = x; rg.stick.L.y = y;
@@ -4366,6 +4366,99 @@ CASES.links = () => {
   return ok;
 };
 // r96: THE HEIGHTS -- the skyscraper district: towers, docks, the two-deck sky line and its trains, the lifts, the air base
+// r100: THE STACK -- his buildings, each a step taller, a half pipe on every roof. Every link ridden through the shipped step:
+// the street pad onto the first roof, each roof's transfer (pump until the lip speed is there, then the swipe up) onto the
+// next, a weak transfer falling back onto its own roof rather than off the building, the summit pad and the helix, the bowl,
+// the plunge west off the summit with a held push, both down rails -- and his art loaded through the real loader, every
+// roof collider checked against the roof in the file.
+CASES.stack = async () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.STK; if (!S.built) { console.log('  the Stack was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT);
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; };
+  const go = (x, z, h, v, y) => { reset(); place(x, (y || 0) + 0.3, z, h, v); const q = rg.groundAt(x, z, (y || 0) + 0.6, 1); if (q.hit) P.pos.y = q.floor; };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, grind: new Set(), top: -99, low: 999 }; let k = 0;
+    run(sec, (t, i) => { if (stop && stop()) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (P.bailT > 0) r.bail = 1; if (P.grind) r.grind.add(P.grind.rail.path); r.top = Math.max(r.top, P.pos.y); r.low = Math.min(r.low, P.pos.y);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 2) r.deep = Math.max(r.deep, q.floor - P.pos.y); k++; }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const inR = (r, p, m) => p.x > r.x0 - (m || 0) && p.x < r.x1 + (m || 0) && p.z > r.z0 - (m || 0) && p.z < r.z1 + (m || 0);
+  const L = S.roofs.slice(0, S.line.length), M = S.summit, D = S.plunge.roofs;
+  // the line's own numbers: each roof a step up and butted against the last
+  { const bad = []; L.forEach((r, i) => { if (i && (Math.abs(r.x0 - L[i - 1].x1) > 0.01 || Math.abs(r.y - L[i - 1].y - S.rise) > 0.01)) bad.push(r.name);
+      const q = rg.groundAt((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, r.y + 0.5, 0); if (!q.hit || Math.abs(q.floor - r.y) > 0.01) bad.push(r.name + ' floor ' + (q.hit ? fix(q.floor) : '-')); });
+    say(`${L.length} roofs, ${fix(L[0].y, 0)} m to ${fix(L[L.length - 1].y, 0)} m, summit ${M.y}, plunge ${D.map(r => r.y).join('/')}`, !bad.length && L.length === 5 && D.length === 2, bad.join('; ') || 'each one ' + S.rise + ' m up, butted, floored'); }
+  say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
+  // every stop stands her on a floor
+  { const bad = []; for (const n of S.go) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Stack ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${S.go.length} stops`); }
+  // a building is a wall from the street
+  { const r = L[2]; go(r.x0 + 6, r.z0 - 8, 0, 9); ride(2.5); say('a building is a wall from the street', P.pos.z < r.z0 + 0.05 && P.pos.y < 1, `ends ${at(P.pos)} (face z ${fix(r.z0)})`); }
+  // the street pad onto roof 1's landing deck
+  { go(S.pad.x, S.pad.z, Math.PI / 2, 0); let up = 0; const r1 = L[0];
+    const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && inR(r1, P.pos) && P.pos.y > r1.y - 0.1) up = 1; });
+    say('the street pad throws her onto the first roof', up && !r.bail, up ? `on roof 1, top ${fix(r.top)}` : `ends ${at(P.pos)}`); }
+  // THE TRANSFERS: pump the half pipe (thumb along her travel on the ground, a nudge back to the middle), and at the XL's lip,
+  // once she is going fast enough, the swipe up. She must come down on the next roof.
+  const pumpUp = (r, need, maxT) => { const cz = (r.z0 + r.z1) / 2, lipX = r.up.T.x + rg.KSZ.XL.lip; let fired = 0, vl = 0, land = null, air = 0, bail = 0, t = 0;
+    run(maxT, () => { if (land) return; t += DT; const az = rg.cam.az = P.hSpeed > 0.5 ? Math.atan2(P.vel.x, P.vel.z) : rg.cam.az, fx = Math.sin(az), fz = Math.cos(az), dx = Math.sign(P.vel.x || 1), dz = 0.12 * (cz - P.pos.z), dl = Math.hypot(dx, dz);
+      rg.stick.L.y = P.grounded && !fired ? -((dx * fx + dz * fz) / dl) : 0; rg.stick.L.x = P.grounded && !fired ? ((dx * -fz + dz * fx) / dl) : 0;
+      if (!fired && P.grounded && P.pos.x > lipX - 0.6 && P.vel.y > 0.5 && P.speed >= need) { fired = 1; vl = P.speed; rg.rightFlick(0, -60); }
+      city(); if (P.bailT > 0) bail = 1; if (fired && !P.grounded) air = 1; if (fired && air && P.grounded) land = P.pos.clone(); });
+    return { fired, vl, land, bail }; };
+  for (let i = 0; i < L.length - 1; i++) { const r = L[i], n = L[i + 1]; go(r.x0 + 2, (r.z0 + r.z1) / 2, Math.PI / 2, 3, r.y + rg.KSZ.M.H);
+    const o = pumpUp(r, 17, 40), good = o.land && inR(n, o.land) && o.land.y > n.y - 0.05 && !o.bail;
+    say(`${r.name} -> ${n.name}: pump, then transfer onto the next roof`, good, o.fired ? `swipe at ${fix(o.vl, 1)} m/s, down at ${o.land ? at(o.land) : 'never'}${o.bail ? ' BAIL' : ''}` : 'never fast enough at the lip'); }
+  // a weak transfer: too slow to make it -- she comes down on her own roof, not off the building
+  { const r = L[2]; go(r.up.T.x - 3, (r.z0 + r.z1) / 2, Math.PI / 2, 14.5, r.y); let fired = 0, air = 0, land = null;
+    ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = Math.PI / 2; if (!fired && P.grounded && P.pos.x > r.up.T.x + rg.KSZ.XL.lip - 0.6) { fired = 1; rg.rightFlick(0, -60); } if (fired && !P.grounded) air = 1; if (air && P.grounded && !land) land = P.pos.clone(); });
+    say('a transfer that is too slow comes down on its own roof', land && inR(r, land) && land.y >= r.y - 0.05, land ? `down at ${at(land)}` : 'never landed'); }
+  // the summit pad
+  { const q = S.pad5; go(q.x, q.z, 0, 0, q.y); let up = 0; const r = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && inR(M.r, P.pos) && P.pos.y > M.y - 4) up = 1; });
+    say('the top roof\'s pad throws her onto the summit', up && !r.bail, up ? `up to ${fix(r.top)}` : `ends ${at(P.pos)}`); }
+  // the helix, caught off the top roof with the swipe down, hands-off round the tower onto the summit deck
+  { rg.GRIND.intent = 1; rg.ledgeClear(); const H = S.helix, a = H.segs[0].a, r5 = L[L.length - 1];
+    go(a.x - 1.2, a.z + 3, Math.PI, 5, r5.y); run(0.2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, t1 = -1, t = 0, down = null; const r = ride(40, () => { t += DT; rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === H) on = 1; if (on && !P.grind && t1 < 0) t1 = t; if (t1 > 0 && P.grounded && !down) down = P.pos.clone(); }, () => !!down);
+    rg.GRIND.intent = 0;
+    say('the helix: swipe down onto it, round the tower to the summit', on && down && inR(M.r, down) && down.y > M.y - KSZ_L() - 0.05 && !r.bail, on ? `${fix(t1, 1)} s on it, down at ${down ? at(down) : 'never'}` : `never caught -- ${at(P.pos)}`); }
+  // the summit bowl: dropped in off its deck, she stays in and rides it
+  { const b = M.bowl.T, R = M.rc + rg.KSZ.L.lip; go(b.x - R - 1, b.z, Math.PI / 2, 5, M.y); let inb = 0;
+    const r = ride(8, () => { rg.stick.L.x = 0.3; rg.stick.L.y = P.grounded ? -0.6 : 0; rg.cam.az = Math.atan2(P.vel.x, P.vel.z) || 0; if (Math.hypot(P.pos.x - b.x, P.pos.z - b.z) < M.rc && P.pos.y < M.y - 3.4) inb = 1; });
+    say('the summit bowl: drop in, ride it, stay up on the summit', inb && r.clean && r.low > M.y - 4, `${inb ? 'in the bowl' : 'never in'}, lowest ${fix(r.low)}${cl(r)}`); }
+  // THE PLUNGE: off the summit's kicker with a held push, onto the 60 m roof, off its edge onto the 45 m one
+  for (const v of [8, 14, 20]) { go(M.x + M.bx - 13, M.z, -Math.PI / 2, v, M.y); let on1 = 0, on2 = 0;
+    const r = ride(10, () => { rg.cam.az = -Math.PI / 2; rg.stick.L.x = P.grounded ? -0.25 * (M.z - P.pos.z) : 0; rg.stick.L.y = P.grounded ? -1 : 0;
+      if (P.grounded && inR(D[0], P.pos) && P.pos.y > D[0].y - 0.1) on1 = 1; if (P.grounded && inR(D[1], P.pos) && P.pos.y > D[1].y - 0.1) on2 = 1; });
+    say(`the plunge at ${v} m/s, pushing: summit -> ${D[0].y} m -> ${D[1].y} m`, on1 && on2 && r.low > D[1].y - 0.2 && !r.bail, `${on1 ? 'roof 1' : 'MISSED the 60'}, ${on2 ? 'roof 2' : 'MISSED the 45'}, ends ${at(P.pos)}${cl(r)}`); }
+  // the down rails: the loop back onto roof 2's deck, the street rail off roof 1
+  for (const [R, nm, ok2] of [[S.loopRail, 'off the 45 m roof onto roof 2\'s deck (the loop)', p => inR(L[1], p) && p.y > L[1].y - 0.05], [S.streetRail, 'off roof 1 down into the street', p => p.y < 0.2]]) {
+    rg.GRIND.intent = 1; rg.ledgeClear(); const a = R.segs[0].a, b = R.segs[0].b, h = Math.atan2(b.x - a.x, b.z - a.z);
+    go(a.x - Math.sin(h) * 2.5, a.z - Math.cos(h) * 2.5, h, 5, a.y - 0.6); run(0.2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, off = 0, down = null, kk = 0; const r = ride(12, () => { rg.stick.L.x = rg.stick.L.y = 0; if (process.env.STR && kk++ % 10 === 0) console.log('   ', at(P.pos), P.grounded ? 'G' : 'a', P.grind ? 'GR' : ''); if (P.grind && P.grind.rail.path === R) on = 1; if (on && !P.grind) off = 1; if (off && P.grounded && !down) down = P.pos.clone(); }, () => !!down);
+    rg.GRIND.intent = 0; say('the down rail ' + nm, on && down && ok2(down) && !r.bail, on ? `down at ${down ? at(down) : 'never'}` : `never caught -- ${at(P.pos)}`); }
+  // HIS ART, through the real loader and the shipped skyIngest/skyFlush: every roof collider sits on the art's own roof
+  { const A = rg.SKYART, files = [...new Set(A.place.map(q => q.f))], miss = [];
+    for (const f of files) { try { rg.skyIngest(f, (await realGLB(A.dir + f + '.glb')).scene); } catch (e) { miss.push(f + ' ' + e.message); } }
+    rg.skyFlush(); let tris = 0; const T = [];
+    for (const me of A.mesh.values()) { const g = me.geometry, Pp = g.attributes.position.array, I = g.index.array; tris += I.length / 3; for (let i = 0; i < I.length; i += 3) T.push(I[i] * 3, I[i + 1] * 3, I[i + 2] * 3, Pp); }
+    say(`his art: ${files.length} files, ${A.mesh.size} meshes, ${Math.round(tris / 1000)}k triangles, ${A.mats.size} materials`, !miss.length && A.mesh.size < 90, miss.join('; '));
+    const artAt = (x, z, y) => { let best = null; for (let t = 0; t < T.length; t += 4) { const Pp = T[t + 3], a = T[t], b = T[t + 1], c = T[t + 2];
+        const ax = Pp[a], az = Pp[a + 2], ux = Pp[b] - ax, uz = Pp[b + 2] - az, vx = Pp[c] - ax, vz = Pp[c + 2] - az, det = ux * vz - uz * vx; if (Math.abs(det) < 1e-9) continue;
+        const sc = ((x - ax) * vz - (z - az) * vx) / det, tc = (ux * (z - az) - uz * (x - ax)) / det; if (sc < 0 || tc < 0 || sc + tc > 1) continue;
+        const hh = Pp[a + 1] + sc * (Pp[b + 1] - Pp[a + 1]) + tc * (Pp[c + 1] - Pp[a + 1]); if (Math.abs(hh - y) < 3 && (best == null || Math.abs(hh - y) < Math.abs(best - y))) best = hh; } return best; };
+    const bad = []; let n = 0, high = 0;
+    for (const r of S.roofs) for (const [fx, fz] of [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]]) { const x = r.x0 + (r.x1 - r.x0) * fx, z = r.z0 + (r.z1 - r.z0) * fz, h = artAt(x, z, r.y); n++;
+      if (h == null || Math.abs(h - r.y) > 0.06) bad.push(`${r.name} at ${fix(fx * 100, 0)}/${fix(fz * 100, 0)}%: art ${h == null ? 'none' : fix(h)} vs ${fix(r.y)}`); }
+    // and nothing of his is left standing on a roof the game rides (the clip): no art triangle over a roof's middle, above it
+    for (const r of S.roofs) for (let t = 0; t < T.length; t += 4) { const Pp = T[t + 3], a = T[t]; const x = Pp[a], y = Pp[a + 1], z = Pp[a + 2];
+      if (x > r.x0 + 2 && x < r.x1 - 2 && z > r.z0 + 2 && z < r.z1 - 2 && y > r.y + 0.1 && y < r.y + 40) { high++; break; } }
+    say('every roof collider sits on his roof, and his roofs are cleared', !bad.length && !high, (bad.join('; ') || `${n} spots within 6 cm`) + (high ? `, ${high} roofs with art standing on them` : '')); }
+  return ok;
+};
+function KSZ_L() { return rg.KSZ.L.H; }
 CASES.heights = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };

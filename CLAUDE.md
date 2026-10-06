@@ -94,6 +94,32 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE STACK: A ROW OF HIS BUILDINGS, EACH A STEP TALLER, A HALF PIPE ON EVERY ROOF (r100, `STK`, `stackKit`, `stkRoof`,
+  `stackRails`, `npm run sim stack`, `docs/NIGHT_LOG.md`).** *"Buildings arranged with jumps, so you launch up one jump onto a
+  building with a half pipe on top, pump and gain speed, then go onto a higher building."* South-east of the hub (x 143..314,
+  z -140): five roofs 16 / 22 / 28 / 34 / 40 m, butted, each a landing QP M with a 6 m deck on its west edge and a QP XL on its
+  east edge whose back is against the next building. **The way up is the transfer**: pump, swipe up at the XL's lip, come down
+  on the next landing deck. Then the 90 m SUMMIT (a bowl L sunk in a deck) by a pad or THE HELIX (a booster rail 1.9 times round
+  the tower), THE PLUNGE west off it (kicker, gap, landing ramp on a 60 m roof, edge drop onto a 45 m roof), a down rail that
+  LOOPS back onto roof 2, and a street rail off roof 1.
+  - **`docs/NIGHT_LOG.md` IS THE RECORD OF THE VERTICAL BUILD-OUT** -- one entry per build: what, where, the ➤ stop.
+  - **SKYART LOADS IN THE MAIN WORLD NOW** (`skyArtLoad`'s gate, `init`, the chip). `skyArt(..., { clip })` drops every
+    triangle wholly above `clip` (file metres): a roof the game rides is cleared of his planters, huts and masts.
+    `skyOnLoad(f, fn)` chains callbacks, because two worlds' stand-ins can hang off one file.
+  - **A BUILDING IS HIS FILE SCALED TO THE ROOF THE LINE NEEDS** -- `s = roof height / the file's measured roof` (`STK.ROOF`,
+    the highest flat patch big enough to be the roof, read off each file). Nothing typed in metres; the footprint falls out.
+  - **HOW HIGH A TRANSFER CAN CLIMB IS MEASURED, AND IT SET `rise`.** Pumped until the lip speed is ~17 m/s, the swipe clears
+    6 m (coping to the next landing deck is `rise - 2.4`, because the landing QP is M and the launch QP XL). **And a roof under
+    ~30 m long would not let the pumping bot reach 17 m/s at all** (roof 4 at 27.6 m never did): the line's buildings were
+    chosen long. A transfer that is too slow comes down on its OWN roof (its XL deck or its pipe), never off the building.
+  - **A KNEE-HIGH PARAPET BESIDE A QUARTER PIPE IS ONE SHE CARVES OVER AND FALLS 30 m** (the first probe did exactly that):
+    the walls beside each QP stand a metre over its deck (`stkWall`); along the flat they are 0.9 with a rail on top.
+  - **A KICKER ON THE PLUNGE'S SECOND ROOF THREW HER 45 m, CLEAN OVER THE NEXT ONE** (measured at 8-20 m/s). Off a 60 m roof at
+    ~20 m/s the fall alone carries her 25 m; the second step is an edge drop onto a landing ramp.
+  - **THE LAGOON STARTS AT z -112**: the street rail's first version ended at z -106, in the water, and the splash sent her to
+    the spawn -- read in the sim as "landed at 0,0,-6".
+  - **The helix is 21 s at boost 22**; `STK.summit.helix` is the dial (radius 28 clears the tower's corners by 2.3 m).
+
 - **BACK TO THE OLD PADS: MAP 1 IS THE DEFAULT AGAIN (r99, `CTRL.map` 1, `VERT.flickBoost` 0, `UI_VER` 98, `npm run sim ctrl98`).**
   *"Make the swipe down on the right stick the grind again, turn the left stick back into the flip stick, and the right
   stick the melee stick -- tap right to launch up vert, flick up launches you forward transfer."* That is r81's layout:
