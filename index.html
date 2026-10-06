@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r86</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r87</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r86';
+const BUILD = 'r87';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -10136,6 +10136,9 @@ function stepPlayer(dt) {
   // is also the thumb that STEERS, so it is down on every takeoff -- and she grabbed (a style skate, which reads as an idle)
   // the instant she left the ground, every jump. A grab or a settle on the left pad now needs a press that BEGAN in the air.
   if (stick.L.down && !(p.lDown > 0)) p.lAir = !p.grounded && !p.grind; if (!stick.L.down) p.lAir = false;
+  // r87: AND IT ENDS ON LANDING. Pressed in the air and still held after touchdown (it steers, so it is), the flag survived,
+  // and every jump after that grabbed again until the thumb came off -- the r86 bug back, intermittently.
+  if (p.grounded || p.grind) p.lAir = false;
   p.lDown = stick.L.down ? (p.lDown || 0) + dt : 0;      // r82: how long the left thumb has been DOWN (the grabs ask, moved or not)
   p.lHold = stickWorld().mag > 0 ? (p.lHold || 0) + dt : 0;     // r55: how long the left thumb has been pushed (the air aim asks)
   // `jump` 1 is a TAP (constrained on vert), 2 is the right pad's SWIPE UP (the transfer)

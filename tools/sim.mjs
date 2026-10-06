@@ -2249,9 +2249,56 @@ CASES.vert86 = () => {
     rg.stick.L.down = 0; rg.stick.L.y = 0; place(60, 1, -60, 0, 8); run(0.1); P.jump = 1; run(0.15); grab = null;
     run(0.6, () => { rg.stick.L.down = 1; rg.stick.L.x = 0; rg.stick.L.y = -1; if (!P.grounded && P.grab) grab = grab || P.grab.k; });
     say('...pressed again in the air: the grab', !!grab, grab ? `grab ${grab}` : 'NONE');
+    // r87: ...and THAT thumb kept down through the landing and the next takeoff: no grab on the next jump
+    run(2, () => { rg.stick.L.down = 1; rg.stick.L.x = 0; rg.stick.L.y = -1; }); const g0 = P.grounded; grab = null;
+    P.jump = 1; run(0.8, () => { rg.stick.L.down = 1; rg.stick.L.x = 0; rg.stick.L.y = -1; if (!P.grounded && P.grab) grab = grab || P.grab.k; });
+    say('...held on through the landing and the NEXT jump: no grab', g0 && !grab, !g0 ? 'never landed' : grab ? `GRAB ${grab}` : 'the air pose');
     rg.stick.L.down = 0; rg.stick.L.x = rg.stick.L.y = 0; P.grab = null; }
   rg.girl.ready = keepRd; rg.CTRL.map = 1;
   return ok;
+};
+// r87: *"Something keeps happening -- she's doing the in-air pose and then after I do something, a back skate or a transfer,
+// she's just doing the idle pose in the air."* A randomized session through the shipped step AND the shipped move brain, on
+// his real clip names (`gameClips`, the `moves` case's fakes): fakie, swivels, taps, flicks both pads, boosts, speed stops,
+// dives, strikes, both thumbs held and lifted at random. Every free air frame (no flip, strike, dive, grind or bail running)
+// must show the air pose -- or a grab the left thumb was pressed IN THE AIR for.
+CASES.airpose = () => {
+  const { clips, moves, R } = gameClips('models/alien_rollerskate_blue.glb'); if (!moves) return false;
+  const keep = { a: rg.girl.actions, cw: rg.girl.cw, len: rg.girl.clipLen, m: rg.girl.moves, r: rg.girl.ready };
+  rg.girl.actions = {}; rg.girl.cw = {}; rg.girl.clipLen = R.len; rg.girl.moves = moves; rg.girl.ready = true; rg.girl.idle = null; rg.girl.bail = null;
+  for (const c of clips) rg.girl.actions[c.name] = { w: 0, ts: 1, time: 0, reset() { return this; }, play() { return this; }, stop() { return this; }, isRunning() { return true; },
+    setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; }, setEffectiveTimeScale(v) { this.ts = v; return this; }, setLoop() { return this; } };
+  rg.CTRL.map = 3; rg.VERT.flickBoost = 1; rg.GRIND.intent = 1;
+  let seed = 12345; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const bad = {}; let air = 0, nBad = 0, first = null;
+  const acts = [() => { P.jump = 1; }, () => rg.rightFlick(0, -52), () => rg.rightFlick(52, 0), () => rg.rightFlick(0, 52), () => rg.rightFlick(-52, 0),
+    () => rg.swivel(), () => rg.speedStop && P.grounded && rg.speedStop(), () => !P.grounded && rg.grindDown(), () => rg.meleeStrike(Math.sin(P.heading), Math.cos(P.heading)), () => rg.boostGo()];
+  for (let run_ = 0; run_ < 8; run_++) {
+    const spots = [[0, 3, 29, 0, 15], [0, 3, 31, Math.PI, 15], [60, 1, -60, 0, 10], [-11, 1, -6, 0, 12], [-26, 1, -10, 1, 12], [0, 3, 29, 0.4, 18], [30, 1, 0, 2, 8], [-40, 1, 0, 0, 10]];
+    place(...spots[run_]); let next = 0, wasL = 0, pressT = -1, airT0 = -1, lHold = 0, rHold = 0, lx = 0, ly = -1, rx = 0, ry = 0;
+    run(15, (t) => {
+      if (t >= next) { next = t + 0.15 + rnd() * 0.8; const r = rnd();
+        if (r < 0.45) acts[Math.floor(rnd() * acts.length)]();
+        else if (r < 0.65) { lHold = rnd() < 0.85; lx = rnd() * 2 - 1; ly = rnd() * 2 - 1.4; }      // a steering thumb: down nearly all the time, lifted now and then
+        else if (r < 0.8) { rHold = rnd() < 0.4; rx = rnd() * 2 - 1; ry = rnd() * 2 - 1; }
+        else { lHold = 1; lx = 0; ly = -1; } }
+      rg.stick.L.down = lHold ? 1 : 0; rg.stick.L.x = lHold ? lx : 0; rg.stick.L.y = lHold ? ly : 0;
+      // the harness's OWN record of when the left press began and when this airtime began -- never the game's flag
+      if (lHold && !wasL) pressT = t; wasL = lHold; if (P.grounded || P.grind) airT0 = -1; else if (airT0 < 0) airT0 = t;
+      rg.stick.R.down = rHold ? 1 : 0; rg.stick.R.x = rHold ? rx : 0; rg.stick.R.y = rHold ? ry : 0;
+      rg.girlAnimMoves(DT);
+      const free = !P.grounded && !P.grind && !(P.bailT > 0) && !P.mel && !P.dive && !(P.flip && P.flip.t < P.flip.dur);
+      if (!free) return; air++;
+      const fresh = lHold && airT0 >= 0 && pressT >= airT0, top = rg.girl.top, ok = top === moves.air || (P.grab && fresh && top === P.grab.nm);
+      if (!ok) { nBad++; const k = `${top}${P.grab ? ' grab=' + P.grab.k + (fresh ? '' : ' with a press from before takeoff') : ''} stance ${P.stance}`; bad[k] = (bad[k] || 0) + 1;
+        if (!first) first = `run ${run_} t ${fix(t, 2)} at ${fix(P.pos.x, 1)},${fix(P.pos.y, 1)},${fix(P.pos.z, 1)}`; }
+    });
+  }
+  rg.stick.L.down = rg.stick.R.down = 0; rg.stick.L.x = rg.stick.L.y = rg.stick.R.x = rg.stick.R.y = 0;
+  Object.assign(rg.girl, { actions: keep.a, cw: keep.cw, clipLen: keep.len, moves: keep.m, ready: keep.r }); P.grab = null; P.mel = null; P.flip = null; P.dive = null; rg.CTRL.map = 1;
+  console.log(`  ${air} free air frames over 2 minutes of random play; ${nBad} not in the air pose${nBad ? ' -- first ' + first : ''}`);
+  for (const k in bad) console.log(`    ${bad[k]} x ${k}`);
+  return air > 300 && nBad === 0;
 };
 // r45: the PARK's four rails -- the city's paths (spirals, loops, a zip) have their own case
 const parkRails = () => rg.RAILS.filter(R => R.path.name === 'park');

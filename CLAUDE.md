@@ -93,6 +93,19 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **r86's AIR-PRESS FLAG NEVER CLEARED ON LANDING, SO THE IDLE-IN-THE-AIR CAME BACK INTERMITTENTLY (r87, `p.lAir`,
+  `npm run sim airpose`).** *"She's doing the in-air pose and then after I do something she's just doing the idle pose in
+  the air, and I don't know what triggers it."* The trigger is touching the left stick IN THE AIR and still holding it after
+  landing, which a steering thumb always does. `p.lAir` stayed true, so every jump after that grabbed (a style skate) until
+  the thumb came off. It clears on the ground and on a rail now.
+  **`airpose` IS A RANDOMIZED SESSION through the shipped step and the shipped move brain** (his real clip names, map 3):
+  - two minutes of fakie, swivels, taps, flicks on both pads, boosts, stops, dives and strikes, with a steering thumb that
+    is down nearly all the time;
+  - every free air frame must show `in_air`, or a grab whose press began during THIS airtime.
+  **ITS FIRST VERSION ASKED `P.lAir` WHETHER A GRAB WAS ALLOWED**: the flag under test, so with the fix reverted it still
+  passed. It keeps its own record of when the press and the airtime began. Revert-tested: 144 bad frames without the fix,
+  0 with it. **A check that reads the state it is checking cannot fail.**
+
 - **SHE GRABBED ON EVERY JUMP, WHICH IS WHY THERE WAS NO AIR POSE (r86, `p.lAir`).** *"She's not doing the in-air pose,
   she's just doing the idle pose."* Since r82 the LEFT pad is the grab in the air, and the left thumb is the one that STEERS,
   so it is down on every takeoff. `grabStep` read "held past `grabMin` and pushed past `grabPush`" and grabbed the instant
