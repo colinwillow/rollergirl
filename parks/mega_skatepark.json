@@ -649,7 +649,7 @@
   {
    "id": 25,
    "name": "upper plaza",
-   "sub": "a deck L off the pool deck: a kerb terrace, stairs, long stairs + bank, a rail",
+   "sub": "a deck M (his stairs count about ten treads): a kerb terrace, stairs, long stairs + bank, a rail",
    "label": [
     409.5,
     258.9
@@ -661,12 +661,12 @@
      278.1
     ],
     "dir": 270,
-    "y": 3.6
+    "y": 2.4
    },
    "pieces": [
     {
      "kind": "deck",
-     "size": "L",
+     "size": "M",
      "pts": [
       [
        343.8,
@@ -698,35 +698,35 @@
       ]
      ],
      "o": {
-      "h": 3.6
+      "h": 2.4
      },
      "tint": "concrete",
      "id": "upperPlaza",
-     "label": "upper plaza L"
+     "label": "upper plaza M"
     },
     {
      "kind": "terrace",
-     "size": "L",
+     "size": "M",
      "p": [
       395,
-      126.1
+      147.9
      ],
      "dir": 180,
      "o": {
       "w": 10.5,
-      "n": 9,
+      "n": 6,
       "rise": 0.4,
       "run": 1.13
      },
      "tint": "concrete",
      "id": "plazaTerrace",
-     "label": "kerb terrace L, down off the north side"
+     "label": "kerb terrace M, down off the north side"
     },
     {
      "kind": "stairs",
-     "size": "L",
+     "size": "M",
      "p": [
-      304.8,
+      317.2,
       241.6
      ],
      "dir": 90,
@@ -736,14 +736,14 @@
      },
      "tint": "concrete",
      "id": "plazaStairsW",
-     "label": "stairs L + handrails"
+     "label": "stairs M + handrails"
     },
     {
      "kind": "stairBank",
-     "size": "L",
+     "size": "M",
      "p": [
       361.7,
-      416.7
+      397.7
      ],
      "dir": 0,
      "o": {
@@ -755,7 +755,7 @@
      },
      "tint": "concrete",
      "id": "plazaStairsS",
-     "label": "long stairs L + bank, down the south side"
+     "label": "long stairs M + bank, down the south side"
     },
     {
      "kind": "rail",
@@ -765,7 +765,7 @@
       282
      ],
      "dir": 142,
-     "y": 3.6,
+     "y": 2.4,
      "o": {
       "len": 8.5
      },
@@ -1015,7 +1015,7 @@
   {
    "id": 6,
    "name": "vert",
-   "sub": "QP MEGA (9.6 m) on a deck",
+   "sub": "a mega ramp, 14.4 m, on a 4 m deck",
    "label": [
     1250,
     150
@@ -1027,7 +1027,7 @@
      60
     ],
     "dir": 180,
-    "y": 9.6
+    "y": 14.4
    },
    "pieces": [
     {
@@ -1048,20 +1048,20 @@
       180
      ],
      "o": {
-      "H": 9.6,
+      "H": 14.4,
       "sweep": 70,
       "deck": 4
      },
      "tint": "wood",
      "id": "vert",
-     "label": "vert MEGA (70 deg top), 4 m deck"
+     "label": "mega ramp, 14.4 m (70 deg top), 4 m deck"
     }
    ]
   },
   {
    "id": 18,
    "name": "advanced line",
-   "sub": "a platform at 9.6 m beside the vert, long stairs MEGA down from it",
+   "sub": "a platform at 9.6 m beside the mega ramp, long stairs MEGA up to it, stairs XL on to the 14.4 m deck",
    "label": [
     1110,
     160
@@ -1081,7 +1081,7 @@
      "pts": [
       [
        1085,
-       62
+       46
       ],
       [
        1180,
@@ -1141,6 +1141,23 @@
       ]
      ],
      "y": 9.6
+    },
+    {
+     "kind": "stairs",
+     "size": "XL",
+     "p": [
+      1125,
+      59
+     ],
+     "dir": 90,
+     "y": 9.6,
+     "o": {
+      "w": 4,
+      "land": 0.3
+     },
+     "tint": "concrete",
+     "id": "vertStairsTop",
+     "label": "stairs XL from the platform onto the mega ramp's deck"
     }
    ]
   },
@@ -1371,6 +1388,38 @@
      "tint": "wood",
      "id": "bowlBerm",
      "label": "berm S along the bowl's south side (his tan wave)"
+    },
+    {
+     "kind": "wall",
+     "size": "S",
+     "pts": [
+      [
+       1030,
+       372
+      ],
+      [
+       1065,
+       350
+      ],
+      [
+       1110,
+       346
+      ],
+      [
+       1150,
+       362
+      ]
+     ],
+     "face": "both",
+     "o": {
+      "profile": "bank",
+      "H": 1.2,
+      "top": 1,
+      "smooth": 1
+     },
+     "tint": "wood",
+     "id": "bowlArc",
+     "label": "berm S, the crescent north of the bowl"
     }
    ]
   },
@@ -1525,7 +1574,7 @@
   {
    "id": 3,
    "name": "central hub",
-   "sub": "the open flat, a QP S, a planted island",
+   "sub": "the open flat, an A-frame, a planted island",
    "label": [
     757.1,
     620.8
@@ -1539,19 +1588,27 @@
    },
    "pieces": [
     {
-     "kind": "qp",
+     "kind": "frustum",
      "size": "S",
-     "p": [
-      863.3,
-      576.5
-     ],
-     "dir": 0,
+     "dir": 90,
      "o": {
-      "w": 10
+      "len": 0.4,
+      "w": 9,
+      "banks": [
+       1,
+       1,
+       0,
+       0
+      ],
+      "angle": 15
      },
      "tint": "wood",
      "id": "hubQP",
-     "label": "QP S"
+     "label": "A-frame S",
+     "c": [
+      866,
+      618
+     ]
     },
     {
      "kind": "island",
@@ -1626,33 +1683,37 @@
      "size": "M",
      "pts": [
       [
-       846.7,
-       694.9
+       884,
+       708
       ],
       [
-       817.7,
-       708.4
+       845,
+       708
       ],
       [
-       799.4,
-       734.5
+       815,
+       722
       ],
       [
-       796.7,
-       766.3
+       800,
+       750
       ],
       [
-       810.2,
-       795.2
+       803,
+       785
       ],
       [
-       836.5,
-       813.4
+       820,
+       815
+      ],
+      [
+       840,
+       845
       ]
      ],
      "face": [
-      857.5,
-      755.5
+      870,
+      780
      ],
      "o": {
       "smooth": 1,
@@ -1660,7 +1721,7 @@
      },
      "tint": "wood",
      "id": "flowC",
-     "label": "C bank, curved QP M"
+     "label": "angled QP M, his L of quarter pipes"
     },
     {
      "kind": "ledge",
@@ -1797,19 +1858,35 @@
     },
     {
      "kind": "bank",
-     "size": "S",
+     "size": "M",
      "p": [
-      988.9,
-      878.7
+      945,
+      895
      ],
      "dir": 0,
      "o": {
-      "w": 24,
-      "angle": 12
+      "w": 15,
+      "angle": 18
      },
      "tint": "concrete",
      "id": "flowBank",
-     "label": "wide low bank S"
+     "label": "launch bank M"
+    },
+    {
+     "kind": "bank",
+     "size": "M",
+     "p": [
+      1050,
+      930
+     ],
+     "dir": 0,
+     "o": {
+      "w": 14,
+      "angle": 25
+     },
+     "tint": "wood",
+     "id": "flowBank2",
+     "label": "bank M by the south fence"
     }
    ]
   },
@@ -2376,8 +2453,8 @@
        817.1
       ],
       [
-       834.4,
-       836.4
+       852,
+       905
       ],
       [
        1326.9,

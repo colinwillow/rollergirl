@@ -3079,13 +3079,17 @@ CASES.kit = async () => {
       place(q[0] + sd[0] * D, 0.2, q[1] + sd[1] * D, hd([-sd[0], -sd[1]]), v); const t = ride(4); return { ok: !t.falls && !t.bail && t.low > -0.05 && t.top >= need, t }; };
     // S4. THE VERT: off its 7 m deck down the MEGA face, over the flat, up the bank L onto the bowl deck; and up the stairs MEGA
     { const v = at('vert'), mid = v.line[Math.floor(v.line.length / 2)], sd = v.side[Math.floor(v.line.length / 2)], S = KSZ.MEGA, bz = v.line[0][1] + 30;      // r77: 30 m out from the coping, past the vert's own flat
-      reset(); place(mid[0] - sd[0] * 3.5, S.H + 0.3, mid[1] - sd[1] * 3.5, hd(sd), 3);
+      reset(); place(mid[0] - sd[0] * 3.5, v.rimY + 0.3, mid[1] - sd[1] * 3.5, hd(sd), 3);      // (r78: its own deck height -- it is a 14.4 m mega ramp now)
       // (r77: the bowl is sunk now, so the run-out is the flat at grade and then the bowl itself)
       let bottom = 0, deck = 0; const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.pos.y < 0.3) bottom = 1; if (bottom && P.pos.z > bz) deck = 1; });
-      say('sheet vert: drop in off the 9.6 m deck, down the face and out across the flat', bottom && deck && !r.falls && !r.bail, `bottom ${bottom ? 'yes' : 'no'}, out past the vert's flat ${deck ? 'yes' : 'no'}`);
+      say(`sheet vert: drop in off the ${fix(v.rimY, 1)} m deck, down the face and out across the flat`, bottom && deck && !r.falls && !r.bail, `bottom ${bottom ? 'yes' : 'no'}, out past the vert's flat ${deck ? 'yes' : 'no'}`);
       const st = at('vertStairs'); reset(); const t2 = L(st, -4, 0); place(t2.x, 0.3, t2.z, st.T.yaw, 10); let up = 0;
       ride(7, () => { fwd(st.T.yaw); city(); if (onAt(S.H)) up = 1; });
-      say('sheet advanced line: up the stairs MEGA onto the vert deck', up, up ? 'on the deck at 9.6' : `ends y ${fix(P.pos.y)}`); }
+      say('sheet advanced line: up the stairs MEGA onto the platform', up, up ? 'on the platform at 9.6' : `ends y ${fix(P.pos.y)}`);
+      // r78: and on up the stairs XL from the platform onto the mega ramp's own deck
+      const s2 = at('vertStairsTop'); reset(); const t3 = L(s2, -2, 0); place(t3.x, S.H + 0.3, t3.z, s2.T.yaw, Math.sqrt(2 * g * KSZ.XL.H) + 2); let top = 0;
+      ride(4, () => { fwd(s2.T.yaw); city(); if (onAt(v.rimY)) top = 1; });
+      say('sheet advanced line: on up the stairs XL onto the mega ramp deck', top, top ? `on the deck at ${fix(v.rimY, 1)}` : `ends y ${fix(P.pos.y)}`); }
     // S5. THE BOWL (his outline): dropped in from six points round it, it swings, reaches the deep end, nothing falls through;
     // and up each of its three banks onto the deck
     { const b = at('bowl'), d = dropIn(b, 6);
@@ -3127,15 +3131,15 @@ CASES.kit = async () => {
       say(`sheet ${id === 'mini' ? 'mini ramp: half pipe M' : 'gap and drop: pool L'}, dropped in, swings to the far wall`, far > S.H * 0.6 && !r.falls && !r.bail && r.low > -0.05, `far wall up to ${fix(far)} of ${S.H}`); }
     // r75: THE UPPER PLAZA -- up its stairs-and-bank onto the deck and across onto the pool deck; up the kerb terrace tier by
     // tier; down the west stairs; and the planted island and the south hills
-    { const k = at('plazaStairsS'), Lz = KSZ.L, bw = k.o.bw || 3; go(k, -6, (k.o.w || 5) / 2, 0, Math.sqrt(2 * g * Lz.H) + 2.5); let plaza = 0, pool = 0;
+    { const k = at('plazaStairsS'), Lz = { H: at('upperPlaza').h }, bw = k.o.bw || 3; go(k, -6, (k.o.w || 5) / 2, 0, Math.sqrt(2 * g * Lz.H) + 2.5); let plaza = 0, pool = 0;
       ride(4, () => { if (P.grounded && P.pos.y > 3) fwd(H(k, -Math.PI / 2 + 0.25)); else rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(Lz.H)) plaza = 1;
         if (plaza && P.pos.y < 0.3) pool = 1; });      // (r77: the pool is sunk, so off the plaza's east edge is a drop to the ground)
       say('sheet upper plaza: up the bank beside the stairs, across and off its east edge', plaza && pool, `plaza ${plaza ? 'yes' : 'no'}, dropped off ${pool ? 'yes' : `no, ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`}`); }
     { const k = at('plazaTerrace'), n = k.o.n, rise = k.o.rise; go(k, -3, 0, 0, 3); let tier = 0;
       const r = ride(6, () => { fwd(H(k, 0)); city(); if (P.grounded) tier = Math.max(tier, Math.round(P.pos.y / rise)); });
       say('sheet upper plaza: rolled up the kerb terrace, every tier, to the deck', tier >= n && !r.falls && !r.bail, `reached tier ${tier} of ${n} (y ${fix(P.pos.y)})`); }
-    { const k = at('plazaStairsW'), run0 = k.len - 0.3; go(k, run0 + 0.2, 0, Math.PI, 5); P.pos.y = KSZ.L.H + 0.2; const r = ride(3);
-      say('sheet upper plaza: down the west stairs L', loc(k).u < 0 && P.pos.y < 0.1 && !r.bail && !r.falls, `at u ${fix(loc(k).u, 1)} y ${fix(P.pos.y)}`); }
+    { const k = at('plazaStairsW'), run0 = k.len - 0.3; go(k, run0 + 0.2, 0, Math.PI, 5); P.pos.y = at('upperPlaza').h + 0.2; const r = ride(3);
+      say('sheet upper plaza: down the west stairs', loc(k).u < 0 && P.pos.y < 0.1 && !r.bail && !r.falls, `at u ${fix(loc(k).u, 1)} y ${fix(P.pos.y)}`); }
     { const k = at('hubIsland'), c = k.poly.reduce((a, p) => [a[0] + p[0] / k.poly.length, a[1] + p[1] / k.poly.length], [0, 0]); reset();
       place(c[0], 1, c[1], 0, 0); let stood = 0; ride(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(k.h, 0.05)) stood = 1; });
       reset(); place(c[0] - 14, 0.2, c[1], Math.PI / 2, 6); ride(3, () => { fwd(Math.PI / 2); city(); });

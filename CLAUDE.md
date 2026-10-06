@@ -91,6 +91,12 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE MEGA RAMP, AND THE PLAZA COMES DOWN A SIZE (r78).**
+  - **The vert is 14.4 m**, read off his angled view with `npm run heights`. Its own 9.6 m platform has stairs XL on to the
+    deck.
+  - **Every harness row that placed her on the vert deck read `KSZ.MEGA.H`**; it reads the piece's `rimY` now, the r76
+    rule again: ask the piece, never the size.
+  - **The upper plaza is M:** his stairs count about ten treads. Its rows read `at('upperPlaza').h`.
 - **HIS ANGLED VIEW HAS A CAMERA, AND `npm run oblique` FINDS IT (r77, `tools/oblique.mjs`, `tools/heights.mjs`, `sink`).**
   *"Use this in conjunction with the top-down view."*
   - **The fit casts every pixel of his view onto the ground and looks it up in the top-down plan** through the schematic's

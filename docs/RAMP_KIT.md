@@ -523,3 +523,17 @@ roughly 55 degrees down, and it shows the heights — but only once you know whe
   - the bowl's banks are gone, and a berm along its south side is his tan wave;
   - the bridge's ramp now carries straight on off the walkway's end toward the bowl.
 
+**r78: what the angled view changed next.**
+- **The vert is a 14.4 m mega ramp.** Probed with `npm run heights`, it is drawn well over the 9.6 m MEGA size, and its
+  face runs most of the way to where the plan draws its toe.
+  - It is a `wall` with `H: 14.4` (the size ladder's next rung), keeping the 70 deg top.
+  - The 9.6 m platform beside it gets a flight of XL stairs on to the 14.4 m deck. Dropped in from the top she reaches
+    the flat at about 24 m/s.
+- **The upper plaza is M (2.4 m), not L.** His stairs off it count about ten treads, against the fourteen-plus on the
+  rooftop's 4.8 m flight. Its terrace, stairs and stair-bank were re-fitted to the lower deck.
+- **The south-east, retraced from a close zoom:**
+  - the hub QP was an A-frame (`frustum`, a 0.4 m top, 15 deg banks);
+  - the C bank follows his L of quarter pipes;
+  - a launch bank M sits where his grey wedge is, and a bank M beside the south fence;
+  - a low berm is his crescent north of the bowl.
+
