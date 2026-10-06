@@ -457,3 +457,35 @@ bank, the vert, the raised walkway with its ramp, the walkway up to the pool dec
 - the long walkway system from the rooftop to the quarter-pipe deck;
 - the rest of his planted beds;
 - the colours and materials, which the kit draws in pastel.
+
+## Rebasing onto a new render (r76): `npm run rebase`
+
+`npm run rebase -- <new drawing> [--apply]` moves the schematic onto a new render of the same plan. Every position in a
+schematic is a pixel of its drawing, so a sharper picture cannot be traced against until the file is carried across.
+
+What it does:
+- It finds the scale and offset that line the two drawings up (normalised cross-correlation of their greyscale, coarse
+  then fine) and prints them.
+- With `--apply` it rewrites every pixel field into the new drawing's pixels, re-pins so the same pixel lands on the same
+  world point, and sets `mpp` from the scale.
+- It copies the new drawing in as the schematic's image and keeps the old one as `<name>_v<n>.webp`.
+
+**The world does not move**, only the pixels. A piece the new render draws somewhere slightly different shows up in
+`npm run plan`'s overlay.
+
+**Check the correlation it prints.** An upscale of the same picture scores near 1; a fresh render of the same design does not.
+His second plan (1448 x 1086, about twice the detail) scored **0.48**. It is the same park redrawn, so local features had
+drifted by up to 10 m and had to be retraced. **`npm run trace -- --over <drawing> ...`** lays the last plan render over the
+zoom at half strength, so the build's errors are read on the same grid as his drawing.
+
+**What the r76 retrace changed:**
+- **North centre:** the new picture has no quarter-pipe row. It is a street: a bank up to a terrace along the north fence,
+  stairs beside a raised planter, two diagonal hubba ledges, a stair box and a bench ledge. The QP row is gone.
+- **The vert** is traced where he drew it, its top cut to 70 deg so its face runs further into the flat. Beside it is a
+  9.6 m platform with a long flight of MEGA stairs (26 deg) coming down from it.
+- **The bowl** is retraced as his peanut and clover joined into one bowl. Banks run down its west and south edges (`wall`
+  with `profile: 'bank'`, his tan band), and the bank from the vert's flat still comes up the north side.
+- **The spine** follows his ridge.
+- **The rooftop stairs** are a flight between two banks (`stairBank` with `side: 0`).
+- **The shades and the fence** are retraced.
+

@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r75</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r76</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r75';
+const BUILD = 'r76';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"4d358bf6","parks/mega_skatepark.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
+const ASSETS = {"parks/mega_skatepark.json":"fa178499","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"872652d4","zones/zone_skyline/zone_skyline_visual.glb":"7f8df31f"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -2254,14 +2254,16 @@ Object.assign(KIT_KINDS, {
   // STAIRS WITH A BANK: the flight (with its handrail on the far side) and a bank beside it rising over the same run, so
   // one set of steps is two lines -- down the stairs, or ride the bank. `side` +1 puts the bank on +w.
   stairBank(T, S, o) {
-    const sw = o.w || 5, bw = o.bw || 3, sd = o.side || 1, land = o.land || 2;
-    const st = KIT_KINDS.stairs(kT(T, 0, -sd * bw / 2, 0), S, { w: sw, land, rails: false, angle: o.angle });
-    const run = st.len - land, ang = Math.atan2(S.H, run) / D2R, bt = kT(T, 0, sd * sw / 2, 0);
+    // `side` 0 (r76): a bank on BOTH sides and the flight in the middle, as his rooftop stairs are drawn
+    const sw = o.w || 5, bw = o.bw || 3, sd = o.side != null ? o.side : 1, land = o.land || 2, both = sd === 0;
+    const st = KIT_KINDS.stairs(kT(T, 0, both ? 0 : -sd * bw / 2, 0), S, { w: sw, land, rails: false, angle: o.angle });
+    const run = st.len - land, ang = Math.atan2(S.H, run) / D2R;
     const Sb = o.bankTint != null ? { ...S, tint: o.bankTint } : S;      // the bank can be painted apart from the flight
-    KIT_KINDS.bank(bt, Sb, { w: bw, angle: ang }); KIT_KINDS.platform(kT(bt, run, 0, 0), S, { w: bw, d: land });
+    for (const sg of both ? [-1, 1] : [sd]) { const bt = kT(T, 0, both ? sg * (sw + bw) / 2 : sg * sw / 2, 0);
+      KIT_KINDS.bank(bt, Sb, { w: bw, angle: ang }); KIT_KINDS.platform(kT(bt, run, 0, 0), S, { w: bw, d: land }); }
     const hr = RAILKIT.hr, ww = -sd * (bw / 2 + sw / 2 - 0.25);
-    const rails = [kRail(T, [[-1, hr, ww], [0, hr, ww], [run, S.H + hr, ww], [run + land - 0.5, S.H + hr, ww]], { name: 'handrail' })];
-    return { len: run + land, wid: sw + bw, h: S.H, rails, out: { u: run + land, w: 0, y: S.H, dyaw: 0 } };
+    const rails = both ? [] : [kRail(T, [[-1, hr, ww], [0, hr, ww], [run, S.H + hr, ww], [run + land - 0.5, S.H + hr, ww]], { name: 'handrail' })];
+    return { len: run + land, wid: sw + (both ? 2 : 1) * bw, h: S.H, rails, out: { u: run + land, w: 0, y: S.H, dyaw: 0 } };
   },
   // ISLAND: a raised bed of any outline (`pts`), `h` (0.45) high -- a curb you grind or roll off, too tall to roll up --
   // planted (`trees` [u, w]), grass on top

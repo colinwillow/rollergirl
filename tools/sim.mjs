@@ -3060,11 +3060,12 @@ CASES.kit = async () => {
       reset(); t = L(st, run + 1.5, 0); place(t.x, KSZ.L.H + 0.3, t.z, H(st, 0), 4); down = 0;
       r = ride(4, () => { fwd(H(st, 0)); city(); if (onAt(0, 0.05) && loc(bk).u < -1) down = 1; });
       say('sheet entry: off the landing, down the bank L the other way', down && !r.bail && !r.falls, down ? 'on the street' : `ends y ${fix(P.pos.y)}`); }
-    // S3. THE QUARTER PIPE ROW: straight at every QP and every adapter, up its face and back
-    { const bad = []; for (let i = 0; i < 7; i++) { const q = at('qp' + i); if (!q) continue; const Ht = q.kind === 'qp' ? KSZ[q.size].H : (KSZ[q.size].H + KSZ[q.o.to].H) / 2;
-        go(q, -14, 0, 0, Math.min(22, Math.sqrt(2 * g * Ht) + 3)); const r = ride(5);
-        if (!(r.top > Ht * 0.85 && !r.falls && !r.bail && r.low > -0.05)) bad.push(`${q.label}: up to ${fix(r.top)} of ${fix(Ht)}${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}`); }
-      say('sheet quarter pipes: S to XL with adapters between, each ridden', !bad.length, bad.slice(0, 3).join('; ') || 'every one'); }
+    // S3. THE NORTH STREET (r76: his new render has no quarter pipe row there -- it is a bank up to a terrace along the north
+    // fence, stairs beside a planter, hubba ledges and a stair box): up the bank onto the terrace, down the stairs off it
+    { const bk = at('northBank'), st = at('northStairs'), Mh = KSZ.M.H; go(bk, -6, 0, 0, Math.sqrt(2 * g * Mh) + 2.5); let up = 0;
+      ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(Mh)) up = 1; });
+      const run0 = st.len - 0.3; go(st, run0 + 0.2, 0, Math.PI, 5); P.pos.y = Mh + 0.2; const r = ride(3);
+      say('sheet north street: up the bank onto the terrace, down the stairs', up && loc(st).u < 0 && P.pos.y < 0.1 && !r.bail, `bank ${up ? 'to the top' : `NO (y ${fix(P.pos.y)})`}, stairs end u ${fix(loc(st).u, 1)} y ${fix(P.pos.y)}`); }
     // r74: the path pieces report their traced line (`line`, world x,z) and the ridden side (`side`), so these ride them
     // generically: DROP IN off a closed wall's deck at k points round it, and RIDE AT an open wall from its ridden side
     const W = SH.W, J = SH.data, hd = s => Math.atan2(s[0], s[1]);
@@ -3076,7 +3077,7 @@ CASES.kit = async () => {
     const rideAt = (r, D, v, need, frac) => { const i = Math.floor((frac != null ? frac : 0.5) * (r.line.length - 1)), q = r.line[i], sd = r.side[i]; reset();
       place(q[0] + sd[0] * D, 0.2, q[1] + sd[1] * D, hd([-sd[0], -sd[1]]), v); const t = ride(4); return { ok: !t.falls && !t.bail && t.low > -0.05 && t.top >= need, t }; };
     // S4. THE VERT: off its 7 m deck down the MEGA face, over the flat, up the bank L onto the bowl deck; and up the stairs MEGA
-    { const v = at('vert'), mid = v.line[Math.floor(v.line.length / 2)], sd = v.side[Math.floor(v.line.length / 2)], S = KSZ.MEGA, bz = W([823, 176])[1];
+    { const v = at('vert'), mid = v.line[Math.floor(v.line.length / 2)], sd = v.side[Math.floor(v.line.length / 2)], S = KSZ.MEGA, bz = at('bowlBankN').bb[5];      // r76: where the bank tops out onto the bowl deck
       reset(); place(mid[0] - sd[0] * 3.5, S.H + 0.3, mid[1] - sd[1] * 3.5, hd(sd), 3);
       let bottom = 0, deck = 0; const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.pos.y < 0.3) bottom = 1; if (bottom && P.pos.z > bz - 1 && P.pos.y > KSZ.L.H - 0.3) deck = 1; });
       say('sheet vert: drop in off the 9.6 m deck, over the flat, onto the bowl deck', bottom && deck && !r.falls && !r.bail, `bottom ${bottom ? 'yes' : 'no'}, bowl deck ${deck ? 'yes' : 'no'}`);
@@ -3087,8 +3088,11 @@ CASES.kit = async () => {
     // and up each of its three banks onto the deck
     { const b = at('bowl'), d = dropIn(b, 6);
       say('sheet bowl: dropped in from six points round his outline, swings', !d.bad.length && d.deepest < 0.3, d.bad.join('; ') || `deep end ${fix(d.deepest)}, up to ${fix(d.top)}`);
-      const nb = []; for (const id of ['bowlBankN', 'bowlBankW', 'bowlBankS']) { const k = at(id); go(k, -6, 0, 0, Math.sqrt(2 * g * b.rimY) + 3); let deck = 0;
-        ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(b.rimY)) deck = 1; }); if (!deck) nb.push(`${id} top ${fix(P.pos.y)}`); }
+      // (r76: the west and south banks are path pieces down the deck's own edges -- ridden at from their low side)
+      const nb = []; for (const id of ['bowlBankN', 'bowlBankW', 'bowlBankS']) { const k = at(id), v = Math.sqrt(2 * g * b.rimY) + 3;
+        if (k.line) { const i = Math.floor(k.line.length / 2), q = k.line[i], sd = k.side[i]; reset(); place(q[0] + sd[0] * 13, 0.2, q[1] + sd[1] * 13, hd([-sd[0], -sd[1]]), v); }
+        else go(k, -6, 0, 0, v);
+        let deck = 0; ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(b.rimY)) deck = 1; }); if (!deck) nb.push(`${id} top ${fix(P.pos.y)}`); }
       say('sheet bowl: up each of its three banks onto the deck', !nb.length, nb.join('; ') || 'all three'); }
     // S6. THE BRIDGE: up its stairs, along the raised walkway, down the ramp; and ridden under the walkway between its posts
     { const st = at('bridgeStairs'), wp = J.areas.find(a => a.id === 9).pieces.filter(q => q.kind === 'walk').flatMap(q => q.pts.map(pp => W(pp)));
@@ -3126,7 +3130,7 @@ CASES.kit = async () => {
     // tier; down the west stairs; and the planted island and the south hills
     { const k = at('plazaStairsS'), Lz = KSZ.L, bw = k.o.bw || 3; go(k, -6, (k.o.w || 5) / 2, 0, Math.sqrt(2 * g * Lz.H) + 2.5); let plaza = 0, pool = 0;
       ride(4, () => { if (P.grounded && P.pos.y > 3) fwd(H(k, -Math.PI / 2 + 0.25)); else rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(Lz.H)) plaza = 1;
-        if (plaza && onAt(Lz.H) && P.pos.x > SH.W([458, 0])[0] + 1) pool = 1; });
+        if (plaza && onAt(Lz.H) && P.pos.x > at('pool').bb[0] + 1) pool = 1; });
       say('sheet upper plaza: up the bank beside the stairs, across onto the pool deck', plaza && pool, `plaza ${plaza ? 'yes' : 'no'}, pool deck ${pool ? 'yes' : `no, ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`}`); }
     { const k = at('plazaTerrace'), n = k.o.n, rise = k.o.rise; go(k, -3, 0, 0, 3); let tier = 0;
       const r = ride(6, () => { fwd(H(k, 0)); city(); if (P.grounded) tier = Math.max(tier, Math.round(P.pos.y / rise)); });
@@ -3144,9 +3148,12 @@ CASES.kit = async () => {
         if (under < -0.06 || Math.abs(P.pos.x - x0) < 30) bad.push(`from ${h > 0 ? 'west' : 'east'}: ${fix(Math.abs(P.pos.x - x0), 1)} m, ${fix(-under)} under`); }
       say('sheet landscaping: ridden over the hills both ways, never under them', !bad.length && up > 0.5, bad.join('; ') || `up to ${fix(up)}`); }
     // S10. THE ROOFTOP: up the bank XL onto the roof, and down the stairs XL off it
-    { const k = at('roofBank'), XL = KSZ.XL; go(k, -8, 0, 0, Math.sqrt(2 * g * XL.H) + 3); let roof = 0; ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(XL.H)) roof = 1; });
-      say('sheet rooftop: up the bank XL onto the roof', roof, roof ? 'on the roof' : `top ${fix(P.pos.y)}`);
-      const st = at('roofStairs'), run = XL.H / Math.tan(32 * Math.PI / 180); reset(); const t = L(st, run + 1.5, 0); place(t.x, XL.H + 0.3, t.z, H(st, Math.PI), 4); let down = 0;
+    // (r76: his new render draws the stairs off the roof BETWEEN two banks -- a `stairBank` with `side` 0 -- so the banks are
+    // what she rides up)
+    { const k = at('roofStairs'), XL = KSZ.XL, bad = [];
+      for (const sg of [-1, 1]) { go(k, -6, sg * (k.o.w + k.o.bw) / 2, 0, Math.sqrt(2 * g * XL.H) + 3); let roof = 0; ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(XL.H)) roof = 1; }); if (!roof) bad.push(`${sg > 0 ? '+w' : '-w'} bank top ${fix(P.pos.y)}`); }
+      say('sheet rooftop: up either bank beside the stairs onto the roof', !bad.length, bad.join('; ') || 'both');
+      const st = k, run = st.len - (st.o.land || 2); reset(); const t = L(st, run + 1.5, 0); place(t.x, XL.H + 0.3, t.z, H(st, Math.PI), 4); let down = 0;
       const r = ride(4, () => { fwd(H(st, Math.PI)); city(); if (onAt(0, 0.05) && loc(st).u < 0) down = 1; });
       say('sheet rooftop: down the stairs XL', down && !r.bail && !r.falls, down ? 'at the foot' : `ends y ${fix(P.pos.y)}`); }
     // S11. THE SPINE, THE FUNBOX, THE PYRAMID, THE HUB QP: each ridden straight at, no bail, nothing fallen through

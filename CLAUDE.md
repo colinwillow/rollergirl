@@ -91,6 +91,18 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **HIS SECOND PLAN IS A RE-RENDER, NOT AN UPSCALE, AND `npm run rebase` SAYS SO (r76, `tools/rebase.mjs`, `trace --over`).**
+  *"I'm wondering if this better image will help."* It does: twice the detail, and the same park redrawn.
+  - **The rebase registers it against the old drawing** (cross-correlation; correlation **0.48**, an upscale would read near
+    1). It rewrites every pixel field, re-pins and rescales, so the world stays put. The old drawing is kept as
+    `parks/mega_skatepark_v1.webp`.
+  - **Then every area was checked on `trace --over` zooms.** The middle of the park agreed to within a few metres. The north
+    centre did NOT: it is a street, not a quarter-pipe row. The vert, the bowl, the spine and the fence had drifted 5-10 m.
+  - **TWO HARNESS ROWS HAD OLD-DRAWING PIXELS TYPED INTO THEM** (`W([823, 176])` for where the bowl deck starts, and
+    `SH.W([458, 0])` for the pool deck's edge), and a rebase silently moved what they meant. They read the pieces' own boxes
+    now. **A harness must never hold a drawing coordinate**: ask the piece.
+  - **The export round trip failed on ONE sample** exactly on a diagonal edge of the bowl deck. That is the r70 rounding tie
+    again; the corner is square now.
 - **DETAIL PIECES: TERRAIN, KERB TERRACES, STAIRS + BANK, PLANTED ISLANDS (r75, `terrain`, `terrace`, `stairBank`, `island`,
   `kNoise`).** *"Lots of little ups and downs ... take a 50 x 50 plane and deform it by large noises and small noises."*
   - **`terrain` is that plane.** It is a grid of a broad noise, a fine noise and hand-placed `bumps`, faded to the ground over
