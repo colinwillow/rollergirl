@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r82</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r83</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r82';
+const BUILD = 'r83';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3768,6 +3768,9 @@ function levelFn(o, place, name, st) {
   // `name` is GLTFLoader's own (it keeps the unsanitised node name in userData); `info` and any other object is reference
   // only -- but an ARRAY is an option (a frustum's `banks`), and dropping it rebuilt a hip as a different shape
   const opts = {}; for (const k in u) if (!/^(fn|size|kind|draw|label|footprint|name|info)$/.test(k) && (typeof u[k] !== 'object' || Array.isArray(u[k]))) opts[k] = u[k];
+  // r83: AN OPTION MAY ARRIVE AS JSON TEXT -- a Blender custom property holding a path (`pts`) is easiest written as a
+  // string, and a string that is plainly a list or an object is parsed rather than handed to the piece as text
+  for (const k in opts) if (typeof opts[k] === 'string' && /^\s*[\[{]/.test(opts[k])) { try { opts[k] = JSON.parse(opts[k]); } catch (e) {} }
   const m0 = MESH.pos.length, rec = kitPiece(kind, size, T, opts);
   if (!rec) return false;
   if (u.draw === false) { MESH.pos.length = MESH.nrm.length = MESH.col.length = m0;
@@ -3853,12 +3856,25 @@ function levelIngest(vis, col, place, name) {
         let pts = null;
         try { const g = typeof u.grind_path_gltf === 'string' ? JSON.parse(u.grind_path_gltf) : u.grind_path_gltf; if (Array.isArray(g) && g.length > 1) pts = g.map(at); } catch (e) {}
         if (!pts && pos) pts = lineChain(pos, idx, W);
-        if (pts && pts.length > 1) lines.push({ nm, pts, closed: !!u.closed, boost: +u.boost || 0 });
+        if (pts && pts.length > 1) lines.push({ nm, pts, closed: !!u.closed, boost: +u.boost || 0, gems: +u.gems || 0 });
+        return;
+      }
+      // r83: A BOOST LANE -- a centreline on a floor; grounded and going its way she is pushed up to `speed`. The
+      // world export writes them under exactly these names and extras, so a round trip through Blender keeps them.
+      if (/^(lane|zone_boost)_/.test(nm) || u.kind === 'boost_lane') {
+        let pts = null;
+        try { const g = typeof u.path_gltf === 'string' ? JSON.parse(u.path_gltf) : u.path_gltf; if (Array.isArray(g) && g.length > 1) pts = g.map(at); } catch (e) {}
+        if (!pts && pos) pts = lineChain(pos, idx, W);
+        if (pts && pts.length > 1) { ORB.lanes.push({ pts, hw: +u.half_width || 2, v: +u.speed || 20, acc: +u.accel || 14, gov: +u.governed || 0, name: name + ' ' + nm });
+          st.lanes = (st.lanes || 0) + 1; }
         return;
       }
       // r64: MARKERS -- a launch pad, a spawn, a fast-travel spot
       if (/^marker_/.test(nm) || u.kind === 'launcher' || u.kind === 'spawn' || u.kind === 'spot') {
         const P = Array.isArray(u.pos_gltf) ? at(u.pos_gltf) : (pos ? W(0) : new THREE.Vector3().setFromMatrixPosition(M));
+        if (u.kind === 'gem' || /^marker_gem_/.test(nm)) { gem(P.x, P.y, P.z); st.gems = (st.gems || 0) + 1; return; }
+        // r83: A TRAMPOLINE -- the Orbital mushrooms' rule: land on it (within `radius`, at its height) and it throws her up
+        if (u.kind === 'trampoline' || /^marker_trampoline_/.test(nm)) { ORB.bounce.push({ x: P.x, z: P.z, y: P.y, r: +u.radius || 2, cool: 0 }); st.trampolines = (st.trampolines || 0) + 1; return; }
         if (u.kind === 'launcher' || /^marker_launcher_/.test(nm)) {
           if (!Array.isArray(u.target_gltf)) return;
           const T = at(u.target_gltf);
@@ -3949,7 +3965,10 @@ function levelIngest(vis, col, place, name) {
       const o = { maxV: LEVEL.railMaxV, name: name + ' ' + L.nm.replace(/^rail_/, ''), boost: L.boost || (loop ? LEVEL.loopBoost : 0), boostK: loop ? 12 : 0, ups: loop ? ups : null };
       const P = L.closed && pts.length > 2 ? railLoop(pts, o) : railPath(pts, o);
       P.zone = name; mine.push(P); st.rails++; if (loop) st.loops = (st.loops || 0) + 1;
+      if (L.gems > 0) { const g0 = GEM.list.length; gemsAlong(P, L.gems, 0.9, L.gems / 2); st.gems = (st.gems || 0) + GEM.list.length - g0; }
     }
+    // r83: THE GEM MESH IS ONE INSTANCED DRAW SIZED AT BUILD, so gems added by an import mean building it again
+    if (st.gems) { if (GEM.mesh) { scene.remove(GEM.mesh); GEM.mesh.geometry.dispose(); GEM.mesh.material.dispose(); GEM.mesh = null; } gemBuild(); }
     // r64: THE SLOPED DECKS, REBUILT. Where two `*_RailTop` lines run along the deck's two edges, the deck is the
     // ribbon between them, dropped by the rail's height over the island it starts from (measured, not typed). A
     // deck with no rails is a stair: one slope along its long axis, up to whatever is beyond its high end.
@@ -4250,9 +4269,9 @@ function cityRails() {
 }
 function stepCity(dt) {
   stepOrbital(dt);
+  gemStep(dt);        // r83: above the gate -- an imported level's gems live in a world with no city
   if (!CITY.on) return;
   stepHydrants(dt);
-  gemStep(dt);
 }
 
 // =====================================================================================================

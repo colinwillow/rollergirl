@@ -1,5 +1,8 @@
 # Rollergirl: building handoff (Blender → game)
 
+> **r83: the level-building brief is `handoff/LEVEL_BUILDING.md`.** It covers every name the importer reads now
+> (rails, lanes, markers, gems, trampolines, kit pieces). The art, material and budget rules below are still current.
+
 This is a brief for a **separate Claude session working in Blender** on custom buildings for Rollergirl
 (github: colinwillow/rollergirl, single-file Three.js r180 game, `index.html`). It describes exactly what the game's
 importer does with a GLB, so what comes back drops in with one line of code and needs no guessing.

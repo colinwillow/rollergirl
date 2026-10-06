@@ -7,6 +7,8 @@ exactly as tested whatever the art on top of them looks like.
 - **In game:** tap the **LEVEL** key (top right) and choose **RAMP KIT PARK**, or open the page with `?world=kit`. You
   spawn at the top of a roll-in in the **mega park** (below). The ➤ key walks the park's areas first, then the gallery
   rows of single pieces.
+- **The library to hand over (r83):** `npm run export:lib` writes the gallery alone (103 pieces, no example parks) to
+  `handoff/rollergirl_kit_library.glb` + `.json`, the file the Blender brief (`handoff/LEVEL_BUILDING.md`) points at.
 - **Out of the game:** `npm run export:kit` writes:
   - `exports/rollergirl_kit.glb`: one object per piece, placed as in the gallery.
   - `exports/rollergirl_kit.json`: the same, as data.
@@ -50,6 +52,9 @@ An object is a piece if:
 
 - its **name** is `fn_<kind>_<size>`, optionally followed by `_` or `.` and anything (`fn_qp_M_3`, `fn_qp_M.001`), or
 - its **custom properties** carry `fn` and `size`, in which case the name can be anything.
+
+A list or object option may also be written as JSON TEXT (`pts: "[[0,0],[4,2]]"`, r83), which is the easy way to
+set one from a Blender custom property.
 
 Any other custom property that matches an option below is passed to the piece, for example `rc` on a corner, `flat`
 on a half pipe, or `banks` (an array) on a frustum. `info`, `label`, `name` and `footprint` are for reference only and

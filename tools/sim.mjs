@@ -1953,6 +1953,44 @@ CASES.boost = async () => {
 // *"Right stick controls rotation and flips; left stick the grabs; left stick on the ground the melee; right stick the
 // speed boost; a flick down on the right stick switches fakie / regular."* Every gesture through the REAL pads and the
 // shipped bindings; the other cases run on `map` 1, the layout they were written against (a stated gap, `intent`'s rule).
+// r83: THE LEVEL-BUILDING NAMES A BLENDER SESSION CAN USE, through the shipped levelIngest on a scene built the way
+// GLTFLoader hands one over: gems (a marker, and strung along a rail line), a trampoline, a boost lane, and a bld_
+// roof whose edge is a lip she can grind with no rail authored. Up at y 80 so it overlaps nothing in the park.
+CASES.levelkit = () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(52)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const col = new THREE.Group(), mat = new THREE.MeshStandardMaterial(); mat.name = 'concrete';
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), mat); fl.name = 'deck_floor'; col.add(fl);
+  const bx = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 6).translate(0, 2, -12), mat); bx.name = 'bld_tower'; col.add(bx);
+  const E = (name, x, y, z, ud) => { const o = new THREE.Object3D(); o.name = name; o.position.set(x, y, z); o.userData = ud || {}; col.add(o); return o; };
+  E('marker_gem_a', 5, 1, 0);
+  E('rail_gemline', 0, 0, 0, { grind_path_gltf: JSON.stringify([[-12, 3.2, 8], [12, 3.2, 8]]), gems: 4 });
+  E('marker_trampoline_t', 10, 0, -4, { radius: 2 });
+  E('lane_test', 0, 0, 0, { path_gltf: JSON.stringify([[-15, 0, 2], [15, 0, 2]]), half_width: 2, speed: 22, accel: 16 });
+  col.updateMatrixWorld(true);
+  const ox = -300, oy = 80, oz = -300, at = new THREE.Matrix4().makeTranslation(ox, oy, oz);
+  const g0 = rg.GEM.list.length, b0 = rg.ORB.bounce.length, l0 = rg.ORB.lanes.length, r0 = rg.PATHS.length;
+  const st = rg.levelIngest(null, col, at, 'lk');
+  say('a marker_gem_ and a rail_ with gems: 4 string gems', rg.GEM.list.length - g0 >= 6 && !!rg.GEM.mesh && rg.GEM.mesh.count === rg.GEM.list.length, `${rg.GEM.list.length - g0} gems, mesh holds ${rg.GEM.mesh ? rg.GEM.mesh.count : 0}`);
+  const rp = rg.PATHS.slice(r0).find(q => /gemline/.test(q.name));
+  say('the rail line grinds where it was drawn', !!rp && Math.abs(rp.segs[0].a.y - (oy + 3.2)) < 0.01, rp ? `y ${fix(rp.segs[0].a.y)}` : 'none');
+  say('a marker_trampoline_ and a lane_ are registered', rg.ORB.bounce.length === b0 + 1 && rg.ORB.lanes.length === l0 + 1, `trampolines +${rg.ORB.bounce.length - b0}, lanes +${rg.ORB.lanes.length - l0}`);
+  // the trampoline throws her up
+  place(ox + 10, oy, oz - 4, 0, 0); let vy = 0; run(0.3, () => { rg.stepCity(DT); vy = Math.max(vy, P.vel.y); });
+  say('  standing on the trampoline throws her up', vy > rg.ORB.bounceV * 0.8, `vy ${fix(vy, 1)} (bounceV ${rg.ORB.bounceV})`);
+  // the lane pushes her along it
+  place(ox - 12, oy, oz + 2, Math.PI / 2, 6); run(1.2, () => rg.stepCity(DT)); const vLane = Math.hypot(P.vel.x, P.vel.z);
+  place(ox - 12, oy, oz + 8.5, Math.PI / 2, 6); run(1.2, () => rg.stepCity(DT)); const vOff = Math.hypot(P.vel.x, P.vel.z);
+  say('  the lane pushes her toward its speed', vLane > vOff + 4 && vLane > 12, `on ${fix(vLane, 1)} m/s, beside it ${fix(vOff, 1)}`);
+  // the roof edge is a lip with no rail authored
+  const lips = rg.lipEdges(ox + 3, oz - 12, 1.5, oy + 3, oy + 5, 0.5);
+  say('a bld_ roof edge is a grindable lip (no rail authored)', lips.some(e => Math.abs(e.a[1] - (oy + 4)) < 0.05 && Math.abs(e.b[1] - (oy + 4)) < 0.05), `${lips.length} lip edges, at y ${lips.map(e => fix(e.a[1])).join(' ')}`);
+  // the gem is collected
+  const gi = rg.GEM.list.findIndex((q, i) => i >= g0 && Math.abs(q.x - (ox + 5)) < 0.01); const got0 = rg.GEM.got;
+  place(ox + 5, oy, oz - 3, 0, 4); run(1.2, () => rg.stepCity(DT));
+  say('  skating through the gem picks it up', gi >= 0 && rg.GEM.list[gi].got && rg.GEM.got > got0, `got ${rg.GEM.got - got0}`);
+  console.log(`  ingest: ${JSON.stringify(st)}`);
+  return ok;
+};
 CASES.ctrl = async () => {
   let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(52)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
   rg.CTRL.map = 2; const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -3329,6 +3367,12 @@ CASES.kit = async () => {
       `${st.fn} built; qp deck at ${fix(d1.floor)} (H ${S.H}), behind its toe ${fix(d0.floor)}; corner deck ${fix(d2.floor)} (H ${Sl.H})`);
     const pc = K.pieces[n0]; go(pc, -12, 0, 0, Math.sqrt(2 * g * (S.H + 1.2)) + 1); const r = ride(5);
     say('  and the rebuilt one rides like the gallery one', r.top > S.H + 0.25 && !r.falls && !r.bail, `${fix(r.top - S.H)} m over its coping`); }
+  // 13b. r83: AN OPTION GIVEN AS JSON TEXT (the easy way to write a path or a list as a Blender custom property) is parsed
+  { const root = new THREE.Group(), n0 = K.pieces.length;
+    const c = new THREE.Object3D(); c.name = 'fn_frustum_S_json'; c.userData = { banks: '[1, 0, 1, 0]', len: 7 }; c.position.set(120, 0, -412); root.add(c);
+    root.updateMatrixWorld(true); rg.levelIngest(null, root, new THREE.Matrix4(), 'fnjson');
+    const pc = K.pieces[n0], bk = pc && pc.o.banks;
+    say('fn_ option as JSON text arrives as the list it spells', Array.isArray(bk) && bk.join() === '1,0,1,0' && pc.o.len === 7, pc ? JSON.stringify(pc.o) : 'not built'); }
   // 14. THE EXPORT ROUND TRIP: `npm run export kit` written, parsed back through the vendored GLTFLoader, and handed to the
   //     shipped levelIngest TURNED 180 AND MOVED -- every piece has to come back the same kind, size and options, and
   //     every raised floor of the gallery has to be at the same height at the matching point of the copy. This is the

@@ -52,6 +52,9 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 (0, eval)(stubs);
 // r64: the export is of the world this file builds, not of his zones. r66: `npm run export kit` is the ramp kit instead.
 const KITMODE = process.argv[2] === 'kit';
+// r83: `npm run export:lib` -- the gallery ALONE (every kind at every size, no example parks), into `handoff/`, as the
+// piece library a Blender session duplicates from. The full kit with both parks is 18 MB; the library is the part to hand over.
+const LIBMODE = KITMODE && process.argv[3] === 'lib';
 globalThis.localStorage.setItem('rg.world', KITMODE ? '2' : '0');
 if (KITMODE) globalThis.__kitKeep = 1;     // each piece keeps a copy of its own triangles to be written out
 
@@ -112,6 +115,7 @@ if (KITMODE) {
   const root = W.node('ramp_kit', null), cnt = {}, park = W.node('example_park', null), zones = {};
   const zoneOf = z => zones[z] != null ? zones[z] : (zones[z] = W.node('park_' + z.replace(/[^a-z0-9]+/gi, '_'), park));
   for (const pc of K.pieces) {
+    if (LIBMODE && pc.park) continue;
     const T = pc.T, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
     const toLocal = (X, Y, Z) => { const dx = X - T.x, dz = Z - T.z; return [dx * fz - dz * fx, Y - T.y, dx * fx + dz * fz]; };
     const n = cnt[pc.kind + pc.size] = (cnt[pc.kind + pc.size] || 0) + 1, name = `fn_${pc.kind}_${pc.size}_${n}`;
@@ -156,10 +160,12 @@ if (KITMODE) {
       W.node(gn, ni, { mesh: W.J.meshes.length - 1, extras: { part_of: name, info: { boost: R.boost, closed: !!R.closed } } }); });
     spec.push({ name, park: pc.park || undefined, ...extras, at: [+T.x.toFixed(2), +T.y.toFixed(2), +T.z.toFixed(2)], yaw_deg: Math.round(T.yaw * 180 / Math.PI) });
   }
-  const sz = W.write(`${OUT}/rollergirl_kit.glb`);
-  fs.writeFileSync(`${OUT}/rollergirl_kit.json`, JSON.stringify({ sizes: Object.fromEntries(Object.entries(rg.KSZ).map(([k, v]) => [k, { H: v.H, r: +v.r.toFixed(3), lip: +v.lip.toFixed(3), sweep_deg: Math.round(v.sweep * 180 / Math.PI) }])),
+  const base = LIBMODE ? 'handoff/rollergirl_kit_library' : `${OUT}/rollergirl_kit`;
+  if (LIBMODE) fs.mkdirSync('handoff', { recursive: true });
+  const sz = W.write(`${base}.glb`);
+  fs.writeFileSync(`${base}.json`, JSON.stringify({ sizes: Object.fromEntries(Object.entries(rg.KSZ).map(([k, v]) => [k, { H: v.H, r: +v.r.toFixed(3), lip: +v.lip.toFixed(3), sweep_deg: Math.round(v.sweep * 180 / Math.PI) }])),
     width: K.W, deck: K.deck, coping: K.cope, rail_step: 1.2, pieces: spec }, null, 1));
-  console.log(`kit: ${K.pieces.length} pieces -> ${OUT}/rollergirl_kit.glb (${(sz / 1e6).toFixed(2)} MB) + ${OUT}/rollergirl_kit.json`);
+  console.log(`kit: ${spec.length} pieces -> ${base}.glb (${(sz / 1e6).toFixed(2)} MB) + ${base}.json`);
   process.exit(0);
 }
 

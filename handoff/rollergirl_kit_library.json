@@ -1,0 +1,3393 @@
+{
+ "sizes": {
+  "S": {
+   "H": 1.2,
+   "r": 1.824,
+   "lip": 1.714,
+   "sweep_deg": 70
+  },
+  "M": {
+   "H": 2.4,
+   "r": 2.904,
+   "lip": 2.86,
+   "sweep_deg": 80
+  },
+  "L": {
+   "H": 3.6,
+   "r": 3.944,
+   "lip": 3.929,
+   "sweep_deg": 85
+  },
+  "XL": {
+   "H": 4.8,
+   "r": 4.974,
+   "lip": 4.971,
+   "sweep_deg": 88
+  },
+  "XXL": {
+   "H": 7.2,
+   "r": 7.46,
+   "lip": 7.456,
+   "sweep_deg": 88
+  },
+  "MEGA": {
+   "H": 9.6,
+   "r": 9.947,
+   "lip": 9.941,
+   "sweep_deg": 88
+  }
+ },
+ "width": 4,
+ "deck": 1.5,
+ "coping": 0.3,
+ "rail_step": 1.2,
+ "pieces": [
+  {
+   "name": "fn_qp_S_1",
+   "fn": "qp",
+   "size": "S",
+   "label": "QP S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     3.21
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -66,
+    0,
+    0
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qp_M_1",
+   "fn": "qp",
+   "size": "M",
+   "label": "QP M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     4.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -22,
+    0,
+    0
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qp_L_1",
+   "fn": "qp",
+   "size": "L",
+   "label": "QP L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     5.43
+    ],
+    "top": 3.6
+   },
+   "at": [
+    22,
+    0,
+    0
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qp_XL_1",
+   "fn": "qp",
+   "size": "XL",
+   "label": "QP XL",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     6.47
+    ],
+    "top": 4.8
+   },
+   "at": [
+    66,
+    0,
+    0
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpIn_S_1",
+   "fn": "qpIn",
+   "size": "S",
+   "label": "QP S inside corner",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4.71,
+     4.71
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -66,
+    0,
+    34
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpIn_M_1",
+   "fn": "qpIn",
+   "size": "M",
+   "label": "QP M inside corner",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5.86,
+     5.86
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -22,
+    0,
+    34
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpIn_L_1",
+   "fn": "qpIn",
+   "size": "L",
+   "label": "QP L inside corner",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6.93,
+     6.93
+    ],
+    "top": 3.6
+   },
+   "at": [
+    22,
+    0,
+    34
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpIn_XL_1",
+   "fn": "qpIn",
+   "size": "XL",
+   "label": "QP XL inside corner",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     7.97,
+     7.97
+    ],
+    "top": 4.8
+   },
+   "at": [
+    66,
+    0,
+    34
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpOut_S_1",
+   "fn": "qpOut",
+   "size": "S",
+   "label": "QP S outside corner",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3.21,
+     3.21
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -66,
+    0,
+    66
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpOut_M_1",
+   "fn": "qpOut",
+   "size": "M",
+   "label": "QP M outside corner",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4.36,
+     4.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -22,
+    0,
+    66
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpOut_L_1",
+   "fn": "qpOut",
+   "size": "L",
+   "label": "QP L outside corner",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5.43,
+     5.43
+    ],
+    "top": 3.6
+   },
+   "at": [
+    22,
+    0,
+    66
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpOut_XL_1",
+   "fn": "qpOut",
+   "size": "XL",
+   "label": "QP XL outside corner",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6.47,
+     6.47
+    ],
+    "top": 4.8
+   },
+   "at": [
+    66,
+    0,
+    66
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_halfpipe_M_1",
+   "fn": "halfpipe",
+   "size": "M",
+   "flat": 6,
+   "len": 12,
+   "label": "half pipe M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12,
+     14.72
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -66,
+    0,
+    100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_pool_M_1",
+   "fn": "pool",
+   "size": "M",
+   "flat": 6,
+   "len": 8,
+   "label": "pool M (capped ends)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     22.72,
+     14.72
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -22,
+    0,
+    100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bowl_M_1",
+   "fn": "bowl",
+   "size": "M",
+   "rc": 4,
+   "label": "round bowl M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     16.72,
+     16.72
+    ],
+    "top": 2.4
+   },
+   "at": [
+    22,
+    0,
+    100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bowl_L_1",
+   "fn": "bowl",
+   "size": "L",
+   "rc": 5,
+   "label": "round bowl L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     20.86,
+     20.86
+    ],
+    "top": 3.6
+   },
+   "at": [
+    66,
+    0,
+    100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_pipeL_M_1",
+   "fn": "pipeL",
+   "size": "M",
+   "flat": 6,
+   "leg": 8,
+   "label": "L-pipe M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     22.72,
+     22.72
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -66,
+    0,
+    150
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_pipeT_M_1",
+   "fn": "pipeT",
+   "size": "M",
+   "flat": 6,
+   "len": 30,
+   "leg": 10,
+   "label": "T-pipe M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     30,
+     24.72
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -22,
+    0,
+    150
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_halfpipe_L_1",
+   "fn": "halfpipe",
+   "size": "L",
+   "flat": 7,
+   "len": 12,
+   "label": "half pipe L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12,
+     17.86
+    ],
+    "top": 3.6
+   },
+   "at": [
+    22,
+    0,
+    150
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_halfpipe_XL_1",
+   "fn": "halfpipe",
+   "size": "XL",
+   "flat": 8,
+   "len": 12,
+   "label": "half pipe XL",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12,
+     20.94
+    ],
+    "top": 4.8
+   },
+   "at": [
+    66,
+    0,
+    150
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bankDeck_S_1",
+   "fn": "bankDeck",
+   "size": "S",
+   "label": "bank S + platform S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     6.57
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -66,
+    0,
+    200
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bankDeck_M_1",
+   "fn": "bankDeck",
+   "size": "M",
+   "label": "bank M + platform M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     9.15
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -22,
+    0,
+    200
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bankDeck_L_1",
+   "fn": "bankDeck",
+   "size": "L",
+   "label": "bank L + platform L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     11.72
+    ],
+    "top": 3.6
+   },
+   "at": [
+    22,
+    0,
+    200
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bankDeck_XL_1",
+   "fn": "bankDeck",
+   "size": "XL",
+   "label": "bank XL + platform XL",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     14.29
+    ],
+    "top": 4.8
+   },
+   "at": [
+    66,
+    0,
+    200
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rollin_L_1",
+   "fn": "rollin",
+   "size": "L",
+   "label": "roll-in L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     20.34
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -88,
+    0,
+    236
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rollin_XL_1",
+   "fn": "rollin",
+   "size": "XL",
+   "r": 5,
+   "label": "roll-in XL",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     25.36
+    ],
+    "top": 4.8
+   },
+   "at": [
+    -44,
+    0,
+    236
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_spine_S_1",
+   "fn": "spine",
+   "size": "S",
+   "label": "spine S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     4.81
+    ],
+    "top": 1.2
+   },
+   "at": [
+    0,
+    0,
+    236
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_spine_M_1",
+   "fn": "spine",
+   "size": "M",
+   "label": "spine M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     5.92
+    ],
+    "top": 2.4
+   },
+   "at": [
+    44,
+    0,
+    236
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_spine_L_1",
+   "fn": "spine",
+   "size": "L",
+   "label": "spine L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     8.06
+    ],
+    "top": 3.6
+   },
+   "at": [
+    88,
+    0,
+    236
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_kicker_S_1",
+   "fn": "kicker",
+   "size": "S",
+   "label": "kicker S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     1.74
+    ],
+    "top": 0.6
+   },
+   "at": [
+    -110,
+    0,
+    276
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_kicker_M_1",
+   "fn": "kicker",
+   "size": "M",
+   "label": "kicker M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     3.49
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -66,
+    0,
+    276
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_kicker_L_1",
+   "fn": "kicker",
+   "size": "L",
+   "label": "kicker L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     5.23
+    ],
+    "top": 1.8
+   },
+   "at": [
+    -22,
+    0,
+    276
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_launch_S_1",
+   "fn": "launch",
+   "size": "S",
+   "label": "launch S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3,
+     2.08
+    ],
+    "top": 1.2
+   },
+   "at": [
+    22,
+    0,
+    276
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_table_M_1",
+   "fn": "table",
+   "size": "M",
+   "label": "table-top M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     13.16
+    ],
+    "top": 1.2
+   },
+   "at": [
+    66,
+    0,
+    276
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_gap_M_1",
+   "fn": "gap",
+   "size": "M",
+   "gap": 5,
+   "label": "gap M (5 m)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     16.86
+    ],
+    "top": 1.44
+   },
+   "at": [
+    110,
+    0,
+    276
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_frustum_S_1",
+   "fn": "frustum",
+   "size": "S",
+   "len": 6,
+   "w": 4,
+   "banks": [
+    1,
+    1,
+    0,
+    0
+   ],
+   "label": "funbox S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     11.15
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -88,
+    0,
+    312
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_frustum_M_1",
+   "fn": "frustum",
+   "size": "M",
+   "len": 4,
+   "w": 4,
+   "banks": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "label": "pyramid M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.29,
+     14.29
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -44,
+    0,
+    312
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_frustum_M_2",
+   "fn": "frustum",
+   "size": "M",
+   "len": 4,
+   "w": 4,
+   "banks": [
+    1,
+    0,
+    1,
+    0
+   ],
+   "label": "hip M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     9.15,
+     9.15
+    ],
+    "top": 2.4
+   },
+   "at": [
+    0,
+    0,
+    312
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_loop360_M_1",
+   "fn": "loop360",
+   "size": "M",
+   "label": "loop 360",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     20
+    ],
+    "top": 7,
+    "rails": 1
+   },
+   "at": [
+    44,
+    0,
+    312
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_loop180_M_1",
+   "fn": "loop180",
+   "size": "M",
+   "label": "loop 180 (Immelmann)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     20
+    ],
+    "top": 7,
+    "rails": 1
+   },
+   "at": [
+    88,
+    0,
+    312
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_rail_S_1",
+   "fn": "rail",
+   "size": "S",
+   "label": "rail S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     8
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -110,
+    0,
+    -100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rail_M_1",
+   "fn": "rail",
+   "size": "M",
+   "label": "rail M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     8
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -66,
+    0,
+    -100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rail_L_1",
+   "fn": "rail",
+   "size": "L",
+   "label": "rail L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     8
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      0,
+      3.6,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -22,
+    0,
+    -100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rail_XL_1",
+   "fn": "rail",
+   "size": "XL",
+   "label": "rail XL",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     8
+    ],
+    "top": 4.8,
+    "out": {
+     "at": [
+      0,
+      4.8,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    22,
+    0,
+    -100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railDown_M_1",
+   "fn": "railDown",
+   "size": "M",
+   "label": "down rail M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     6
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      6
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    66,
+    0,
+    -100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railDown_L_1",
+   "fn": "railDown",
+   "size": "L",
+   "label": "down rail L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     6
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    110,
+    0,
+    -100
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railKink_M_1",
+   "fn": "railKink",
+   "size": "M",
+   "label": "kink rail M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     9
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      9
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -88,
+    0,
+    -145
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railCurve_M_1",
+   "fn": "railCurve",
+   "size": "M",
+   "label": "curve M 90 left",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     4.5
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      4,
+      2.4,
+      4
+     ],
+     "yaw_deg": 90
+    },
+    "rails": 1
+   },
+   "at": [
+    -44,
+    0,
+    -145
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railCurve_M_2",
+   "fn": "railCurve",
+   "size": "M",
+   "deg": 45,
+   "right": 1,
+   "label": "curve M 45 right",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     3.33
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      -1.172,
+      2.4,
+      2.828
+     ],
+     "yaw_deg": -45
+    },
+    "rails": 1
+   },
+   "at": [
+    0,
+    0,
+    -145
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railCurve_L_1",
+   "fn": "railCurve",
+   "size": "L",
+   "r": 6,
+   "label": "curve L 90 (r 6)",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     6.5
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      6,
+      3.6,
+      6
+     ],
+     "yaw_deg": 90
+    },
+    "rails": 1
+   },
+   "at": [
+    44,
+    0,
+    -145
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railS_M_1",
+   "fn": "railS",
+   "size": "M",
+   "label": "S-bend M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3.5,
+     10
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      3,
+      2.4,
+      10
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    88,
+    0,
+    -145
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rainbow_M_1",
+   "fn": "rainbow",
+   "size": "M",
+   "label": "rainbow M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     8
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -88,
+    0,
+    -190
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railRing_M_1",
+   "fn": "railRing",
+   "size": "M",
+   "label": "ring M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     8
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      0
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -44,
+    0,
+    -190
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_helix_M_1",
+   "fn": "helix",
+   "size": "M",
+   "label": "helix M (down a step)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     8
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      0
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    0,
+    0,
+    -190
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_railY_M_1",
+   "fn": "railY",
+   "size": "M",
+   "label": "Y junction M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     3.98,
+     10
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      10
+     ],
+     "yaw_deg": 0
+    },
+    "out2": {
+     "at": [
+      3.483,
+      2.4,
+      8.512
+     ],
+     "yaw_deg": 40
+    },
+    "rails": 2
+   },
+   "at": [
+    44,
+    0,
+    -190
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rail_M_2",
+   "fn": "rail",
+   "size": "M",
+   "boost": 14,
+   "len": 12,
+   "label": "booster rail M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     12
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      12
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    88,
+    0,
+    -190
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_pipe_M_1",
+   "fn": "pipe",
+   "size": "M",
+   "len": 12,
+   "label": "pipe M (straight)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.72,
+     12
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      0,
+      12
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -88,
+    0,
+    352
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_elbow_M_1",
+   "fn": "elbow",
+   "size": "M",
+   "label": "elbow M (left)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.72,
+     14.72
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      7.36,
+      0,
+      7.36
+     ],
+     "yaw_deg": 90
+    }
+   },
+   "at": [
+    -44,
+    0,
+    352
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_elbow_M_2",
+   "fn": "elbow",
+   "size": "M",
+   "right": 1,
+   "label": "elbow M (right)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.72,
+     14.72
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      -7.36,
+      0,
+      7.36
+     ],
+     "yaw_deg": -90
+    }
+   },
+   "at": [
+    0,
+    0,
+    352
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_tee_M_1",
+   "fn": "tee",
+   "size": "M",
+   "label": "tee M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     22.72,
+     20
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      0,
+      20
+     ],
+     "yaw_deg": 0
+    },
+    "out2": {
+     "at": [
+      15.36,
+      0,
+      10
+     ],
+     "yaw_deg": 90
+    }
+   },
+   "at": [
+    44,
+    0,
+    352
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_pipeEnd_M_1",
+   "fn": "pipeEnd",
+   "size": "M",
+   "label": "pipe end M (half bowl)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.72,
+     7.36
+    ],
+    "top": 2.4
+   },
+   "at": [
+    88,
+    0,
+    352
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_ledge_S_1",
+   "fn": "ledge",
+   "size": "S",
+   "h": 0.6,
+   "label": "ledge 0.6 m",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     8
+    ],
+    "top": 0.6,
+    "out": {
+     "at": [
+      0,
+      0.6,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -88,
+    0,
+    -235
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_ledge_S_2",
+   "fn": "ledge",
+   "size": "S",
+   "label": "ledge S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     1.2,
+     8
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      8
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    -44,
+    0,
+    -235
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_S_1",
+   "fn": "stairs",
+   "size": "S",
+   "label": "stairs S + rails",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     4.92
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      4.92
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    0,
+    0,
+    -235
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_M_1",
+   "fn": "stairs",
+   "size": "M",
+   "label": "stairs M + rails",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     6.84
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.841
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    44,
+    0,
+    -235
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_L_1",
+   "fn": "stairs",
+   "size": "L",
+   "label": "stairs L + rails",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     8.76
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      0,
+      3.6,
+      8.761
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    88,
+    0,
+    -235
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_elbow_M_3",
+   "fn": "elbow",
+   "size": "M",
+   "deg": 45,
+   "label": "elbow M 45",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.72,
+     14.72
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      2.156,
+      0,
+      5.204
+     ],
+     "yaw_deg": 45
+    }
+   },
+   "at": [
+    -198,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_elbow_M_4",
+   "fn": "elbow",
+   "size": "M",
+   "deg": 22.5,
+   "right": 1,
+   "label": "elbow M 22.5 (right)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.72,
+     14.72
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      -0.56,
+      0,
+      2.817
+     ],
+     "yaw_deg": -22.5
+    }
+   },
+   "at": [
+    -154,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_pipeAdapt_M_1",
+   "fn": "pipeAdapt",
+   "size": "M",
+   "to": "L",
+   "len": 10,
+   "label": "pipe adapter M > L",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     16.86,
+     10
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      0,
+      0,
+      10
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -110,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qpAdapt_M_1",
+   "fn": "qpAdapt",
+   "size": "M",
+   "to": "XL",
+   "w": 8,
+   "label": "QP adapter M > XL",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     6.47
+    ],
+    "top": 4.8
+   },
+   "at": [
+    -66,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_freeBowl_XL_1",
+   "fn": "freeBowl",
+   "size": "XL",
+   "R": 11,
+   "lobes": 2,
+   "amp": 0.2,
+   "deepAt": 0,
+   "label": "peanut bowl XL (deep end)",
+   "info": {
+    "H": 4.8,
+    "r": 4.974,
+    "lip": 4.971,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     32.4,
+     32.4
+    ],
+    "top": 4.8
+   },
+   "at": [
+    -22,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_squareBowl_M_1",
+   "fn": "squareBowl",
+   "size": "M",
+   "side": 10,
+   "rc": 3,
+   "label": "square bowl M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     18.72,
+     18.72
+    ],
+    "top": 2.4
+   },
+   "at": [
+    22,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_bridge_M_1",
+   "fn": "bridge",
+   "size": "M",
+   "len": 16,
+   "label": "bridge M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     16
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      16
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    66,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairs_M_2",
+   "fn": "stairs",
+   "size": "M",
+   "hubba": 1,
+   "label": "stairs M + hubbas",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5.4,
+     6.84
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6.841
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 2
+   },
+   "at": [
+    110,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_frustum_M_3",
+   "fn": "frustum",
+   "size": "M",
+   "len": 6,
+   "w": 5,
+   "banks": [
+    1,
+    1,
+    0,
+    0
+   ],
+   "rails": 1,
+   "label": "funbox M + rails",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     5,
+     16.29
+    ],
+    "top": 2.4,
+    "rails": 3
+   },
+   "at": [
+    154,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_berm_M_1",
+   "fn": "berm",
+   "size": "M",
+   "deg": 90,
+   "r": 8,
+   "label": "berm M 90",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     19.5,
+     19.5
+    ],
+    "top": 1.44,
+    "out": {
+     "at": [
+      8,
+      0,
+      8
+     ],
+     "yaw_deg": 90
+    }
+   },
+   "at": [
+    198,
+    0,
+    -340
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_L_1",
+   "fn": "wall",
+   "size": "L",
+   "closed": 1,
+   "face": "in",
+   "pts": [
+    [
+     9.98,
+     0
+    ],
+    [
+     10.14,
+     3.29
+    ],
+    [
+     8.44,
+     6.13
+    ],
+    [
+     5.65,
+     7.77
+    ],
+    [
+     2.88,
+     8.87
+    ],
+    [
+     0,
+     9.98
+    ],
+    [
+     -3.29,
+     10.14
+    ],
+    [
+     -6.13,
+     8.44
+    ],
+    [
+     -7.77,
+     5.65
+    ],
+    [
+     -8.87,
+     2.88
+    ],
+    [
+     -9.98,
+     0
+    ],
+    [
+     -10.14,
+     -3.29
+    ],
+    [
+     -8.44,
+     -6.13
+    ],
+    [
+     -5.65,
+     -7.77
+    ],
+    [
+     -2.88,
+     -8.87
+    ],
+    [
+     0,
+     -9.98
+    ],
+    [
+     3.29,
+     -10.14
+    ],
+    [
+     6.13,
+     -8.44
+    ],
+    [
+     7.77,
+     -5.65
+    ],
+    [
+     8.87,
+     -2.88
+    ]
+   ],
+   "rim": 3.6,
+   "H": [
+    3.6,
+    3.57,
+    3.49,
+    3.35,
+    3.19,
+    3,
+    2.81,
+    2.65,
+    2.51,
+    2.43,
+    2.4,
+    2.43,
+    2.51,
+    2.65,
+    2.81,
+    3,
+    3.19,
+    3.35,
+    3.49,
+    3.57
+   ],
+   "deck": 2.5,
+   "label": "bowl from a path L (4 lobes, 2.4 to 3.6 deep)",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     14.02,
+     14.37
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -154,
+    0,
+    -385
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_M_1",
+   "fn": "wall",
+   "size": "M",
+   "closed": 1,
+   "face": "in",
+   "pts": [
+    [
+     -12,
+     -4
+    ],
+    [
+     -6,
+     -7
+    ],
+    [
+     4,
+     -7
+    ],
+    [
+     12,
+     -3
+    ],
+    [
+     12,
+     4
+    ],
+    [
+     5,
+     7
+    ],
+    [
+     -2,
+     3
+    ],
+    [
+     -9,
+     7
+    ],
+    [
+     -13,
+     3
+    ]
+   ],
+   "deck": 2,
+   "outer": [
+    [
+     -17,
+     -12
+    ],
+    [
+     17,
+     -12
+    ],
+    [
+     17,
+     12
+    ],
+    [
+     -17,
+     12
+    ]
+   ],
+   "label": "kidney pool M, decked to a square",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     10.12,
+     20.39
+    ],
+    "top": 2.4
+   },
+   "at": [
+    -110,
+    0,
+    -385
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_L_2",
+   "fn": "wall",
+   "size": "L",
+   "face": "both",
+   "pts": [
+    [
+     -11,
+     -8
+    ],
+    [
+     -4,
+     -5
+    ],
+    [
+     4,
+     5
+    ],
+    [
+     11,
+     8
+    ]
+   ],
+   "smooth": 1,
+   "label": "S-spine L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     16,
+     22
+    ],
+    "top": 3.6
+   },
+   "at": [
+    -66,
+    0,
+    -385
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_S_1",
+   "fn": "wall",
+   "size": "S",
+   "face": "both",
+   "profile": "bank",
+   "top": 3,
+   "pts": [
+    [
+     -10,
+     8
+    ],
+    [
+     -10,
+     -1
+    ],
+    [
+     -6,
+     -7
+    ],
+    [
+     0,
+     -9
+    ],
+    [
+     6,
+     -7
+    ],
+    [
+     10,
+     -1
+    ],
+    [
+     10,
+     8
+    ]
+   ],
+   "smooth": 1,
+   "label": "horseshoe funbox S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     21.15,
+     28.84
+    ],
+    "top": 1.2
+   },
+   "at": [
+    -22,
+    0,
+    -385
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_L_3",
+   "fn": "wall",
+   "size": "L",
+   "face": [
+    0,
+    0
+   ],
+   "pts": [
+    [
+     2.26,
+     -12.8
+    ],
+    [
+     7.46,
+     -10.65
+    ],
+    [
+     11.26,
+     -6.5
+    ],
+    [
+     13,
+     0
+    ],
+    [
+     11.26,
+     6.5
+    ],
+    [
+     7.46,
+     10.65
+    ],
+    [
+     2.26,
+     12.8
+    ]
+   ],
+   "smooth": 1,
+   "deck": 3,
+   "label": "curved QP L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     18.28,
+     8.23
+    ],
+    "top": 3.6
+   },
+   "at": [
+    22,
+    0,
+    -385
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_wall_S_2",
+   "fn": "wall",
+   "size": "S",
+   "face": "both",
+   "profile": "box",
+   "H": 0.6,
+   "top": 1.4,
+   "pts": [
+    [
+     -11,
+     -5
+    ],
+    [
+     -4,
+     -6
+    ],
+    [
+     4,
+     6
+    ],
+    [
+     11,
+     5
+    ]
+   ],
+   "smooth": 1,
+   "label": "curved ledge 0.6",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12.58,
+     22
+    ],
+    "top": 0.6
+   },
+   "at": [
+    66,
+    0,
+    -385
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_deck_M_1",
+   "fn": "deck",
+   "size": "M",
+   "pts": [
+    [
+     -12,
+     -8
+    ],
+    [
+     4,
+     -8
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     12,
+     0
+    ],
+    [
+     12,
+     8
+    ],
+    [
+     -12,
+     8
+    ]
+   ],
+   "label": "deck M, any outline",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     16,
+     24
+    ],
+    "top": 2.4
+   },
+   "at": [
+    110,
+    0,
+    -385
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_walk_L_1",
+   "fn": "walk",
+   "size": "L",
+   "pts": [
+    [
+     -14,
+     -6,
+     0
+    ],
+    [
+     -5,
+     -6,
+     1.2
+    ],
+    [
+     3,
+     0,
+     2.4
+    ],
+    [
+     10,
+     7,
+     3.6
+    ],
+    [
+     14,
+     7,
+     3.6
+    ]
+   ],
+   "w": 4,
+   "rails": 1,
+   "smooth": 1,
+   "label": "walkway climbing to L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     13.65,
+     28
+    ],
+    "top": 3.6,
+    "rails": 2
+   },
+   "at": [
+    154,
+    0,
+    -385
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_terrain_M_1",
+   "fn": "terrain",
+   "size": "M",
+   "w": 24,
+   "d": 22,
+   "seed": 3,
+   "label": "terrain 24 x 22 (noise)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     24,
+     22
+    ],
+    "top": 1.43
+   },
+   "at": [
+    -110,
+    0,
+    -440
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_terrain_M_2",
+   "fn": "terrain",
+   "size": "M",
+   "w": 24,
+   "d": 22,
+   "seed": 7,
+   "amp": 0.35,
+   "amp2": 0.12,
+   "base": 0,
+   "bumps": [
+    [
+     11,
+     -5,
+     4.5,
+     2.6
+    ],
+    [
+     8,
+     6,
+     3,
+     -0.4
+    ],
+    [
+     15,
+     6,
+     3.5,
+     1.4
+    ]
+   ],
+   "label": "terrain: two hills (bumps)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     24,
+     22
+    ],
+    "top": 2.19
+   },
+   "at": [
+    -66,
+    0,
+    -440
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_terrace_M_1",
+   "fn": "terrace",
+   "size": "M",
+   "w": 8,
+   "label": "kerb terrace M (0.4 m tiers)",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     7.2
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      7.2
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    -22,
+    0,
+    -440
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_terrace_L_1",
+   "fn": "terrace",
+   "size": "L",
+   "w": 6,
+   "run": 0.9,
+   "label": "kerb terrace L",
+   "info": {
+    "H": 3.6,
+    "r": 3.944,
+    "lip": 3.929,
+    "sweep_deg": 85,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     6,
+     8.1
+    ],
+    "top": 3.6,
+    "out": {
+     "at": [
+      0,
+      3.6,
+      8.1
+     ],
+     "yaw_deg": 0
+    }
+   },
+   "at": [
+    22,
+    0,
+    -440
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_stairBank_M_1",
+   "fn": "stairBank",
+   "size": "M",
+   "label": "stairs M + bank",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     5.84
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      5.841
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    66,
+    0,
+    -440
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_island_S_1",
+   "fn": "island",
+   "size": "S",
+   "pts": [
+    [
+     0,
+     -6
+    ],
+    [
+     4,
+     -9
+    ],
+    [
+     10,
+     -8
+    ],
+    [
+     12,
+     -2
+    ],
+    [
+     9,
+     6
+    ],
+    [
+     2,
+     7
+    ]
+   ],
+   "trees": [
+    [
+     4,
+     -4
+    ],
+    [
+     8,
+     2
+    ]
+   ],
+   "label": "planted island",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     16,
+     12
+    ],
+    "top": 0.45
+   },
+   "at": [
+    110,
+    0,
+    -440
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qp_XXL_1",
+   "fn": "qp",
+   "size": "XXL",
+   "w": 8,
+   "label": "QP XXL",
+   "info": {
+    "H": 7.2,
+    "r": 7.46,
+    "lip": 7.456,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     8.96
+    ],
+    "top": 7.2
+   },
+   "at": [
+    -110,
+    0,
+    412
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_qp_MEGA_1",
+   "fn": "qp",
+   "size": "MEGA",
+   "w": 8,
+   "label": "QP MEGA",
+   "info": {
+    "H": 9.6,
+    "r": 9.947,
+    "lip": 9.941,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     8,
+     11.44
+    ],
+    "top": 9.6
+   },
+   "at": [
+    -66,
+    0,
+    412
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_halfpipe_XXL_1",
+   "fn": "halfpipe",
+   "size": "XXL",
+   "flat": 8,
+   "len": 12,
+   "label": "half pipe XXL",
+   "info": {
+    "H": 7.2,
+    "r": 7.46,
+    "lip": 7.456,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12,
+     25.91
+    ],
+    "top": 7.2
+   },
+   "at": [
+    -22,
+    0,
+    412
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_halfpipe_MEGA_1",
+   "fn": "halfpipe",
+   "size": "MEGA",
+   "flat": 10,
+   "len": 12,
+   "deck": 3,
+   "label": "half pipe MEGA",
+   "info": {
+    "H": 9.6,
+    "r": 9.947,
+    "lip": 9.941,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     12,
+     35.88
+    ],
+    "top": 9.6
+   },
+   "at": [
+    22,
+    0,
+    412
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_freeBowl_XXL_1",
+   "fn": "freeBowl",
+   "size": "XXL",
+   "R": 15,
+   "lobes": 3,
+   "amp": 0.2,
+   "shallow": 4,
+   "label": "clover bowl XXL",
+   "info": {
+    "H": 7.2,
+    "r": 7.46,
+    "lip": 7.456,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     42,
+     42
+    ],
+    "top": 7.2
+   },
+   "at": [
+    66,
+    0,
+    412
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rollin_MEGA_1",
+   "fn": "rollin",
+   "size": "MEGA",
+   "r": 8,
+   "label": "roll-in MEGA",
+   "info": {
+    "H": 9.6,
+    "r": 9.947,
+    "lip": 9.941,
+    "sweep_deg": 88,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     45.03
+    ],
+    "top": 9.6
+   },
+   "at": [
+    110,
+    0,
+    412
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "fn_rail_M_3",
+   "fn": "rail",
+   "size": "M",
+   "len": 6,
+   "label": "chain: rail M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     6
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      2.4,
+      6
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -60,
+    0,
+    -275
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_railCurve_M_3",
+   "fn": "railCurve",
+   "size": "M",
+   "label": "chain: railCurve M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     4.5
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      4,
+      2.4,
+      4
+     ],
+     "yaw_deg": 90
+    },
+    "rails": 1
+   },
+   "at": [
+    -54,
+    0,
+    -275
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_railDown_M_2",
+   "fn": "railDown",
+   "size": "M",
+   "label": "chain: railDown M",
+   "info": {
+    "H": 2.4,
+    "r": 2.904,
+    "lip": 2.86,
+    "sweep_deg": 80,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     6
+    ],
+    "top": 2.4,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      6
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -50,
+    0,
+    -279
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_rail_S_2",
+   "fn": "rail",
+   "size": "S",
+   "len": 4,
+   "label": "chain: rail S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     4
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      1.2,
+      4
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -50,
+    0,
+    -285
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_railCurve_S_1",
+   "fn": "railCurve",
+   "size": "S",
+   "right": 1,
+   "label": "chain: railCurve S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     4,
+     4.5
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      -4,
+      1.2,
+      4
+     ],
+     "yaw_deg": -90
+    },
+    "rails": 1
+   },
+   "at": [
+    -50,
+    0,
+    -289
+   ],
+   "yaw_deg": 180
+  },
+  {
+   "name": "fn_railKink_S_1",
+   "fn": "railKink",
+   "size": "S",
+   "label": "chain: railKink S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     9
+    ],
+    "top": 1.2,
+    "out": {
+     "at": [
+      0,
+      0.6,
+      9
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -46,
+    0,
+    -293
+   ],
+   "yaw_deg": 90
+  },
+  {
+   "name": "fn_rail_S_3",
+   "fn": "rail",
+   "size": "S",
+   "h": 0.6,
+   "len": 4,
+   "label": "chain: rail S",
+   "info": {
+    "H": 1.2,
+    "r": 1.824,
+    "lip": 1.714,
+    "sweep_deg": 70,
+    "deck": 1.5,
+    "footprint_w_by_u": [
+     0.5,
+     4
+    ],
+    "top": 0.6,
+    "out": {
+     "at": [
+      0,
+      0.6,
+      4
+     ],
+     "yaw_deg": 0
+    },
+    "rails": 1
+   },
+   "at": [
+    -37,
+    0,
+    -293
+   ],
+   "yaw_deg": 90
+  }
+ ]
+}

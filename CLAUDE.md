@@ -73,6 +73,8 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   whole. No draco (custom attributes), WebP textures. `models/props/prop_hydrant.glb` is his hydrant.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo.
+- `handoff/` — **the level-building brief for his Blender session (r83)**: `LEVEL_BUILDING.md`, `rollergirl_blender.py`,
+  and `rollergirl_kit_library.glb/.json` (regenerate with `npm run export:lib`; it IS committed, unlike `exports/`).
 - `tools/` — `syntax.mjs`, `boot.mjs`, `bump.mjs`, `sim.mjs`, `clips.mjs`, `export.mjs` (`npm run export`, the world as GLB for Blender; `npm run export:kit`, the ramp kit -- see `docs/RAMP_KIT.md`).
 - `icons/` — `npm run icons [art.png]` (`tools/icons.mjs`, City's tool, needs the `sharp` dev dependency)
   turns one square artwork (`icons/source.png`, his alien-on-skates art since r31) into the 180/167/152
@@ -90,6 +92,23 @@ way round. Measuring components made a six-frame stride and a static clip look i
 honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
+
+- **THE LEVEL-BUILDING HANDOFF IS `handoff/` (r83, `LEVEL_BUILDING.md`, `rollergirl_blender.py`, `npm run export:lib`).**
+  *"Bring the ramps kit and anything else we need for level building -- a deliverable for the other context window."*
+  The brief for his Blender session covers every name `levelIngest` reads. It comes with Blender helpers that write
+  those names (**never run inside Blender: there is none here**) and the kit's gallery alone as a 103-piece library
+  (8.4 MB; the full kit with both parks is 18.6). Answering *"grind on top of a roof"*: r71's lips already make every
+  roof, box and coping edge grindable on a swipe down, as long as the roof is in the collider at its drawn height.
+  - **Three names the engine had and the importer did not, added for it:**
+    - `marker_gem_` and `rail_` `gems: N`. **The gem mesh is one InstancedMesh sized at build, so an import rebuilds it.**
+      `gemStep` moved ABOVE `stepCity`'s `CITY.on` gate, or gems in a zones world are never stepped or collected.
+    - `marker_trampoline_`.
+    - `lane_` / `zone_boost_`, with `path_gltf`, `half_width`, `speed`, `accel`, `governed`. These are exactly the names
+      and extras `npm run export` already writes, so a world round trip keeps them.
+  - **An `fn_` option given as JSON text is parsed**: a nested list is awkward as a Blender custom property.
+  - `npm run sim levelkit` ingests all of it at y 80 and drives it: the trampoline throws her, the lane pushes her, the
+    gem is picked up, and the roof edge is a lip. **`run()` only steps the player**, so a case touching lanes, trampolines
+    or gems must call `rg.stepCity` itself; the first run read three FAILs for exactly that.
 
 - **THE PADS SWAP JOBS (r82, `CTRL.map` 2, `ctrl82`, `padWorld`, `CTRL.rotDelay`).** *"Make the right stick control
   rotation and flips; the left stick will now be the grabs as well. The left stick on the ground now does the melee
