@@ -60,6 +60,7 @@ if (!rg.ready()) { console.error('the module never became ready'); process.exit(
 // the semi-automatic catch and measures the grind itself -- rails, joints, boosters, loops -- so they run with it off.
 // `CASES.intent` is the one that drives the swipe.
 rg.GRIND.intent = 0;
+rg.CTRL.map = 1;      // r82: every case but `ctrl` was written against the old pad layout
 
 // ---- driving ----
 let DT = 1 / 60;   // a case may drop it: a phone is not 60 Hz and the gap between
@@ -1948,6 +1949,60 @@ CASES.boost = async () => {
   rg.stick.L.x = rg.stick.L.y = 0; rg.stick.L.down = 0; P.mel = null; rg.girl.ready = keepR;
   return ok;
 };
+// ---------------------------------------------------------------- r82: THE PADS SWAP JOBS (`CTRL.map` 2)
+// *"Right stick controls rotation and flips; left stick the grabs; left stick on the ground the melee; right stick the
+// speed boost; a flick down on the right stick switches fakie / regular."* Every gesture through the REAL pads and the
+// shipped bindings; the other cases run on `map` 1, the layout they were written against (a stated gap, `intent`'s rule).
+CASES.ctrl = async () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(52)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  rg.CTRL.map = 2; const wait = ms => new Promise(r => setTimeout(r, ms));
+  const keep = { m: rg.girl.moves, r: rg.girl.ready, lock: P.stanceLock };
+  rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves; rg.girl.ready = false; P.stanceLock = true;
+  const L = document.getElementById('stkL'), R = document.getElementById('stkR');
+  const ev = (el, id) => (type, x, y) => ({ type, pointerId: id, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: el });
+  const eL = ev(L, 61), eR = ev(R, 62);
+  // `frames`: game time run while the thumb is across the pad, as a real flick spans several frames
+  const flick = async (e, el, dx, dy, frames) => { await wait(160); el.dispatchEvent(e('pointerdown', 150, 150)); el.dispatchEvent(e('pointermove', 150 + dx, 150 + dy));
+    if (frames) run(frames); await wait(30); el.dispatchEvent(e('pointerup', 150 + dx, 150 + dy)); };
+  const ground = (v) => { place(60, 1, -60, 0, v || 6); P.rHold = 0; P.lDown = 0; P.boostT = 0; P.boostCool = 0; P.mel = null; P.melQ = null; P.flip = null; P.stance = 1; rg.cam.az = 0; };
+  const air = () => { ground(6); P.grounded = false; P.coyote = 0; P.pos.y += 7; P.vel.y = 2; P.airT = 0.3; };
+  // GROUND
+  ground(); await flick(eR, R, 0, -70); say('ground, RIGHT flick up: the boost', P.boostT > 0 && !P.mel, `boostT ${fix(P.boostT || 0, 2)}`);
+  ground(); await flick(eR, R, 0, 70); say('ground, RIGHT flick down: switch to fakie', P.stance === -1, `stance ${P.stance}`);
+  await flick(eR, R, 0, 70); say('...and again: back to regular', P.stance === 1, `stance ${P.stance}`);
+  ground(); await flick(eL, L, 0, 70); say('ground, LEFT flick down: the slide tackle', P.mel && P.mel.kind === 'slide', P.mel ? P.mel.kind : 'nothing');
+  ground(); await flick(eL, L, 70, 0); say('ground, LEFT flick sideways: a strike', P.mel && P.mel.kind === 'strike', P.mel ? P.mel.kind : 'nothing');
+  ground(); await flick(eL, L, 0, -70); say('ground, LEFT flick up: a strike (no boost on the left now)', P.mel && P.mel.kind === 'strike' && !(P.boostT > 0), P.mel ? P.mel.kind : 'nothing');
+  // up the half pipe's wall the right swipe up is still the transfer
+  place(0, 3, 29, 0, 13); rg.cam.az = 0; P.xferArm = 0; { let st = false; for (let i = 0; i < 180 && !st; i++) { rg.stepPlayer(DT); st = P.grounded && P.n.y < 0.6; }
+    await flick(eR, R, 0, -70); say('on the pipe wall, RIGHT flick up: still the transfer', st && P.xferArm > 0 && !(P.boostT > 0), st ? (P.xferArm > 0 ? 'armed' : 'not armed') : 'never reached the wall'); }
+  // AIR
+  for (const [dx, dy, want] of [[0, -70, 'up'], [0, 70, 'down'], [70, 0, 'right'], [-70, 0, 'left']]) {
+    air(); const h0 = P.heading; await flick(eR, R, dx, dy, 0.15);
+    say(`air, RIGHT flick ${want}: a flip, and no spin from the flick`, P.flip && P.flip.dir === want && Math.abs(rg.wrapAngle(P.heading - h0)) < 0.05, `${P.flip ? P.flip.dir + ' flip' : 'nothing'}, turned ${fix(rg.wrapAngle(P.heading - h0) * 57.3, 1)} deg`); }
+  // a flick DOWN with a rail in reach is r81's dive at it, not a back flip
+  { rg.GRIND.intent = 1; const R0 = rg.PATHS.find(Q => Q.name === 'park'), bar = R0.segs[0].a.y; air(); P.pos.set(-37, bar + 5, -3); P.vel.set(0, 2, 6); P.grindWant = 0; P.grindCool = 0; P.grindLast = null;
+    await flick(eR, R, 0, 70); let got = null; run(1.5, () => { if (P.grind && !got) got = P.grind.rail.path; });
+    say('air over rail 0, RIGHT flick down: the dive onto it', !P.flip && got === R0, got === R0 ? 'grinding rail 0' : (P.flip ? 'a back FLIP' : 'no grind')); rg.GRIND.intent = 0; }
+  air(); await flick(eL, L, 70, 0); say('air, LEFT flick: the air strike', P.mel && P.mel.kind === 'strike' && !P.flip, P.mel ? P.mel.kind : (P.flip ? 'a FLIP' : 'nothing'));
+  // the RIGHT thumb HELD turns her to point where it points; the left held is a grab and pushes her nowhere
+  air(); P.vel.y = 8; R.dispatchEvent(eR('pointerdown', 150, 150)); R.dispatchEvent(eR('pointermove', 210, 150));
+  const want = Math.atan2(rg.padWorld(rg.stick.R).x, rg.padWorld(rg.stick.R).z); run(0.6, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+  R.dispatchEvent(eR('pointerup', 210, 150));
+  say('air, RIGHT thumb held to the side: she turns to it', Math.abs(rg.wrapAngle(P.heading - want)) < 0.1, `${fix(rg.wrapAngle(P.heading - want) * 57.3, 1)} deg off the thumb`);
+  air(); P.vel.y = 8; const hv0 = Math.hypot(P.vel.x, P.vel.z); let grab = null;
+  L.dispatchEvent(eL('pointerdown', 150, 150)); L.dispatchEvent(eL('pointermove', 150, 90));
+  run(0.5, () => { if (P.grab && !grab) grab = P.grab.k; }); L.dispatchEvent(eL('pointerup', 150, 90));
+  const hv1 = Math.hypot(P.vel.x, P.vel.z);
+  say('air, LEFT thumb held up: the up grab, and no thrust', grab === 'up' && Math.abs(hv1 - hv0) < 0.2, `grab ${grab || 'NONE'}, speed ${fix(hv0, 1)} -> ${fix(hv1, 1)}`);
+  // and back on `map` 1 the left thumb still carries her, which says the test can tell the two apart
+  rg.CTRL.map = 1; air(); P.vel.y = 8; P.lHold = 0; L.dispatchEvent(eL('pointerdown', 150, 150)); L.dispatchEvent(eL('pointermove', 150, 90));
+  run(0.5); L.dispatchEvent(eL('pointerup', 150, 90)); const hv2 = Math.hypot(P.vel.x, P.vel.z); rg.CTRL.map = 2;
+  say('...on the old layout the same hold pushes her', hv2 > hv0 + 0.5, `speed ${fix(hv0, 1)} -> ${fix(hv2, 1)}`);
+  rg.stick.L.x = rg.stick.L.y = rg.stick.R.x = rg.stick.R.y = 0; rg.stick.L.down = rg.stick.R.down = 0;
+  rg.girl.moves = keep.m; rg.girl.ready = keep.r; P.stanceLock = keep.lock; P.mel = null; P.flip = null; P.grab = null; rg.CTRL.map = 1;
+  return ok;
+};
 CASES.vertair = () => {
   let ok = true; const D = 180 / Math.PI;
   const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep) + rg.PARK.cope;
@@ -3636,7 +3691,7 @@ for (const k of Object.keys(CASES)) {
     process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
-  try { rg.GRIND.intent = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
+  try { rg.GRIND.intent = 0; rg.CTRL.map = 1; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
   if (!ok) { fail++; console.log('  -> FAIL'); }
 }
 console.log(fail ? `\n${fail} case(s) failed` : '\nall cases pass');

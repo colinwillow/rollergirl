@@ -91,6 +91,30 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE PADS SWAP JOBS (r82, `CTRL.map` 2, `ctrl82`, `padWorld`, `CTRL.rotDelay`).** *"Make the right stick control
+  rotation and flips; the left stick will now be the grabs as well. The left stick on the ground now does the melee
+  options, and the right stick does the speed boost -- and a flick down on the right stick switches fakie / regular."*
+      ground  LEFT flick: down = slide, any other way = a strike that way; tap = swivel (kept); hold = steer
+              RIGHT flick up = boost (on a vert face it is still r81's transfer); down = switch stance; tap = jump;
+              drag = camera
+      air     RIGHT hold = rotate (she points where the thumb points, `AIR.aim`'s rule on the other pad); flick = flip
+              (up front, down back, sides twists), EXCEPT a flick down with a rail or ledge in reach, which is r81's
+              dive; tap in the coyote moment = jump
+              LEFT hold = grab by direction (held down over a ramp = the settle, r56's split); flick = air strike;
+              **no air thrust any more** -- the left thumb is the grabs
+      rail    unchanged
+  - **Two collisions, decided rather than asked:** the ground swipe-down hop onto a rail (r71) gives way to the stance
+    switch (jump, then dive), and the open-air dive with nothing in reach (r81) gives way to the back flip.
+  - **r74's dash is retired under `map` 2** (ground swipe up is the boost, air swipe up is the front flip).
+  - **`rotDelay` 0.18 s IS LOAD-BEARING.** A flick crosses the pad over several frames. Without the delay the right
+    thumb turned her 90-120 deg mid-flick and the flip read off the turned body came out the wrong one. Revert-tested
+    by setting it to 0.
+  - `map` 1 is every layout before this, on the panel. **Every sim case but `ctrl` runs on `map` 1** (set per case,
+    `intent`'s rule): they were written against the old pads. A stated gap, not a silent one. `npm run sim ctrl` drives
+    the new map through the real pads, including that the old map's left hold still pushes her.
+  - **A harness that `place`s her does not run a frame, so `p.rHold` from the previous row survives**: the first flip
+    rows read 84-107 deg of spin that no player could produce. Rows reset `rHold`/`lDown`.
+
 - **THE SWIPE UP IS THE WAY OUT OF A PIPE AGAIN; A TAP ON VERT GOES STRAIGHT UP AND BACK DOWN (r81, `VERT.swipeXfer`,
   `tapXferOn`).** *"I'm gonna switch it back so that swiping up on the right stick is how you launch off. At the top of a
   vert ramp tapping goes back to just jumping straight up and coming back down."* This undoes r74's swap.

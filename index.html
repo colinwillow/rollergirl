@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r81</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r82</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r81';
+const BUILD = 'r82';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -8863,6 +8863,10 @@ for (const t of ['touchstart', 'touchend', 'touchcancel'])
 bindStick(document.getElementById('stkL'), stick.L, null, (dx, dy) => {
   // r39: ON THE GROUND THE LEFT FLICK IS THE SLIDE TACKLE (Zap's `slide_kick`), along her travel.
   // r80: ...a flick DOWN (or sideways) is; a flick UP is the BOOST.
+  // r82: THE LEFT PAD IS THE MELEE -- a flick down the slide, any other way a strike that way; in the air the air strike
+  if (ctrl82() && !player.grind) { const down = dy > 0 && dy > Math.abs(dx), w = flickWorld(dx, dy);
+    const ok = player.grounded ? (down ? meleeSlide() : meleeStrike(w.x, w.z)) : meleeStrike(w.x, w.z);
+    if (ok) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
   if (player.grounded && !player.grind) { const up = dy < 0 && -dy > Math.abs(dx);
     if (up ? boostGo() : meleeSlide()) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
   // r46: ON A RAIL THE LEFT FLICK PICKS A TRICK GRIND by its direction
@@ -8914,6 +8918,13 @@ function stickWorld() {
   const sa = Math.sin(az), ca = Math.cos(az);
   let dx = -ly * sa - lx * ca, dz = -ly * ca + lx * sa; const d = Math.hypot(dx, dz) || 1;
   return { x: dx / d, z: dz / d, mag: Math.pow(clamp((mag - SK.dead) / (1 - SK.dead), 0, 1), SK.curve) };
+}
+
+// r82: the RIGHT pad as a world direction, through the lens (it never steers on the ground, so no steering frame)
+function padWorld(S) {
+  const mag = Math.min(1, Math.hypot(S.x, S.y)); if (mag < SK.dead) return { x: 0, z: 0, mag: 0 };
+  const sa = Math.sin(cam.az), ca = Math.cos(cam.az), dx = -S.y * sa - S.x * ca, dz = -S.y * ca + S.x * sa, d = Math.hypot(dx, dz) || 1;
+  return { x: dx / d, z: dz / d, mag: clamp((mag - SK.dead) / (1 - SK.dead), 0, 1) };
 }
 
 // ---------- her, moving ----------
@@ -9004,6 +9015,20 @@ const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turn
 // ramp (a face steeper than `n`) or within `win` of leaving one adds `add` m/s along the way she is going -- up the face,
 // or along her flight -- once per ramp, never past `cap`. On the flat a swipe up is still a strike.
 const DASH = { on: 1, n: 0.95, win: 0.5, add: 4.5, cap: 30, fx: 0.45 };
+// r82: THE PADS SWAP JOBS. *"Let's make the right stick control rotation and flips; the left stick will now be the grabs
+// as well. The left stick on the ground now does the melee options, and the right stick now does the speed boost -- and
+// a flick down on the right stick switches from fakie to regular, regular to fakie."* `map` 2:
+//            LEFT PAD                                       RIGHT PAD
+//   ground   steer (hold) . FLICK = melee: down the slide,   tap jump . drag camera . FLICK UP = boost (on a vert
+//            any other way a strike that way . tap swivel    face: the transfer) . FLICK DOWN = switch stance
+//   air      HOLD = grab by direction (held down over a       tap (coyote) jump . HOLD = rotate (she points where the
+//            ramp: the settle) . FLICK = air strike           thumb points) . FLICK = flip (up front, down back, sides
+//                                                             twists) -- down at a rail or ledge in reach is the dive
+//   rail     tap side switch . flick trick grind             tap off . flick up transfer, others trick grinds
+// `rotDelay`: how long the right thumb has to be down before it turns her, so a flick (a flip) does not also spin her
+// on its way across the pad. A NEW key, so the panel can switch back to `map` 1, every layout before this one.
+const CTRL = { map: 2, rotDelay: 0.18 };
+const ctrl82 = () => CTRL.map > 1.5;
 // r80: THE BOOST. *"Instead of the slide tackle being a flick up on the left stick, make it a flick down -- and a flick forward
 // or up on the left stick is the boost. It needs to be a visual thing: she goes into her speed skate, the fast hard pump, a
 // subtle camera effect, particle trails off her hands and skates so you can really tell she is boosting -- and I want it to
@@ -9440,28 +9465,32 @@ function stepAir(dt) {
   // It only TAKES OVER once the thumb has moved: a thumb still held from the run-up (forward, up a pipe) would
   // otherwise pin her nose and cancel the vert air's automatic 180. Released and pressed again counts as moved.
   let thrust = 0;
+  // r82: with the pads swapped the RIGHT thumb turns her (after `rotDelay`, so a flick is a flip and not a spin), and the
+  // left is the grabs -- so there is no air thrust from it
+  const c82 = ctrl82(), rOn = c82 && stick.R.down && p.rHold > CTRL.rotDelay;
+  const sk2 = c82 ? (rOn ? Math.sign(stick.R.x) * clamp((Math.abs(stick.R.x) - 0.08) / Math.max(0.05, AIR.spinFull - 0.08), 0, 1) : 0) : sk;
   if (AIR.aim > 0.5) {
-    const w = stickWorld(), held = w.mag > 0, a = held ? Math.atan2(w.x, w.z) : 0;
+    const w = c82 ? (rOn ? padWorld(stick.R) : { x: 0, z: 0, mag: 0 }) : stickWorld(), held = w.mag > 0, a = held ? Math.atan2(w.x, w.z) : 0;
     // a thumb pushed for a while already is the run-up's; one pushed just now is meant for the air
-    if (p.airT <= dt + 1e-9) { p.aimA0 = held && p.lHold > AIR.aimFresh ? a : null; p.aimOn = 0; p.aimW = 0; p.aimPrev = held ? a : null; }
+    if (p.airT <= dt + 1e-9) { p.aimA0 = held && (c82 ? p.rHold - CTRL.rotDelay : p.lHold) > AIR.aimFresh ? a : null; p.aimOn = 0; p.aimW = 0; p.aimPrev = held ? a : null; }
     if (!held) { p.aimA0 = null; p.aimPrev = null; }        // let go: the next push takes over at once
     else {
       if (!p.aimOn && (p.aimA0 == null || Math.abs(wrapAngle(a - p.aimA0)) > AIR.aimArm)) p.aimOn = 1;
       // how fast the thumb itself is going round: a circling thumb is a spin, not a direction to fly in
       p.aimW = damp(p.aimW || 0, p.aimPrev == null ? 0 : wrapAngle(a - p.aimPrev) / Math.max(dt, 1e-4), 0.08, dt); p.aimPrev = a;
-      if (!p.aimOn) thrust = Math.max(0, -sy);   // still the run-up's thumb: it carries her as before
+      if (!p.aimOn) thrust = c82 ? 0 : Math.max(0, -sy);   // still the run-up's thumb: it carries her as before
       else {
         if (p.autoTurn) p.autoTurn.left = 0;                  // she is being turned by hand now
         const err = wrapAngle(a - p.heading), want = clamp(err * AIR.aimK, -AIR.aimRate, AIR.aimRate) * dt;
         const d = Math.abs(want) > Math.abs(err) ? err : want;
         p.heading += d; if (hold) p.vertSpin += d;
-        thrust = w.mag * Math.max(0, Math.cos(err)) * clamp(1 - Math.abs(p.aimW) / AIR.aimSteady, 0, 1);
+        thrust = c82 ? 0 : w.mag * Math.max(0, Math.cos(err)) * clamp(1 - Math.abs(p.aimW) / AIR.aimSteady, 0, 1);
       }
     }
   } else {
-    p.heading -= sk * AIR.spin * dt;
-    if (hold) p.vertSpin -= sk * AIR.spin * dt;
-    thrust = Math.max(0, -sy);
+    p.heading -= sk2 * AIR.spin * dt;
+    if (hold) p.vertSpin -= sk2 * AIR.spin * dt;
+    thrust = c82 ? 0 : Math.max(0, -sy);
   }
   const AT = p.autoTurn;
   if (AT && AT.left > 0) { const d = Math.min(AT.left, AT.rate * dt); p.heading += AT.side * d; AT.left -= d; if (hold) p.vertSpin += AT.side * d; p.spinAcc = (p.spinAcc || 0) - AT.side * d; }
@@ -9518,7 +9547,8 @@ function stepAir(dt) {
   const overRamp = below.hit && below.ny < AIR.settleN;
   // ONCE IT HAS STARTED OVER A RAMP IT HOLDS for as long as the thumb does: a narrow vert face is a fraction of a second
   // of flight wide in plan, and letting go of it the moment she drifts past would hand her straight back her speed.
-  const padDown = AIR.settleRamp > 0.5 && stick.R.down && stick.R.y > AIR.settleAt && Math.abs(stick.R.x) < stick.R.y;
+  const SP = ctrl82() ? stick.L : stick.R;      // r82: the settle is the LEFT pad held down, with the grabs
+  const padDown = AIR.settleRamp > 0.5 && SP.down && SP.y > AIR.settleAt && Math.abs(SP.x) < SP.y;
   if (!padDown) p.settleLatch = 0; else if (overRamp) p.settleLatch = 1;
   const settle = !p.flip && ((padDown && p.settleLatch) || keys.f);
   p.settling = !!settle;
@@ -9816,7 +9846,7 @@ function stepMelee(dt) {
 // THE GRAB (r42): the right pad HELD in the air past `MOVES.grabAt`, picking a pose by the thumb's direction
 // when the hold begins; let go, land, grind or bail and it is over.
 function grabStep() {
-  const p = player, m = girl.moves, R = stick.R;
+  const p = player, m = girl.moves, c82 = ctrl82(), R = c82 ? stick.L : stick.R, hold = c82 ? (p.lDown || 0) : p.rHold;      // r82: the LEFT pad grabs
   const air = !p.grounded && !p.grind && p.bailT <= 0;
   if (p.xferHold) { if (!R.down) p.xferHold = 0; p.grab = null; return; }     // r47: that hold was a transfer
   if (!air || !R.down || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
@@ -9827,9 +9857,9 @@ function grabStep() {
   // needs the full `grabAt`, and the grab FOLLOWS the thumb -- swing it round and she changes grab.
   const mag = Math.hypot(R.x, R.y), dirK = Math.abs(R.x) > Math.abs(R.y) ? (R.x > 0 ? 'right' : 'left') : (R.y < 0 ? 'up' : 'down');
   let k = null;
-  if (mag > MOVES.grabPush && p.rHold >= MOVES.grabMin) k = dirK;
+  if (mag > MOVES.grabPush && hold >= MOVES.grabMin) k = dirK;
   else if (p.grab && mag > MOVES.grabPush * 0.6) k = p.grab.k;           // a little hysteresis between directions
-  else if (p.rHold >= MOVES.grabAt) k = 'centre';
+  else if (hold >= MOVES.grabAt) k = 'centre';
   if (!k) { p.grab = null; return; }
   if (p.grab && p.grab.k === k) return;
   const pair = m && m.grabs ? (m.grabs[k] || m.grabs.centre) : null;
@@ -9915,6 +9945,17 @@ function rightFlick(dx, dy) {
     if (!p.grounded && p.coyote > 0 && p.leftN != null && p.leftN < MELEE.xferN) { p.jump = 2; return 'transfer'; }
     if (!p.grounded && p.vertLock && p.airT < VERT.tapWin && vertRelease(true)) { trick('TRANSFER', SCORE.xfer); return 'transfer'; }
   }
+  // r82: THE RIGHT PAD -- on the ground up is the BOOST and down SWITCHES STANCE; in the air every flick is a FLIP, except
+  // a flick down with a rail or ledge in reach, which is r81's dive at it (in the grind pose)
+  if (ctrl82() && !p.grind) {
+    if (p.grounded) {
+      if (dir === 'up') return boostGo() ? 'boost' : null;
+      if (dir === 'down') return swivel() ? 'switch' : null;
+      return null;
+    }
+    if (dir === 'down' && GRIND.intent && grindTarget(true)) { const g = grindDown(); if (g) return g; }
+    return startFlip(flickFlip(dx, dy)) ? 'flip' : null;
+  }
   // r74: A SWIPE UP ON A RAMP, OR JUST OFF ONE, IS THE DASH -- never the melee and never (any more) the transfer
   if (dir === 'up' && !p.grind && !(p.vertLock && VERT.airFlickXfer > 0.5) && dashOk()) return dashGo() ? 'dash' : null;
   if (p.grind || (!p.grounded && p.coyote > 0)) { if (dir === 'up') { p.jump = 2; return 'transfer'; }
@@ -9941,6 +9982,7 @@ function rightFlick(dx, dy) {
 function stepPlayer(dt) {
   const p = player;
   p.rHold = stick.R.down ? p.rHold + dt : 0;
+  p.lDown = stick.L.down ? (p.lDown || 0) + dt : 0;      // r82: how long the left thumb has been DOWN (the grabs ask, moved or not)
   p.lHold = stickWorld().mag > 0 ? (p.lHold || 0) + dt : 0;     // r55: how long the left thumb has been pushed (the air aim asks)
   // `jump` 1 is a TAP (constrained on vert), 2 is the right pad's SWIPE UP (the transfer)
   if (p.jump) { const xfer = p.jump === 2; p.jump = 0;
@@ -10598,6 +10640,7 @@ const TAILUI = [
   ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
   ['MELEE.boost',    'Ground strike speed boost', 0, 8, 0.25, ''],
   ['VERT.faceArm',   'Swipe on the wall counts for', 0.1, 1.5, 0.05, 's'],
+  ['CTRL.map',       'Controls 2 = r82 (R: boost/switch, air flips+spin; L: melee, grabs) 1 = old', 1, 2, 1, ''],
   ['VERT.swipeXfer', 'Swipe up on vert = transfer, tap = straight up (r81)', 0, 1, 1, ''],
   ['VERT.tapXfer',   'Tap on a ramp = transfer (r74, only with the swipe off)', 0, 1, 1, ''],
   ['DASH.on',        'Swipe up on a ramp = dash', 0, 1, 1, ''],
@@ -10665,7 +10708,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
+const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, CTRL, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -10827,7 +10870,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, DASH, dashOk, dashGo, diveMark, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
