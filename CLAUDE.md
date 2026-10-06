@@ -91,6 +91,37 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE VERT AIR FOLLOWS THE LIP (r80, `VERT.follow`, `vlipFind`, `vlipStep`).** *"In Tony Hawk if you launch off a vert ramp
+  and the bowl curves around, your character follows the edge of the lip -- not physically accurate, but more fun, so you
+  come back down the ramp even if you go round a curve."*
+  - A locked air's line was straight, which on a curved coping is a tangent out of the bowl onto the deck.
+  - As she leaves, the coping is FOUND with r71's lip finder (an edge of a floor triangle with a drop facing into the pipe)
+    and traced into a path. So it works on anything with a collided coping, authored or not.
+  - Every frame of the air, the nearest point's tangent is compared with last frame's. Her horizontal velocity, heading,
+    held body (`vertQ`/`vertN`) and into-the-pipe direction all turn about UP by that change. On a circle that is exactly
+    her own radius's turn, so she goes round at the offset she left at. She is never let further out than that offset.
+  - **r71's 60 m cap on a traced lip is too short for this** (the kidney is about 85 m round), so the trace takes a
+    `max`; this uses `VERT.lipMax` 400.
+  - **A trace still stops where the coping turns too sharply** (a clover's hip). Past the end of an open path, the coping
+    is looked for again where she is and carried on with her offset and line.
+  - `npm run sim kit` S5c rides at a slant into the clover (two places), the kidney (two) and the snake, with no input. All
+    five land back in. The same runs with `follow` 0 land out on the deck in four of the five, and the rows print both.
+  - **Since r74 a tap on the wall IS the transfer**, so a harness that wants a locked air rides up with no input. The
+    first version of this test tapped and duly measured her going out.
+- **THE LEFT FLICK SPLITS: DOWN IS THE SLIDE, UP IS THE BOOST (r80, `BOOST`, `boostGo`, `boostStep`).** *"Make the slide
+  tackle a flick down on the left stick, and a flick forward or up is where we get the boost ... her speed skate, the fast
+  hard pump, a subtle camera effect, particle trails off her hands and skates ... I want it to actually boost speed so you
+  can really launch off a jump."*
+  - On the ground (or the coyote moment): `add` 8 m/s along her travel, spread as a half-sine stroke over `dur` 0.45 s
+    (biggest one-frame gain 0.45 m/s), never past `cap` 36, once per `cool` 1.1 s.
+  - For `fx` 1 s: `blade_hard` at x1.9 whatever the thumb does, the lens widens by 9 deg and pulls back 0.7 m (fast in,
+    slow out), and trails run off her skates AND hands, 2.2x as long. Hand trails are two more ribbons on the same
+    `trailBuild`.
+  - Off the park's kicker coasting in at 10 m/s: apex 0.94 -> 2.42 m, distance 0.9 -> 9.3 m. Sideways is still the slide.
+  - **`FLICK.gap` swallows a second flick inside 0.1 s**, so a harness flicking the same pad twice has to wait between
+    them. The slide row read "nothing" until it did.
+  - In the air the left flick is still the flip.
+
 - **THE FLAP IN THE SUNK BOWL WAS THE PARK FLOOR'S HOLE CROSSING ITSELF (r79, `wall` returns `back`, sim S0b).** *"There's some
   weirdness going on here. I think this is the bowl from the odd shape."* The wall was fine: probed for folded quads, a
   self-crossing toe, and two surfaces over one plan point, and all three came back 0. The fault was the hole r77 cut in the

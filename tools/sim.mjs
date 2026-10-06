@@ -492,11 +492,13 @@ CASES.tap = async () => {
       console.log(`  LEFT swipe ${want.padEnd(5)} in the air   -> ${P.flip ? P.flip.dir + ' flip' : 'nothing'}${good ? '' : '   <- WRONG'}`);
       if (!good) ok = false;
     }
-    { const keepLock = P.stanceLock; P.stanceLock = true; place(60, 1, -60, 0, 6); P.stance = 1; P.flip = null;
-      await swipeL(0, -52);
-      good = !P.flip && P.stance === 1 && P.mel && P.mel.kind === 'slide';
-      console.log(`  LEFT swipe on the ground      -> ${P.flip ? 'a FLIP' : P.stance < 0 ? 'a SWIVEL' : P.mel ? 'the ' + P.mel.kind : 'nothing'}${good ? '' : '   <- WRONG'}`);
-      P.mel = null;
+    // r80: on the ground a swipe UP is the BOOST and a swipe DOWN the slide tackle -- never a flip, never the swivel
+    for (const [dy, want] of [[-52, 'boost'], [52, 'slide']]) { const keepLock = P.stanceLock; P.stanceLock = true; place(60, 1, -60, 0, 6); P.stance = 1; P.flip = null; P.boostT = 0; P.boostCool = 0; P.mel = null;
+      await swipeL(0, dy);
+      const got = P.flip ? 'a FLIP' : P.stance < 0 ? 'a SWIVEL' : P.boostT > 0 ? 'boost' : P.mel ? P.mel.kind : 'nothing';
+      good = got === want;
+      console.log(`  LEFT swipe ${dy < 0 ? 'up  ' : 'down'} on the ground -> ${got}${good ? '' : '   <- WRONG'}`);
+      P.mel = null; P.boostT = 0; P.boostFx = 0;
       if (!good) ok = false; P.stanceLock = keepLock; }
     rg.girl.moves = keepM; P.flip = null; P.jump = 0; }
   return ok;
@@ -1448,6 +1450,10 @@ CASES.moves = () => {
     const a = log[want];
     check(`${v} m/s ${st > 0 ? 'forward' : 'FAKIE'}, thumb ${go ? 'pushing' : 'off'}`, top() === want && a.w > 0.95, `${top()} x${fix(a.ts)} weight ${fix(a.w)}`);
   }
+  // r80: BOOSTING she is in her speed skate -- the hard push, quickened -- even slow, even with the thumb off
+  state({ speed: 6, stance: 1, thumbGo: false, boostFx: 1 }); step(0.8, () => { P.boostFx = 1; });
+  check('boosting at 6 m/s, thumb off', top() === 'blade_hard_forward' && log.blade_hard_forward.ts >= rg.BOOST.rate - 0.01, `${top()} x${fix(log.blade_hard_forward.ts)}`);
+  P.boostFx = 0;
   // half way between the two pushes BOTH play, and the weights still sum to one
   { const V = rg.MOVES.pushV; state({ speed: (V[0] + V[1]) / 2, stance: 1, thumbGo: true }); step(2);
     const c = log.blade_casual_forward.w, h = log.blade_hard_forward.w;
@@ -1898,6 +1904,47 @@ CASES.steer = () => {
 // r47: TONY HAWK'S VERT AIR. Up the half pipe and off the lip: square to the wall the whole way up and down (her up
 // stays the wall's normal), back in, forward, nothing to snap at the landing. Holding the right stick UP partway
 // through turns it into a transfer onto the deck, without becoming a grab.
+// ---------------------------------------------------------------- r80: THE BOOST (left flick up) and the slide (left flick down)
+// *"Make the slide tackle a flick down on the left stick, and a flick forward or up is the boost ... I want it to actually
+// boost speed so you can really launch off a jump."* Through the shipped `boostStep` inside `stepPlayer`, and the two
+// flicks through the real left pad.
+CASES.boost = async () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(50)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const B = rg.BOOST, wait = ms => new Promise(r => setTimeout(r, ms));
+  const coast = (sec, fn) => run(sec, () => { rg.stick.L.x = rg.stick.L.y = 0; if (fn) fn(); });
+  // 1. cruising: the speed goes up by about `add`, as a stroke over `dur`, and stays
+  // (against the SAME run with no boost, so the coast fade and the rolling drag are the same on both)
+  place(60, 1, -60, 0, 12); P.boostCool = 0; P.boostT = 0; P.flatT = 0; coast(B.dur + 0.2); const vC = P.vel.length();
+  place(60, 1, -60, 0, 12); P.boostCool = 0; P.flatT = 0; const v0 = P.vel.length(); let first = 0;
+  let lastV = v0; const ok1 = rg.boostGo(); coast(B.dur + 0.2, () => { const v = P.vel.length(); first = Math.max(first, v - lastV); lastV = v; }); const v1 = P.vel.length();
+  say(`cruising at 12 m/s: a boost takes her to ${fix(v1, 1)} m/s`, ok1 && v1 > vC + B.add * 0.85, `+${fix(v1 - vC, 1)} over the same run unboosted (add ${B.add})`);
+  say('...spread over a stroke, not landed on one frame', first < B.add * 0.15, `biggest one-frame gain +${fix(first, 2)} m/s`);
+  // 2. the cooldown, and the panel's speed cap
+  say('a second boost straight away is refused (cooldown)', !rg.boostGo(), '');
+  coast(B.cool); say(`after ${B.cool} s it boosts again`, rg.boostGo(), ''); coast(B.dur + 0.1);
+  place(60, 1, -60, 0, B.cap - 3); P.boostCool = 0; rg.boostGo(); coast(B.dur + 0.1);
+  say(`never past the cap (${B.cap} m/s)`, P.vel.length() < B.cap + 0.05, `${fix(P.vel.length(), 2)} m/s`);
+  // 3. from a standstill she goes
+  place(60, 1, -60, 0, 0); P.boostCool = 0; rg.boostGo(); coast(B.dur + 0.1);
+  say('from a standstill a boost gets her moving', P.vel.length() > B.add * 0.8, `${fix(P.vel.length(), 1)} m/s`);
+  // 4. LAUNCH: the park's kicker at (-11, 14), coasting in from 20 m back at 10 m/s, with and without a boost at the start
+  const fly = boost => { place(-11, 1, -6, 0, 10); P.boostCool = 0; if (boost) rg.boostGo();
+    let ph = 0, apex = -9, z0 = 0, z1 = 0; coast(5, () => { if (ph === 0 && !P.grounded && P.pos.z > 8) { ph = 1; z0 = P.pos.z; }
+      if (ph === 1) { if (P.grounded) ph = 2; else { apex = Math.max(apex, P.pos.y); z1 = P.pos.z; } } }); return { apex, d: z1 - z0 }; };
+  const a = fly(false), b = fly(true);
+  say('off the kicker a boost really launches her', b.apex > a.apex + 1 && b.d > a.d * 1.4, `apex ${fix(a.apex)} -> ${fix(b.apex)} m, flew ${fix(a.d, 1)} -> ${fix(b.d, 1)} m`);
+  // 5. the left pad: flick UP is the boost, flick DOWN is the slide tackle
+  const L = document.getElementById('stkL'), keepR = rg.girl.ready; rg.girl.ready = false;      // headless: a slide runs without clips (`melOk`)
+  const ev = (type, x, y) => ({ type, pointerId: 77, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
+  for (const [name, y1, want] of [['flick UP', 60, 'boost'], ['flick DOWN', 240, 'slide']]) {
+    place(60, 1, -60, 0, 8); P.boostCool = 0; P.boostT = 0; P.mel = null; await wait(400);      // past `FLICK.gap` since the last flick
+    L.dispatchEvent(ev('pointerdown', 150, 150)); L.dispatchEvent(ev('pointermove', 150, y1)); await wait(30); L.dispatchEvent(ev('pointerup', 150, y1));
+    const got = P.boostT > 0 ? 'boost' : P.mel && P.mel.kind === 'slide' ? 'slide' : P.mel ? P.mel.kind : 'nothing';
+    say(`left pad on the ground, ${name}: ${want}`, got === want, got);
+  }
+  rg.stick.L.x = rg.stick.L.y = 0; rg.stick.L.down = 0; P.mel = null; rg.girl.ready = keepR;
+  return ok;
+};
 CASES.vertair = () => {
   let ok = true; const D = 180 / Math.PI;
   const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep) + rg.PARK.cope;
@@ -3124,6 +3171,28 @@ CASES.kit = async () => {
       say('sheet bridge: ridden under the walkway', under, under ? 'came out the far side' : `ends y ${fix(P.pos.y)}`); }
     // S7. THE SNAKE RUN (his pill) and THE POOL (his kidney): dropped in round them; THE C BANK, the S-SPINE, the U FUNBOX and
     // the curved QP ridden at from their ridden sides
+    // S5c. r80: THE VERT AIR FOLLOWS THE LIP. *"In Tony Hawk if you launch off a vert ramp and the bowl curves around, your
+    // character follows the edge of the lip, so you come back down the ramp even if you go round a curve."* Across the floor
+    // at the wall on a SLANT, no input: she goes up it and off the coping in a locked air whose line is mostly along the
+    // coping -- a tangent, which leaves a curved bowl. With the follow she comes back down inside; the same run with it off
+    // is printed beside it, so the difference is on the page.
+    { const keep = rg.VERT.follow;
+      const lipRun = (r, fr, ang, fol) => { rg.VERT.follow = fol; const n = r.line.length, i = Math.floor(fr * n), q = r.line[i], sd = r.side[i], q2 = r.line[(i + 1) % n];
+        const fl = r.sunk ? r.rimY - r.h : r.rimY - r.h, tl = Math.hypot(q2[0] - q[0], q2[1] - q[1]) || 1, tg = [(q2[0] - q[0]) / tl, (q2[1] - q[1]) / tl];
+        const D = r.h * 1.05 + 2.5, dir = [-sd[0] * Math.cos(ang) + tg[0] * Math.sin(ang), -sd[1] * Math.cos(ang) + tg[1] * Math.sin(ang)];
+        const v = Math.sqrt(2 * g * (r.h + 1.8)) / Math.cos(ang);
+        reset(); place(q[0] + sd[0] * D, fl + 0.3, q[1] + sd[1] * D, hd(dir), v);
+        let st = 0, lk = 0, lip = 0, land = null, along = 0, x0 = 0, z0 = 0;
+        const t = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city();
+          if (st === 0 && !P.grounded && P.pos.y > r.rimY - 0.5) { st = 1; lk = P.vertLock; lip = P.vlip ? 1 : 0; x0 = P.pos.x; z0 = P.pos.z; }
+          if (st === 1 && P.grounded) { st = 2; land = P.pos.y - r.rimY; along = Math.hypot(P.pos.x - x0, P.pos.z - z0); } });
+        return { lk, lip, land, along, t };
+      };
+      for (const [id, fr, ang] of [['bowl', 0.12, 0.75], ['bowl', 0.62, 0.75], ['pool', 0.3, 0.75], ['pool', 0.55, 0.7], ['snake', 0.5, 0.7]]) { const r = at(id); if (!r) continue;
+        const A = lipRun(r, fr, ang, 1), B = lipRun(r, fr, ang, 0), inA = A.land != null && A.land < -0.3, inB = B.land != null && B.land < -0.3;
+        say(`${id} at ${fix(fr, 2)} round, ${fix(ang * 180 / Math.PI, 0)} deg off square: the vert air follows the coping and comes back IN`, A.lk && A.lip && inA && !A.t.bail && !A.t.falls,
+          `top ${fix(A.t.top)} low ${fix(A.t.low)} ${A.t.bail?'BAIL ':''}${A.t.falls?'FELL ':''}${A.lk ? 'locked' : 'NOT locked'}, lip ${A.lip ? 'found' : 'NOT found'}, lands ${A.land == null ? 'never' : fix(A.land) + ' m from the rim'} ${fix(A.along, 1)} m round -- without the follow ${B.land == null ? 'never lands' : inB ? 'also in (' + fix(B.land) + ')' : 'OUT on the deck (' + fix(B.land) + ')'}`); }
+      rg.VERT.follow = keep; }
     for (const [id, name] of [['snake', 'snake run, his pill'], ['pool', 'pool, his kidney']]) { const d = dropIn(at(id), 5);
       say(`sheet ${name}: dropped in from five points, swings`, !d.bad.length && d.deepest < 0.3, d.bad.join('; ') || `floor ${fix(d.deepest)}, up to ${fix(d.top)}`); }
     { const bad = []; for (const [id, D, v, need] of [['flowC', 5, Math.sqrt(2 * g * 2.4) + 2, 2.0], ['spine', 8, Math.sqrt(2 * g * 3.6) + 1.5, 3.0], ['funbox', 6, 8.5, 1.15], ['curvedQP', 6, Math.sqrt(2 * g * 2.4) + 2, 2.0]]) {

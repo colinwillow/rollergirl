@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r79</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r80</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r79';
+const BUILD = 'r80';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3219,12 +3219,13 @@ function lipEdges(x, z, r, y0, y1, minLen) {
 // ONE LIP INTO A PATH: walk on from each end onto the lip that leaves the same corner, keeps going the same way
 // (within ~40 degrees) and faces the same way out -- round a bowl's rim that closes into a loop; at a box's corner
 // it stops, because the next edge turns ninety degrees.
-function lipTrace(E) {
+function lipTrace(E, max) {
+  max = max || GRIND.lipMax;
   const pts = [E.a.slice(), E.b.slice()], outs = [[E.ox, E.oz]];
   const near = (p, q) => Math.abs(p[0] - q[0]) < 0.06 && Math.abs(p[1] - q[1]) < 0.06 && Math.abs(p[2] - q[2]) < 0.06;
   let closed = false, len = Math.hypot(E.b[0] - E.a[0], E.b[2] - E.a[2]);
   for (const fwd of [1, 0]) {
-    for (let n = 0; n < 400 && len < GRIND.lipMax && !closed; n++) {
+    for (let n = 0; n < 1200 && len < max && !closed; n++) {
       const end = fwd ? pts[pts.length - 1] : pts[0], prev = fwd ? pts[pts.length - 2] : pts[1];
       const o0 = fwd ? outs[outs.length - 1] : outs[0];
       const dx = end[0] - prev[0], dz = end[2] - prev[2], dl = Math.hypot(dx, dz) || 1;
@@ -7590,7 +7591,7 @@ function sparkStep(dt) {
 const TRAIL = { on: 1, life: 0.22, w: 0.10, v0: 9, v1: 18, spin0: 3, spin1: 9, n: 48, col: 0xffffff, tail: 0x7fe3ff, alpha: 0.85 };
 const trailMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false,
   side: THREE.DoubleSide, fog: false, toneMapped: false });
-const trails = [0, 1].map(() => {
+const trails = [0, 1, 2, 3].map(() => {      // r80: 2 and 3 are her HANDS, shown only while she boosts
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL.n * 2 * 3), 3));
   g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRAIL.n * 2 * 4), 4));
@@ -7602,15 +7603,16 @@ const trails = [0, 1].map(() => {
 const _tc0 = new THREE.Color(), _tc1 = new THREE.Color(), _trA = new THREE.Vector3(), _trB = new THREE.Vector3();
 // THE STRIP, FROM A HISTORY OF {x,y,z,t} (oldest first). Pure, so `npm run sim trail` drives it
 // without a skin. Writes `pos` (2 verts per point) and `col` (RGBA), returns the vertex count drawn.
-function trailBuild(hist, now, eye, k, pos, col) {
+function trailBuild(hist, now, eye, k, pos, col, life0) {
   const n = hist.length; if (n < 2 || k <= 0.001) return 0;
+  const LF = life0 || TRAIL.life;
   _tc0.setHex(TRAIL.col); _tc1.setHex(TRAIL.tail);
   for (let i = 0; i < n; i++) {
     const h = hist[i], a = hist[Math.max(0, i - 1)], b = hist[Math.min(n - 1, i + 1)];
     _trA.set(b.x - a.x, b.y - a.y, b.z - a.z);                     // along the trail
     _trB.set(eye.x - h.x, eye.y - h.y, eye.z - h.z);                // toward the lens
     _trA.cross(_trB); const l = _trA.length();
-    const age = clamp((now - h.t) / TRAIL.life, 0, 1), life = 1 - age;
+    const age = clamp((now - h.t) / LF, 0, 1), life = 1 - age;
     const half = l > 1e-6 ? TRAIL.w * 0.5 * Math.pow(life, 1.3) * (0.4 + 0.6 * k) / l : 0;
     pos[i * 6]     = h.x + _trA.x * half; pos[i * 6 + 1] = h.y + _trA.y * half; pos[i * 6 + 2] = h.z + _trA.z * half;
     pos[i * 6 + 3] = h.x - _trA.x * half; pos[i * 6 + 4] = h.y - _trA.y * half; pos[i * 6 + 5] = h.z - _trA.z * half;
@@ -7624,7 +7626,7 @@ function trailBuild(hist, now, eye, k, pos, col) {
 function trailAmount() {
   const p = player;
   if (!TRAIL.on || p.bailT > 0) return 0;
-  if (p.mel || p.dashT > 0) return 1;           // every strike, slide and kick slashes -- and r74's dash
+  if (p.mel || p.dashT > 0 || p.boostFx > 0) return 1;           // every strike, slide and kick slashes -- and r74's dash, and r80's boost
   if (p.grounded || p.grind) return smooth(TRAIL.v0, TRAIL.v1, p.hSpeed);
   const spin = Math.abs(girl.yawRate || 0);
   return Math.max(p.flip ? 1 : 0, smooth(TRAIL.spin0, TRAIL.spin1, spin), 0.6 * smooth(TRAIL.v0, TRAIL.v1, p.hSpeed));
@@ -7635,14 +7637,16 @@ function trailStep(dt) {
   girl.yawRate = damp(girl.yawRate || 0, wrapAngle(p.faceH - (girl.lastFace ?? p.faceH)) / Math.max(dt, 1e-4), 0.05, dt);
   girl.lastFace = p.faceH;
   girl.trailK = damp(girl.trailK || 0, trailAmount(), 0.08, dt);
-  for (let j = 0; j < 2; j++) {
-    const T = trails[j], f = F && F[j];
+  girl.boostK = damp(girl.boostK || 0, p.boostFx > 0 && TRAIL.on ? 1 : 0, p.boostFx > 0 ? 0.04 : 0.2, dt);
+  const LF = TRAIL.life * (1 + girl.boostK * (BOOST.trailLife - 1));
+  for (let j = 0; j < 4; j++) {
+    const T = trails[j], hand = j > 1, f = hand ? girl.hands && girl.hands[j - 2] : F && F[j];
     if (f && girl.ready) {
-      f.bone.localToWorld(_trB.copy(f.sole));
+      if (hand) f.getWorldPosition(_trB); else f.bone.localToWorld(_trB.copy(f.sole));
       T.hist.push({ x: _trB.x, y: _trB.y, z: _trB.z, t: now });
     }
-    while (T.hist.length && (now - T.hist[0].t > TRAIL.life || T.hist.length > TRAIL.n)) T.hist.shift();
-    const c = trailBuild(T.hist, now, camera.position, girl.trailK, T.geo.attributes.position.array, T.geo.attributes.color.array);
+    while (T.hist.length && (now - T.hist[0].t > LF || T.hist.length > TRAIL.n)) T.hist.shift();
+    const c = trailBuild(T.hist, now, camera.position, hand ? girl.boostK : girl.trailK, T.geo.attributes.position.array, T.geo.attributes.color.array, LF);
     T.geo.setDrawRange(0, c > 0 ? (c / 2 - 1) * 6 : 0);
     if (c) { T.geo.attributes.position.needsUpdate = true; T.geo.attributes.color.needsUpdate = true; }
   }
@@ -8098,6 +8102,7 @@ function buildGirl(gltf, extra) {
   const hipsB = model.getObjectByName('mixamorig_Hips');
   if (hipsB) { model.updateMatrixWorld(true); hipsB.getWorldPosition(girl.hipsLocal); model.worldToLocal(girl.hipsLocal); }
   girl.feet = footFind(model, m.lo);
+  girl.hands = ['Left', 'Right'].map(sd => model.getObjectByName(`mixamorig_${sd}Hand`)).filter(Boolean);      // r80: the boost's trails
   girl.hipsB = hipsB || null;
   girl.model = model;
   girl.mixer = new THREE.AnimationMixer(model);
@@ -8598,7 +8603,9 @@ function girlAnimMoves(dt) {
       if (nm === girl.styleLast && sList.length > 1) nm = sList[(sList.indexOf(nm) + 1) % sList.length];
       girl.style = { nm, t: 0 };
     }
-    if (girl.style && girl.actions[girl.style.nm]) {
+    // r80: BOOSTING she is in her speed skate -- the hard push, quick -- whatever the thumb is doing
+    if (p.boostFx > 0 && loco.push[1] && girl.actions[loco.push[1]]) { add(loco.push[1], move); clipScale(loco.push[1], BOOST.rate); }
+    else if (girl.style && girl.actions[girl.style.nm]) {
       clipScale(girl.style.nm, clamp(v / 10, 0.7, 1.3));
       add(girl.style.nm, move);
     } else if (p.thumbGo) {
@@ -8832,8 +8839,10 @@ for (const t of ['touchstart', 'touchend', 'touchcancel'])
 // mirror. A flick is a fast move AND a release, so a held thumb spinning or pushing her is never
 // one; on the ground it does nothing (a tap there is the swivel, and a fired flick eats the tap).
 bindStick(document.getElementById('stkL'), stick.L, null, (dx, dy) => {
-  // r39: ON THE GROUND THE LEFT FLICK IS THE SLIDE TACKLE (Zap's `slide_kick`), along her travel
-  if (player.grounded && !player.grind) { if (meleeSlide()) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
+  // r39: ON THE GROUND THE LEFT FLICK IS THE SLIDE TACKLE (Zap's `slide_kick`), along her travel.
+  // r80: ...a flick DOWN (or sideways) is; a flick UP is the BOOST.
+  if (player.grounded && !player.grind) { const up = dy < 0 && -dy > Math.abs(dx);
+    if (up ? boostGo() : meleeSlide()) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
   // r46: ON A RAIL THE LEFT FLICK PICKS A TRICK GRIND by its direction
   if (player.grind) { if (grindTrick(dx, dy)) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
   if (startFlip(flickFlip(dx, dy))) {
@@ -8956,16 +8965,47 @@ const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turn
   faceArm: 0.6,
   // r74: *"we'll just reverse it -- a tap on the right stick to transfer"*. A TAP on a steep face (or just off one, or in
   // the first `tapWin` of a locked vert air) is the transfer; a SWIPE UP there is the DASH (below). `tapXfer` 0 is r73.
-  tapXfer: 1, tapWin: 0.45 };
+  tapXfer: 1, tapWin: 0.45,
+  // r80: THE AIR FOLLOWS THE LIP (`vlipFind`, `vlipStep`). *"In Tony Hawk if you launch off a vert ramp and the side of the
+  // bowl curves around, your character follows the edge of the lip -- not physically accurate, but more fun, so you come
+  // back down the ramp even if you go round a curve."* `follow` 0 is the old straight line out of the bowl. `lipR` is how
+  // far from her the coping is looked for as she leaves.
+  follow: 1, lipR: 2.5, lipMax: 400 };
 // r74: THE DASH. *"I have a tendency to swipe up on the right pad off a jump -- that should just launch you off it ... your
 // momentum gets a little boost, a little swipe particle effect, and you go flying off it."* A swipe UP while she is on a
 // ramp (a face steeper than `n`) or within `win` of leaving one adds `add` m/s along the way she is going -- up the face,
 // or along her flight -- once per ramp, never past `cap`. On the flat a swipe up is still a strike.
 const DASH = { on: 1, n: 0.95, win: 0.5, add: 4.5, cap: 30, fx: 0.45 };
+// r80: THE BOOST. *"Instead of the slide tackle being a flick up on the left stick, make it a flick down -- and a flick forward
+// or up on the left stick is the boost. It needs to be a visual thing: she goes into her speed skate, the fast hard pump, a
+// subtle camera effect, particle trails off her hands and skates so you can really tell she is boosting -- and I want it to
+// actually boost speed so you can really launch off a jump."* On the ground (or a coyote moment off it): `add` m/s along the
+// way she is going, spread over `dur` on a half sine (a stroke, not a step -- the push's rule), never past `cap`, once every
+// `cool` s. For `fx` s she shows `blade_hard` at `rate`, the lens widens by `fov` deg and pulls back `pull` m, and trails run
+// off her skates AND hands, `trailLife` times as long as the ordinary ones.
+const BOOST = { on: 1, add: 8, dur: 0.45, cap: 36, cool: 1.1, fx: 1.0, rate: 1.9, fov: 9, pull: 0.7, trailLife: 2.2 };
+function boostGo() {
+  const p = player;
+  if (!BOOST.on || p.grind || p.bailT > 0 || (p.boostCool || 0) > 0 || !(p.grounded || p.coyote > 0)) return false;
+  if (p.hSpeed < 1) { p.vel.x += Math.sin(p.heading) * 0.6; p.vel.z += Math.cos(p.heading) * 0.6; }     // a direction to go in
+  p.boostT = BOOST.dur; p.boostFx = BOOST.fx; p.boostCool = BOOST.cool;
+  trick('BOOST', 10);
+  return true;
+}
+function boostStep(dt) {
+  const p = player;
+  p.boostCool = Math.max(0, (p.boostCool || 0) - dt); p.boostFx = Math.max(0, (p.boostFx || 0) - dt);
+  if (!(p.boostT > 0)) return;
+  const u = clamp(1 - p.boostT / BOOST.dur, 0, 1), v = p.vel.length();
+  let a = BOOST.add * (Math.PI / 2) * Math.sin(Math.PI * u) * (Math.min(dt, p.boostT) / BOOST.dur);
+  a = Math.min(a, Math.max(0, BOOST.cap - v));
+  if (a > 0) { if (v > 0.3) p.vel.multiplyScalar((v + a) / v); else { p.vel.x += Math.sin(p.heading) * a; p.vel.z += Math.cos(p.heading) * a; } }
+  p.boostT -= dt;
+}
 function leaveGround(coy, xfer) {
   const p = player, n = p.n;
   p.flatT = 0;
-  p.vertLock = 0; p.xferKick = null; p.autoTurn = null;
+  p.vertLock = 0; p.xferKick = null; p.autoTurn = null; p.vlip = null;
   const h = Math.hypot(n.x, n.z);
   // r57: a NATURAL leave off the lip (not a pop) while a swipe on the face has armed it is the transfer
   if (xfer === undefined && p.xferArm > 0 && n.y < Math.cos(VERT.at)) xfer = true;
@@ -8996,16 +9036,73 @@ function leaveGround(coy, xfer) {
   }
   groundQ(p.bq);
   if (p.vertLock) { p.vertQ = (p.vertQ || new THREE.Quaternion()).copy(p.bq); p.vertN = (p.vertN || new THREE.Vector3()).copy(n).normalize(); p.vertSpin = 0; }
+  p.vlip = p.vertLock && VERT.follow > 0.5 ? vlipFind(p.vertIx, p.vertIz) : null;      // r80
   p.lipY = p.pos.y; p.xferHold = 0; p.leftN = n.y;      // r74: the face she left (the dash and the tap transfer ask)
   p.grounded = false; p.airT = 0; p.coyote = coy; p.drift = 0;
 }
+// r80: THE COPING SHE LEFT, AS A LINE TO FOLLOW. The r71 lip finder already reads copings off the collider (an edge of a
+// floor triangle with a drop beyond it), so the coping is found, not authored -- a half pipe, a revolved bowl, his traced
+// clover, a kit corner. The lip whose drop faces INTO the pipe (`ix`, `iz`) nearest her is traced into a path (round a
+// bowl, a closed loop), kept as plan points. `o0` is how far inside the coping she was as she left.
+function vlipNear(L, x, z, all) {
+  const P = L.P, n = P.length, segs = L.closed ? n : n - 1; let best = null, bd = Infinity;
+  const W = all ? segs : Math.min(segs, 16);
+  for (let k = -W; k <= W; k++) {
+    let j = all ? k + W : L.k + k; if (all && j >= segs) break;
+    if (L.closed) j = ((j % n) + n) % n; else if (j < 0 || j >= segs) continue;
+    const a = P[j], b = P[(j + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], el2 = ex * ex + ez * ez; if (el2 < 1e-8) continue;
+    const t = clamp(((x - a[0]) * ex + (z - a[1]) * ez) / el2, 0, 1), qx = a[0] + ex * t, qz = a[1] + ez * t, d = (x - qx) ** 2 + (z - qz) ** 2;
+    if (d < bd) { const el = Math.sqrt(el2); bd = d; best = { k: j, q: [qx, qz], t: [ex / el, ez / el], end: !L.closed && ((j === 0 && t <= 0) || (j === segs - 1 && t >= 1)) }; }
+  }
+  return best;
+}
+function vlipFind(ix, iz, y) {
+  const p = player; let E = null, bd = Infinity; y = y != null ? y : p.pos.y;
+  for (const F of lipEdges(p.pos.x, p.pos.z, VERT.lipR, y - 0.6, y + 1.2, 0.04))
+    if (F.ox * ix + F.oz * iz > 0.5 && F.d < bd) { bd = F.d; E = F; }
+  if (!E) return null;
+  const T = lipTrace(E, VERT.lipMax); if (T.pts.length < 2) return null;
+  const L = { P: T.pts.map(v => [v.x, v.z]), closed: T.closed, k: 0, y: (E.a[1] + E.b[1]) / 2 };
+  const nr = vlipNear(L, p.pos.x, p.pos.z, true); if (!nr) return null;
+  let i = [-nr.t[1], nr.t[0]]; if (i[0] * ix + i[1] * iz < 0) i = [-i[0], -i[1]];
+  Object.assign(L, { k: nr.k, t: nr.t, i, o0: (p.pos.x - nr.q[0]) * i[0] + (p.pos.z - nr.q[1]) * i[1] });
+  return L;
+}
+// EVERY FRAME OF A LOCKED AIR: as the coping under her turns, her line turns with it. The nearest point's tangent is
+// compared with last frame's and her horizontal velocity, heading, the held body (`vertQ`/`vertN`) and the "into the
+// pipe" direction are all turned about UP by that change -- which on a circle is exactly the turn of her own radius, so
+// she goes round at the offset she left at, whatever the speed. And she is never let out PAST that offset over the deck.
+function vlipStep() {
+  const p = player; let L = p.vlip, nr = vlipNear(L, p.pos.x, p.pos.z, false); if (!nr) return;
+  // OFF THE END OF AN OPEN PATH -- the trace stops where the coping turns too sharply (a clover's hip) -- the coping is
+  // looked for again where she is, and carried on with her offset and her line
+  if (nr.end && p.airT - (L.re || 0) > 0.08) {
+    const N = vlipFind(L.i[0], L.i[1], L.y); L.re = p.airT;
+    if (N) { const n2 = vlipNear(N, p.pos.x, p.pos.z, true);
+      if (n2 && !n2.end) { Object.assign(N, { k: n2.k, t: n2.t[0] * L.t[0] + n2.t[1] * L.t[1] < 0 ? [-n2.t[0], -n2.t[1]] : n2.t, i: L.i, o0: L.o0, re: p.airT }); p.vlip = L = N; nr = n2; } } }
+  L.k = nr.k; let t = nr.t; if (t[0] * L.t[0] + t[1] * L.t[1] < 0) t = [-t[0], -t[1]];
+  const d = wrapAngle(Math.atan2(t[0], t[1]) - Math.atan2(L.t[0], L.t[1]));
+  if (Math.abs(d) > 1e-7 && Math.abs(d) < 0.8) {
+    const c = Math.cos(d), sn = Math.sin(d), vx = p.vel.x, vz = p.vel.z;
+    p.vel.x = vx * c + vz * sn; p.vel.z = -vx * sn + vz * c;
+    p.heading += d; if (p.aimA0 != null) p.aimA0 += d;
+    if (p.vertQ) { p.vertQ.premultiply(_qv.setFromAxisAngle(UP, d)); p.vertN.applyAxisAngle(UP, d); }
+  }
+  L.t = t;
+  let i = [-t[1], t[0]]; if (i[0] * L.i[0] + i[1] * L.i[1] < 0) i = [-i[0], -i[1]];
+  L.i = i; p.vertIx = i[0]; p.vertIz = i[1];
+  const o = (p.pos.x - nr.q[0]) * i[0] + (p.pos.z - nr.q[1]) * i[1];
+  if (o < L.o0) { p.pos.x += i[0] * (L.o0 - o); p.pos.z += i[1] * (L.o0 - o); }
+  const vo = p.vel.x * i[0] + p.vel.z * i[1]; if (vo < 0) { p.vel.x -= i[0] * vo; p.vel.z -= i[1] * vo; }
+}
+const _qv = new THREE.Quaternion();
 // THE HELD TRANSFER (r47): out of a locked vert air, onto the deck. The auto-turn already applied is taken back (a
 // transfer lands forward), the outward kick waits until she is clear of the lip as the swipe's does, and the
 // right pad is marked so the same hold does not also become a grab.
 function vertRelease(flick) {
   const p = player;
   if (!p.vertLock) return false;
-  p.vertLock = 0;
+  p.vertLock = 0; p.vlip = null;
   if (p.autoTurn) { p.heading -= p.autoTurn.side * (Math.PI - p.autoTurn.left); p.spinAcc = (p.spinAcc || 0) + p.autoTurn.side * (Math.PI - p.autoTurn.left); p.autoTurn = null; }
   p.xferKick = { ix: p.vertIx, iz: p.vertIz, hold: 1 };
   p.xferHold = flick ? 0 : 1; p.grab = null;
@@ -9015,7 +9112,7 @@ function vertRelease(flick) {
 function respawn() {
   const p = player;
   SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0; p.spinAcc = 0; p.spinPrev = null; p.wasAir = false;
-  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
@@ -9446,6 +9543,7 @@ function stepAir(dt) {
     swingOf(p.bq, _q2).slerp(_qb, Math.min(1, rate * dt));
     p.bq.copy(_q2).multiply(_qa.setFromAxisAngle(UP, p.heading));
   }
+  if (p.vertLock && p.vlip) vlipStep();      // r80: round the coping with it
   p.vel.y -= SK.g * dt;
   if (p.vel.y < -34) p.vel.y = -34;
   const h = Math.hypot(p.vel.x, p.vel.z);
@@ -9825,6 +9923,7 @@ function stepPlayer(dt) {
   p.xferArm = p.grounded && p.n.y > 0.97 ? 0 : Math.max(0, (p.xferArm || 0) - dt);     // r57: back on the flat, it is gone
   stepMelee(dt);
   grabStep();
+  boostStep(dt);      // r80
   // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
   // samples, and that is speed x dt -- so the count follows her speed and a 120 Hz phone does
   // not silently get a different game from a 30 Hz one.
@@ -10163,7 +10262,9 @@ function stepCam(dt) {
   cam.tgt.set(p.pos.x, p.pos.y + CAM.look, p.pos.z);
   const ce = Math.cos(cam.el);
   const bx = -Math.sin(cam.az) * ce, by = Math.sin(cam.el), bz = -Math.cos(cam.az) * ce;
-  const want = clamp(CAM.dist + sp * CAM.distV, CAM.min, CAM.max);
+  // r80: THE BOOST'S LENS -- in fast, out slowly, so it reads as a kick and not a zoom
+  cam.boost = damp(cam.boost || 0, p.boostFx > 0 ? 1 : 0, p.boostFx > 0 ? 0.05 : 0.35, dt);
+  const want = clamp(CAM.dist + sp * CAM.distV + cam.boost * BOOST.pull, CAM.min, CAM.max);
   const free = camFree(cam.tgt.x, cam.tgt.y, cam.tgt.z, bx, by, bz, want);
   // SNAP IN, EASE OUT. Coming in has to be immediate or the lens spends those frames inside
   // the ramp; going back out is eased, or every coping makes the shot lurch.
@@ -10178,7 +10279,7 @@ function stepCam(dt) {
     cam.pos.y = Math.min(cg.floor + CAM.clear, cam.tgt.y + CAM.rise);
   camera.position.copy(cam.pos); camera.lookAt(cam.tgt);
   cam.rush = damp(cam.rush, clamp((sp - CAM.rush0) / CAM.rushSpan, 0, 1), 0.25, dt);
-  camera.fov = CAM.fov + cam.rush * CAM.fovRush; camera.updateProjectionMatrix();
+  camera.fov = CAM.fov + cam.rush * CAM.fovRush + cam.boost * BOOST.fov; camera.updateProjectionMatrix();
   sky.position.copy(camera.position);
   sun.position.copy(p.pos).addScaledVector(LIGHT.dir, 60); sun.target.position.copy(p.pos);
   stepLights(cam.tgt, cam.az);
@@ -10453,6 +10554,7 @@ const TAILUI = [
   ['AIR.preAlign',   'Pre-align time', 0,   1.2, 0.05, 's'],
   ['RIG.tiltRate',   'Ground tilt ease', 2, 20,  0.5,  ''],
   ['VERT.autoTurn',  'Auto-turn on vert airs', 0, 1, 1, ''],
+  ['VERT.follow',    'Vert air follows the lip (r80)', 0, 1, 1, ''],
   ['VERT.holdTilt',  'Vert air keeps its tilt (Tony Hawk)', 0, 1, 1, ''],
   ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
   ['MELEE.boost',    'Ground strike speed boost', 0, 8, 0.25, ''],
@@ -10460,6 +10562,10 @@ const TAILUI = [
   ['VERT.tapXfer',   'Tap on a ramp = transfer (r74)', 0, 1, 1, ''],
   ['DASH.on',        'Swipe up on a ramp = dash', 0, 1, 1, ''],
   ['DASH.add',       'Dash boost', 0, 12, 0.5, 'm/s'],
+  ['BOOST.on',       'Left flick up = boost (r80)', 0, 1, 1, ''],
+  ['BOOST.add',      'Boost speed', 0, 16, 0.5, 'm/s'],
+  ['BOOST.cap',      'Boost up to', 20, 42, 1, 'm/s'],
+  ['BOOST.fov',      'Boost lens kick', 0, 20, 1, 'deg'],
   ['DASH.win',       'Dash counts after leaving', 0.1, 1.2, 0.05, 's'],
   ['VERT.holdXferOn', 'Hold right stick up = transfer', 0, 1, 1, ''],
   ['FLIPP.camRel',   'Flips relative to camera', 0, 1, 1, ''],
@@ -10519,7 +10625,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
+const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -10681,7 +10787,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, DASH, dashOk, dashGo, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, DASH, dashOk, dashGo, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
