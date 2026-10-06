@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r85</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r86</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r85';
+const BUILD = 'r86';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -9078,6 +9078,12 @@ const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turn
   // and a TAP is a plain pop, locked, back down the same wall. A NEW key rather than `tapXfer` 0, because the panel saves
   // every row and his phone holds `tapXfer` 1 from r74. `swipeXfer` 0 is r74 (tap transfers, swipe dashes).
   swipeXfer: 1,
+  // r86: *"Flick or tap the right stick, she launches off the vert straight up regardless -- the flick gets you a boost.
+  // Only if you then press and HOLD forward on the right stick in the air does she transfer out."* `flickBoost` 1: a right
+  // flick UP on a steep face, just off one, or in the first `tapWin` of a locked air is the BOOST (more air, still locked);
+  // the right pad held UP for `holdT` during a locked air is the transfer (`vertRelease`). `holdT` is past a flick's own
+  // window (`FLICK.let`), so a flick up in the air can never also be a held transfer. `flickBoost` 0 is r81.
+  flickBoost: 1, holdT: 0.32,
   // r80: THE AIR FOLLOWS THE LIP (`vlipFind`, `vlipStep`). *"In Tony Hawk if you launch off a vert ramp and the side of the
   // bowl curves around, your character follows the edge of the lip -- not physically accurate, but more fun, so you come
   // back down the ramp even if you go round a curve."* `follow` 0 is the old straight line out of the bowl. `lipR` is how
@@ -9130,9 +9136,9 @@ function speedStop() {
 // `cool` s. For `fx` s she shows `blade_hard` at `rate`, the lens widens by `fov` deg and pulls back `pull` m, and trails run
 // off her skates AND hands, `trailLife` times as long as the ordinary ones.
 const BOOST = { on: 1, add: 8, dur: 0.45, cap: 36, cool: 1.1, fx: 1.0, rate: 1.9, fov: 9, pull: 0.7, trailLife: 2.2 };
-function boostGo() {
+function boostGo(air) {
   const p = player;
-  if (!BOOST.on || p.grind || p.bailT > 0 || (p.boostCool || 0) > 0 || !(p.grounded || p.coyote > 0)) return false;
+  if (!BOOST.on || p.grind || p.bailT > 0 || (p.boostCool || 0) > 0 || !(air || p.grounded || p.coyote > 0)) return false;
   if (p.hSpeed < 1) { p.vel.x += Math.sin(p.heading) * 0.6; p.vel.z += Math.cos(p.heading) * 0.6; }     // a direction to go in
   p.boostT = BOOST.dur; p.boostFx = BOOST.fx; p.boostCool = BOOST.cool;
   trick('BOOST', 10);
@@ -9576,6 +9582,8 @@ function stepAir(dt) {
   const sk = Math.sign(sx) * clamp((Math.abs(sx) - 0.08) / Math.max(0.05, AIR.spinFull - 0.08), 0, 1);
   // r47: right pad held UP during a locked vert air: it becomes a transfer
   if (p.vertLock && VERT.holdXferOn > 0.5 && stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y) vertRelease();
+  // r86: with `flickBoost`, the hold has to last `holdT` with the thumb up -- longer than any flick
+  if (p.vertLock && VERT.flickBoost > 0.5 && (p.xferUpT || 0) >= VERT.holdT && vertRelease()) trick('TRANSFER', SCORE.xfer);
   const hold = p.vertLock && VERT.holdTilt > 0.5 && p.vertQ;
   // r55: SHE POINTS WHERE THE STICK POINTS. *"Her direction -- she points in whatever direction the stick is turned,
   // so you can rotate your thumb round in a circle to actually rotate her."* The stick is a HEADING in the air, read
@@ -9667,7 +9675,7 @@ function stepAir(dt) {
   // ONCE IT HAS STARTED OVER A RAMP IT HOLDS for as long as the thumb does: a narrow vert face is a fraction of a second
   // of flight wide in plan, and letting go of it the moment she drifts past would hand her straight back her speed.
   const SP = ctrl82() ? stick.L : stick.R;      // r82: the settle is the LEFT pad held down, with the grabs
-  const padDown = AIR.settleRamp > 0.5 && SP.down && SP.y > AIR.settleAt && Math.abs(SP.x) < SP.y;
+  const padDown = AIR.settleRamp > 0.5 && SP.down && (!ctrl82() || p.lAir) && SP.y > AIR.settleAt && Math.abs(SP.x) < SP.y;
   if (!padDown) p.settleLatch = 0; else if (overRamp) p.settleLatch = 1;
   const settle = !p.flip && ((padDown && p.settleLatch) || keys.f);
   p.settling = !!settle;
@@ -9984,7 +9992,7 @@ function grabStep() {
   const p = player, m = girl.moves, c82 = ctrl82(), R = c82 ? stick.L : stick.R, hold = c82 ? (p.lDown || 0) : p.rHold;      // r82: the LEFT pad grabs
   const air = !p.grounded && !p.grind && p.bailT <= 0;
   if (p.xferHold) { if (!R.down) p.xferHold = 0; p.grab = null; return; }     // r47: that hold was a transfer
-  if (!air || !R.down || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
+  if (!air || !R.down || (c82 && !p.lAir) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
   // r55: *"The grabs don't really work."* Two reasons, both fixed. The direction was decided ONCE, at `grabAt` after
   // the press -- and the stick floats, so the thumb lands as the centre and at 0.3 s it had often not moved yet:
   // every grab came out as the centre one, and pushing the thumb over afterwards changed nothing. And held DOWN it was
@@ -10069,13 +10077,18 @@ function dashGo() {
   trick('DASH', SCORE.xfer * 0.5);
   return true;
 }
-const tapXferOn = () => VERT.tapXfer > 0.5 && !(VERT.swipeXfer > 0.5);      // r81: the tap transfers only with the swipe off
+const tapXferOn = () => VERT.tapXfer > 0.5 && !(VERT.swipeXfer > 0.5) && !(VERT.flickBoost > 0.5);      // r81: the tap transfers only with the swipe off
 function rightFlick(dx, dy) {
   const p = player, dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
   const w = flickWorld(dx, dy);
   // r81: THE SWIPE UP IS THE WAY OUT OF A PIPE AGAIN -- on the steep face (armed, fired as she goes off the lip), just off
   // the lip (at once), or in the first moment of a locked air (released). Anywhere else a swipe up is still the dash.
-  if (dir === 'up' && VERT.swipeXfer > 0.5 && !p.grind) {
+  // r86: the flick up on vert is a BOOST, never the transfer (that is the right pad HELD up in the air now)
+  if (dir === 'up' && VERT.flickBoost > 0.5 && !p.grind) {
+    const steep = p.grounded ? p.n.y < MELEE.xferN : (p.leftN != null && p.leftN < MELEE.xferN && (p.coyote > 0 || (p.vertLock && p.airT < VERT.tapWin)));
+    if (steep) return boostGo(true) ? 'boost' : null;
+  }
+  if (dir === 'up' && VERT.swipeXfer > 0.5 && !(VERT.flickBoost > 0.5) && !p.grind) {
     if (p.grounded && p.n.y < MELEE.xferN) { p.xferArm = VERT.faceArm; return 'transfer'; }
     if (!p.grounded && p.coyote > 0 && p.leftN != null && p.leftN < MELEE.xferN) { p.jump = 2; return 'transfer'; }
     if (!p.grounded && p.vertLock && p.airT < VERT.tapWin && vertRelease(true)) { trick('TRANSFER', SCORE.xfer); return 'transfer'; }
@@ -10118,6 +10131,11 @@ function rightFlick(dx, dy) {
 function stepPlayer(dt) {
   const p = player;
   p.rHold = stick.R.down ? p.rHold + dt : 0;
+  p.xferUpT = stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y ? (p.xferUpT || 0) + dt : 0;      // r86
+  // r86: *"she's not doing the in-air pose, she's just doing the idle pose."* The LEFT thumb is the grab in the air (r82) and it
+  // is also the thumb that STEERS, so it is down on every takeoff -- and she grabbed (a style skate, which reads as an idle)
+  // the instant she left the ground, every jump. A grab or a settle on the left pad now needs a press that BEGAN in the air.
+  if (stick.L.down && !(p.lDown > 0)) p.lAir = !p.grounded && !p.grind; if (!stick.L.down) p.lAir = false;
   p.lDown = stick.L.down ? (p.lDown || 0) + dt : 0;      // r82: how long the left thumb has been DOWN (the grabs ask, moved or not)
   p.lHold = stickWorld().mag > 0 ? (p.lHold || 0) + dt : 0;     // r55: how long the left thumb has been pushed (the air aim asks)
   // `jump` 1 is a TAP (constrained on vert), 2 is the right pad's SWIPE UP (the transfer)
@@ -10786,6 +10804,8 @@ const TAILUI = [
   ['SK.softK',       'Light push strength', 0.3, 1.5, 0.05, ''],
   ['SK.brake',       'Held brake', 4, 40, 1, 'm/s2'],
   ['VERT.swipeXfer', 'Swipe up on vert = transfer, tap = straight up (r81)', 0, 1, 1, ''],
+  ['VERT.flickBoost', 'Flick up on vert = boost; HOLD right up in the air = transfer (r86)', 0, 1, 1, ''],
+  ['VERT.holdT',     'Hold up this long to transfer', 0.15, 0.8, 0.01, 's'],
   ['VERT.tapXfer',   'Tap on a ramp = transfer (r74, only with the swipe off)', 0, 1, 1, ''],
   ['DASH.on',        'Swipe up on a ramp = dash', 0, 1, 1, ''],
   ['DASH.add',       'Dash boost', 0, 12, 0.5, 'm/s'],

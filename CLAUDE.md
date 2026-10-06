@@ -93,6 +93,24 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **SHE GRABBED ON EVERY JUMP, WHICH IS WHY THERE WAS NO AIR POSE (r86, `p.lAir`).** *"She's not doing the in-air pose,
+  she's just doing the idle pose."* Since r82 the LEFT pad is the grab in the air, and the left thumb is the one that STEERS,
+  so it is down on every takeoff. `grabStep` read "held past `grabMin` and pushed past `grabPush`" and grabbed the instant
+  she left the ground. The grab poses are style skates (duck, one-foot, daffy, swan), which read as standing. A grab (and
+  the left-pad settle) now needs a press that BEGAN in the air. `npm run sim vert86` holds the left thumb through a jump
+  (no grab) and presses again in the air (grab). Revert-tested: without the gate it reads `GRAB up`.
+  **A gesture moved onto a pad that is already held for something else needs a fresh press, or it fires on its own.**
+- **THE FLICK UP ON VERT IS A BOOST; HOLDING THE RIGHT STICK UP IN THE AIR IS THE TRANSFER (r86, `VERT.flickBoost`,
+  `holdT`, `p.xferUpT`).** *"Tap or flick, she launches straight up regardless -- the flick gets you a boost. Only if you
+  then press and hold forward on the right stick in the air does she transfer."* A right flick up on a steep face, just off
+  one, or in the first `tapWin` of a locked air is `boostGo(true)` (the boost may fire in the air there), and the air stays
+  locked. The right pad held up past `xferAt` for `holdT` (0.32 s) during a locked air is `vertRelease`.
+  - **`holdT` is longer than a flick's own window (`FLICK.let`)**, so a flick up in the air can never also count as a held
+    transfer. The thumb is timed from crossing `xferAt` (`p.xferUpT`), not from the press.
+  - `flickBoost` is a NEW key, so his phone's saved `swipeXfer` 1 is simply outranked. 0 is r81.
+  - **Every other sim case runs with `flickBoost` 0** (set per case, like `intent` and `map`), because they were written
+    against r81's swipe transfer. `vert86` drives the new rule. A stated gap, not a silent one.
+
 - **HIS r83 SKYLINE IS THE KIT NOW, AND THE IMPORT HAD FIVE FAULTS OF ITS OWN (r85, `railLoop`, `levelFn`, `FN_RE`,
   `launchSolve` floors + lift, `npm run sim zones`).** *"Load the new Skyline ... report any kit piece that fails, any walk
   join with a lip or gap, any walk too steep, any launcher whose arc fails, and tell me the spawn works."* 244 `fn_`

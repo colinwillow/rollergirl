@@ -2204,6 +2204,55 @@ CASES.vertair = () => {
   if (!(e.grab && e.land.z < lip && f.land.z > lip + 1 && !f.grab)) ok = false;
   return ok;
 };
+// r86: *"Flick or tap the right stick, she launches off the vert straight up regardless -- the flick gets you a boost. Only
+// if you then press and HOLD forward on the right stick in the air does she transfer out."* And *"she's not doing the in-air
+// pose, she's just doing the idle pose"*: the left thumb (the grab since r82) is down on every takeoff because it steers.
+CASES.vert86 = () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(56)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  rg.CTRL.map = 3; rg.VERT.flickBoost = 1;
+  const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep) + rg.PARK.cope;
+  const keepRd = rg.girl.ready; rg.girl.ready = false;
+  const ride = (opt) => {
+    place(0, 3, 29, 0, 15); P.dashed = 0; P.boostCool = 0; P.boostT = 0; let air = false, t0 = 0, land = null, apex = -9, did = null, xfer = false;
+    run(5, (t) => { rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
+      if (!P.grounded && !air) { air = true; t0 = t; }
+      if (air && !land) apex = Math.max(apex, P.pos.y);
+      if (opt.tap && did === null && P.grounded && P.n.y < 0.7) { did = 'tap'; P.jump = 1; }
+      if (opt.flick === 'face' && did === null && P.grounded && P.n.y < 0.7) did = rg.rightFlick(0, -52);
+      if (opt.flick === 'air' && did === null && air && t - t0 > 0.05) did = rg.rightFlick(0, -52);
+      // the thumb up on the right pad for `opt.hold` seconds, from `opt.at` into the air
+      const h = opt.hold && air && !land && t - t0 > opt.at && t - t0 < opt.at + opt.hold;
+      rg.stick.R.down = h ? 1 : 0; rg.stick.R.y = h ? -1 : 0; rg.stick.R.x = 0;
+      if (opt.hold && opt.flickEnd && did === null && air && t - t0 >= opt.at + opt.hold) did = rg.rightFlick(0, -52);
+      if (!P.vertLock && air && !land && opt.hold) xfer = xfer || P.pos.z > lip;
+      if (air && P.grounded && !land) land = { z: P.pos.z, stance: P.stance }; });
+    rg.stick.R.down = 0; rg.stick.R.y = 0;
+    return { land, apex, did };
+  };
+  const where = r => r.land ? `down at z ${fix(r.land.z, 2)} -- ${r.land.z > lip ? 'ON THE DECK' : 'back in the pipe'}${r.land.z > lip ? (r.land.stance > 0 ? ', forward' : ', FAKIE') : ''}` : 'never landed';
+  const none = ride({}), tap = ride({ tap: 1 }), fl = ride({ flick: 'face' }), fa = ride({ flick: 'air' });
+  say('no input: straight up and back into the pipe', none.land && none.land.z < lip, `apex ${fix(none.apex, 1)}, ${where(none)}`);
+  say('TAP on the wall: straight up, back in', tap.land && tap.land.z < lip, `apex ${fix(tap.apex, 1)}, ${where(tap)}`);
+  say('FLICK up on the wall: a boost, higher, and back in', fl.did === 'boost' && fl.apex > none.apex + 0.5 && fl.land && fl.land.z < lip, `${fl.did}, apex ${fix(fl.apex, 1)}, ${where(fl)}`);
+  say('FLICK up just after leaving: a boost, back in', fa.did === 'boost' && fa.land && fa.land.z < lip, `${fa.did}, apex ${fix(fa.apex, 1)}, ${where(fa)}`);
+  const hd = ride({ hold: 1.5, at: 0.2 }), hfl = ride({ flick: 'face', hold: 1.5, at: 0.2 });
+  say('HOLD the right stick up in the air: the transfer, forward', hd.land && hd.land.z > lip + 1 && hd.land.stance > 0, where(hd));
+  say('flick on the wall, THEN hold up: boosted and transfers', hfl.did === 'boost' && hfl.land && hfl.land.z > lip + 1, `${hfl.did}, ${where(hfl)}`);
+  // a flick's own travel is under `holdT`: the thumb up for 0.2 s then a flick up is a boost/flip, never a transfer
+  const qf = ride({ hold: 0.2, at: 0.15, flickEnd: 1 });
+  say('a quick thumb up and off in the air: no transfer', qf.land && qf.land.z < lip, `${qf.did}, ${where(qf)}`);
+  // AND THE AIR POSE: the left thumb carried off the ground (steering) is not a grab; a fresh press in the air is
+  { place(60, 1, -60, 0, 8); let grab = null;
+    run(0.3, () => { rg.stick.L.down = 1; rg.stick.L.x = 0; rg.stick.L.y = -1; });
+    P.jump = 1; run(1, () => { rg.stick.L.down = 1; rg.stick.L.x = 0; rg.stick.L.y = -1; if (!P.grounded && P.grab) grab = grab || P.grab.k; });
+    say('left thumb held from the ground through a jump: no grab', !grab, grab ? `GRAB ${grab}` : 'the air pose');
+    rg.stick.L.down = 0; rg.stick.L.y = 0; place(60, 1, -60, 0, 8); run(0.1); P.jump = 1; run(0.15); grab = null;
+    run(0.6, () => { rg.stick.L.down = 1; rg.stick.L.x = 0; rg.stick.L.y = -1; if (!P.grounded && P.grab) grab = grab || P.grab.k; });
+    say('...pressed again in the air: the grab', !!grab, grab ? `grab ${grab}` : 'NONE');
+    rg.stick.L.down = 0; rg.stick.L.x = rg.stick.L.y = 0; P.grab = null; }
+  rg.girl.ready = keepRd; rg.CTRL.map = 1;
+  return ok;
+};
 // r45: the PARK's four rails -- the city's paths (spirals, loops, a zip) have their own case
 const parkRails = () => rg.RAILS.filter(R => R.path.name === 'park');
 CASES.home = () => {
@@ -3834,7 +3883,7 @@ for (const k of Object.keys(CASES)) {
     process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
-  try { rg.GRIND.intent = 0; rg.CTRL.map = 1; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
+  try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
   if (!ok) { fail++; console.log('  -> FAIL'); }
 }
 console.log(fail ? `\n${fail} case(s) failed` : '\nall cases pass');
