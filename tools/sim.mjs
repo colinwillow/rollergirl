@@ -42,7 +42,7 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 (0, eval)(stubs);
 // r64: WHICH WORLD. Every case but `zones` measures the built-in park, and his zones stand on the same ground, so
 // the page is booted in the world the case is about (`rg.world` is what the game reads at load).
-globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : '0');
+globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : process.argv[2] === 'sky' ? '3' : '0');
 // r90: the main world's north district is the skate park now; the City it replaced is one switch away, and `city` boots with it
 if (process.argv[2] === 'city') globalThis.localStorage.setItem('rg.city', '1');
 
@@ -1200,12 +1200,12 @@ CASES.panel = () => {
   { const wk = document.getElementById('worldB'), down = () => (wk._h.pointerdown || []).forEach(f => f({ preventDefault() {}, stopPropagation() {} }));
     down(); const wb = P.children.filter(c => c.className && c.className.startsWith('wbtn')).map(b => b.textContent);
     const open1 = P.classList.contains('on'); down(); const shut = !P.classList.contains('on');
-    const okW = open1 && shut && wb.length === 3 && ['SKATE PARK', 'RAMP KIT PARK', 'HIS ZONES'].every(t => wb.some(x => x.includes(t)));
+    const okW = open1 && shut && wb.length === 4 && ['SKATE PARK', 'SK8 SKY', 'RAMP KIT PARK', 'HIS ZONES'].every(t => wb.some(x => x.includes(t)));
     console.log(`  LEVEL key: opens ${open1 ? 'yes' : 'NO'}, ${wb.length} worlds (${wb.map(x => x.split(/[a-z]/)[0].trim()).join(' / ')}), closes on a second tap ${shut ? 'yes' : 'NO'}`); if (!okW) ok = false;
     rg.tailPanel(); }
   const wb = P.children.filter(c => c.className === 'btns').flatMap(c => c.children || []).map(b => b.textContent);
-  const wOk = ['SKATE PARK', 'RAMP KIT PARK', 'HIS ZONES'].every(t => wb.includes(t));
-  console.log(`  WORLD buttons at the top: ${wOk ? 'SKATE PARK / RAMP KIT PARK / HIS ZONES' : 'MISSING (' + wb.join(', ') + ')'}`); if (!wOk) ok = false;
+  const wOk = ['SKATE PARK', 'SK8 SKY', 'RAMP KIT PARK', 'HIS ZONES'].every(t => wb.includes(t));
+  console.log(`  WORLD buttons at the top: ${wOk ? 'SKATE PARK / SK8 SKY / RAMP KIT PARK / HIS ZONES' : 'MISSING (' + wb.join(', ') + ')'}`); if (!wOk) ok = false;
   const sway = rows().find(r => r.children[0].textContent === 'Sway');
   if (!sway) { console.log('  -> no Sway slider in wave mode'); return false; }
   const trk = sway.children[1];
@@ -4361,6 +4361,79 @@ CASES.heights = () => {
   rg.GRIND.intent = 0;
   return ok;
 };
+// r97: SK8 SKY -- the floating skate city (world 3), every link ridden
+CASES.sky = async () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  if (rg.WORLD.zones !== 3) { console.log('  booted in another world -- run `npm run sim sky`'); return false; }
+  const S = rg.S3; if (!S.built) { console.log('  sk8 sky was not built'); return false; }
+  if (process.env.SKYPROBE) { const mod = await import(pathToFileURL(path.resolve(process.env.SKYPROBE)).href); await mod.default(rg, THREE); }
+  say(`built: ${rg.KITW.pieces.length} kit pieces, ${rg.COMBOS.list.length} combos, ${S.paths.length} rails, ${rg.DYN.list.length} moving floors`, rg.COMBOS.list.length === 6 && rg.DYN.list.length === 3, '');
+  say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
+  const city = () => rg.stepCity(DT), g = rg.SK.g;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; };
+  const go = (x, z, h, v, y) => { reset(); place(x, (y || 0) + 0.3, z, h, v); const q = rg.groundAt(x, z, (y || 0) + 0.6, 1); if (q.hit) P.pos.y = q.floor; };
+  const ride = (sec, drive) => { const r = { bail: 0, deep: 0, grind: new Set(), top: -99, falls: rg.ORB.falls || 0, vmax: 0 }; run(sec, (t, i) => { if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (P.bailT > 0) r.bail = 1; if (P.grind) r.grind.add(P.grind.rail.path); r.top = Math.max(r.top, P.pos.y); r.vmax = Math.max(r.vmax, P.speed || 0);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit && !P.grind) r.deep = Math.max(r.deep, q.floor - P.pos.y); }); r.falls = (rg.ORB.falls || 0) - r.falls; r.clean = !r.bail && !r.falls && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const on = (y, tol) => P.grounded && Math.abs(P.pos.y - y) < (tol || 0.1);
+  const steerTo = (x, z) => { const h = Math.atan2(x - P.pos.x, z - P.pos.z); rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  const grindAll = (Pth, v, sec, after) => { const S0 = Pth.segs[0], G = Pth.segs[Pth.segs.length - 1]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), v); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: v, side: 'left' }); let reached = 0, off = null, tE = 0, done = 0;
+    const r = ride(sec, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === Pth) { if (Math.hypot(P.pos.x - G.b.x, P.pos.z - G.b.z) < 2 && !reached) { reached = 1; tE = t; } } else if (!reached && !off) off = [P.pos.x, P.pos.y, P.pos.z];
+      if (reached && after && after()) done = 1; }); return { r, reached, off, tE, done }; };
+  const at = o => o ? o.map(v => fix(v, 1)).join(',') : '';
+  // the stops
+  { const bad = []; for (const n of S.go) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${S.go.length} stops`); }
+  // a lift: on at the ground, up to the 40 m ring, off onto it
+  { const Lf = S.lifts[0]; let tw = 0; for (let k = 0; k < 800; k++) { const [, y] = Lf.fn(S.t + k * 0.05); if (y < 0.3) { tw = k * 0.05; break; } }
+    run(tw + 0.3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    reset(); place(Lf.x, Lf.y + 0.05, Lf.z, -Math.PI / 2, 0); P.vel.set(0, 0, 0); let up = -1, stay = 1;
+    for (let t = 0; t < 20 && up < 0; t += DT) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (!P.grounded) stay = 0; if (P.pos.y > 39.9) up = t; }
+    let off = 0; if (up >= 0) run(2, () => { steerTo(10, Lf.z); city(); if (on(40) && P.pos.x < 16) off = 1; });
+    say('a lift: from the ground up to the 40 m balcony, and off onto it', up >= 0 && stay && off, `${up >= 0 ? 'up at ' + fix(up, 1) + ' s' : 'never up, y ' + fix(P.pos.y)}${stay ? '' : ', FELL OFF'}, ${off ? 'on the balcony' : 'not on the balcony, ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  // the drop: from the 24 m balcony, hands off, down the bank, up the QP XL and back, still on the base
+  { go(13, -1, Math.PI / 2, 3, 24); let qp = 0; const r = ride(9, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.x > 86 && P.pos.y > 3) qp = 1; });
+    say('THE DROP: off the 24 m balcony, down the bank, up the QP XL', qp && r.clean && P.pos.y < 6, `${fix(r.vmax, 1)} m/s at the bottom, ${qp ? 'up the QP' : 'NEVER UP THE QP'}, ends ${at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
+  for (const Pth of S.paths.filter(q => q.name === 'sky drop rail')) { const o = grindAll(Pth, 4, 8, () => on(0, 0.15));
+    say('a drop rail: grinds from the balcony to the floor', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the floor' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  // the bridges: from the 40 m balcony to each pad, along the deck
+  for (const [i, nm] of [[0, 'north'], [1, 'west'], [2, 'south']]) { const D = S.bridges[i], pd = S.pads.find(q => q.key === nm), pts = D.P.map(q => [q.x, q.z]);
+    reset(); const p0 = D.P[2]; go(p0.x, p0.z, Math.atan2(D.P[6].x - p0.x, D.P[6].z - p0.z), 7, 40); let on2 = 0;
+    const r = ride(16, () => { const e = pts[pts.length - 1]; steerTo(e[0] + (e[0] - pts[0][0]) * 0.05, e[1] + (e[1] - pts[0][1]) * 0.05);
+      if (P.grounded && Math.abs(P.pos.y - pd.y) < 0.12 && Math.abs(P.pos.x - pd.x) < pd.h && Math.abs(P.pos.z - pd.z) < pd.h) on2 = 1; });
+    say(`the ${nm} bridge: from the balcony out to the ${nm} pad`, on2 && r.clean, `${on2 ? 'on the pad' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
+  // the booster up to the high pad, and the long rail back down to the base
+  { const B = S.paths.find(q => q.name === 'sky booster'), NE = S.pads.find(q => q.key === 'ne'); const o = grindAll(B, 6, 14, () => P.grounded && Math.abs(P.pos.y - NE.y) < 0.12);
+    say('the booster: from the north pad up onto the high pad', o.reached && o.done && o.r.clean, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the high pad' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}${cl(o.r)}`); }
+  { const B = S.paths.find(q => q.name === 'sky long rail'); const o = grindAll(B, 5, 16, () => on(0, 0.15));
+    say('the long rail: off the high pad, over the sea, down onto the base', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, top speed ${fix(o.r.vmax, 1)}, ${o.done ? 'on the base' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  // the ferry: stood on it at the west pad, it carries her to the south pad
+  { const F = S.ferry; let tw = 0; for (let k = 0; k < 800; k++) { const u = ((S.t + k * 0.05) % 28) / 28; if (u > 0.02 && u < 0.08) { tw = k * 0.05; break; } }
+    run(tw, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    reset(); place(F.x, F.y + 0.05, F.z, 0, 0); P.vel.set(0, 0, 0); const x0 = P.pos.x, z0 = P.pos.z; let stay = 1;
+    run(13, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (!P.grounded || Math.hypot(P.pos.x - F.x, P.pos.z - F.z) > F.cr) stay = 0; });
+    say('the ferry carries her from the west pad to the south pad', stay && Math.hypot(P.pos.x - x0, P.pos.z - z0) > 100, `${stay ? 'on it' : 'CAME OFF'}, carried ${fix(Math.hypot(P.pos.x - x0, P.pos.z - z0), 0)} m, ends ${at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  // the halo: the pad throws her up to it and she catches it
+  { const H = S.halo; rg.GRIND.intent = 0; rg.ledgeClear(); go(H.pad[0], H.pad[1], 0, 0); const R = S.paths.find(q => q.name === 'sky halo');
+    const r = ride(5); say('the halo pad throws her up and she catches the ring', r.grind.has(R), r.grind.has(R) ? 'on the halo' : `ends ${at([P.pos.x, P.pos.y, P.pos.z])}, up to ${fix(r.top)}`); }
+  // the bowl terrace: up its north bank, into the bowl, stays in
+  { const B = S.bowl; go(57, -6, Math.PI, Math.sqrt(2 * g * 4.8) + 3); let up = 0, inb = 0;
+    const r = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on(4.8)) up = 1; if (Math.hypot(P.pos.x - B.x, P.pos.z - B.z) < B.rc && P.pos.y < 0.3) inb = 1; });
+    say('the bowl terrace: up its bank, into the bowl XL', up && inb && r.clean, `${up ? 'up' : 'NEVER UP'}, ${inb ? 'in the bowl' : 'never in the bowl'}, ends ${at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
+  // the rim rail: on it and round
+  { const R = S.paths.find(q => q.name === 'sky rim'); const o = grindAll(R, 10, 6);
+    say('the rim rail grinds round the base\'s edge', !o.off, o.off ? 'CAME OFF at ' + at(o.off) : `still on it after 6 s`); }
+  // off a pad's edge into the sea: she is put back
+  { const N = S.pads.find(q => q.key === 'north'); go(N.x - 4, N.z - 6, 0, 0, N.y); run(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    const f0 = rg.ORB.falls || 0; place(N.x - 4, N.y - 6, N.z + N.h + 6, 0, 0); P.grounded = false; run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    say('off a pad into the sea: put back where she stood', (rg.ORB.falls || 0) > f0 && P.pos.y > 0, `${(rg.ORB.falls || 0) > f0 ? 'put back' : 'never'} at ${at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  rg.GRIND.intent = 0;
+  return ok;
+};
 // r91: THE COMBOS AND THE ROUND PIECES, each ridden through the shipped step -- hands off wherever the thing can be ridden
 // hands off, and with the one input it is about (a swipe for a transfer, a tap for a grind or an ollie) where it cannot
 CASES.combos = async () => {
@@ -4593,10 +4666,10 @@ for (const k of Object.keys(CASES)) {
   console.log(`\n== ${k} ==`);
   let ok = false;
   // the zones case needs a page booted in the OTHER world, so a full run hands it to a process of its own
-  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city') && !only) {
+  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky') && !only) {
     const { spawnSync } = await import('child_process');
     const r = spawnSync(process.execPath, [process.argv[1], k], { encoding: 'utf8', maxBuffer: 64 << 20 });
-    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
+    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
   try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on

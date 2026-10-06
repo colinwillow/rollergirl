@@ -94,6 +94,31 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **SK8 SKY: A FOURTH WORLD, HIS REFERENCE PAINTINGS BUILT FROM THE KIT (r97, `WORLD.zones` 3, `?world=sky`, `S3`,
+  `sk8World`, `npm run sim sky`).** *"These are the references I gave the Blender window ... it was super impressive and it's
+  just not fun. I'm curious if you rebuild something similar with your understanding of big broad wide open spaces ...
+  right angles, 45 degree angles ... modular ... the floating pads only need to be big enough to hold their own mini skate
+  park."* A separate world (LEVEL key, between SKATE PARK and RAMP KIT PARK) so it can be as big as it needs to be:
+  - **THE BASE**: an octagon 192 m across (half 96, chamfer 28 -- 164 = 41 x 4, so the chamfer cuts 4 m floor cells exactly
+    on their diagonals), at y 0, rock tiers under it, crystals, the canal street's water shader as a sea at -45
+    (`SLC.canal` / `SLC.WY` reassigned for this world), a parapet round the rim with THE RIM RAIL on it.
+  - **THE TOWER** (placeholder for his hero mesh): 20 m square, 92 m, SK8 signs (`SIGNS` 'sk8'), ring balconies at 12 /
+    24 / 40, two hex LIFTS (`DYN`) stopping at ground, 12, 24, 40.
+  - **THE DROP**: a filleted 22-degree bank from the 24 m balcony 63 m east to the floor, walled, solid underneath, a down
+    rail on each wall, into a QP XL at the base's edge. 26 m/s at the bottom.
+  - **THE CELLS**: a 3 x 3 grid of 64 m cells round the tower. Six are TESTED COMBOS placed with `comboBuild(def, T)`
+    (spine wave N, stair sets + euro gap W, funbox gaps S, pump track NE, volcano bowl NW) -- the r91 library being used as
+    it was meant to be. The SE cell is a BOWL TERRACE (bowl XL raised to 4.8, two 42 m wide banks down its inner faces),
+    the SW cell the START PLAZA (painted rings, a HALO ring rail at 12 m and a launch pad up to it).
+  - **THE PADS**: four floating mini parks (a quarter-pipe pair, or a volcano), three on 7 m bridges off the 40 m balcony,
+    the high one (52) by a booster from the north pad with a long down rail from it over the sea back onto the base,
+    and a hex FERRY between the west and south pads.
+  - **A LAUNCH THAT HAS TO END ON A RAIL MUST ARRIVE ALONG IT.** The halo's pad first sat square to the ring; the catch
+    refuses a square crossing (that is a jump over), so it read "never caught". The pad sits on the ring's tangent now.
+  - **`sim sky` runs in a child process booted in world 3** (`rg.world` '3'), like kit and zones. It rides the lift to 40,
+    the drop and both its rails, all three bridges, the booster, the long rail, the ferry (180 m), the halo, the bowl
+    terrace, the rim rail, and a fall off a pad into the sea (put back).
+  - The kit pieces are flushed with `detailPatch` (the main world's textures), not `kitFlush`'s plain material.
 - **THE HEIGHTS: SKYSCRAPERS, A TWO-DECK SKY LINE, AND THINGS THAT MOVE (r96, `HT`, `buildHeights`, `heightsRails`,
   `stepHeights`, `DYN`, `dynAt`, `stepDyn`, `npm run sim heights`).** *"Really tall buildings -- Tokyo, New York, Dubai -- a
   sky rail system, a train up on tracks on bridges high in the air, a low one too ... maybe the train knocks you off ...
