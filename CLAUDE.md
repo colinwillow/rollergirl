@@ -93,6 +93,58 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE LEFT FLICK DOWN IS THE STOP AND THE DIVE; EVERY RIGHT FLICK IN THE AIR IS A FLIP (r84, `CTRL.map` 3, `STOP`,
+  `speedStop`, `p.drive`).** *"A flick down on the right stick does the grind thing, so that stick can't do a backflip --
+  change the flick down on the LEFT stick to the grind, which frees the right stick for flips."*
+      ground  LEFT flick down = SPEED STOP (a skid; the thumb back down mid-skid is the CUT), other ways = strike
+              RIGHT flick up or sideways = boost, down = switch stance
+      air     LEFT flick down = the grind dive (`grindDown`, unchanged), shown in the SLIDE TACKLE's pose with no shove
+              forward; other ways = air strike. RIGHT flick = a flip, all four ways, always
+  `map` 2 (r82) and 1 are still on the panel. `npm run sim ctrl84` drives the layout through the real pads; `ctrl` still
+  tests `map` 2.
+  - **THE CUT:** during a skid, a left thumb down after `STOP.min` ends it. Her remaining speed is swung straight onto the
+    thumb's direction.
+  - **HOW HARD THE THUMB PUSHES IS HOW HARD SHE SKATES.** `p.drive` is `smooth(softAt, hardAt, mag)`, eased:
+    - it scales each stroke between `softK` and `hardK` and the stride period between `softP` and `hardP`;
+    - the move brain picks casual or hard by it, not by speed (`MOVES.byDrive`).
+    `SK.ahead` .35 -> .2, because a light thumb straight ahead (mag ~.3) was not a push at all, only steering.
+  - **Measured (`npm run sim agile`, r83 as the control):**
+    - 10 m/s from a standstill: 0.72 s (r83 0.90), and 17.7 m/s at 2 s against 16.7. The hard push's extra fades out by
+      `hardFade` (20 m/s), so her top speed is where it was (25.5 m/s) and so is every jump tuned against it. The first
+      try (no fade) took her to 28 m/s, made every stroke a 2 m/s jolt, and moved four other cases.
+    - Speed stop from 18 m/s: 0.38 s. The held brake (12 -> 20): 1.30 -> 0.82 s.
+    - The cut: 8 m/s the other way 0.45 s after the thumb.
+    - A 90-degree carve at 15 m/s: 0.67 -> 0.55 s, keeping more speed. Changes: `turn` 7 -> 10, `turnV` 2.4 -> 3.3,
+      `gripA` 30 -> 40.
+  - **THE QUICKER START EXPOSED A COLLIDER HOLE THAT WAS ALREADY THERE (`SK.faceCatch`, `npm run sim hpjump`).** At 20 Hz,
+    flying the length of the half pipe she came down into the top of the far transition. It is a few centimetres wide in
+    plan, so one sub-step put the surface above her head, past `step`, where the landing query cannot see it, and she fell
+    on inside the ramp: **1.9 m deep**. The r83 push settings do it too; `inside` passed only because her old acceleration
+    never got her there inside its 3.2 s.
+    - The fix: a surface inside her body (`faceH`) that was not there at the start of the step is bisected back to where
+      she met it, and where the surface there is continuous with her she lands on it.
+    - A cliff edge (a ramp's side, passed through by design) has no surface at her height and is left alone.
+    - `hpjump`: 13 speeds x 31 jump moments at 20 Hz, 0.135 m worst. Revert-tested with `NOFACE=1`: 1.935 m and a fail.
+    - **The sustained-push harness rows (`push`, `inside`) cover a longer distance whenever she gets quicker** -- this
+      file's "she is faster now, so the runway is shorter" landmine again.
+  - **THE ROUTE CASES RIDE THE r83 PUSH (`ROUTE` in `tools/sim.mjs`: orbital, shores, kit, zones).** They hold the stick for a
+    fixed time and then ask whether a line lands where it was tuned, so a quicker start makes each one measure the
+    acceleration curve instead of the route:
+    - W3 -> W4 tapped at 18.9 m/s instead of 17.2, and with air drift on top she overshot a 16 m roof;
+    - the mega drop-in flew the ring;
+    - the spire row drives full stick for 2 s AFTER arriving, and went off the island.
+    `agile`, `push` and `ctrl84` cover the new push; `steer` runs on the r83 push for the same reason (its 2 s run met an
+    obstacle at 18 m/s). **A stated gap: those routes are not re-proved at the new start**, and a speed-critical line
+    (W3 -> W4 above all) wants a look on the phone.
+  - **AND ONE ROUTE ROW HAD BEEN PASSING ON A BUG.** "Sheet upper plaza ... off its east edge" steered only while
+    `y > 3`. That was the 3.6 m plaza's height; r78 made it M and it never steered again, so she rode off the SOUTH edge.
+    She then fell through the stair-bank's slope to the ground, which counted as "dropped off". The face catch landed her
+    on the slope, where she should land, and the row failed. It reads `Lz.H` now.
+  - **AND THE PANEL HAD TO LEARN TO LET A NEW DEFAULT THROUGH (`UI_VER`, `UI_FRESH`).** It saves every row on every drag,
+    so `turnV`, `gripA`, `CTRL.map` and the push references were already fixed on his phone, and changing them here
+    would have done nothing. That is Shredworld's five-build lesson. The store carries a version, and rows named for a
+    later version are dropped from an older store. **Bump `UI_VER` and name the row in the same commit as the default.**
+
 - **THE LEVEL-BUILDING HANDOFF IS `handoff/` (r83, `LEVEL_BUILDING.md`, `rollergirl_blender.py`, `npm run export:lib`).**
   *"Bring the ramps kit and anything else we need for level building -- a deliverable for the other context window."*
   The brief for his Blender session covers every name `levelIngest` reads. It comes with Blender helpers that write

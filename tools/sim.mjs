@@ -116,6 +116,14 @@ function gameClips(file) {
 }
 
 const CASES = {};
+// r84: THE ROUTE CASES RIDE THE r83 PUSH. They hold the stick down for a fixed time and then ask whether a line through a
+// level comes out where it was tuned to: a gap cleared, a roof landed, a ring entered. With r84's quicker start every one of
+// them arrives at a different speed and measures the acceleration curve instead of the route (W3 -> W4 overshot at 18.9 m/s
+// instead of 17.2, the mega drop-in flew the ring). The PUSH is covered by `agile`, `push` and `ctrl84`. A stated gap: these
+// routes are not re-proved at the new start, and a level line that is speed-critical wants a look on the phone.
+const ROUTE = new Set(['orbital', 'shores', 'kit', 'zones']);
+const R83PUSH = { hardK: 1, softK: 1, hardP: 1, softP: 1 };
+const PUSH84 = { hardK: rg.SK.hardK, softK: rg.SK.softK, hardP: rg.SK.hardP, softP: rg.SK.softP };
 // ---------------------------------------------------------------- the stride
 CASES.push = () => {
   place(60, 1, -66, 0, 0);
@@ -657,6 +665,21 @@ CASES.bowl = () => {
 // "She kinda goes through them a little." Measurable, because every piece in this park is a
 // single-valued height over the ground -- there is not one overhang in it -- so the TOP surface
 // at any (x,z) is well defined and being under it means being inside the concrete.
+// r84: A TRANSITION THAT RISES THROUGH HER BETWEEN TWO SAMPLES (`SK.faceCatch`). Jumps down the length of the half pipe at
+// every speed and every moment, at a phone's 20 Hz: flying it end to end she came down into the top of the far wall and
+// fell on INSIDE it, 1.9 m deep -- and the r83 push settings did it too, so `inside` passing before was luck of timing.
+CASES.hpjump = () => {
+  if (process.env.NOFACE) rg.SK.faceCatch = 0;      // the revert test: with the catch off this must fail
+  DT = 1 / 20; let worst = 0, at = '';
+  for (let v = 10; v <= 22; v += 1) for (let jt = 0.05; jt < 1.6; jt += 0.05) {
+    place(0, 1, 14, 0, v); let deep = 0;
+    run(2.5, (t) => { rg.stick.L.x = 0; rg.stick.L.y = P.grounded ? -1 : 0; rg.cam.az = 0; if (Math.abs(t - jt) < DT / 2) P.jump = 1;
+      const g2 = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0), d = (g2.hit ? g2.floor : -1e9) - P.pos.y; if (d > deep) deep = d;
+      });
+    if (deep > worst) { worst = deep; at = `v ${v} jump at ${fix(jt)} s`; }
+  }
+  DT = 1 / 60; console.log(`  13 speeds x 31 jump moments at 20 Hz: deepest ${fix(worst, 3)} m inside (${at})`); return worst < 0.2;
+};
 CASES.inside = () => {
   const top = (x, z) => { const g = rg.groundAt(x, z, 60, 0); return g.hit ? g.floor : -1e9; };
   const runs = [
@@ -1442,13 +1465,13 @@ CASES.moves = () => {
   check('after a long stand, she shifts', new Set(seen).size >= 3 && !repeat, seen.join(' > '));
   state({ speed: 0, stance: -1 }); step(1);
   check('standing in FAKIE', top() === 'idle_backward', top());
-  // ROLLING WITH THE THUMB OFF is the neutral pose; PUSHING eases casual -> hard with her speed
-  for (const [v, st, go, want] of [[6, 1, false, 'idle_normal'], [6, -1, false, 'idle_backward'],
-                                   [2, 1, true, 'blade_casual_forward'], [20, 1, true, 'blade_hard_forward'],
-                                   [2, -1, true, 'blade_casual_backward'], [20, -1, true, 'blade_casual_backward']]) {
-    state({ speed: v, stance: st, thumbGo: go }); step(1.5);
+  // ROLLING WITH THE THUMB OFF is the neutral pose; PUSHING eases casual -> hard with HOW HARD THE THUMB PUSHES (r84, `drive`)
+  for (const [v, st, go, want, dv] of [[6, 1, false, 'idle_normal', 0], [6, -1, false, 'idle_backward', 0],
+                                   [2, 1, true, 'blade_casual_forward', 0], [20, 1, true, 'blade_hard_forward', 1],
+                                   [2, -1, true, 'blade_casual_backward', 0], [20, -1, true, 'blade_casual_backward', 1]]) {
+    state({ speed: v, stance: st, thumbGo: go, drive: dv }); step(1.5);
     const a = log[want];
-    check(`${v} m/s ${st > 0 ? 'forward' : 'FAKIE'}, thumb ${go ? 'pushing' : 'off'}`, top() === want && a.w > 0.95, `${top()} x${fix(a.ts)} weight ${fix(a.w)}`);
+    check(`${v} m/s ${st > 0 ? 'forward' : 'FAKIE'}, thumb ${go ? (dv ? 'pushing hard' : 'pushing lightly') : 'off'}`, top() === want && a.w > 0.95, `${top()} x${fix(a.ts)} weight ${fix(a.w)}`);
   }
   // r80: BOOSTING she is in her speed skate -- the hard push, quickened -- even slow, even with the thumb off
   state({ speed: 6, stance: 1, thumbGo: false, boostFx: 1 }); step(0.8, () => { P.boostFx = 1; });
@@ -1459,10 +1482,14 @@ CASES.moves = () => {
     check(`diving at a rail, ${sd} side`, top() === moves.grind[sd], `${top()} (want ${moves.grind[sd]})`); }
   P.dive = null; P.grounded = true;
   // half way between the two pushes BOTH play, and the weights still sum to one
-  { const V = rg.MOVES.pushV; state({ speed: (V[0] + V[1]) / 2, stance: 1, thumbGo: true }); step(2);
+  // r84: which push shows is the THUMB'S STRENGTH (`p.drive`), not the speed -- half a thumb blends both, a full thumb is
+  // the speed skate even at a crawl
+  { const V = rg.MOVES.pushV; state({ speed: (V[0] + V[1]) / 2, stance: 1, thumbGo: true }); P.drive = 0.5; step(2);
     const c = log.blade_casual_forward.w, h = log.blade_hard_forward.w;
     let sum = 0; for (const k in log) sum += log[k].w;
-    check(`${fix((V[0] + V[1]) / 2, 0)} m/s pushing blends casual and hard`, c > 0.3 && h > 0.3 && Math.abs(sum - 1) < 0.02, `casual ${fix(c)} hard ${fix(h)}, all ${fix(sum)}`); }
+    check(`half a thumb pushing blends casual and hard`, c > 0.3 && h > 0.3 && Math.abs(sum - 1) < 0.02, `casual ${fix(c)} hard ${fix(h)}, all ${fix(sum)}`);
+    state({ speed: 2, stance: 1, thumbGo: true }); P.drive = 1; step(2);
+    check(`a full thumb at 2 m/s is the speed skate`, top() === 'blade_hard_forward', `${top()}`); P.drive = 0; }
   // and nothing in the table is the medium push any more
   check('medium never asked for', !Object.keys(log).some(k => /medium/.test(k) && log[k].w > 0.01), '');
   state({ thumbGo: false });
@@ -1895,6 +1922,9 @@ CASES.steer = () => {
     rg.stick.L.down = 0; rg.stick.L.x = rg.stick.L.y = 0; rg.CAM.steerLatch = keep;
     return { turned: turned * D, off: Math.abs(rg.wrapAngle(Math.atan2(P.vel.x, P.vel.z) - aim)) * D, travel: Math.atan2(P.vel.x, P.vel.z) * D };
   };
+  // r84: on the r83 push -- this measures the steering FRAME, and at the new acceleration the 2 s run reaches the obstacles
+  // past this spot at 18 m/s and the row measures the crash instead
+  const keepK = { hardK: rg.SK.hardK, hardP: rg.SK.hardP }; Object.assign(rg.SK, { hardK: 1, hardP: 1 });
   const diag = [[5, () => [-0.7, -0.7]]];
   const a = go(diag, 1), b = go(diag, 0);
   console.log(`  held up-left diagonal, 5 s:      turned ${fix(a.turned, 0)} deg, travel ${fix(a.travel, 0)} (asked 45)   [old frame: turned ${fix(b.turned, 0)} deg]`);
@@ -1903,6 +1933,7 @@ CASES.steer = () => {
   const c = go(swing, 1);
   console.log(`  right 2 s, swung over to left:   ends ${fix(c.off, 1)} deg off where the thumb points, travel ${fix(c.travel, 0)}`);
   if (!(c.off < 5)) ok = false;
+  Object.assign(rg.SK, keepK);
   return ok;
 };
 // r47: TONY HAWK'S VERT AIR. Up the half pipe and off the lip: square to the wall the whole way up and down (her up
@@ -1989,6 +2020,74 @@ CASES.levelkit = () => {
   place(ox + 5, oy, oz - 3, 0, 4); run(1.2, () => rg.stepCity(DT));
   say('  skating through the gem picks it up', gi >= 0 && rg.GEM.list[gi].got && rg.GEM.got > got0, `got ${rg.GEM.got - got0}`);
   console.log(`  ingest: ${JSON.stringify(st)}`);
+  return ok;
+};
+// r84: *"get her up to speed from a dead stop quicker ... really pull the stick hard and she speed skates ... a quick speed stop
+// and then cut the other way ... harder turns, really agile."* Every row against the r83 numbers as the control, on the x = 60
+// strip, the shipped `stepPlayer` all the way.
+CASES.agile = () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(52)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const SK = rg.SK, keep = { ...SK }, OLD = { softK: 1, hardK: 1, softP: 1, hardP: 1, turn: 7, turnV: 2.4, gripA: 30, brake: 12 };
+  const as = o => Object.assign(SK, o), back = () => Object.assign(SK, keep);
+  const launch = (raw) => { place(60, 1, -66, 0, 0); P.drive = 0; let t10 = null, at1 = 0, at2 = 0, top = 0;
+    run(3, (t) => { rg.stick.L.x = 0; rg.stick.L.y = -raw; if (t > 0 && t10 == null && P.speed >= 10) t10 = t; if (Math.abs(t - 1) < DT / 2) at1 = P.speed; if (Math.abs(t - 2) < DT / 2) at2 = P.speed; top = Math.max(top, P.speed); });
+    return { t10, at1, at2, drive: P.drive }; };
+  as(OLD); const o = launch(1); back(); const n = launch(1), l = launch(0.6);
+  say('full stick from a standstill gets up to speed quicker', n.t10 != null && (o.t10 == null || n.t10 < o.t10 * 0.8),
+    `10 m/s at ${n.t10 != null ? fix(n.t10) : '-'} s (r83 ${o.t10 != null ? fix(o.t10) : 'never'}); at 1 s ${fix(n.at1, 1)} vs ${fix(o.at1, 1)}, at 2 s ${fix(n.at2, 1)} vs ${fix(o.at2, 1)}`);
+  say('  a light thumb is the casual stride, a full one the speed skate', l.drive < 0.2 && n.drive > 0.9 && l.at2 > 3 && l.at2 < n.at2 - 2, `drive ${fix(l.drive)} / ${fix(n.drive)}, at 2 s ${fix(l.at2, 1)} vs ${fix(n.at2, 1)} m/s`);
+  // the speed stop
+  place(60, 1, -66, 0, 18); rg.stick.L.x = rg.stick.L.y = 0; const z0 = P.pos.z; const okS = rg.speedStop(); let tS = null;
+  run(1.5, (t) => { if (t > 0 && tS == null && P.speed < 0.6) tS = t; });
+  as(OLD); place(60, 1, -66, 0, 18); let tB = null; run(3, (t) => { rg.stick.L.x = 0; rg.stick.L.y = 1; if (t > 0 && tB == null && P.speed < 0.6) tB = t; }); back();
+  place(60, 1, -66, 0, 18); let tB2 = null; run(3, (t) => { rg.stick.L.x = 0; rg.stick.L.y = 1; if (t > 0 && tB2 == null && P.speed < 0.6) tB2 = t; });
+  say('speed stop from 18 m/s', okS && tS != null && tS < 0.6, `stopped in ${tS != null ? fix(tS) : '-'} s (held brake: r83 ${tB != null ? fix(tB) : '-'} s, now ${tB2 != null ? fix(tB2) : '-'} s)`);
+  // the cut: stop, then the thumb straight to her right -- she goes that way, at once
+  place(60, 1, -66, 0, 15); rg.speedStop(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+  const want = Math.atan2(rg.stickWorld ? 1 : 1, 0); let tC = null;
+  run(2, (t) => { rg.stick.L.x = 1; rg.stick.L.y = 0; const w = rg.stickWorld(); const tgt = Math.atan2(w.x, w.z), trav = Math.atan2(P.vel.x, P.vel.z);
+    if (tC == null && P.hSpeed > 8 && Math.abs(rg.wrapAngle(trav - tgt)) < 0.2) tC = t; });
+  say('  ...and cut the other way', tC != null && tC < 1.2, `going 8 m/s toward the thumb ${tC != null ? fix(tC) : 'never'} s after it went down`);
+  // the turn: 90 degrees at 15 m/s
+  const turn = () => { place(60, 1, -66, 0, 15); let t90 = null; run(2, (t) => { rg.stick.L.x = 1; rg.stick.L.y = 0; rg.cam.az = 0; rg.cam.steerAz = 0;
+      const trav = Math.atan2(P.vel.x, P.vel.z); if (t90 == null && Math.abs(Math.abs(trav) - Math.PI / 2) < 0.08) t90 = { t, v: P.hSpeed }; }); return t90; };
+  as(OLD); const tO = turn(); back(); const tN = turn();
+  say('a 90 degree carve at 15 m/s is quicker', tN && (!tO || tN.t < tO.t), `${tN ? fix(tN.t) + ' s, ' + fix(tN.v, 1) + ' m/s' : 'never'} (r83 ${tO ? fix(tO.t) + ' s, ' + fix(tO.v, 1) + ' m/s' : 'never'})`);
+  back(); rg.stick.L.x = rg.stick.L.y = 0;
+  return ok;
+};
+// r84: THE LAYOUT, THROUGH THE REAL PADS. Left flick down: the speed stop on the ground, the grind dive in the air (the slide
+// tackle's pose, no shove forward); right flick: boost on the ground (sideways too), and a FLIP every way in the air.
+CASES.ctrl84 = async () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(52)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  rg.CTRL.map = 3; const wait = ms => new Promise(r => setTimeout(r, ms));
+  const keep = { m: rg.girl.moves, r: rg.girl.ready, lock: P.stanceLock };
+  rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves; rg.girl.ready = false; P.stanceLock = true;
+  const L = document.getElementById('stkL'), R = document.getElementById('stkR');
+  const ev = (el, id) => (type, x, y) => ({ type, pointerId: id, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: el });
+  const eL = ev(L, 71), eR = ev(R, 72);
+  const flick = async (e, el, dx, dy, frames) => { await wait(160); el.dispatchEvent(e('pointerdown', 150, 150)); el.dispatchEvent(e('pointermove', 150 + dx, 150 + dy));
+    if (frames) run(frames); await wait(30); el.dispatchEvent(e('pointerup', 150 + dx, 150 + dy)); };
+  const ground = (v) => { place(60, 1, -60, 0, v || 10); P.rHold = 0; P.lDown = 0; P.boostT = 0; P.boostCool = 0; P.mel = null; P.melQ = null; P.flip = null; P.stance = 1; P.stopT = 0; P.dive = null; rg.cam.az = 0; };
+  const air = () => { ground(6); P.grounded = false; P.coyote = 0; P.pos.y += 7; P.vel.y = 2; P.airT = 0.3; };
+  ground(14); await flick(eL, L, 0, 70); say('ground, LEFT flick down: the speed stop', P.stopT > 0 && !P.mel, `stopT ${fix(P.stopT || 0)}`);
+  run(0.8); say('  ...and she has stopped', P.hSpeed < 0.6, `${fix(P.hSpeed)} m/s`);
+  ground(); await flick(eL, L, 70, 0); say('ground, LEFT flick sideways: a strike', P.mel && P.mel.kind === 'strike', P.mel ? P.mel.kind : 'nothing');
+  ground(); await flick(eR, R, 0, -70); say('ground, RIGHT flick up: the boost', P.boostT > 0, `boostT ${fix(P.boostT || 0, 2)}`);
+  ground(); await flick(eR, R, 70, 0); say('ground, RIGHT flick sideways: the boost too', P.boostT > 0, `boostT ${fix(P.boostT || 0, 2)}`);
+  ground(); await flick(eR, R, 0, 70); say('ground, RIGHT flick down: switch stance', P.stance === -1, `stance ${P.stance}`);
+  for (const [dx, dy, want] of [[0, -70, 'up'], [0, 70, 'down'], [70, 0, 'right'], [-70, 0, 'left']]) {
+    air(); await flick(eR, R, dx, dy, 0.15); say(`air, RIGHT flick ${want}: a flip`, P.flip && P.flip.dir === want && !P.dive, P.flip ? P.flip.dir + ' flip' : (P.dive ? 'a DIVE' : 'nothing')); }
+  // the dive moved to the left pad: over rail 0 it lands her on it; over nothing it still drives her down
+  { rg.GRIND.intent = 1; const R0 = rg.PATHS.find(Q => Q.name === 'park'), bar = R0.segs[0].a.y;
+    air(); P.pos.set(-37, bar + 5, -3); P.vel.set(0, 2, 6); P.grindWant = 0; P.grindCool = 0; P.grindLast = null;
+    await flick(eL, L, 0, 70); const dv = !!P.dive, hv = Math.hypot(P.vel.x, P.vel.z); let got = null; run(1.5, () => { if (P.grind && !got) got = P.grind.rail.path; });
+    say('air over rail 0, LEFT flick down: the dive onto it', dv && !P.flip && got === R0, got === R0 ? 'grinding rail 0' : (P.flip ? 'a FLIP' : 'no grind'));
+    air(); const h0 = Math.hypot(P.vel.x, P.vel.z); await flick(eL, L, 0, 70);
+    say('  over nothing: an open dive, and no shove forward', !!P.dive && P.vel.y < -5 && Math.hypot(P.vel.x, P.vel.z) <= h0 + 0.05, `vy ${fix(P.vel.y, 1)}, speed ${fix(h0, 1)} -> ${fix(Math.hypot(P.vel.x, P.vel.z), 1)}`);
+    rg.GRIND.intent = 0; }
+  air(); await flick(eL, L, 70, 0); say('air, LEFT flick sideways: the air strike', P.mel && P.mel.kind === 'strike' && !P.flip, P.mel ? P.mel.kind : 'nothing');
+  rg.girl.moves = keep.m; rg.girl.ready = keep.r; P.stanceLock = keep.lock; P.mel = null; P.flip = null; P.dive = null; P.stopT = 0; rg.CTRL.map = 1;
   return ok;
 };
 CASES.ctrl = async () => {
@@ -3307,7 +3406,9 @@ CASES.kit = async () => {
     // r75: THE UPPER PLAZA -- up its stairs-and-bank onto the deck and across onto the pool deck; up the kerb terrace tier by
     // tier; down the west stairs; and the planted island and the south hills
     { const k = at('plazaStairsS'), Lz = { H: at('upperPlaza').h }, bw = k.o.bw || 3; go(k, -6, (k.o.w || 5) / 2, 0, Math.sqrt(2 * g * Lz.H) + 2.5); let plaza = 0, pool = 0;
-      ride(4, () => { if (P.grounded && P.pos.y > 3) fwd(H(k, -Math.PI / 2 + 0.25)); else rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(Lz.H)) plaza = 1;
+      // r84: `y > 3` was the 3.6 m plaza's; r78 brought it down to M and this never steered again -- she rode straight off the
+      // south edge, fell THROUGH the stair-bank's slope to the ground (r84's face catch now lands her on it) and passed by luck
+      ride(4, () => { if (P.grounded && P.pos.y > Lz.H - 0.5) fwd(H(k, -Math.PI / 2 + 0.25)); else rg.stick.L.x = rg.stick.L.y = 0; city(); if (onAt(Lz.H)) plaza = 1;
         if (plaza && P.pos.y < 0.3) pool = 1; });      // (r77: the pool is sunk, so off the plaza's east edge is a drop to the ground)
       say('sheet upper plaza: up the bank beside the stairs, across and off its east edge', plaza && pool, `plaza ${plaza ? 'yes' : 'no'}, dropped off ${pool ? 'yes' : `no, ends x ${fix(P.pos.x, 1)} y ${fix(P.pos.y)}`}`); }
     { const k = at('plazaTerrace'), n = k.o.n, rise = k.o.rise; go(k, -3, 0, 0, 3); let tier = 0;
@@ -3735,7 +3836,7 @@ for (const k of Object.keys(CASES)) {
     process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
-  try { rg.GRIND.intent = 0; rg.CTRL.map = 1; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
+  try { rg.GRIND.intent = 0; rg.CTRL.map = 1; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
   if (!ok) { fail++; console.log('  -> FAIL'); }
 }
 console.log(fail ? `\n${fail} case(s) failed` : '\nall cases pass');

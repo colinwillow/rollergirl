@@ -113,8 +113,8 @@ behaviour:
 
 ## 4. Grinding: most of it is free
 
-**Every edge is grindable with no rail authored.** In the air, or from the ground near an edge, a swipe down on the
-right stick finds the nearest ledge and grinds it. A ledge is any edge of a floor (a `deck_` triangle or a `bld_` box
+**Every edge is grindable with no rail authored.** In the air, a flick down on the left stick finds the nearest ledge
+or rail and dives onto it (r84; jump first from the ground). A ledge is any edge of a floor (a `deck_` triangle or a `bld_` box
 top) where the floor drops away by **0.35 m or more** just beyond it, with no wall going up there. That covers:
 
 - **roof edges**, parapet tops, balcony edges and walkway edges;

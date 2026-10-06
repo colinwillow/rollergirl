@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r83</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r84</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r83';
+const BUILD = 'r84';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -516,12 +516,12 @@ const SK = {
   // `gripA / v` rad/s. Ask for less and she carves with no loss at all; ask for more and the
   // surplus is a slide, which `grip` then scrubs. One number, both behaviours, and the drift
   // at the limit falls out rather than being a second system.
-  gripA: 30,           // r27: 18 -> 30. *"Responsive and exaggerated, like Jet Set Radio"* -- 18 let
+  gripA: 40,           // r84: 30 -> 40, harder turns that keep her speed. r27: 18 -> 30. *"Responsive and exaggerated, like Jet Set Radio"* -- 18 let
                        // the velocity bend only 1.3 rad/s at 14 m/s, which is the boat
   // STEERING. Skates turn tighter than a skateboard and can pivot on the spot, so the rate
   // falls with speed rather than being a flat number.
-  turn: 7.0,           // rad/s at a standstill (r27: 5.2)
-  turnV: 2.4,          // rad/s at turnRef and above (r27: 1.35 -- a 90 at cruise took over a second)
+  turn: 10.0,          // rad/s at a standstill (r27: 5.2, r84: 7 -> 10, she pivots and goes)
+  turnV: 3.3,          // rad/s at turnRef and above (r27: 1.35 -- a 90 at cruise took over a second; r84: 2.4 -> 3.3)
   turnRef: 14,         // m/s where the turn rate has fallen all the way
   turnBrake: 0.09,     // a hard carve costs speed -- this is what plants the edge (r27: .16, which
                        // at the new turn rate would have eaten a third of her speed per 90)
@@ -530,6 +530,10 @@ const SK = {
   // The same total is spread over `strokeDur` on a half sine: the integral of
   // (pi/2)sin(pi*u) over one cycle is exactly 1, so the top speed is unchanged.
   pushV: 7.4,          // delta-v per stride at a standstill
+  // r84: THE THUMB'S STRENGTH. Under `softAt` of the pad a push is the casual stride (`softK` of `pushV`, the period x`softP`);
+  // at `hardAt` and past it, the speed skate (`hardK`, x`hardP` -- quicker, harder strides). From a dead stop at full stick:
+  // 0 -> 10 m/s in about a second.
+  softAt: 0.45, hardAt: 0.85, softK: 0.8, hardK: 1.45, softP: 1.1, hardP: 0.62, hardFade: 20,
   taper: 0.86,         // how much of that is lost as she approaches pushMax
   pushMax: 27,         // no more pushing past this -- legs cannot keep up
   swivelT: 0.6, swivelRate: 6,   // r42: the swivel's half turn, eased (about half a second)
@@ -539,12 +543,13 @@ const SK = {
   strokeDur: 0.34,     // how long one stroke's impulse is spread over
   plant: 0.30,         // where in the cycle the foot is actually on the ground
   grace: 0.45,         // a thumb off and back on inside this is ONE cycle, not two
-  ahead: 0.35,         // how squarely the thumb must point along her to count as a push
+  ahead: 0.2,          // how squarely the thumb must point along her to count as a push (r84: .35 -> .2, so a LIGHT thumb
+                       // straight ahead pushes -- the casual stride -- instead of only steering)
   // BRAKING is a latch: a thumb held behind her is a brake until the thumb LEAVES it.
   // Without the latch she carves round to face the thumb and the brake becomes a push,
   // which is "it should slow me down but instead it turns me".
   back: -0.35,
-  brake: 12.0,
+  brake: 20.0,         // r84: 12 -> 20, *"a quick speed stop and then cut the other way"* -- the held brake too
   fakieAt: 1.2,      // below this she always turns to face the thumb rather than riding backwards
   // PUMPING. On anything steeper than `pumpAt` the stride stops being a stride and becomes
   // a pump -- energy put in along the slope, which is how you get up a transition.
@@ -581,6 +586,7 @@ const SK = {
   // integration so no step is longer than this costs two iterations at speed and nothing at all
   // below 12 m/s.
   sub: 0.18,
+  faceCatch: 1, faceH: 1.7, faceGap: 0.3,      // r84: a transition that rose through her between samples (see `stepAir`)
   subMax: 6,
   smoothAng: 0.62,     // a direction change under this is a transition and costs no speed;
                        // anything sharper is an impact and loses the component into the face
@@ -7971,7 +7977,8 @@ const MOVES = {
   push: ['casual', 'hard'],
   // the speed each push is centred on, m/s: casual below the first, hard past the second, eased
   // between -- and each played faster or slower by how far she is off its centre, inside the rates
-  pushV: [4, 14],
+  pushV: [4, 14],      // reference speeds: each push clip plays x1 at its own (r84: which clip shows is the thumb's strength)
+  byDrive: 1, hardFloor: 0.8,
   roll: ['idle_normal', 'idle_backward'],   // the neutral pose, forward and in fakie
   // *"Maybe don't use the backwards versions?"* -- 0 plays the FORWARD clips in fakie too, which
   // is a forward stroke while she rolls backwards. Kept as a switch for the A/B; 1 is the fix.
@@ -8598,8 +8605,9 @@ function girlAnimMoves(dt) {
     // r81: THE SWIPE DOWN IN THE AIR shoots her at the rail in the GRIND POSE -- snapped in on the swipe, which is what
     // makes it read as a body thrown downward rather than a fall
     girl.bail = null;
-    const nm = m.grind[p.dive.side];
-    if (girl.diveSeen !== p.dive) { girl.diveSeen = p.dive; snap = true; }
+    // r84: *"we're gonna do the slide tackle animation, but not make it shoot you forward -- you go right down into the grind"*
+    const nm = ctrl84() && girl.actions[MELEE.slide] ? MELEE.slide : m.grind[p.dive.side];
+    if (girl.diveSeen !== p.dive) { girl.diveSeen = p.dive; snap = true; if (nm === MELEE.slide) { const a = girl.actions[nm]; a.reset(); a.play(); } }
     clipScale(nm, 1); add(nm, 1);
   } else if (!p.grounded) {
     girl.bail = null;
@@ -8650,11 +8658,15 @@ function girlAnimMoves(dt) {
       clipScale(girl.style.nm, clamp(v / 10, 0.7, 1.3));
       add(girl.style.nm, move);
     } else if (p.thumbGo) {
-      const V = MOVES.pushV, u = clamp((v - V[0]) / Math.max(0.1, V[1] - V[0]), 0, 1);
+      // r84: casual -> hard by HOW HARD THE THUMB PUSHES (`p.drive`), not by her speed -- a full stick from a standstill is
+      // the speed skate from the first stride. The speed only sets how fast each clip plays, and a hard push never plays
+      // slower than `MOVES.hardFloor` of its reference: sprinting off the line is quick strides, not slow ones.
+      const V = MOVES.pushV, u = MOVES.byDrive ? clamp(p.drive || 0, 0, 1) : clamp((v - V[0]) / Math.max(0.1, V[1] - V[0]), 0, 1);
       for (let i = 0; i < 2; i++) {
         const w = i ? u : 1 - u; if (w <= 0) continue;
         add(loco.push[i], w * move);
-        clipScale(loco.push[i], clamp(Math.max(0.3, v) / V[i], MOVES.rateLo, MOVES.rateHi));
+        const vv = i && MOVES.byDrive ? Math.max(v, V[1] * MOVES.hardFloor) : v;
+        clipScale(loco.push[i], clamp(Math.max(0.3, vv) / V[i], MOVES.rateLo, MOVES.rateHi));
       }
     } else { add(loco.roll, move); clipScale(loco.roll, 1); }
   }
@@ -8883,6 +8895,11 @@ bindStick(document.getElementById('stkL'), stick.L, null, (dx, dy) => {
   // r39: ON THE GROUND THE LEFT FLICK IS THE SLIDE TACKLE (Zap's `slide_kick`), along her travel.
   // r80: ...a flick DOWN (or sideways) is; a flick UP is the BOOST.
   // r82: THE LEFT PAD IS THE MELEE -- a flick down the slide, any other way a strike that way; in the air the air strike
+  // r84: ...a flick DOWN is the SPEED STOP on the ground and the GRIND DIVE in the air
+  if (ctrl84() && !player.grind) { const down = dy > 0 && dy > Math.abs(dx), w = flickWorld(dx, dy);
+    const ok = player.grounded ? (down ? speedStop() : meleeStrike(w.x, w.z))
+      : down ? (GRIND.intent ? !!grindDown() : false) : meleeStrike(w.x, w.z);
+    if (ok) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
   if (ctrl82() && !player.grind) { const down = dy > 0 && dy > Math.abs(dx), w = flickWorld(dx, dy);
     const ok = player.grounded ? (down ? meleeSlide() : meleeStrike(w.x, w.z)) : meleeStrike(w.x, w.z);
     if (ok) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }
@@ -9046,8 +9063,28 @@ const DASH = { on: 1, n: 0.95, win: 0.5, add: 4.5, cap: 30, fx: 0.45 };
 //   rail     tap side switch . flick trick grind             tap off . flick up transfer, others trick grinds
 // `rotDelay`: how long the right thumb has to be down before it turns her, so a flick (a flip) does not also spin her
 // on its way across the pad. A NEW key, so the panel can switch back to `map` 1, every layout before this one.
-const CTRL = { map: 2, rotDelay: 0.18 };
+// r84 (`map` 3): *"a flick down on the right stick does the grind thing, so that stick can't do a backflip -- change the flick
+// down on the LEFT stick to the grind, which frees the right stick for flips."*
+//            LEFT PAD                                       RIGHT PAD
+//   ground   steer . FLICK DOWN = SPEED STOP (a skid, then    tap jump . drag camera . FLICK up / sideways = boost
+//            cut away), any other way = a strike . tap swivel (vert face: the transfer) . FLICK DOWN = switch stance
+//   air      HOLD = grab . FLICK DOWN = THE GRIND DIVE (the   HOLD = rotate . FLICK = flip, all four ways, always
+//            slide tackle's pose, no shove), others = strike
+const CTRL = { map: 3, rotDelay: 0.18 };
 const ctrl82 = () => CTRL.map > 1.5;
+const ctrl84 = () => CTRL.map > 2.5;
+// r84: THE SPEED STOP. *"A quick speed stop and then cut the other way -- I want her to be a little more maneuverable."* A
+// skid: she turns side-on to her travel (`yaw` of it, eased) and sheds speed at `decel`, ending when she is stopped, after
+// `dur`, or the moment the left thumb is back down asking to go somewhere (after `min`) -- which is the cut.
+const STOP = { on: 1, decel: 44, dur: 0.6, min: 0.1, yaw: 1.15, sparks: 14 };
+function speedStop() {
+  const p = player;
+  if (!STOP.on || !p.grounded || p.grind || p.bailT > 0 || p.mel || p.hSpeed < 1.2) return false;
+  p.stopT = STOP.dur; p.stopAge = 0; p.stopSide = (p.steer || 0) < -0.05 ? -1 : 1; p.boostT = 0;
+  p.pushing = false; p.shoveT = 0; p.braked = 0;
+  sparkBurst(STOP.sparks); trick('POWERSLIDE', 10);
+  return true;
+}
 // r80: THE BOOST. *"Instead of the slide tackle being a flick up on the left stick, make it a flick down -- and a flick forward
 // or up on the left stick is the boost. It needs to be a visual thing: she goes into her speed skate, the fast hard pump, a
 // subtle camera effect, particle trails off her hands and skates so you can really tell she is boosting -- and I want it to
@@ -9293,6 +9330,22 @@ function stepGround(dt) {
   // speed and picks herself up, and `poseGirl` rights her slowly enough that you see it happen.
   const ctrl = p.bailT <= 0;
   if (!ctrl) { p.bailT -= dt; p.pushing = false; along = decay(along, AIR.bailDrag, dt); }
+  // r84: THE SPEED STOP sheds `STOP.decel` and holds the steering and the stride off, until she has stopped or the thumb
+  // is back on the stick asking to go somewhere -- that is the cut, and it hands straight over to the push below
+  const skid = p.stopT > 0;
+  if (skid) {
+    p.stopAge = (p.stopAge || 0) + dt;
+    const back = s.mag > 0 && p.stopAge > STOP.min;
+    along -= Math.sign(along) * Math.min(Math.abs(along), STOP.decel * dt);
+    lat = decay(lat, 14, dt);
+    p.stopT -= dt;
+    if (back || Math.abs(along) < 0.3) p.stopT = 0;
+    if (back) {     // THE CUT: whatever is left of her speed swings onto the thumb, and she is pointing there already
+      const h = Math.atan2(s.x, s.z), v = Math.abs(along);
+      p.heading = h; p.faceSlowT = 0; surfaceFrame(n, h); along = v; lat = 0;
+      if (p.stanceLock && p.stance < 0) setStance(1, 'cut');
+    }
+  }
 
   // FAKIE IS A DIRECTION OF TRAVEL, NOT A MISTAKE -- AND IN A HALF PIPE IT IS HALF OF EVERY
   // RUN. She rides up the far wall, stops, and comes back down BACKWARDS. If the controls are
@@ -9328,8 +9381,13 @@ function stepGround(dt) {
     // round and pushes off the other way. On skates that is one input, not two.
     if (braking && Math.abs(along) < 0.55) { braking = false; p.braked = 0; }
     if (braking) p.braked = 1;
-    go = fwdR > SK.ahead;
-    if (!braking && !p.braked) {
+    go = fwdR > SK.ahead && !skid;
+    // r84: HOW HARD THE THUMB IS PUSHED IS HOW HARD SHE SKATES. *"If you really pull the stick hard I want her to really
+    // speed skate ... responsive, she starts running and gradually but quickly picks up speed."* A light thumb is the
+    // casual stride (hands behind her back); past `softAt` it ramps to a full speed skate at `hardAt` -- stronger, quicker
+    // strides, and the hard clip on screen (`p.drive` is what the move brain reads, so the two cannot disagree).
+    p.driveWant = go ? smooth(SK.softAt, SK.hardAt, s.mag) : 0;
+    if (!braking && !p.braked && !skid) {
       // SKATES TURN TIGHTER THAN A BOARD AND CAN PIVOT ON THE SPOT, so the rate falls with
       // speed rather than being flat -- and it is a RATE, so the heading eases onto the thumb
       // instead of snapping to it.
@@ -9337,7 +9395,8 @@ function stepGround(dt) {
       const d = clamp(rel, -rate * dt, rate * dt);
       p.heading += d; p.steer = d / Math.max(1e-4, dt);
     }
-  } else { p.braked = 0; }
+  } else { p.braked = 0; p.driveWant = 0; }
+  p.drive = damp(p.drive || 0, p.driveWant || 0, 0.12, dt);
 
   // ---- the edges take the turn ----
   // The heading has moved; now the VELOCITY follows it, by as much as the edges can hold. At
@@ -9366,11 +9425,15 @@ function stepGround(dt) {
   // AND SHE PUSHES IN FAKIE: the stroke goes along the LEADING end, so a thumb pointing where she
   // is rolling backwards speeds her up backwards. Without `stanceLock` the old rule stands.
   if (ctrl && !braking && !p.braked && go && (p.stanceLock || lead > 0) && along * lead < SK.pushMax) {
-    p.pushPeriod = lerp(SK.pushFast, SK.pushDur, clamp(spd / SK.pushEase, 0, 1));
+    // r84: the speed skate's EXTRA is for getting off the line -- it fades out by `hardFade` m/s, so her top speed and every
+    // ramp, gap and launch tuned against it are where they were; only the light thumb's casual stride stays softer all the way
+    const dv = p.drive || 0, hf = clamp(1 - spd / SK.hardFade, 0, 1);
+    const kP = lerp(SK.softP, lerp(1, SK.hardP, hf), dv), kV = lerp(SK.softK, lerp(1, SK.hardK, hf), dv);
+    p.pushPeriod = lerp(SK.pushFast, SK.pushDur, clamp(spd / SK.pushEase, 0, 1)) * kP;
     const shove = () => {
       p.shoveDir = lead;
-      p.shoveV = SK.pushV * (1 - SK.taper * spd / SK.pushMax);
-      p.shoveDur = Math.min(SK.strokeDur, p.pushPeriod * 0.7);
+      p.shoveV = SK.pushV * kV * (1 - SK.taper * spd / SK.pushMax);
+      p.shoveDur = Math.min(SK.strokeDur, p.pushPeriod * (dv > 0.01 ? 0.95 : 0.7));      // r84: a quick stride, not a sharper one
       p.shoveT = p.shoveDur;
     };
     // ONE CLOCK, AND A PHASE RATHER THAN A STOPWATCH. `pushT` is the phase in [0,1), not raw
@@ -9639,7 +9702,23 @@ function stepAir(dt) {
   // SWEPT FROM THE HIGHER OF THE TWO. A fast fall can put her under the deck between two
   // frames, and a query at her NEW position then finds that deck ABOVE her, reports no floor
   // at all, and lets her carry on down. It only ever bites at speed, which is the worst time.
-  const g2 = groundAt(p.pos.x, p.pos.z, Math.max(y0, p.pos.y), SK.step);
+  let g2 = groundAt(p.pos.x, p.pos.z, Math.max(y0, p.pos.y), SK.step);
+  // r84: A FACE THAT ROSE THROUGH HER BETWEEN TWO SAMPLES. Flying the length of a half pipe at 17 m/s she comes down into the
+  // top of the far transition, which is a few centimetres wide in plan -- so one sub-step carries her from above it to under
+  // it, the surface is past `step` over her feet, the query above cannot see it, and she falls on INSIDE the ramp (1.9 m
+  // deep at 20 Hz, `npm run sim inside`). If a surface is now inside her body that was not at the start of the step, the
+  // crossing is bisected; where the surface there is CONTINUOUS with her (a transition) she lands on it. A cliff edge -- a
+  // ramp's side, which she passes through by design -- has no surface at her height there and is left alone.
+  if (SK.faceCatch) {
+    const H = SK.faceH, hid = (x, z, y) => { const g = groundAt(x, z, y + H, 0); return g.hit && g.floor > y + SK.step; };
+    if (hid(p.pos.x, p.pos.z, p.pos.y) && !hid(_pp.x, _pp.z, y0)) {
+      let lo = 0, hi = 1;
+      for (let k = 0; k < 12; k++) { const m = (lo + hi) / 2; if (hid(lerp(_pp.x, p.pos.x, m), lerp(_pp.z, p.pos.z, m), lerp(y0, p.pos.y, m))) hi = m; else lo = m; }
+      const ax = lerp(_pp.x, p.pos.x, lo), ay = lerp(y0, p.pos.y, lo), az = lerp(_pp.z, p.pos.z, lo);
+      const ga = { ...groundAt(ax, az, ay, SK.step) };
+      if (ga.hit && ga.floor > ay - SK.faceGap) { p.pos.set(ax, ay, az); g2 = ga; }
+    }
+  }
   // **BELOW THE SURFACE IS BELOW THE SURFACE, WHICHEVER WAY SHE IS GOING.** This used to require
   // `vel.y <= 0`, which is right for falling onto a deck and wrong for everything else: jump at
   // a transition while still RISING and she went into the wall and out the far side, because a
@@ -9968,11 +10047,12 @@ function rightFlick(dx, dy) {
   // a flick down with a rail or ledge in reach, which is r81's dive at it (in the grind pose)
   if (ctrl82() && !p.grind) {
     if (p.grounded) {
-      if (dir === 'up') return boostGo() ? 'boost' : null;
       if (dir === 'down') return swivel() ? 'switch' : null;
+      if (dir === 'up' || ctrl84()) return boostGo() ? 'boost' : null;      // r84: sideways boosts too
       return null;
     }
-    if (dir === 'down' && GRIND.intent && grindTarget(true)) { const g = grindDown(); if (g) return g; }
+    // r84: the grind dive moved to the LEFT pad's flick down, so every right flick in the air is a flip
+    if (!ctrl84() && dir === 'down' && GRIND.intent && grindTarget(true)) { const g = grindDown(); if (g) return g; }
     return startFlip(flickFlip(dx, dy)) ? 'flip' : null;
   }
   // r74: A SWIPE UP ON A RAMP, OR JUST OFF ONE, IS THE DASH -- never the melee and never (any more) the transfer
@@ -10021,6 +10101,7 @@ function stepPlayer(dt) {
   stepMelee(dt);
   grabStep();
   boostStep(dt);      // r80
+  if (!p.grounded || p.grind) p.stopT = 0;      // r84: a skid is a thing wheels do on the ground
   // r81: the dive's pose lasts until she touches anything; its trails a moment longer
   if (p.dive && (p.grounded || p.grind || p.bailT > 0)) p.dive = null;
   p.diveFx = p.dive ? Math.max(p.diveFx || 0, GRIND.diveFx) : Math.max(0, (p.diveFx || 0) - dt);
@@ -10055,7 +10136,9 @@ function stepPlayer(dt) {
   // the thumb's, and taken at full rate it read as a snap -- so it eases at `landYaw` for a moment
   if (p.faceSlowT > 0) p.faceSlowT -= dt;
   // a strike or a slide turns her BODY to face it while the wheels keep their line (r39)
-  const faceT = p.mel && p.mel.kind !== 'kick' ? p.mel.h : p.heading;
+  let faceT = p.mel && p.mel.kind !== 'kick' ? p.mel.h : p.heading;
+  // r84: in the speed stop she is side-on to her travel -- the skid
+  if (p.stopT > 0) faceT += (p.stopSide || 1) * STOP.yaw * Math.min(1, (p.stopAge || 0) / 0.08);
   p.faceH += wrapAngle(faceT - p.faceH) * Math.min(1, (p.faceSlowT > 0 ? (p.faceSlowRate || SK.landYaw) : SK.faceRate) * dt);
   p.lean = damp(p.lean, leanWant(dt), SK.leanHL, dt);
 }
@@ -10659,7 +10742,12 @@ const TAILUI = [
   ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
   ['MELEE.boost',    'Ground strike speed boost', 0, 8, 0.25, ''],
   ['VERT.faceArm',   'Swipe on the wall counts for', 0.1, 1.5, 0.05, 's'],
-  ['CTRL.map',       'Controls 2 = r82 (R: boost/switch, air flips+spin; L: melee, grabs) 1 = old', 1, 2, 1, ''],
+  ['CTRL.map',       'Controls 3 = r84 (L flick down: stop / grind dive; R flicks: boost, all air flips) 2 = r82 1 = old', 1, 3, 1, ''],
+  ['STOP.on',        'Left flick down = speed stop (r84)', 0, 1, 1, ''],
+  ['STOP.decel',     'Speed stop strength', 10, 90, 1, 'm/s2'],
+  ['SK.hardK',       'Hard push strength (full stick)', 0.8, 2.5, 0.05, ''],
+  ['SK.softK',       'Light push strength', 0.3, 1.5, 0.05, ''],
+  ['SK.brake',       'Held brake', 4, 40, 1, 'm/s2'],
   ['VERT.swipeXfer', 'Swipe up on vert = transfer, tap = straight up (r81)', 0, 1, 1, ''],
   ['VERT.tapXfer',   'Tap on a ramp = transfer (r74, only with the swipe off)', 0, 1, 1, ''],
   ['DASH.on',        'Swipe up on a ramp = dash', 0, 1, 1, ''],
@@ -10727,7 +10815,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, CTRL, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
+const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -10735,8 +10823,14 @@ const uiSet = (path, v) => { const [o, k] = uiRef(path); o[k] = v; };
 const TAILKEYS = TAILUI.filter(r => r.length > 2).map(r => r[0]);
 // THE SHIPPED VALUES OF EVERY ROW, captured before `tailLoad` applies anything saved
 const UI_DEF = {}; for (const k of TAILKEYS) UI_DEF[k] = uiGet(k);
+// r84: A SAVED ROW OUTRANKS EVERY FUTURE DEFAULT, FOR EVER -- the panel saves every row on every drag, so a default changed
+// in this file never reaches a phone that has saved once. (Shredworld lost five builds to exactly this.) The store carries
+// a version, and the rows named for each later version are DROPPED from an older store and take the file's new default;
+// everything else he tuned is kept. **Bump `UI_VER` and name the row in the same commit that changes its default.**
+const UI_VER = 84;
+const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'] };
 function tailSave() {
-  try { const o = { mode: TAIL.mode, lookStyle: LOOK.at === undefined ? LOOK.style : LOOK.at };
+  try { const o = { mode: TAIL.mode, ver: UI_VER, lookStyle: LOOK.at === undefined ? LOOK.style : LOOK.at };
     for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}
 }
 function tailLoad() {
@@ -10748,8 +10842,9 @@ function tailLoad() {
     // sky they are not its look at all. Saved under another style (or before styles), they are skipped;
     // and the style itself has its own key (`rg.style`), so it is never read from here.
     const lookOk = o.lookStyle === LOOK.style;
+    const fresh = new Set(); for (const v in UI_FRESH) if ((o.ver || 0) < +v) for (const k of UI_FRESH[v]) fresh.add(k);
     for (const k of TAILKEYS) {
-      if (k === 'LOOK.style' || k === 'WORLD.zones' || (k.startsWith('LOOK.') && !lookOk)) continue;
+      if (k === 'LOOK.style' || k === 'WORLD.zones' || fresh.has(k) || (k.startsWith('LOOK.') && !lookOk)) continue;
       // r20 saved bare tail keys (`sway`); r21 saves paths (`TAIL.sway`). Both are read.
       const v = k in o ? o[k] : (k.startsWith('TAIL.') ? o[k.slice(5)] : undefined);
       if (typeof v === 'number' && Number.isFinite(v)) uiSet(k, v);
@@ -10889,7 +10984,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
