@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r80</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r81</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r80';
+const BUILD = 'r81';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -785,7 +785,7 @@ const GRIND = {
   // rim, a deck's coping, a bowl's rim, a ramp's side. Only looked for when she swipes, traced along its neighbours
   // into one path (up to `lipMax` m, round a bowl as a closed loop), set `lipIn` back onto the top.
   ledges: 1, lipDrop: 0.35, lipNy: 0.8, lipIn: 0.1, lipMax: 60,
-  diveR: 7, diveDown: 12, diveUp: 1.2, diveH: 9, diveK: 0.7, diveVy: 9, diveTmin: 0.15, diveTmax: 0.9, diveMaxH: 28,
+  diveR: 7, diveDown: 12, diveUp: 1.2, diveH: 9, diveK: 0.7, diveVy: 9, diveTmin: 0.15, diveTmax: 0.9, diveMaxH: 28, diveFx: 0.5,      // r81: `diveFx` s of hand + blade trails after a dive lands
 };
 const LIGHT = { sun: 2.6, hemi: 0.95, dir: new THREE.Vector3(0.45, 0.78, 0.42).normalize() };
 // THE LOOK. Three of them, picked by `LOOK.style` and read at LOAD (the park's colours are baked into
@@ -3321,6 +3321,7 @@ function grindDown() {
     // nothing in reach: she dives anyway, and whatever she crosses on the way down she takes
     p.vel.y = Math.min(p.vel.y, -GRIND.diveVy); p.grindWant = 1;
     p.vertLock = 0; p.xferKick = null; p.autoTurn = null; p.flip = null;
+    diveMark(null);
     return 'dive';
   }
   const dx = tg.cx - p.pos.x, dz = tg.cz - p.pos.z, d = Math.hypot(dx, dz), dy = tg.cy - p.pos.y;
@@ -3341,7 +3342,20 @@ function grindDown() {
   if (p.grounded) leaveGround(0, false);
   p.vertLock = 0; p.xferKick = null; p.autoTurn = null; p.flip = null; p.grindWant = 1;
   p.kickRail = { R: tg.R, dir: tg.dir, sp: Math.max(hv, MELEE.grindV) };
+  if (air) diveMark(tg);      // r81: in the air she shoots down at it IN the grind pose
   return tg.E ? 'ledge' : 'grind';
+}
+// r81: THE DIVE IS DRAWN. *"When you swipe down in the air she goes into the grind animation pose, cause that's usually what
+// she's gonna do, and it gives it a look like she's shooting downward -- and make the particles on the hands and the blades
+// happen when you do the downward swipe."* `p.dive` holds the side of the grind clip she takes on the way down (the side
+// she will land on, by the catch's own rule: her sideways speed against the way she will grind) until she touches anything;
+// `p.diveFx` keeps the hand and blade trails up for the dive and a moment after.
+function diveMark(tg) {
+  const p = player; let side = 1;
+  if (tg && tg.R) { const gx = tg.R.hx * tg.dir, gz = tg.R.hz * tg.dir, rx = -gz, rz = gx;
+    side = (p.vel.x * rx + p.vel.z * rz) > 0 ? 1 : -1; if (GRIND.swap) side = -side; }
+  else { const rx = -Math.cos(p.heading), rz = Math.sin(p.heading); side = (p.vel.x * rx + p.vel.z * rz) > 0 ? 1 : -1; }
+  p.dive = { side: side > 0 ? 'right' : 'left' }; p.diveFx = GRIND.diveFx;
 }
 
 // =====================================================================================================
@@ -7626,7 +7640,7 @@ function trailBuild(hist, now, eye, k, pos, col, life0) {
 function trailAmount() {
   const p = player;
   if (!TRAIL.on || p.bailT > 0) return 0;
-  if (p.mel || p.dashT > 0 || p.boostFx > 0) return 1;           // every strike, slide and kick slashes -- and r74's dash, and r80's boost
+  if (p.mel || p.dashT > 0 || p.boostFx > 0 || p.diveFx > 0) return 1;           // every strike, slide and kick slashes -- and r74's dash, and r80's boost
   if (p.grounded || p.grind) return smooth(TRAIL.v0, TRAIL.v1, p.hSpeed);
   const spin = Math.abs(girl.yawRate || 0);
   return Math.max(p.flip ? 1 : 0, smooth(TRAIL.spin0, TRAIL.spin1, spin), 0.6 * smooth(TRAIL.v0, TRAIL.v1, p.hSpeed));
@@ -7637,7 +7651,8 @@ function trailStep(dt) {
   girl.yawRate = damp(girl.yawRate || 0, wrapAngle(p.faceH - (girl.lastFace ?? p.faceH)) / Math.max(dt, 1e-4), 0.05, dt);
   girl.lastFace = p.faceH;
   girl.trailK = damp(girl.trailK || 0, trailAmount(), 0.08, dt);
-  girl.boostK = damp(girl.boostK || 0, p.boostFx > 0 && TRAIL.on ? 1 : 0, p.boostFx > 0 ? 0.04 : 0.2, dt);
+  const handsOn = (p.boostFx > 0 || p.diveFx > 0) && TRAIL.on;      // r80 the boost, r81 the dive
+  girl.boostK = damp(girl.boostK || 0, handsOn ? 1 : 0, handsOn ? 0.04 : 0.2, dt);
   const LF = TRAIL.life * (1 + girl.boostK * (BOOST.trailLife - 1));
   for (let j = 0; j < 4; j++) {
     const T = trails[j], hand = j > 1, f = hand ? girl.hands && girl.hands[j - 2] : F && F[j];
@@ -8560,6 +8575,13 @@ function girlAnimMoves(dt) {
     if (p.grind.time < 0.05) snap = true;
     clipScale(nm, clamp(p.grind.s / 8, 0.75, 1.4));
     add(nm, 1);
+  } else if (!p.grounded && p.dive && m.grind[p.dive.side]) {
+    // r81: THE SWIPE DOWN IN THE AIR shoots her at the rail in the GRIND POSE -- snapped in on the swipe, which is what
+    // makes it read as a body thrown downward rather than a fall
+    girl.bail = null;
+    const nm = m.grind[p.dive.side];
+    if (girl.diveSeen !== p.dive) { girl.diveSeen = p.dive; snap = true; }
+    clipScale(nm, 1); add(nm, 1);
   } else if (!p.grounded) {
     girl.bail = null;
     const f = p.flip, G = p.grab && p.grab.nm && girl.actions[p.grab.nm] ? p.grab.nm : null;
@@ -8966,6 +8988,12 @@ const VERT = { at: 65 * Math.PI / 180, inward: 0.6, kick: 4.5, autoTurn: 1, turn
   // r74: *"we'll just reverse it -- a tap on the right stick to transfer"*. A TAP on a steep face (or just off one, or in
   // the first `tapWin` of a locked vert air) is the transfer; a SWIPE UP there is the DASH (below). `tapXfer` 0 is r73.
   tapXfer: 1, tapWin: 0.45,
+  // r81: *"I'm gonna switch it back so that swiping up on the right stick is how you launch off. At the top of a vert ramp
+  // tapping goes back to just jumping straight up and coming back down."* `swipeXfer` 1: a SWIPE UP on a steep face is the
+  // transfer (armed, fired at the lip), just off the lip at once, in the first `tapWin` of a locked air it releases it --
+  // and a TAP is a plain pop, locked, back down the same wall. A NEW key rather than `tapXfer` 0, because the panel saves
+  // every row and his phone holds `tapXfer` 1 from r74. `swipeXfer` 0 is r74 (tap transfers, swipe dashes).
+  swipeXfer: 1,
   // r80: THE AIR FOLLOWS THE LIP (`vlipFind`, `vlipStep`). *"In Tony Hawk if you launch off a vert ramp and the side of the
   // bowl curves around, your character follows the edge of the lip -- not physically accurate, but more fun, so you come
   // back down the ramp even if you go round a curve."* `follow` 0 is the old straight line out of the bowl. `lipR` is how
@@ -9112,7 +9140,7 @@ function vertRelease(flick) {
 function respawn() {
   const p = player;
   SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0; p.spinAcc = 0; p.spinPrev = null; p.wasAir = false;
-  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null; p.dive = null; p.diveFx = 0;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
@@ -9876,9 +9904,17 @@ function dashGo() {
   trick('DASH', SCORE.xfer * 0.5);
   return true;
 }
+const tapXferOn = () => VERT.tapXfer > 0.5 && !(VERT.swipeXfer > 0.5);      // r81: the tap transfers only with the swipe off
 function rightFlick(dx, dy) {
   const p = player, dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
   const w = flickWorld(dx, dy);
+  // r81: THE SWIPE UP IS THE WAY OUT OF A PIPE AGAIN -- on the steep face (armed, fired as she goes off the lip), just off
+  // the lip (at once), or in the first moment of a locked air (released). Anywhere else a swipe up is still the dash.
+  if (dir === 'up' && VERT.swipeXfer > 0.5 && !p.grind) {
+    if (p.grounded && p.n.y < MELEE.xferN) { p.xferArm = VERT.faceArm; return 'transfer'; }
+    if (!p.grounded && p.coyote > 0 && p.leftN != null && p.leftN < MELEE.xferN) { p.jump = 2; return 'transfer'; }
+    if (!p.grounded && p.vertLock && p.airT < VERT.tapWin && vertRelease(true)) { trick('TRANSFER', SCORE.xfer); return 'transfer'; }
+  }
   // r74: A SWIPE UP ON A RAMP, OR JUST OFF ONE, IS THE DASH -- never the melee and never (any more) the transfer
   if (dir === 'up' && !p.grind && !(p.vertLock && VERT.airFlickXfer > 0.5) && dashOk()) return dashGo() ? 'dash' : null;
   if (p.grind || (!p.grounded && p.coyote > 0)) { if (dir === 'up') { p.jump = 2; return 'transfer'; }
@@ -9894,7 +9930,7 @@ function rightFlick(dx, dy) {
     // vert. Anywhere else it is a strike like every other direction (and every ground strike carries a boost now).
     // On the face it is ARMED for `VERT.faceArm` and fires as she goes off the lip, so a swipe a beat early still counts --
     // and it is never armed from the flat, so a strike on the run-in can never send her out by accident.
-    if (dir === 'up' && p.n.y < MELEE.xferN && !VERT.tapXfer) { p.xferArm = VERT.faceArm; return 'transfer'; }      // r57, with `tapXfer` off
+    if (dir === 'up' && p.n.y < MELEE.xferN && !tapXferOn()) { p.xferArm = VERT.faceArm; return 'transfer'; }      // r57, with the tap transfer off
     return meleeStrike(w.x, w.z) ? 'strike' : null;
   }
   // r51 (off by default since r56): a flick UP during a locked vert air is the transfer out over the coping
@@ -9913,9 +9949,9 @@ function stepPlayer(dt) {
     else if (!xfer && !GRIND.intent && railHome()) {}      // r71: with `intent` a tap is always a jump
     // r74: A TAP ON A STEEP FACE IS THE TRANSFER -- armed, and fired as she goes off the lip (a pop mid-face would only
     // hop her back onto the wall); just off the lip it fires at once; in the first moment of a locked air it releases it
-    else if (!xfer && VERT.tapXfer && p.grounded && p.n.y < MELEE.xferN) p.xferArm = VERT.faceArm;
-    else if (!xfer && VERT.tapXfer && !p.grounded && p.coyote > 0 && p.leftN != null && p.leftN < MELEE.xferN) doJump(true);
-    else if (!xfer && VERT.tapXfer && !p.grounded && p.vertLock && p.airT < VERT.tapWin) { if (vertRelease(true)) trick('TRANSFER', SCORE.xfer); }
+    else if (!xfer && tapXferOn() && p.grounded && p.n.y < MELEE.xferN) p.xferArm = VERT.faceArm;
+    else if (!xfer && tapXferOn() && !p.grounded && p.coyote > 0 && p.leftN != null && p.leftN < MELEE.xferN) doJump(true);
+    else if (!xfer && tapXferOn() && !p.grounded && p.vertLock && p.airT < VERT.tapWin) { if (vertRelease(true)) trick('TRANSFER', SCORE.xfer); }
     else if (p.grounded || p.coyote > 0) doJump(xfer); }
   if (p.grounded && p.n.y > 0.97) p.dashed = 0;      // r74: one dash per ramp
   p.dashT = Math.max(0, (p.dashT || 0) - dt);
@@ -9924,6 +9960,9 @@ function stepPlayer(dt) {
   stepMelee(dt);
   grabStep();
   boostStep(dt);      // r80
+  // r81: the dive's pose lasts until she touches anything; its trails a moment longer
+  if (p.dive && (p.grounded || p.grind || p.bailT > 0)) p.dive = null;
+  p.diveFx = p.dive ? Math.max(p.diveFx || 0, GRIND.diveFx) : Math.max(0, (p.diveFx || 0) - dt);
   // SUB-STEPPED BY DISTANCE, NOT BY TIME. What matters is how far she moves between collider
   // samples, and that is speed x dt -- so the count follows her speed and a 120 Hz phone does
   // not silently get a different game from a 30 Hz one.
@@ -10559,7 +10598,8 @@ const TAILUI = [
   ['VERT.airFlickXfer', 'Flick up IN THE AIR = transfer (old)', 0, 1, 1, ''],
   ['MELEE.boost',    'Ground strike speed boost', 0, 8, 0.25, ''],
   ['VERT.faceArm',   'Swipe on the wall counts for', 0.1, 1.5, 0.05, 's'],
-  ['VERT.tapXfer',   'Tap on a ramp = transfer (r74)', 0, 1, 1, ''],
+  ['VERT.swipeXfer', 'Swipe up on vert = transfer, tap = straight up (r81)', 0, 1, 1, ''],
+  ['VERT.tapXfer',   'Tap on a ramp = transfer (r74, only with the swipe off)', 0, 1, 1, ''],
   ['DASH.on',        'Swipe up on a ramp = dash', 0, 1, 1, ''],
   ['DASH.add',       'Dash boost', 0, 12, 0.5, 'm/s'],
   ['BOOST.on',       'Left flick up = boost (r80)', 0, 1, 1, ''],
@@ -10787,7 +10827,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  vertRelease, bodyAlign, DASH, dashOk, dashGo, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  vertRelease, bodyAlign, DASH, dashOk, dashGo, diveMark, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },

@@ -267,9 +267,9 @@ CASES.vert = () => {
   const apexes = {};
   for (const [v, pop, fwd] of [[13, 0, 0], [17, 0, 0], [21, 0, 0], [13, 1, 0], [17, 1, 0], [17, 1, 1], [17, 0, 1],
                                [13, 2, 0], [17, 2, 0], [21, 2, 0], [17, 2, 1]]) {
-    // r74: THE TWO ARE SWAPPED. A TAP is the transfer (onto the deck); the right pad's real SWIPE UP is the DASH -- more
-    // speed off the lip, still locked, back into the pipe. The swipe goes through the shipped `rightFlick`.
-    const xfer = pop === 1;
+    // r81: SWAPPED BACK. The right pad's SWIPE UP is the transfer (onto the deck); a TAP pops her straight up and she comes
+    // back down the same wall. The swipe goes through the shipped `rightFlick`.
+    const xfer = pop === 2;
     place(0, 3, 29, 0, v);
     let phase = 0, landZ = 0, apex = -9, fired = 0; P.dashed = 0;
     run(5, (t, i) => {
@@ -283,7 +283,7 @@ CASES.vert = () => {
     });
     const lip = 30 + 3 + 2.6 * Math.sin(rg.PARK.hpSweep), deck = lip + rg.PARK.cope;
     const where = landZ > deck ? 'ON THE DECK' : 'back in the pipe';
-    console.log(`  in at ${String(v).padStart(2)} m/s${pop === 2 ? ' + DASH ' : pop ? ' + a tap' : '        '}${fwd ? ' + left fwd' : '           '}: ` +
+    console.log(`  in at ${String(v).padStart(2)} m/s${pop === 2 ? ' + SWIPE' : pop ? ' + a tap' : '        '}${fwd ? ' + left fwd' : '           '}: ` +
                 `apex ${fix(apex)} m (coping is ${fix(2.6 * (1 - Math.cos(rg.PARK.hpSweep)))}), ` +
                 `down at z ${fix(landZ)}, lip ${fix(lip)} -- ${where}`);
     // WHAT MUST ALWAYS HOLD is that she LEAVES -- the lip must never eat her climb again. And since
@@ -294,8 +294,7 @@ CASES.vert = () => {
     // far edge rather than against the lip.)
     if (phase !== 2) ok = false;
     if (!xfer && landZ > lip) { console.log('    -> drifted out over the coping'); ok = false; }
-    if (xfer && landZ <= deck) { console.log('    -> the tap did not carry her out'); ok = false; }
-    if (pop === 2 && !fwd) { const base = apexes[v]; if (!(apex > base + 1)) { console.log(`    -> the dash did not lift her (${fix(apex)} vs ${fix(base)})`); ok = false; } }
+    if (xfer && landZ <= deck) { console.log('    -> the swipe did not carry her out'); ok = false; }
     if (!pop && !fwd) apexes[v] = apex;
   }
   // AND THE BOWL, the other place he named: ridden from the middle up its wall, a tap at the lip
@@ -309,8 +308,8 @@ CASES.vert = () => {
       if (phase === 0 && !P.grounded) phase = 1;
       if (phase === 1 && P.grounded) { phase = 2; land = Math.hypot(P.pos.x - B.x, P.pos.z - B.z); } });
     const out = land !== null && land > B.r;
-    console.log(`  bowl at ${v} m/s + ${pop === 2 ? 'DASH ' : 'a tap'}: ${land === null ? 'never landed' : `down ${fix(land, 1)} m from the middle (rim ${B.r})`} -- ${out ? 'OUT' : 'back in the bowl'}`);
-    if (!fired || land === null || out !== (pop === 1)) ok = false;      // r74: the tap goes out, the dash comes back in
+    console.log(`  bowl at ${v} m/s + ${pop === 2 ? 'SWIPE' : 'a tap'}: ${land === null ? 'never landed' : `down ${fix(land, 1)} m from the middle (rim ${B.r})`} -- ${out ? 'OUT' : 'back in the bowl'}`);
+    if (!fired || land === null || out !== (pop === 2)) ok = false;      // r81: the swipe goes out, the tap comes back in
   }
   return ok;
 };
@@ -470,9 +469,9 @@ CASES.tap = async () => {
     // up the half pipe's wall, on a steep face: the swipe up IS the way out, at once (instead of the ollie)
     place(0, 3, 29, 0, 13); rg.stick.L.x = rg.stick.L.y = 0; rg.cam.az = 0;
     { let st = false; for (let i = 0; i < 180 && !st; i++) { rg.stepPlayer(DT); st = P.grounded && P.n.y < 0.6; }
-      P.dashed = 0; const v0 = P.vel.length(); await swipe(0, -52);
-      good = st && P.dashed && P.vel.length() > v0 + 1;      // r74: on a ramp the swipe up is the DASH; the tap is the transfer
-      console.log(`  swipe UP on the pipe's wall   -> ${st ? (P.dashed ? `dash, ${fix(v0, 1)} -> ${fix(P.vel.length(), 1)} m/s` : what()) : 'never reached a steep face'}${good ? '' : '   <- WRONG'}`); }
+      P.dashed = 0; P.xferArm = 0; await swipe(0, -52);
+      good = st && P.xferArm > 0 && !P.dashed;      // r81: on the wall the swipe up is the transfer again (armed for the lip)
+      console.log(`  swipe UP on the pipe's wall   -> ${st ? what() : 'never reached a steep face'}${good ? '' : '   <- WRONG'}`); }
     if (!good) ok = false;
     // r29: THE FLIPS ARE THE LEFT PAD'S. In the air the right swipe does nothing; the left one flips.
     const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
@@ -1454,6 +1453,10 @@ CASES.moves = () => {
   state({ speed: 6, stance: 1, thumbGo: false, boostFx: 1 }); step(0.8, () => { P.boostFx = 1; });
   check('boosting at 6 m/s, thumb off', top() === 'blade_hard_forward' && log.blade_hard_forward.ts >= rg.BOOST.rate - 0.01, `${top()} x${fix(log.blade_hard_forward.ts)}`);
   P.boostFx = 0;
+  // r81: the swipe down in the air: the grind pose for the side she will land on, both ways
+  for (const sd of ['left', 'right']) { state({ grounded: false, speed: 9, dive: { side: sd } }); step(0.3);
+    check(`diving at a rail, ${sd} side`, top() === moves.grind[sd], `${top()} (want ${moves.grind[sd]})`); }
+  P.dive = null; P.grounded = true;
   // half way between the two pushes BOTH play, and the weights still sum to one
   { const V = rg.MOVES.pushV; state({ speed: (V[0] + V[1]) / 2, stance: 1, thumbGo: true }); step(2);
     const c = log.blade_casual_forward.w, h = log.blade_hard_forward.w;
@@ -1978,14 +1981,14 @@ CASES.vertair = () => {
   const g = ride({ tilt: 1, swipe: 'run' }), k = ride({ tilt: 1, swipe: 'face' });
   console.log(`  swipe UP on the run-in: ${g.swiped}, down at z ${fix(g.land.z, 2)} -- ${g.land.z > lip ? 'ON THE DECK' : 'back in'}, ${g.land.stance > 0 ? 'forward' : 'FAKIE'}`);
   console.log(`  swipe UP on the wall:   ${k.swiped}, down at z ${fix(k.land.z, 2)} -- ${k.land.z > lip ? 'ON THE DECK' : 'back in'}, ${k.land.stance > 0 ? 'forward' : 'FAKIE'}`);
-  // r74: SWAPPED -- the swipe up on the wall is the DASH (more speed, still locked, back in); the TAP there is the transfer
+  // r81: SWAPPED BACK -- the swipe up on the wall is the transfer (onto the deck, forward); the TAP pops her and she comes back in
   const tp = ride({ tilt: 1, tap: 1 });
   console.log(`  TAP on the wall:        down at z ${fix(tp.land.z, 2)} -- ${tp.land.z > lip ? 'ON THE DECK' : 'back in'}, ${tp.land.stance > 0 ? 'forward' : 'FAKIE'}`);
-  if (!(g.land.z < lip && /strike/.test(g.swiped) && /dash/.test(k.swiped) && k.land.z < lip && tp.land.z > lip + 1 && tp.land.stance > 0)) ok = false;
+  if (!(g.land.z < lip && /strike/.test(g.swiped) && /transfer/.test(k.swiped) && k.land.z > lip + 1 && k.land.stance > 0 && tp.land.z < lip)) ok = false;
   const c = ride({ tilt: 1, flick: 1, fx: 1 }), d = ride({ tilt: 1, flick: 1 });
   console.log(`  flick UP in the air, old switch on: ${c.flicked}, down at z ${fix(c.land.z, 2)} -- ${c.land.z > lip ? 'ON THE DECK' : 'back in'}`);
-  console.log(`  ...default (off):        ${d.flicked}, down at z ${fix(d.land.z, 2)} -- ${d.land.z > lip ? 'on the deck' : 'back in the pipe'}`);
-  if (!(c.flicked === 'transfer' && c.land.z > lip + 1 && d.flicked === 'dash' && d.land.z < lip)) ok = false;      // r74: off the switch, an early air flick is the dash
+  console.log(`  ...default:              ${d.flicked}, down at z ${fix(d.land.z, 2)} -- ${d.land.z > lip ? 'ON THE DECK' : 'back in the pipe'}`);
+  if (!(c.flicked === 'transfer' && c.land.z > lip + 1 && d.flicked === 'transfer' && d.land.z > lip + 1)) ok = false;      // r81: an early air swipe up releases the lock
   // the boost on the flat, and its cooldown
   // r57: a ground strike in ANY direction shoots her forward along her travel; a flick queued mid-strike adds nothing yet
   { const keepR = rg.girl.ready; rg.girl.ready = false; place(60, 1, -60, 0, 8); P.mel = null; P.melQ = null; run(0.1, () => { rg.stick.L.x = rg.stick.L.y = 0; }); rg.cam.az = 0; const v0 = P.vel.length();
@@ -3546,13 +3549,17 @@ CASES.intent = () => {
   row('swipe down on the ground beside rail 0', what === 'grind' && r.got && r.got.path === R0, `${what}, ${r.got ? 'grinding rail 0' : 'NO GRIND'}`);
   // 4. SWIPE DOWN IN THE AIR, above and off to the side: she SHOOTS DOWN at it
   air(-37, bar + 5, -3, 0, 2, 6);
-  what = rg.rightFlick(0, 60); const vy0 = P.vel.y; r = watch(1.5);
+  what = rg.rightFlick(0, 60); const vy0 = P.vel.y, dive0 = P.dive && P.dive.side, trail0 = rg.trailAmount(); let gside = null; r = watch(1.5, () => { if (P.grind && !gside) gside = P.grind.side; });
   row('swipe down 5 m over it, 3 m to the side', what === 'grind' && vy0 < -1 && r.got && r.got.path === R0,
       `${what}, left at vy ${fix(vy0, 1)}, ${r.got ? `on it in ${fix(r.got.t, 2)} s` : 'NO GRIND'}`);
+  // r81: ...IN THE GRIND POSE for the side she will land on, with the hand and blade trails up, and the pose gone once she is on
+  row('...shot down in the grind pose, trails up (r81)', dive0 && dive0 === gside && trail0 === 1 && !P.dive,
+      `pose ${dive0 || 'NONE'}, grinds ${gside || '-'}, trails ${fix(trail0, 2)}, ${P.dive ? 'STILL IN THE DIVE POSE' : 'pose released on the rail'}`);
   // 5. SWIPE DOWN IN THE AIR WITH NOTHING NEAR: a dive, and she lands
   air(60, 6, -62, 0, 3, 8);         // (60, -40) is not open: a 0.6 m planter at x 66 is a ledge within reach
-  what = rg.rightFlick(0, 60); const vy1 = P.vel.y; r = watch(1.5);
+  what = rg.rightFlick(0, 60); const vy1 = P.vel.y, dive1 = !!P.dive; r = watch(1.5);
   row('swipe down in open air', what === 'dive' && vy1 <= -G.diveVy + 1e-6 && !r.got && P.grounded, `${what}, vy ${fix(vy1, 1)}, ${P.grounded ? 'landed' : 'STILL UP'}`);
+  row('...in the grind pose until she lands, trails gone after (r81)', dive1 && !P.dive && !(P.diveFx > 0), `${dive1 ? 'posed' : 'NO POSE'}, ${P.dive ? 'STILL POSED' : 'released'}, trails ${P.diveFx > 0 ? 'STILL UP' : 'down'}`);
   // 5b. r74: FLOWN OFF THE END OF A RAIL, nothing ahead -- the swipe must NOT turn her round onto the rail behind her.
   // *"She reverses her velocity backwards and grinds the other way -- that's not physically accurate."*
   { const end = R0.segs[R0.segs.length - 1].b, beg = R0.segs[0].a, sz = Math.sign(end.z - beg.z) || 1;

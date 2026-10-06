@@ -91,6 +91,28 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE SWIPE UP IS THE WAY OUT OF A PIPE AGAIN; A TAP ON VERT GOES STRAIGHT UP AND BACK DOWN (r81, `VERT.swipeXfer`,
+  `tapXferOn`).** *"I'm gonna switch it back so that swiping up on the right stick is how you launch off. At the top of a
+  vert ramp tapping goes back to just jumping straight up and coming back down."* This undoes r74's swap.
+  - A swipe up is the transfer in three places: on the steep face itself (armed for `faceArm` and fired as she goes off the
+    lip), just off the lip (at once), and in the first `tapWin` of a locked air (releases it). Anywhere else a swipe up
+    is still r74's dash.
+  - A tap on vert is a plain pop: locked, and with r80 it follows the coping back down.
+  - **`swipeXfer` is a NEW key, not `tapXfer` 0**, because the panel saves every row and his phone holds `tapXfer` 1
+    from r74. The tap paths ask `tapXferOn()`, which is false while `swipeXfer` is on. `swipeXfer` 0 puts r74 back.
+  - `npm run sim vert`, `vertair` and `tap` assert the swap: taps land in the pipe and the bowl, swipes land on the
+    deck forward, and an early air swipe releases the lock.
+- **THE DIVE IS DRAWN: GRIND POSE AND HAND + BLADE TRAILS (r81, `diveMark`, `p.dive`, `p.diveFx`, `GRIND.diveFx`).** *"When
+  you swipe down in the air she goes into the grind animation pose, cause that's usually what she's gonna do, and it
+  looks like she's shooting downward -- and make the particles on the hands and the blades happen when you do the
+  downward swipe."*
+  - Every air outcome of `grindDown` (the solved shot at a rail or ledge, and the open dive) marks `p.dive` with the side
+    of the grind clip.
+  - The side is the catch's own rule (her sideways speed against the way she will grind), so the pose she dives in is the
+    grind she lands in. `npm run sim intent` checks they match.
+  - The move brain snaps the clip in on the swipe and holds it until she touches anything. The trails (r80's four
+    ribbons) stay up for the dive and `diveFx` 0.5 s after.
+
 - **THE VERT AIR FOLLOWS THE LIP (r80, `VERT.follow`, `vlipFind`, `vlipStep`).** *"In Tony Hawk if you launch off a vert ramp
   and the bowl curves around, your character follows the edge of the lip -- not physically accurate, but more fun, so you
   come back down the ramp even if you go round a curve."*
