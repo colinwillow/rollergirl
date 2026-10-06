@@ -4304,6 +4304,63 @@ CASES.links = () => {
     say('north causeway: its parapet holds her over the water', Math.abs(P.pos.y - m.y) < 0.3 && r.clean, `ends y ${fix(P.pos.y)}, ${fix(Math.abs(P.pos.z - m.z), 2)} m off the centre${cl(r)}`); }
   return ok;
 };
+// r96: THE HEIGHTS -- the skyscraper district: towers, docks, the two-deck sky line and its trains, the lifts, the air base
+CASES.heights = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const H = rg.HT; if (!H.built) { console.log('  the Heights were not built'); return false; }
+  const city = () => rg.stepCity(DT);
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; };
+  const go = (x, z, h, v, y) => { reset(); place(x, (y || 0) + 0.3, z, h, v); const q = rg.groundAt(x, z, (y || 0) + 0.6, 1); if (q.hit) P.pos.y = q.floor; };
+  const ride = (sec, drive) => { const r = { bail: 0, deep: 0, grind: new Set(), top: -99 }; run(sec, (t, i) => { if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (P.bailT > 0) r.bail = 1; if (P.grind) r.grind.add(P.grind.rail.path); r.top = Math.max(r.top, P.pos.y);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit && !P.grind) r.deep = Math.max(r.deep, q.floor - P.pos.y); }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const onDock = (y) => H.docks.some(D => D.y === y && P.pos.x > D.x0 && P.pos.x < D.x1 && P.pos.z > D.z0 && P.pos.z < D.z1) && P.grounded && Math.abs(P.pos.y - y) < 0.1;
+  say(`${H.towers.length} towers, ${H.docks.length} docks, ${H.pylons} pylons, ${H.trains.length} trains, ${H.lifts.length} lifts`, H.docks.length === 8 && H.lifts.length === 4 && H.trains.length === 2, '');
+  say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
+  // the stops
+  { const bad = []; for (const n of H.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Heights ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${H.stops.length} stops`); }
+  // a tower is a wall
+  { const T = H.towers[0]; go(T.x + 20, T.z, -Math.PI / 2, 9); const r = ride(2.5); say('a tower is a wall from the street', P.pos.x > T.x + H.half - 0.05, `ends x ${fix(P.pos.x, 2)} (face ${T.x + H.half})${cl(r)}`); }
+  // every pad throws her onto its low dock
+  { const bad = []; for (const pd of H.pads) { go(pd.x, pd.z, 0, 0); let up = 0; ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (onDock(H.low)) up = 1; }); if (!up) bad.push(`${pd.D.T.name}: ends ${fix(P.pos.x, 1)},${fix(P.pos.y, 1)},${fix(P.pos.z, 1)}`); }
+    say('every plaza pad throws her onto its tower\'s low dock', !bad.length, bad.join('; ') || `${H.pads.length} pads`); }
+  // from a dock, a tap catches the line beside it; then hands-off round it on the booster
+  for (const [y, path, nm] of [[H.low, H.lowPath, 'low'], [H.high, H.highPath, 'high']]) { const D = H.docks.find(d => d.y === y && d.T === H.towers[0]);
+    rg.GRIND.intent = 0; rg.ledgeClear(); for (const tr of H.trains) tr.s = (tr.path === path ? path.len * 0.5 : tr.s);
+    go(D.T.x + 2, D.z0 + 1.1, Math.PI / 2, 5, y); P.jump = 1; let lap = 0, s0 = null; const r = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === path) lap++; });
+    say(`the ${nm} line: a tap from the dock catches the beam, and she rides it`, r.grind.has(path) && lap > 120, `${r.grind.has(path) ? 'on it for ' + fix(lap / 60, 1) + ' s' : 'NEVER CAUGHT, ends y ' + fix(P.pos.y)}${cl(r)}`); }
+  // the train: grinding the low line just ahead of it, it comes round and knocks her off
+  { const tr = H.trains[0], Pth = tr.path, S0 = Pth.segs[10]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 4); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 4, side: 'left' }); tr.s = (S0.s0 - 8 + Pth.len) % Pth.len; const k0 = H.knocks || 0; let tOff = -1;
+    run(4, (t) => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (tOff < 0 && (H.knocks || 0) > k0) tOff = t; });
+    say('the train comes round and knocks her off the line', tOff >= 0, tOff >= 0 ? `knocked off after ${fix(tOff, 1)} s` : 'never knocked off'); }
+  // a lift: on at the bottom, carried up to the high dock, steps off onto it
+  { const Lf = H.lifts[0], D = Lf.D, P2 = H.period;
+    let tw = 0; for (let k = 0; k < 400; k++) { const [, y] = Lf.fn(H.t + k * 0.05); if (Math.abs(y - H.low) < 0.01) { tw = k * 0.05; break; } }
+    run(tw, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    reset(); place(Lf.x, Lf.y + 0.05, Lf.z, -D.sx * Math.PI / 2, 0); P.vel.set(0, 0, 0); let hi = -1, stay = 1, upT = -1;
+    run(9, (t) => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (!P.grounded) stay = 0; if (P.pos.y > H.high - 0.1 && upT < 0) upT = t; });
+    const rode = upT >= 0 && stay; let off = 0;
+    if (rode) { const h = D.sx > 0 ? -Math.PI / 2 : Math.PI / 2; run(2.5, () => { rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; city(); if (onDock(H.high)) off = 1; }); }
+    say('a lift carries her from the low dock up to the high dock, and she steps off onto it', rode && off, `${rode ? 'up at ' + fix(upT, 1) + ' s' : stay ? 'never reached 52, y ' + fix(P.pos.y) : 'FELL OFF at y ' + fix(P.pos.y)}, ${off ? 'on the high dock' : 'never on the dock'}`); }
+  // the air base: stood on it, it carries her round and she stays on
+  { const B = H.airBase; reset(); place(B.x, B.y + 0.05, B.z, 0, 0); P.vel.set(0, 0, 0); let stay = 1, x0 = P.pos.x, z0 = P.pos.z;
+    run(6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (!P.grounded || Math.hypot(P.pos.x - B.x, P.pos.z - B.z) > B.cr) stay = 0; });
+    say('the air base carries her round, she stays on it', stay && Math.hypot(P.pos.x - x0, P.pos.z - z0) > 8, `${stay ? 'on it' : 'CAME OFF'}, carried ${fix(Math.hypot(P.pos.x - x0, P.pos.z - z0), 1)} m, y ${fix(P.pos.y)}`); }
+  // and a drop from the high line lands on it when it passes under
+  { const B = H.airBase, tf = Math.sqrt(2 * (H.high + 0.95 - B.y) / rg.SK.g); let tt = 0;
+    for (let k = Math.ceil(tf / 0.05) + 2; k < 2400; k++) { const [x, , z] = B.fn(H.t + k * 0.05); if (Math.abs(z - H.loop.z1) < 2 && Math.abs(x - (H.loop.x0 + H.loop.x1) / 2) < 6) { tt = k * 0.05; break; } }
+    run(tt - tf, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    reset(); const [bx, , bz] = B.fn(H.t + tf); place(bx, H.high + 0.95, bz, 0, 0); P.vel.set(0, 0, 0); P.grounded = false; let land = 0;
+    run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grounded && Math.abs(P.pos.y - B.y) < 0.3) land = 1; });
+    say('timed right, a drop from the high line lands on the passing air base', land, land ? 'on it' : `missed, ends y ${fix(P.pos.y)}`); }
+  rg.GRIND.intent = 0;
+  return ok;
+};
 // r91: THE COMBOS AND THE ROUND PIECES, each ridden through the shipped step -- hands off wherever the thing can be ridden
 // hands off, and with the one input it is about (a swipe for a transfer, a tap for a grind or an ollie) where it cannot
 CASES.combos = async () => {

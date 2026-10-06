@@ -94,6 +94,32 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE HEIGHTS: SKYSCRAPERS, A TWO-DECK SKY LINE, AND THINGS THAT MOVE (r96, `HT`, `buildHeights`, `heightsRails`,
+  `stepHeights`, `DYN`, `dynAt`, `stepDyn`, `npm run sim heights`).** *"Really tall buildings -- Tokyo, New York, Dubai -- a
+  sky rail system, a train up on tracks on bridges high in the air, a low one too ... maybe the train knocks you off ...
+  docking ports on the sides of skyscrapers ... a floating platform, hexagonal, with jets or fans keeping it afloat -- if you
+  time it right you can get up on one."* South-west of the hub (x -258..-152, z -206..-94), on ground the occupancy probe
+  found empty:
+  - **FOUR TOWERS** (140 / 96 / 118 / 82 m, setbacks at 60% and 85%, a glass curtain wall that is one quad per pane and no
+    frames -- `slWindowGrid` is ~70 triangles a window and would be 90k a tower -- neon corners, a crown and a red mast light).
+  - **A DOCK AT 12 m AND ANOTHER AT 52 m** on every tower's inner face, a railing on the outer end.
+  - **THE SKY LINE**: one rounded rectangle, two box-girder beams on it (12.95 and 52.95), pylons inside the loop carrying
+    both. Each beam is a booster loop (`railLoop`) with a three-car train that knocks a grinder off -- the Orbital monorail's
+    rule, generalised to `HT.trains`. **The trains run faster than the boosters (16/18 against 13/15)** or one can never
+    catch anybody from behind; the first test row read "never knocked off" for exactly that.
+  - **A LIFT beside every tower**, a hex on three fans going 12 <-> 52 on a 16 s cycle with dwells at each dock.
+  - **THE AIR BASE**, a big hex circling between the decks at 30 m and passing under the high line -- drop onto it.
+  - Launch pads on the plaza onto each low dock; twelve ships circling the towers; Orbital's decorative island that sat
+    in the site (-170, 64, -180) moved to (-205, 88, -150), over the plaza.
+  - **MOVING FLOORS ARE IN `groundAt` ITSELF (`dynAt`)**, after the triangles and at all three early returns, so a platform
+    is a floor to the skating, the landing, the camera and every harness with no case anywhere. `_gr.dyn` says which.
+    `stepDyn` moves each and CARRIES her (position delta) when she is grounded on it within 0.2 m of its top. Sides are not
+    walls. It runs inside `stepCity`, which the game calls AFTER `stepPlayer` and the harness BEFORE it -- both orders work
+    because the carry is decided from where the platform was.
+  - **A HARNESS TIMING AN EVENT MUST SOLVE IT, NOT TYPE IT**: the air-base drop assumed a 2.2 s fall, passed alone, and failed
+    in the full run when `HT.t` started elsewhere. It solves the fall from `SK.g` now.
+  - NOT YET: the sky line only circles the Heights (next: out across the city to the Pantheon, Orbital's islands, the Shores
+    spire), the island over the plaza is scenery, the tower roofs and setbacks are unreachable, no rail network on the plaza.
 - **THE CAUSEWAYS: NEON SHORES IS NO LONGER AN ISLAND (r95, `LINKS`, `buildLinks`, `npm run sim links`).** Shores sits in a
   lagoon (x 112..318, z -112..178, water 1.6, splash) and met the rest of the world only through the hub's east-gate
   causeway. Two more, both `slDeck` (the canal street's own generator: a floor, parapet walls, railings that grind, piers,

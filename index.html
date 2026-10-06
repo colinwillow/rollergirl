@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r95</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r96</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r95';
+const BUILD = 'r96';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1015,12 +1015,24 @@ function triBuild() {
 // Two answers, never one: the highest surface at or below her feet, and the lowest above
 // them. That is what lets her stand on a deck and also roll under it.
 const _gr = { floor: -Infinity, ceil: Infinity, nx: 0, ny: 1, nz: 0, hit: false };
+// r96: MOVING FLOORS (`DYN`). A platform that moves cannot live in a grid built once at load, so the few there are (lifts,
+// ferries, an air base) are asked about here by every query, after the triangles -- which is what makes one a floor to the
+// skating, the landing, the camera and every harness at once. Round in plan (a hex's inscribed circle), flat on top; a
+// side is not a wall (a ramp's rule). `stepDyn` moves them and CARRIES her when she is standing on one.
+const DYN = { list: [] };
+function dynAt(x, z, top) {
+  for (const p of DYN.list) { const dx = x - p.x, dz = z - p.z; if (dx * dx + dz * dz > p.cr * p.cr) continue;
+    if (p.y <= top) { if (p.y > _gr.floor) { _gr.floor = p.y; _gr.nx = 0; _gr.ny = 1; _gr.nz = 0; _gr.hit = true; _gr.dyn = p; } }
+    else if (p.y < _gr.ceil) _gr.ceil = p.y; }
+  return _gr;
+}
 function groundAt(x, z, y, step) {
-  _gr.floor = -Infinity; _gr.ceil = Infinity; _gr.nx = 0; _gr.ny = 1; _gr.nz = 0; _gr.hit = false;
-  if (!TRI.cells) return _gr;
+  _gr.floor = -Infinity; _gr.ceil = Infinity; _gr.nx = 0; _gr.ny = 1; _gr.nz = 0; _gr.hit = false; _gr.dyn = null;
+  const dtop = y + step + 0.02;
+  if (!TRI.cells) return DYN.list.length ? dynAt(x, z, dtop) : _gr;
   const i = Math.floor((x - TRI.x0) / TRI.cell), k = Math.floor((z - TRI.z0) / TRI.cell);
-  if (i < 0 || k < 0 || i >= TRI.w || k >= TRI.h) return _gr;
-  const list = TRI.cells[k * TRI.w + i]; if (!list) return _gr;
+  if (i < 0 || k < 0 || i >= TRI.w || k >= TRI.h) return DYN.list.length ? dynAt(x, z, dtop) : _gr;
+  const list = TRI.cells[k * TRI.w + i]; if (!list) return DYN.list.length ? dynAt(x, z, dtop) : _gr;
   const V = TRI.v, top = y + step + 0.02, M = TRI.m; let inM = -1;
   for (let a = 0; a < list.length; a++) {
     if (M[list[a]]) { if (inM < 0) inM = triMasked(x, z) ? 1 : 0; if (inM) continue; }
@@ -1036,7 +1048,7 @@ function groundAt(x, z, y, step) {
     if (h <= top) { if (h > _gr.floor) { _gr.floor = h; _gr.nx = V[o+9]; _gr.ny = V[o+10]; _gr.nz = V[o+11]; _gr.hit = true; } }
     else if (h < _gr.ceil) _gr.ceil = h;
   }
-  return _gr;
+  return DYN.list.length ? dynAt(x, z, top) : _gr;
 }
 
 
@@ -3060,6 +3072,7 @@ function buildPark() {
   if (PARKD.on) kitRailsDraw([]);    // r90: the park district's rails, posts measured down to its floors, merged
   orbitalRails();    // before cityRails, whose gemBuild has to see this district's gems too
   sliceRails();
+  heightsRails();    // r96: before acroRails, which builds the gem mesh
   acroRails();       // r92
   cityRails();
   railWeave();       // r59: connectors between railings that stop just short of each other
@@ -3095,7 +3108,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -4593,6 +4606,7 @@ function cityRails() {
 function stepCity(dt) {
   stepOrbital(dt);
   gemStep(dt);        // r83: above the gate -- an imported level's gems live in a world with no city
+  stepHeights(dt);    // r96: the trains, the lifts, the air base, the ships
   if (!CITY.on) return;
   stepHydrants(dt);
 }
@@ -5527,7 +5541,7 @@ function buildOrbital() {
   rim(I2, (dx, dz) => dx * d12.x + dz * d12.z < 0.1);
   rim(I3, null);
   // a few islands for scenery, too high or too far to reach
-  for (const [x, y, z, r] of [[-120, 70, -330, 9], [150, 82, -300, 11], [-170, 64, -180, 8], [40, 96, -360, 13]]) obIsland({ x, y, z, r }, { fall: orand() * 6.28 });
+  for (const [x, y, z, r] of [[-120, 70, -330, 9], [150, 82, -300, 11], [-205, 88, -150, 9], [40, 96, -360, 13]]) obIsland({ x, y, z, r }, { fall: orand() * 6.28 });
   // ===== THE FAR CITY ==================================================================================
   obBackdrop();
   // where the ➤ key goes
@@ -7938,6 +7952,170 @@ function buildLinks() {
   CITY.spots['north causeway'] = [LINKS.north.x0 + 0.6, 0.03, LINKS.north.z, Math.PI / 2];   // its foot, outside the park's fence
   CITY.spots['south causeway'] = [LINKS.south.a[0], 8, LINKS.south.a[1] + 2, Math.PI];
 }
+// THE HEIGHTS (r96): the skyscraper district, south-west of the hub between the canal street and Orbital. Four towers
+// round a plaza (82 to 140 m), every one with a DOCK at 12 m and another at 52 m on its inner face; THE SKY LINE, two
+// stacked loops on one set of pylons -- the low line at 12 m and the high line at 52 m, each beam a booster grind rail
+// with a train on it that knocks you off -- passing along every dock's edge; a hovering LIFT beside each tower shuttling
+// between its two docks (time it); an AIR BASE, a big hex on fans circling between the decks at 30 m, passing under the
+// high line; launch pads on the plaza up to the low docks; and ships going round the towers.
+const HT = { on: 1, c: [-205, -150], half: 11, low: 12, high: 52,
+  towers: [{ x: -247, z: -105, top: 140, tint: 0xd9d4f4, neon: 0xff6fd0, name: 'meridian' }, { x: -163, z: -105, top: 96, tint: 0xf4dccf, neon: 0x3ff0e0, name: 'halo' },
+           { x: -247, z: -195, top: 118, tint: 0xcfe7f0, neon: 0xffc84a, name: 'spindle' }, { x: -163, z: -195, top: 82, tint: 0xf2e2c4, neon: 0xb98bff, name: 'lantern' }],
+  loop: { x0: -252, x1: -158, z0: -174.5, z1: -125.5, r: 9 },
+  lift: { period: 16, r: 3.6 }, base: { y: 30, R: 22, r: 9, period: 48 },
+  trains: [], ships: null, docks: [], pads: [], built: 0 };
+function htBeam(pts, y, tint, neon) {
+  // a box girder along a flat closed path, its top 0.05 under the rail line, a neon strip down each side
+  const n = pts.length, N = [];
+  for (let i = 0; i < n; i++) { const a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; N.push([-dz / l, dx / l]); }
+  const w = 0.55, t = y - 0.05, b0 = y - 1.15, P = (i, s, yy) => [pts[i][0] + N[i][0] * s, yy, pts[i][1] + N[i][1] * s];
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n;
+    slQuad('concrete', P(i, -w, t), P(j, -w, t), P(j, w, t), P(i, w, t), [0, 1, 0], { tint });
+    slQuad('concrete', P(i, -w, b0), P(j, -w, b0), P(j, w, b0), P(i, w, b0), [0, -1, 0], { tint: 0xb8b4c8 });
+    for (const s of [-1, 1]) { const nn = [N[i][0] * s, 0, N[i][1] * s];
+      slQuad('concrete', P(i, s * w, b0), P(j, s * w, b0), P(j, s * w, t), P(i, s * w, t), nn, { tint });
+      slQuad('neon', P(i, s * (w + 0.01), t - 0.35), P(j, s * (w + 0.01), t - 0.35), P(j, s * (w + 0.01), t - 0.22), P(i, s * (w + 0.01), t - 0.22), nn, { tint: neon }); } }
+}
+function htTower(T) {
+  const h = HT.half, levels = [[0, T.top * 0.6, h], [T.top * 0.6, T.top * 0.85, h - 2], [T.top * 0.85, T.top, h - 4]];
+  for (const [y0, y1, hh] of levels) {
+    slBox('plaster', T.x - hh, y0, T.z - hh, T.x + hh, y1, T.z + hh, { bev: 0.12, tint: T.tint, solid: true, tag: 'heights tower', base: y0, skip: y0 ? '' : 'y' });
+    // a glass curtain wall: one lit pane per bay per floor, cheap -- a quad each, no frames -- and a spandrel band per floor
+    for (const [ax, sg] of [['x', -1], ['x', 1], ['z', -1], ['z', 1]]) {
+      const f = (ax === 'x' ? T.z : T.x) + sg * (hh + 0.03), lo = (ax === 'x' ? T.x : T.z) - hh + 1.2, hi = (ax === 'x' ? T.x : T.z) + hh - 1.2, bays = Math.max(2, Math.round((hi - lo) / 2.6)), bw = (hi - lo) / bays;
+      const nrm = ax === 'x' ? [0, 0, sg] : [sg, 0, 0], Q = (u, yy) => ax === 'x' ? [u, yy, f] : [f, yy, u];
+      for (let yy = y0 + (y0 ? 0.8 : 4.2); yy + 2.4 < y1 - 0.6; yy += 3.4) {
+        for (let b = 0; b < bays; b++) { const u0 = lo + b * bw + 0.12, u1 = lo + (b + 1) * bw - 0.12, v = Math.floor(slr() * 4), uo = (v % 2) * 0.5, vo = Math.floor(v / 2) * 0.5;
+          slQuad('window', Q(u0, yy), Q(u1, yy), Q(u1, yy + 2.5), Q(u0, yy + 2.5), nrm, { uv4: [[uo, vo], [uo + 0.5, vo], [uo + 0.5, vo + 0.5], [uo, vo + 0.5]] }); } }
+      // neon at the corners, full height: the read from across the city at night
+      for (const e of [lo - 1.1, hi + 1.1]) { const c = Q(e, 0); slBox('neon', c[0] - 0.12, y0 + 0.4, c[2] - 0.12, c[0] + 0.12, y1 - 0.3, c[2] + 0.12, { bev: 0, tint: T.neon, skip: 'yY' }); } }
+    slBox('trim', T.x - hh - 0.25, y1 - 0.6, T.z - hh - 0.25, T.x + hh + 0.25, y1, T.z + hh + 0.25, { bev: 0.05, tint: 0xf8f2ff, skip: 'y' });
+  }
+  // the crown: a glowing ring and a mast with a light on it
+  slGeo('neon', new THREE.TorusGeometry(h - 4.5, 0.25, 6, 32).rotateX(Math.PI / 2), slMat(T.x, T.top + 1.2, T.z), { tint: T.neon });
+  slGeo('metal', new THREE.CylinderGeometry(0.25, 0.45, 14, 8), slMat(T.x, T.top + 7, T.z), { smooth: true });
+  slGeo('neon', new THREE.SphereGeometry(0.6, 10, 8), slMat(T.x, T.top + 14.4, T.z), { smooth: true, tint: 0xff4a4a });
+  slGlow(T.x, T.top + 14.4, T.z, 6, 0xff6a6a, 0.8);
+}
+function buildHeights() {
+  if (!HT.on) return;
+  const [cx, cz] = HT.c, h = HT.half, L = HT.loop;
+  _slseed = 9696;
+  for (const T of HT.towers) htTower(T);
+  // THE DOCKS: a slab cantilevered off each tower's inner face at 12 and 52, the beam along its far edge, a railing on its
+  // outer end, its inner end open for the lift
+  for (const T of HT.towers) { const sx = Math.sign(cx - T.x), sz = Math.sign(cz - T.z), zf = T.z + sz * h, ze = zf + sz * 8;
+    for (const y of [HT.low, HT.high]) {
+      slBox('concrete', T.x - 8, y - 1.0, Math.min(zf, ze), T.x + 8, y, Math.max(zf, ze), { top: 'paving', bev: 0.05, solid: true, tag: 'heights dock', tint: 0xeee8f6, base: y - 1, skip: '' });
+      slBox('neon', T.x - 8, y - 0.55, Math.min(ze, ze - sz * 0.02), T.x + 8, y - 0.4, Math.max(ze, ze + sz * 0.03), { bev: 0, tint: T.neon, skip: 'yY' });
+      const xo = T.x - sx * 8 + sx * 0.3;     // the railing on the outer end grinds, and turns the corner along the tower face
+      const top = slRailing([[xo, y, ze - sz * 0.3], [xo, y, zf + sz * 0.3]], 1.0, { step: 2 }); SLC.railQ.push(top);
+      HT.docks.push({ T, y, x0: T.x - 8, x1: T.x + 8, z0: Math.min(zf, ze), z1: Math.max(zf, ze), zm: (zf + ze) / 2, sx, sz,
+        lx: T.x + sx * 8 + sx * (HT.lift.r + 0.1) });
+      for (const s of [-1, 1]) slGeo('metal', new THREE.CylinderGeometry(0.12, 0.12, 9.4, 6).rotateX(Math.atan2(8, 6) * sz).translate(0, 0, 0), slMat(T.x + s * 6, y - 4.2, zf + sz * 3.2), { smooth: true }); } }
+  // THE SKY LINE: one rounded rectangle, two beams on it, pylons inside it holding both
+  const W = [[(L.x0 + L.x1) / 2, L.z1], [L.x1, L.z1], [L.x1, L.z0], [L.x0, L.z0], [L.x0, L.z1], [(L.x0 + L.x1) / 2, L.z1]];
+  const pts = acPoly(W, L.r, 1.6); pts.pop(); HT.path2 = pts;
+  htBeam(pts, HT.low + 0.95, 0xe6e2f2, 0x3ff0e0); htBeam(pts, HT.high + 0.95, 0xece6f6, 0xff6fd0);
+  for (const y of [HT.low, HT.high]) slTube('orange', pts.concat([pts[0]]).map(([x, z]) => [x, y + 0.95, z]), 0.07);
+  { let acc = 99, S2 = 0;
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; const d = Math.hypot(b[0] - a[0], b[1] - a[1]); acc += d; if (acc < 19) continue; acc = 0;
+      const nx = cx - a[0], nz = cz - a[1], l = Math.hypot(nx, nz), px = a[0] + nx / l * 2.4, pz = a[1] + nz / l * 2.4;
+      if (HT.docks.some(D => px > D.x0 - 1 && px < D.x1 + 1 && pz > D.z0 - 1 && pz < D.z1 + 1)) continue;
+      slGeo('concrete', new THREE.CylinderGeometry(0.55, 0.75, HT.high - 0.2, 10), slMat(px, (HT.high - 0.2) / 2, pz), { smooth: true, tint: 0xd8d2e6 });
+      solidAdd(px, pz, 0.6, 0.6, 0, HT.high - 0.2, 0, { top: false, tag: 'heights pylon' });
+      for (const y of [HT.low, HT.high]) slTube('concrete', [[px, y - 0.1, pz], [a[0], y - 0.4, a[1]]], 0.28, { tint: 0xd8d2e6 });
+      S2++; }
+    HT.pylons = S2; }
+  // THE PADS on the plaza, each up to its tower's low dock
+  for (const D of HT.docks.filter(d => d.y === HT.low)) { const px = D.T.x + D.sx * 3, pz = D.zm + D.sz * 15;
+    ORB.launch.push({ x: px, z: pz, y: 0, r: 1.7, tx: D.T.x - D.sx * 2, ty: HT.low, tz: D.zm, apex: 3, cool: 0, name: 'heights pad' });
+    slBox('stone', px - 2.2, 0, pz - 2.2, px + 2.2, 0.3, pz + 2.2, { top: 'stone', bev: 0.05, solid: true, tag: 'heights pad', tint: 0xeee8f6, base: 0 });
+    slGeo('neon', new THREE.TorusGeometry(1.55, 0.14, 6, 28).rotateX(Math.PI / 2), slMat(px, 0.36, pz), { tint: D.T.neon });
+    for (let k = 0; k < 3; k++) slGeo('neon', new THREE.TorusGeometry(1.15 - k * 0.28, 0.05, 4, 20).rotateX(Math.PI / 2), slMat(px, 0.9 + k * 0.7, pz), { tint: 0xffffff });
+    slGlow(px, 1.4, pz, 4, D.T.neon, 0.6); HT.pads.push({ x: px, z: pz, D }); }
+  // THE PLAZA: a paved square inside the line, a ring of lamps, two benches -- open for skating, the pylons round its edge
+  slQuad('paving', [L.x0 + 6, 0.012, L.z0 + 6], [L.x1 - 6, 0.012, L.z0 + 6], [L.x1 - 6, 0.012, L.z1 - 6], [L.x0 + 6, 0.012, L.z1 - 6], [0, 1, 0], { tint: 0xe9e4f2 });
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; slLamp(cx + Math.cos(a) * 17, 0, cz + Math.sin(a) * 17); }
+  CITY.spots['the heights'] = [cx + 20, 0, cz, -Math.PI / 2];
+  CITY.spots['heights low dock'] = [HT.towers[0].x + 2, HT.low, HT.docks[0].zm, Math.PI / 2];
+  CITY.spots['heights high dock'] = [HT.towers[0].x + 2, HT.high, HT.docks[1].zm, Math.PI / 2];
+  HT.stops = ['the heights', 'heights low dock', 'heights high dock'];
+  HT.built = 1;
+}
+// AFTER THE COLLIDER: the two loops as rails, and the things that move
+function heightsRails() {
+  if (!HT.built) return;
+  const V = q => SLV(q[0], q[1], q[2]);
+  HT.lowPath = railLoop(HT.path2.map(([x, z]) => V([x, HT.low + 0.95, z])), { name: 'heights low line', boost: 13, boostK: 1.5, maxV: 20 });
+  HT.highPath = railLoop(HT.path2.map(([x, z]) => V([x, HT.high + 0.95, z])), { name: 'heights high line', boost: 15, boostK: 1.5, maxV: 22 });
+  gemsAlong(HT.highPath, 16, 0.9, 8);
+  // THE TRAINS -- three cars each, one instanced mesh per line
+  const body = new THREE.BoxGeometry(2.3, 2.2, 7.4).translate(0, 1.15, 0), band = new THREE.BoxGeometry(2.36, 0.7, 6.6).translate(0, 1.6, 0);
+  const mk = (path, v, col) => { const im = new THREE.InstancedMesh(body, new THREE.MeshStandardMaterial({ color: col, roughness: 0.4, metalness: 0.25 }), 3);
+    const ib = new THREE.InstancedMesh(band, new THREE.MeshStandardMaterial({ color: 0x1a2440, emissive: 0x3ff0e0, emissiveIntensity: 0.55 }), 3);
+    im.frustumCulled = ib.frustumCulled = false; scene.add(im); scene.add(ib);
+    HT.trains.push({ path, v, cars: 3, carL: 8, gap: 0.6, s: 0, mesh: im, band: ib }); };
+  mk(HT.lowPath, 16, 0xf4f0fa); mk(HT.highPath, 18, 0xfbe8f2);   // faster than the boosters (13 / 15), so a train catches a grinder from behind
+  HT.trains[1].s = HT.highPath.len * 0.5;
+  // THE LIFTS and THE AIR BASE: moving floors
+  const hexMesh = (R, col, neon) => { const g = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.92, 0.7, 6), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, metalness: 0.2 }));
+    top.position.y = -0.35; g.add(top);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(R * 0.93, 0.08, 4, 6), new THREE.MeshBasicMaterial({ color: neon })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.02; g.add(rim);
+    const fans = []; for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2, fx = Math.cos(a) * R * 0.55, fz = Math.sin(a) * R * 0.55;
+      const pod = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.2, R * 0.24, 0.6, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0x5a5f78, side: THREE.DoubleSide })); pod.position.set(fx, -0.95, fz); g.add(pod);
+      const glow = new THREE.Mesh(new THREE.CircleGeometry(R * 0.19, 12), new THREE.MeshBasicMaterial({ color: neon, transparent: true, opacity: 0.85 })); glow.rotation.x = Math.PI / 2; glow.position.set(fx, -1.2, fz); g.add(glow);
+      const fan = new THREE.Mesh(new THREE.BoxGeometry(R * 0.36, 0.05, 0.12), new THREE.MeshStandardMaterial({ color: 0x2a2f44 })); fan.position.set(fx, -0.9, fz); g.add(fan); fans.push(fan); }
+    g.userData.noHole = true; g.traverse(o => { if (o.material) o.material.userData = { noHole: true }; });
+    scene.add(g); return { g, fans }; };
+  HT.lifts = [];
+  for (const D of HT.docks.filter(d => d.y === HT.low)) { const m = hexMesh(HT.lift.r + 0.4, 0xece8f6, D.T.neon), k = HT.lifts.length;
+    const p = { x: D.lx, y: HT.low, z: D.zm, cr: HT.lift.r, mesh: m, kind: 'lift', ph: k * 4, D, fn: (t) => { const P = HT.lift.period, u = ((t + k * 4) % P) / P;
+        const e = u < 0.2 ? 0 : u < 0.5 ? (u - 0.2) / 0.3 : u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3, s = e * e * (3 - 2 * e); return [D.lx, HT.low + (HT.high - HT.low) * s, D.zm]; } };
+    DYN.list.push(p); HT.lifts.push(p); }
+  { const B = HT.base, m = hexMesh(B.r + 0.6, 0xe4e0ee, 0xffc84a), p = { x: cx0() + B.R, y: B.y, z: HT.c[1], cr: B.r, mesh: m, kind: 'air base',
+      fn: (t) => { const a = t / B.period * Math.PI * 2; return [HT.c[0] + Math.cos(a) * B.R, B.y + Math.sin(t * 0.7) * 0.4, HT.c[1] + Math.sin(a) * B.R]; } };
+    DYN.list.push(p); HT.airBase = p; }
+  function cx0() { return HT.c[0]; }
+  // SHIPS round the towers: background traffic, three lanes at different heights and speeds, one instanced mesh
+  { const g = new THREE.BoxGeometry(2.2, 0.9, 5.2), nose = new THREE.ConeGeometry(0.7, 1.6, 6).rotateX(Math.PI / 2).translate(0, 0, 3.3);
+    const geo = mergeGeometries([g.toNonIndexed(), nose.toNonIndexed()]) || g;
+    const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ color: 0xf2eefa, emissive: 0xff6fd0, emissiveIntensity: 0.25, roughness: 0.35, metalness: 0.5 }), 12);
+    im.frustumCulled = false; scene.add(im);
+    HT.ships = { mesh: im, lanes: Array.from({ length: 12 }, (_, i) => ({ R: 70 + (i % 3) * 22, y: 38 + (i % 4) * 16, w: (i % 2 ? 1 : -1) * (0.05 + (i % 3) * 0.015), a0: i * 0.52 })) }; }
+  HT.t = 0; stepHeights(0);
+}
+const _htm = new THREE.Matrix4(), _htq = new THREE.Quaternion(), _htv = new THREE.Vector3(), _htone = new THREE.Vector3(1, 1, 1), _hta = new THREE.Vector3(), _htb = new THREE.Vector3();
+function stepDyn(t) {
+  const p = player;
+  for (const D of DYN.list) {
+    const [x, y, z] = D.fn(t), dx = x - D.x, dy = y - D.y, dz = z - D.z;
+    // CARRY: standing on it (on the ground, not on a rail, inside it, at its height), she goes where it goes
+    if (p.grounded && !p.grind && Math.hypot(p.pos.x - D.x, p.pos.z - D.z) < D.cr + 0.05 && Math.abs(p.pos.y - D.y) < 0.2) { p.pos.x += dx; p.pos.y += dy; p.pos.z += dz; p.onDyn = D; }
+    D.x = x; D.y = y; D.z = z;
+    if (D.mesh) { D.mesh.g.position.set(x, y, z); for (const f of D.mesh.fans) f.rotation.y += 0.6; }
+  }
+}
+function stepHeights(dt) {
+  if (!HT.built || !HT.trains.length) return;
+  HT.t += dt;
+  if (DYN.list.length) stepDyn(HT.t);
+  const p = player;
+  for (const tr of HT.trains) {
+    const P = tr.path, Ln = P.len; tr.s = (tr.s + tr.v * dt) % Ln;
+    if (p.grind && p.grind.rail.path === P) {
+      const her = p.grind.rail.s0 + p.grind.t * p.grind.rail.len, span = tr.cars * (tr.carL + tr.gap), behind = ((tr.s - her) % Ln + Ln) % Ln;
+      if (behind < span + 1.2 || behind > Ln - 2.5) { const R = p.grind.rail; grindLeave(true); p.vel.x += -R.hz * 5; p.vel.z += R.hx * 5; p.vel.y += 3;
+        CITY.goMsg = 'TRAIN!'; CITY.goAt = performance.now(); sparkBurst(20); toast('TRAIN!', '#ff8a2a'); HT.knocks = (HT.knocks || 0) + 1; } }
+    for (let i = 0; i < tr.cars; i++) { const s = ((tr.s - i * (tr.carL + tr.gap) - tr.carL / 2) % Ln + Ln) % Ln;
+      railPoint(P, s - 2, _hta); railPoint(P, s + 2, _htb); _htv.copy(_hta).add(_htb).multiplyScalar(0.5); _htq.setFromAxisAngle(UP, Math.atan2(_htb.x - _hta.x, _htb.z - _hta.z));
+      _htm.compose(_htv, _htq, _htone); tr.mesh.setMatrixAt(i, _htm); tr.band.setMatrixAt(i, _htm); }
+    tr.mesh.instanceMatrix.needsUpdate = true; tr.band.instanceMatrix.needsUpdate = true; }
+  if (HT.ships) { const S = HT.ships; S.lanes.forEach((L, i) => { const a = L.a0 + HT.t * L.w, x = HT.c[0] + Math.cos(a) * L.R, z = HT.c[1] + Math.sin(a) * L.R;
+      _htv.set(x, L.y + Math.sin(HT.t * 0.5 + i) * 1.5, z); _htq.setFromAxisAngle(UP, Math.atan2(-Math.sin(a) * L.w, Math.cos(a) * L.w)); _htm.compose(_htv, _htq, _htone); S.mesh.setMatrixAt(i, _htm); });
+    S.mesh.instanceMatrix.needsUpdate = true; }
+}
 function hubDress() {
   if (!HUB.on) return;
   const D = HUB.deck, steel = (x0, y0, z0, x1, y1, z1) => slBox('metal', x0, y0, z0, x1, y1, z1, { bev: 0.01, skip: 'y' });
@@ -8387,6 +8565,7 @@ function buildSlice() {
   parkDress();      // r90: and the skate park district north of it, dressed like the Nexus
   buildAcro();      // r92: and the Acropolis west of that, four levels up
   buildLinks();     // r95: and bridges between the districts that only met at the hub
+  buildHeights();   // r96: and the skyscraper district south-west of the hub
   Object.assign(CITY.spots, { slice: [-97.8, Q, -5.25, -Math.PI / 2], 'slice bridge': [BR.x, yB(BR.zc), BR.zc + 6, Math.PI], 'slice terrace': [-140, TER, 15, -Math.PI / 2] });
   SLC.built = 1;
 }
@@ -12029,7 +12208,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  PARKD, parkDistrict, LINKS, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  PARKD, parkDistrict, LINKS, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
