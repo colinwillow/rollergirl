@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r94</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r95</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r94';
+const BUILD = 'r95';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3095,7 +3095,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(ACR.built ? ACR.stops : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -7918,6 +7918,26 @@ function acroRails() {
   // r94: the gems (the crypt's, and the ones strung along the long rails) -- the counter under the speed counts them
   if (GEM.list.length) { if (GEM.mesh) { scene.remove(GEM.mesh); GEM.mesh.geometry.dispose(); GEM.mesh.material.dispose(); GEM.mesh = null; } gemBuild(); }
 }
+// THE LINKS (r95): bridges between districts that used to meet only at the hub. Every one is `slDeck` -- the canal street's
+// own ramp-and-viaduct generator -- so a link is a floor with walls, railings that grind, piers and lamps, and a new one is a
+// list of points.
+//   THE NORTH CAUSEWAY  the ground outside the park district's east fence, up over the lagoon, into Neon Alley's cross street
+//   THE SOUTH CAUSEWAY  Neon Shores' south-west corner (8 m), down over the lagoon onto Orbital's north quay (4 m)
+const LINKS = { on: 1, north: { z: 123.6, x0: 92, x1: 147 }, south: { a: [160, -95], b: [124, -126] }, decks: [] };
+function buildLinks() {
+  if (!LINKS.on || !SH.on || !SH.built) return;
+  const wallUp = (p) => p.y > 1.2;
+  { const N = LINKS.north, z = N.z, pts = [[N.x0, 0.02, z], [98, 0.6, z], [104, 2.6, z], [112, 6.0, z], [118, 7.7, z], [124, 8.0, z], [136, 8.0, z], [N.x1, 8.0, z]];
+    const d = slDeck({ pts, w: 4.0, wallH: 0.9, rail: true, led: 0x3ff0e0, thick: 0.6, side: 'masonry', wallL: wallUp, wallR: wallUp,
+      piers: { base: 0, every: 7, start: 12, size: 1.3 }, lamps: [0.45, 0.8], tags: [[0.5, 1, 'push', 1.2], [0.62, -1, 'alien', 0.9]] });
+    LINKS.decks.push({ name: 'north causeway', ...d }); }
+  { const [ax, az] = LINKS.south.a, [bx, bz] = LINKS.south.b, pts = [[ax, 8.0, az + 3], [ax, 8.0, az], [154, 7.6, -103], [144, 6.4, -111], [134, 4.9, -119], [128, 4.0, -123.5], [bx, 4.0, bz]];
+    const d = slDeck({ pts, w: 4.0, wallH: 0.9, rail: true, led: 0xff6fd0, thick: 0.6, side: 'masonry',
+      piers: { base: 0, every: 7, start: 6, size: 1.3 }, lamps: [0.5], tags: [[0.4, 1, 'cat', 1.0], [0.6, -1, 'saturn', 0.9]] });
+    LINKS.decks.push({ name: 'south causeway', ...d }); }
+  CITY.spots['north causeway'] = [LINKS.north.x0 + 0.6, 0.03, LINKS.north.z, Math.PI / 2];   // its foot, outside the park's fence
+  CITY.spots['south causeway'] = [LINKS.south.a[0], 8, LINKS.south.a[1] + 2, Math.PI];
+}
 function hubDress() {
   if (!HUB.on) return;
   const D = HUB.deck, steel = (x0, y0, z0, x1, y1, z1) => slBox('metal', x0, y0, z0, x1, y1, z1, { bev: 0.01, skip: 'y' });
@@ -8366,6 +8386,7 @@ function buildSlice() {
   hubDress();       // r58: the park she starts in -- the deck, the ledges, the plinth, the edges
   parkDress();      // r90: and the skate park district north of it, dressed like the Nexus
   buildAcro();      // r92: and the Acropolis west of that, four levels up
+  buildLinks();     // r95: and bridges between the districts that only met at the hub
   Object.assign(CITY.spots, { slice: [-97.8, Q, -5.25, -Math.PI / 2], 'slice bridge': [BR.x, yB(BR.zc), BR.zc + 6, Math.PI], 'slice terrace': [-140, TER, 15, -Math.PI / 2] });
   SLC.built = 1;
 }
@@ -12008,7 +12029,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  PARKD, parkDistrict, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  PARKD, parkDistrict, LINKS, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

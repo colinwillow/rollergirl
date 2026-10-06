@@ -4271,6 +4271,39 @@ CASES.acro = () => {
   rg.GRIND.intent = 0;
   return ok;
 };
+// r95: THE LINKS -- the bridges between districts, ridden both ways through the shipped step: steered down the deck's own
+// centreline (a player follows the road), and every crossing of the lagoon is dry
+CASES.links = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const L = rg.LINKS; if (!L.decks.length) { console.log('  no links were built'); return false; }
+  const city = () => rg.stepCity(DT), g = rg.SK.g;
+  const go = (x, y, z, h, v) => { P.mel = null; P.flip = null; P.grab = null; P.jump = 0; rg.ORB.safe = null; P.flatT = 0; place(x, y + 0.3, z, h, v); const q = rg.groundAt(x, z, y + 0.6, 1); if (q.hit) P.pos.y = q.floor; };
+  const follow = (D, dir) => { const pts = D.P.map(p => [p.x, p.z]); if (dir < 0) pts.reverse(); return () => { let bi = 0, bd = 1e9;
+      for (let i = 0; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - P.pos.x, pts[i][1] - P.pos.z); if (d < bd) { bd = d; bi = i; } }
+      const t = pts[Math.min(pts.length - 1, bi + 5)], e = pts[pts.length - 1], tx = bi + 5 >= pts.length ? e[0] + (e[0] - pts[pts.length - 2][0]) * 4 : t[0], tz = bi + 5 >= pts.length ? e[1] + (e[1] - pts[pts.length - 2][1]) * 4 : t[1];
+      const h = Math.atan2(tx - P.pos.x, tz - P.pos.z); rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; }; };
+  const ride = (sec, drive) => { const r = { falls: rg.ORB.falls || 0, bail: 0, deep: 0, low: 99 }; run(sec, () => { drive(); city(); if (P.bailT > 0) r.bail = 1;
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit) r.deep = Math.max(r.deep, q.floor - P.pos.y); r.low = Math.min(r.low, P.pos.y); });
+    r.falls = (rg.ORB.falls || 0) - r.falls; r.clean = !r.bail && !r.falls && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.falls ? ' SPLASH' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const N = L.decks.find(d => d.name === 'north causeway'), S = L.decks.find(d => d.name === 'south causeway');
+  { const p0 = N.P[0]; go(p0.x + 0.5, 0, p0.z, Math.PI / 2, 6); const r = ride(9, follow(N, 1));
+    say('north causeway: from the park\'s east side, up and over the lagoon into Neon Alley', P.pos.x > L.north.x1 + 2 && Math.abs(P.pos.y - 8) < 0.1 && r.clean, `ends ${fix(P.pos.x, 1)},${fix(P.pos.y)},${fix(P.pos.z, 1)}${cl(r)}`); }
+  { const e = N.P[N.P.length - 1]; go(e.x + 4, 8, e.z, -Math.PI / 2, 5); const r = ride(9, follow(N, -1));
+    say('north causeway: back from the alley, down to the ground beside the park', P.pos.x < L.north.x0 && P.pos.y < 0.1 && r.clean, `ends ${fix(P.pos.x, 1)},${fix(P.pos.y)},${fix(P.pos.z, 1)}${cl(r)}`); }
+  { const p0 = S.P[0]; go(p0.x, 8, p0.z + 2, Math.PI, 5); const r = ride(10, follow(S, 1));
+    say('south causeway: off the plateau, over the lagoon, onto Orbital\'s north quay', P.pos.x < 125 && Math.abs(P.pos.y - 4) < 0.1 && r.clean, `ends ${fix(P.pos.x, 1)},${fix(P.pos.y)},${fix(P.pos.z, 1)}${cl(r)}`); }
+  { const e = S.P[S.P.length - 1]; go(e.x - 3, 4, e.z - 2, Math.atan2(S.P[S.P.length - 6].x - e.x, S.P[S.P.length - 6].z - e.z), 5); const r = ride(10, follow(S, -1));
+    say('south causeway: from the quay, up onto Neon Shores', P.pos.z > -100 && Math.abs(P.pos.y - 8) < 0.1 && r.clean, `ends ${fix(P.pos.x, 1)},${fix(P.pos.y)},${fix(P.pos.z, 1)}${cl(r)}`); }
+  { const bad = []; for (const n of ['north causeway', 'south causeway']) { P.mel = null; rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('both causeway ➤ stops stand her on a floor', !bad.length, bad.join('; ') || 'both'); }
+  // and a wall: square at the parapet half way over, she stays on the bridge
+  { const m = N.P[Math.floor(N.P.length * 0.7)]; go(m.x, m.y, m.z, 0, 8); const r = ride(2, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    say('north causeway: its parapet holds her over the water', Math.abs(P.pos.y - m.y) < 0.3 && r.clean, `ends y ${fix(P.pos.y)}, ${fix(Math.abs(P.pos.z - m.z), 2)} m off the centre${cl(r)}`); }
+  return ok;
+};
 // r91: THE COMBOS AND THE ROUND PIECES, each ridden through the shipped step -- hands off wherever the thing can be ridden
 // hands off, and with the one input it is about (a swipe for a transfer, a tap for a grind or an ollie) where it cannot
 CASES.combos = async () => {

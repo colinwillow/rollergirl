@@ -94,6 +94,17 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE CAUSEWAYS: NEON SHORES IS NO LONGER AN ISLAND (r95, `LINKS`, `buildLinks`, `npm run sim links`).** Shores sits in a
+  lagoon (x 112..318, z -112..178, water 1.6, splash) and met the rest of the world only through the hub's east-gate
+  causeway. Two more, both `slDeck` (the canal street's own generator: a floor, parapet walls, railings that grind, piers,
+  lamps), so the next link is a list of points:
+  - **THE NORTH CAUSEWAY** z 123.6: the ground just outside the park district's east fence (x 90), up over the lagoon, into
+    Neon Alley's cross street (z 121..128, between the inner row's blocks).
+  - **THE SOUTH CAUSEWAY**: the plateau's south-west corner (160, 8, -95), down over the lagoon onto Orbital's north quay
+    (124, 4, -126). Park -> Shores -> Orbital is now a ride, not a trip back through the hub.
+  - **THE PARK'S EAST FENCE IS AT x 90 (z 109..239)**, not at its promenade (x 97). The first uphill row started at x 86 --
+    inside the park -- and ran into it. Anything placed beside the park district goes outside x 90 / z 104.3 / z 251.4.
+  - `sim links` steers down each deck's own centreline (`slDeck` returns it) both ways and requires no splash.
 - **CONNECTIVE TISSUE: THE DISTRICTS JOIN UP (r94, `buildRoofline`, `buildCrypt`, `ACR.RL`, `ACR.CRYPT`, the mega drop).**
   *"I want to blend the areas between so they don't feel like separate sections -- one giant cohesive system with a lot
   of connective tissue, lots of different ways to get, lots of secret locations."* (His hero assets -- a centre tower with
