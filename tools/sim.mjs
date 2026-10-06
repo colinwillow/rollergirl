@@ -42,7 +42,9 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 (0, eval)(stubs);
 // r64: WHICH WORLD. Every case but `zones` measures the built-in park, and his zones stand on the same ground, so
 // the page is booted in the world the case is about (`rg.world` is what the game reads at load).
-globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'parkref') ? '2' : '0');
+globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : '0');
+// r90: the main world's north district is the skate park now; the City it replaced is one switch away, and `city` boots with it
+if (process.argv[2] === 'city') globalThis.localStorage.setItem('rg.city', '1');
 
 const html = fs.readFileSync('index.html', 'utf8');
 let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
@@ -116,6 +118,8 @@ function gameClips(file) {
 }
 
 const CASES = {};
+// r90: a piece as kind, size and options -- not its tint (the main world paints the park its own way), numbers to a millimetre
+const parkSig = p => p.kind + ' ' + p.size + ' ' + JSON.stringify(Object.fromEntries(Object.entries(p.o || {}).filter(([k]) => k !== 'tint' && k !== 'bankTint').sort()), (k, v) => typeof v === 'number' ? +v.toFixed(3) : v);
 // r84: THE ROUTE CASES RIDE THE r83 PUSH. They hold the stick down for a fixed time and then ask whether a line through a
 // level comes out where it was tuned to: a gap cleared, a roof landed, a ring entered. With r84's quicker start every one of
 // them arrives at a different speed and measures the acceleration curve instead of the route (W3 -> W4 overshot at 18.9 m/s
@@ -2375,7 +2379,11 @@ CASES.zfight = () => {
   if (!plaza || !park) { console.log('  plaza or park mesh not found'); return false; }
   const Q = plaza.geometry.attributes.position.array, P3 = park.geometry.attributes.position.array, N = park.geometry.attributes.normal.array;
   const plz = [];
-  for (let t = 0; t < Q.length / 9; t++) { const o = t * 9; if (Math.abs(Q[o + 1]) < 0.06) plz.push([Q[o], Q[o + 2], Q[o + 3], Q[o + 5], Q[o + 6], Q[o + 8], Q[o + 1]]); }
+  // r90: THE HUB'S PLAZA ONLY. The plaza mesh carries the park district's floor now too (`PARKD`), pushed back in depth like
+  // the plaza so the kit pieces standing on it win -- which is the arrangement this check exists to require, not a fault
+  const S0 = rg.PARK.S + 0.01, hubT = o => [0, 3, 6].every(k => Math.abs(Q[o + k]) <= S0 && Math.abs(Q[o + k + 2]) <= S0);
+  let dist = 0;
+  for (let t = 0; t < Q.length / 9; t++) { const o = t * 9; if (Math.abs(Q[o + 1]) < 0.06) { if (hubT(o)) plz.push([Q[o], Q[o + 2], Q[o + 3], Q[o + 5], Q[o + 6], Q[o + 8], Q[o + 1]]); else dist++; } }
   const inTri = (x, z, q) => { const d = (q[3] - q[5]) * (q[0] - q[4]) + (q[4] - q[2]) * (q[1] - q[5]);
     const a = ((q[3] - q[5]) * (x - q[4]) + (q[4] - q[2]) * (z - q[5])) / d, b = ((q[5] - q[1]) * (x - q[4]) + (q[0] - q[4]) * (z - q[5])) / d;
     return a > 0 && b > 0 && a + b < 1; };
@@ -2392,7 +2400,9 @@ CASES.zfight = () => {
   const off = plaza.material.polygonOffset && plaza.material.polygonOffsetFactor > 0;
   console.log(`  park triangles lying EXACTLY on the plaza: ${exact.length}${exact.length ? ' at ' + exact.slice(0, 8).join(' ') : ''}`);
   console.log(`  ramp toes within 3 cm of it: ${toes.length}, and the plaza is ${off ? 'pushed back in depth (polygonOffset)' : 'NOT offset -- they will fight'}`);
-  return exact.length === 0 && off;
+  const want = rg.PARKD.on && rg.PARKD.floorMesh ? rg.PARKD.floorMesh.pos.length / 9 : 0;
+  console.log(`  the park district's floor and the apron round it in that offset mesh: ${dist} triangles (its floor alone is ${want})`);
+  return exact.length === 0 && off && dist >= want;
 };
 // ---------------------------------------------------------------- Zap's melee (r39)
 // The borrowed file (`npm run borrow`) prepared exactly as the game prepares hers; the chain, the slide,
@@ -3715,6 +3725,90 @@ CASES.parkref = async () => {
   say('  the spawn marker lands on its spot', !!sp && Math.hypot(sp[0] - X, sp[2] - Z) < 0.01 && Math.abs(sp[1] - spawn0[1]) < 0.01, sp ? `at ${fix(sp[0], 1)},${fix(sp[1], 1)},${fix(sp[2], 1)}` : 'NONE');
   return ok;
 };
+// ---------------------------------------------------------------- r90: THE PARK DISTRICT
+// *"Build out more of the level like this AND integrate the skatepark layout."* The schematic park is built a second time, in
+// the main world north of the hub, turned to face the gate. This holds it to the kit world's park -- the reference that rides --
+// through a child process booted in that world (`parkdump`), then rides the joins only this world has: out of the gate into the
+// entry, down into the sunk bowl through the apron it is cut out of, and across the seam where the park's floor meets the apron.
+CASES.parkd = async () => {
+  let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(52)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.SHEET, D = rg.PARKD;
+  if (!D.on || !S.toW || !D.pieces || !D.pieces.length) { say('the park district is built', false, `on ${D.on}, ${D.pieces ? D.pieces.length : 0} pieces`); return false; }
+  const { spawnSync } = await import('child_process'), tmp = path.join(TMP, 'parkdump.json');
+  const r = spawnSync(process.execPath, [process.argv[1], 'parkdump', tmp], { encoding: 'utf8', maxBuffer: 64 << 20 });
+  if (r.status !== 0 || !fs.existsSync(tmp)) { say('the kit world dumps its park', false, (r.stderr || '').split('\n').slice(-4).join(' | ')); return false; }
+  const K = JSON.parse(fs.readFileSync(tmp, 'utf8'));
+  const A = K.pieces.slice().sort(), B = D.pieces.map(parkSig).sort();
+  say('every piece the kit world builds, built here', A.length === B.length && A.join('|') === B.join('|'), `${B.length} here, ${A.length} there` + (A.join('|') === B.join('|') ? '' : ` -- first difference: ${A.find((x, i) => x !== B[i])}`));
+  const gf = (x, z, y) => { const q = rg.groundAt(x, z, y, 0); return q.hit ? q.floor : null; }, so = (x, y, z) => rg.solidAt(x, y, z, 0) ? 1 : 0;
+  const near1 = (a, b) => a == null || b == null ? (a === b ? 0 : 99) : Math.abs(a - b), NUDGE = [[0.02, 0], [-0.02, 0], [0, 0.02], [0, -0.02]];
+  let n = 0, fb = 0, lb = 0, sb = 0, worst = 0, sunk = 0; const offs = [];
+  for (const [x, z, a, a2, s1, s2, s3] of K.pts) { const [X, Z] = S.toW(x, z); n++; if (a != null && a < -0.3) sunk++;
+    // the same tolerance and the same rounding-tie nudge as `parkref`: the turn puts a hair of float error into every coordinate
+    let d = near1(a, gf(X, Z, 40)); if (d > 0.05) for (const [ex, ez] of NUDGE) d = Math.min(d, near1(a, gf(X + ex, Z + ez, 40)));
+    let d2 = near1(a2, gf(X, Z, 0.5)); if (d2 > 0.05) for (const [ex, ez] of NUDGE) d2 = Math.min(d2, near1(a2, gf(X + ex, Z + ez, 0.5)));
+    worst = Math.max(worst, d, d2);
+    if (d > 0.05) { fb++; if (offs.length < 4) offs.push(`${fix(X, 1)},${fix(Z, 1)}: ${a == null ? '-' : fix(a)} there, ${fix(gf(X, Z, 40) ?? NaN)} here`); }
+    if (d2 > 0.05) { lb++; if (offs.length < 4) offs.push(`${fix(X, 1)},${fix(Z, 1)} (under 0.5): ${a2 == null ? '-' : fix(a2)} there, ${fix(gf(X, Z, 0.5) ?? NaN)} here`); }
+    const want = [s1, s2, s3].join(), sAt = (x2, z2) => [so(x2, 0.6, z2), so(x2, 3, z2), so(x2, 9, z2)].join();
+    if (sAt(X, Z) !== want && !NUDGE.some(([ex, ez]) => sAt(X + ex, Z + ez) === want)) sb++; }
+  if (offs.length) console.log('      ' + offs.join('\n      '));
+  say('  every floor at the same height (top and under 0.5 m)', n > 20000 && sunk > 300 && !fb && !lb, `${n} points (${sunk} down in a sunk bowl), ${fb} + ${lb} off, worst ${fix(worst, 3)} m`);
+  say('  every solid where it is there', sb === 0, `${sb} of ${n} columns differ`);
+  const R1 = D.pieces.flatMap(pc => pc.rails || (pc.rail ? [pc.rail] : [])).map(R => [R.segs[0].a, R.segs[R.segs.length - 1].b]);
+  let rbad = 0; for (const ends of K.rails) for (const [x, y, z] of ends) { const [X, Z] = S.toW(x, z);
+    if (!R1.some(E => E.some(e => Math.hypot(e.x - X, e.y - y, e.z - Z) < 0.01))) rbad++; }
+  say('  every rail end where it is there', K.rails.length > 10 && R1.length === K.rails.length && !rbad, `${R1.length} rails, ${rbad} ends off`);
+  // nothing from another district in its box
+  // (the dressing stands round it, outside the fence -- inside the floor he drew is the park's alone)
+  const foreign = {}, inOut = (x, z) => { let c = false; const Q = S.floor; for (let i = 0, j = Q.length - 1; i < Q.length; j = i++) { const [xi, zi] = Q[i], [xj, zj] = Q[j];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
+  for (const b of rg.SOLID.all) if (!/^kit /.test(b.tag) && [[0, 0], [b.hx, b.hz], [-b.hx, b.hz], [b.hx, -b.hz], [-b.hx, -b.hz]].some(([u, v]) => inOut(b.cx + u * b.c + v * b.s, b.cz - u * b.s + v * b.c)))
+    foreign[b.tag || '(untagged)'] = (foreign[b.tag || '(untagged)'] || 0) + 1;
+  say('  nothing else stands in the district', !Object.keys(foreign).length, Object.keys(foreign).length ? JSON.stringify(foreign) : `inside the floor he drew, x ${fix(S.x0, 0)}..${fix(S.x1, 0)} z ${fix(S.z0, 0)}..${fix(S.z1, 0)}`);
+  // THE SEAM: the apron just outside the park's floor is there, and the floor just inside is the park's (never a hole, never a step)
+  { const P = S.floor; let m = 0, out0 = 0, in0 = 0, step = 0;
+    for (let i = 0; i < P.length; i++) { const [ax, az] = P[i], [bx2, bz] = P[(i + 1) % P.length], L = Math.hypot(bx2 - ax, bz - az), nx = (bz - az) / L, nz = -(bx2 - ax) / L;
+      for (let t = 0.5; t < L - 0.5; t += 1.3) { const x = ax + (bx2 - ax) * t / L, z = az + (bz - az) * t / L; m++;
+        const o1 = gf(x + nx * 0.3, z + nz * 0.3, 0.3), o2 = gf(x - nx * 0.3, z - nz * 0.3, 0.3);
+        const outside = Math.abs(o1 ?? 9) < 0.01 ? o1 : o2, inside = outside === o1 ? o2 : o1;    // which side is which, without trusting the winding
+        if (outside == null || Math.abs(outside) > 0.01) out0++;
+        if (inside == null || inside < -0.01) in0++;
+        else if (Math.abs(inside) < 0.06 && Math.abs(inside - outside) > 0.02) step++; } }
+    say('  the seam: apron outside, floor inside, no step', m > 100 && !out0 && !in0 && !step, `${m} points along the outline, ${out0} with no apron, ${in0} with a hole, ${step} stepped`); }
+  // and the apron round it is still the ground
+  { let miss = 0, k = 0; for (let x = -300.3; x < 300; x += 7.1) for (let z = 98.7; z < 320; z += 7.1) { if (x > S.x0 - 3 && x < S.x1 + 3 && z > S.z0 - 3 && z < S.z1 + 3) continue;
+      const rr = Math.hypot(Math.max(0, Math.abs(x) - rg.PARK.S), Math.max(0, z - rg.PARK.S)); if (rr < rg.PARK.apronU + 0.5 || rr > rg.PARK.apronEnd - 0.5) continue;
+      k++; const f = gf(x, z, 0.5); if (f == null || Math.abs(f) > 0.01) { if (!rg.SOLID.all.some(b => Math.abs(b.cx - x) < b.hx + b.hz + 1 && Math.abs(b.cz - z) < b.hx + b.hz + 1)) miss++; } }
+    say('  the north apron round it is still floor', k > 500 && !miss, `${k} points, ${miss} without a floor at 0`); }
+  // THE DRESSING (`parkDress`): the gateway, the shop row behind the north fence -- and the street between them still rides
+  { const tag = t => rg.SOLID.all.filter(b => b.tag === t);
+    const gate = tag('park gate').length, row = tag('slice bld').filter(b => b.cz > 250).length;
+    place(10, 0, 253.6, -Math.PI / 2, 9); let endX = null, stopped = 0;
+    run(9, (t, i) => { rg.cam.az = -Math.PI / 2; rg.stick.L.x = 0; rg.stick.L.y = -1; if (i > 0 && P.speed < 1) stopped++; });
+    rg.stick.L.y = 0; endX = P.pos.x;
+    say('the dressing: a gateway, a shop row, its street clear', gate === 3 && row >= 10 && endX < -100 && !stopped,
+        `${gate} gateway boxes, ${row} buildings in the north row, ${rg.SLC.meshes.length} slice meshes; rode the north street from x 10 to ${fix(endX, 1)}${stopped ? `, stopped ${stopped} frames` : ''}`); }
+  // RIDE: out of the north gate's corridor, straight on into the entry
+  { place(0, 0, 76, 0, 9); let low = 9, inZ = null, fellBelow = 0;
+    run(5, () => { rg.cam.az = 0; rg.stick.L.x = 0; rg.stick.L.y = -1; low = Math.min(low, P.pos.y);
+      const g = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 0.3, 0); if (g.hit && P.pos.y < g.floor - 0.1) fellBelow++;
+      if (inZ == null && P.pos.z > S.spawn[2] + 6) inZ = P.pos.clone(); });
+    rg.stick.L.y = 0;
+    say('ride: out of the north gate into the entry', !!inZ && low > -0.2 && !fellBelow, inZ ? `in at ${fix(inZ.x, 1)},${fix(inZ.y)},${fix(inZ.z, 1)}, lowest ${fix(low)}` : `got to ${fix(P.pos.x, 1)},${fix(P.pos.y)},${fix(P.pos.z, 1)}`); }
+  // RIDE: into each sunk bowl from the park floor, over its rim -- the apron must not be a lid
+  for (const H of S.holes) { let cx = 0, cz = 0; for (const [x, z] of H) { cx += x; cz += z; } cx /= H.length; cz /= H.length;
+    const lid = gf(cx, cz, 0.5); let best = null;
+    // start 2 m outside the hole on the side with open floor between, heading for the middle
+    for (let i = 0; i < H.length && !best; i += Math.max(1, Math.floor(H.length / 24))) { const [hx, hz] = H[i], dx = hx - cx, dz = hz - cz, L = Math.hypot(dx, dz), sx = hx + dx / L * 2.2, sz = hz + dz / L * 2.2;
+      const f = gf(sx, sz, 0.4); if (f != null && Math.abs(f) < 0.01 && !rg.solidAt(sx, 0.6, sz, 0.4)) best = [sx, sz, Math.atan2(cx - sx, cz - sz)]; }
+    if (!best) { say('ride: into a sunk bowl', false, 'no open floor beside it'); continue; }
+    place(best[0], 0, best[1], best[2], 7); let low = 9, below = 0;
+    run(2.5, () => { rg.cam.az = best[2]; rg.stick.L.x = rg.stick.L.y = 0; low = Math.min(low, P.pos.y);
+      const g = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 0.3, 0); if (P.grounded && g.hit && P.pos.y < g.floor - 0.1) below++; });
+    say(`ride: into the sunk bowl at ${fix(cx, 0)},${fix(cz, 0)}`, lid != null && lid < -1 && low < -1 && low > -6 && !below, `floor in the middle ${lid == null ? '-' : fix(lid)}, she got down to ${fix(low)}${below ? `, ${below} frames under it` : ''}`); }
+  return ok;
+};
 CASES.shores = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(48)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
@@ -4019,6 +4113,20 @@ if (process.env.SIM_PROBE) {
   await mod.default(rg, THREE);
   process.exit(0);
 }
+// r90: THE KIT WORLD'S PARK, DUMPED, so `parkd` (in the main world) can hold its copy to it -- the same file built by the same
+// code in another world, sampled in the schematic's own (kit) coordinates
+if (process.argv[2] === 'parkdump') {
+  const S = rg.SHEET, out = { floor: S.floor, pts: [], pieces: [], rails: [] };
+  const inPoly = (x, z, P) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, zi] = P[i], [xj, zj] = P[j];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
+  const gf = (x, z, y) => { const q = rg.groundAt(x, z, y, 0); return q.hit ? +q.floor.toFixed(4) : null; }, so = (x, y, z) => rg.solidAt(x, y, z, 0) ? 1 : 0;
+  for (let x = S.x0 + 0.0137; x <= S.x1; x += 0.8) for (let z = S.z0 + 0.0291; z <= S.z1; z += 0.8) if (inPoly(x, z, S.floor))
+    out.pts.push([+x.toFixed(4), +z.toFixed(4), gf(x, z, 40), gf(x, z, 0.5), so(x, 0.6, z), so(x, 3, z), so(x, 9, z)]);
+  const sheet = rg.KITW.pieces.filter(pc => pc.park && /^sheet /.test(pc.park));
+  out.pieces = sheet.map(parkSig);
+  for (const pc of sheet) for (const R of pc.rails || (pc.rail ? [pc.rail] : [])) out.rails.push([R.segs[0].a, R.segs[R.segs.length - 1].b].map(e => [e.x, e.y, e.z]));
+  fs.writeFileSync(process.argv[3], JSON.stringify(out)); process.exit(0);
+}
 const only = process.argv[2];
 let fail = 0;
 for (const k of Object.keys(CASES)) {
@@ -4026,10 +4134,10 @@ for (const k of Object.keys(CASES)) {
   console.log(`\n== ${k} ==`);
   let ok = false;
   // the zones case needs a page booted in the OTHER world, so a full run hands it to a process of its own
-  if ((k === 'zones' || k === 'kit' || k === 'parkref') && !only) {
+  if ((k === 'zones' || k === 'kit' || k === 'parkref' || k === 'city') && !only) {
     const { spawnSync } = await import('child_process');
     const r = spawnSync(process.execPath, [process.argv[1], k], { encoding: 'utf8', maxBuffer: 64 << 20 });
-    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|parkref) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
+    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|parkref|city) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
   try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on

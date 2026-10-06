@@ -311,7 +311,7 @@ if (KITMODE) {
 }
 
 // which district a thing belongs to, by where it is -- the gates are at the plaza's edges, |x| or |z| ~ 100
-const district = (x, z) => Math.hypot(x, z) > 380 ? 'backdrop' : Math.abs(x) < 100 && Math.abs(z) < 100 ? 'hub' : Math.abs(x) >= Math.abs(z) ? (x < 0 ? 'slice' : 'shores') : (z < 0 ? 'orbital' : 'city');
+const district = (x, z) => Math.hypot(x, z) > 380 ? 'backdrop' : Math.abs(x) < 100 && Math.abs(z) < 100 ? 'hub' : Math.abs(x) >= Math.abs(z) ? (x < 0 ? 'slice' : 'shores') : (z < 0 ? 'orbital' : rg.PARKD && rg.PARKD.on ? 'park' : 'city');     // r90: the north is the skate park district unless ?city=1
 
 // ---------------------------------------------------------------- the picture
 const W = glbWriter(), WW = W, groups = {}, grp = name => groups[name] != null ? groups[name] : (groups[name] = W.node(name, null));

@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r89</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r90</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r89';
+const BUILD = 'r90';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -960,9 +960,11 @@ loadSky();
 // flat, and the slope term in `stepGround` does the rest with no new code.
 // r45: the grid covers the CITY now (960 m square), not just the park. A cell nobody stands in costs
 // one empty slot.
-const TRI = { cell: 4, x0: -480, z0: -480, w: 240, h: 240, cells: null, v: null, n: 0, up: 0.03 };
-let _triRaw = [];
-function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz) {
+const TRI = { cell: 4, x0: -480, z0: -480, w: 240, h: 240, cells: null, v: null, m: null, n: 0, up: 0.03, mask: null };
+let _triRaw = [], _triM = [];
+// r90: `mask` marks a triangle that stands down inside `TRI.mask`'s polygon -- the apron under the skate park district, which
+// is the park's own floor there (cut for the sunk bowl and pool) and must not put a lid over them
+function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz, mask) {
   const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
   const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
   const nl = Math.hypot(nx, ny, nz);
@@ -970,16 +972,26 @@ function triAdd(ax, ay, az, bx, by, bz, cx, cy, cz) {
   // transition she can still be ON rather than fly off. .12 is about 83 degrees, which is
   // most of a vert wall -- a skateboard game wants that, and so does this.
   if (nl < 1e-9 || ny / nl < TRI.up) return;
-  _triRaw.push(ax, ay, az, bx, by, bz, cx, cy, cz, nx / nl, ny / nl, nz / nl);
+  _triRaw.push(ax, ay, az, bx, by, bz, cx, cy, cz, nx / nl, ny / nl, nz / nl); _triM.push(mask ? 1 : 0);
+}
+// point in the mask polygon (its box first: nearly every query is nowhere near it)
+function triMasked(x, z) {
+  const M = TRI.mask; if (!M || x < M.x0 || x > M.x1 || z < M.z0 || z > M.z1) return false;
+  const P = M.P; let inside = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const [xi, zi] = P[i], [xj, zj] = P[j];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
 }
 // r70: for `npm run sim kit`'s export round trip -- the world is too big now for a turned copy to land anywhere clear, so the
 // harness samples the originals, clears the collider and ingests the copy ALONE
-function colliderReset() { _triRaw = []; SOLID.all.length = 0; triBuild(); solidBuild(); }
+function colliderReset() { _triRaw = []; _triM = []; SOLID.all.length = 0; triBuild(); solidBuild(); }
 function triBuild() {
   // r45: THE RAW LIST IS KEPT, because an imported level arrives AFTER the park is built -- its floors
   // are added with `triAdd` and the grid is simply built again.
   TRI.n = _triRaw.length / 12;
-  TRI.v = new Float32Array(_triRaw);
+  TRI.v = new Float32Array(_triRaw); TRI.m = Uint8Array.from(_triM);
   TRI.cells = new Array(TRI.w * TRI.h);
   const V = TRI.v;
   for (let t = 0; t < TRI.n; t++) {
@@ -1005,8 +1017,9 @@ function groundAt(x, z, y, step) {
   const i = Math.floor((x - TRI.x0) / TRI.cell), k = Math.floor((z - TRI.z0) / TRI.cell);
   if (i < 0 || k < 0 || i >= TRI.w || k >= TRI.h) return _gr;
   const list = TRI.cells[k * TRI.w + i]; if (!list) return _gr;
-  const V = TRI.v, top = y + step + 0.02;
+  const V = TRI.v, top = y + step + 0.02, M = TRI.m; let inM = -1;
   for (let a = 0; a < list.length; a++) {
+    if (M[list[a]]) { if (inM < 0) inM = triMasked(x, z) ? 1 : 0; if (inM) continue; }
     const o = list[a] * 12;
     const ax = V[o], ay = V[o+1], az = V[o+2];
     const ux = V[o+3] - ax, uy = V[o+4] - ay, uz = V[o+5] - az;
@@ -1051,6 +1064,8 @@ function pushTri(ax, ay, az, bx, by, bz, cx, cy, cz, hex, solid) {
     if (!pushTri.warned) { pushTri.warned = 1; console.error('[park] NaN vertex -- geometry rejected'); }
     MESH.bad = (MESH.bad || 0) + 1; return;
   }
+  // r90: 'mask' -- collided, masked under the park district (`TRI.mask`), and NOT drawn: `parkApron` draws that ground cut
+  if (solid === 'mask') { triAdd(ax, ay, az, bx, by, bz, cx, cy, cz, 1); return; }
   MESH.pos.push(ax, ay, az, bx, by, bz, cx, cy, cz);
   MESH.nrm.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
   _c.setHex(hex).convertSRGBToLinear();
@@ -1084,7 +1099,8 @@ function extrude(ox, oz, yaw, halfW, prof, skirt) {
     // off its edge (the perimeter's apron) a flat strip is the only floor there is.
     const P1 = P(a.u, 0, -halfW), P2 = P(b.u, 0, halfW), P3 = P(a.u, 0, halfW), P4 = P(b.u, 0, -halfW);
     const onPlaza = Math.max(a.y, b.y) < 0.005 && [P1, P2, P3, P4].every(q => Math.abs(q[0]) < PARK.S && Math.abs(q[2]) < PARK.S);
-    if (!onPlaza) quad(P(a.u, a.y, -halfW), P(b.u, b.y, -halfW), P(b.u, b.y, halfW), P(a.u, a.y, halfW), a.c || CONC);
+    if (a.ap && extrude.apron) quad(P(a.u, a.y, -halfW), P(b.u, b.y, -halfW), P(b.u, b.y, halfW), P(a.u, a.y, halfW), a.c || CONC, 'mask');
+    else if (!onPlaza) quad(P(a.u, a.y, -halfW), P(b.u, b.y, -halfW), P(b.u, b.y, halfW), P(a.u, a.y, halfW), a.c || CONC);
     // The sides are SCENERY: a vertical face can never be a floor, so they are drawn and not
     // collided with. Without them you see straight through into the inside of the ramp.
     // AND BOTH OF THEM WERE WOUND INWARD, which with FrontSide culling means they were not
@@ -1123,7 +1139,7 @@ function revolve(ox, oz, prof, seg, from, to) {
       // still being drawn. She fell straight through it.
       if (q.u < 1e-4) pushTri(A[0],A[1],A[2], B[0],B[1],B[2], D[0],D[1],D[2], p.c || CONC);
       else if (p.u < 1e-4) pushTri(A[0],A[1],A[2], B[0],B[1],B[2], C[0],C[1],C[2], p.c || CONC);
-      else quad(A, B, C, D, p.c || CONC);
+      else quad(A, B, C, D, p.c || CONC, p.ap && revolve.apron ? 'mask' : undefined);
     }
   }
 }
@@ -1281,8 +1297,9 @@ function perimeter(S, r, sweep, back, apron) {
   // scripted runs. A wall tall enough to stop her would be fourteen metres of concrete; a floor
   // on the far side costs nothing and she can ride the back of it straight in again.
   prof.push({ u: lip + 4.0, y: H, c: DECK });
-  prof.push({ u: lip + 4.0 + back, y: 0, c: RAMP });
+  prof.push({ u: lip + 4.0 + back, y: 0, c: RAMP, ap: 1 });      // r90: `ap` -- the segment it starts is the APRON
   prof.push({ u: lip + 4.0 + back + apron, y: 0, c: CONC });
+  PARK.apronU = lip + 4.0 + back; PARK.apronEnd = lip + 4.0 + back + apron;
   // r45: AND THE CITY HAS AN EDGE. The apron is the whole district's ground now, and at its far side it
   // banks up 9 m to a deck with a wall on it, so the world ends in something she rides rather than a drop.
   const u0 = prof[prof.length - 1].u, i0 = prof.length - 1;
@@ -1298,6 +1315,8 @@ function perimeter(S, r, sweep, back, apron) {
     // r49: AND THE SOUTH EDGE HAS ONE TOO, out to the canal quarter -- the same two pieces, mirrored
     // r50: AND THE EAST EDGE, out to Neon Shores. The two pieces sit either side of the edge's middle, offset along
     // the edge itself -- which is x for north and south and z for east.
+    // r90: THE NORTH APRON IS THE SKATE PARK DISTRICT'S GROUND: collided but masked under the park, and drawn by `parkApron`
+    extrude.apron = i === 0 && PARKD.on;
     if (PARK.gate > 0) {     // r52: and the WEST edge, out to the slice -- all four now
       const g = PARK.gate, hw = (S - g) / 2, ex = Math.sin(yaw) * S, ez = Math.cos(yaw) * S, ux = Math.cos(yaw), uz = -Math.sin(yaw);
       for (const sx of [-1, 1]) extrude(ex + ux * sx * (g + hw), ez + uz * sx * (g + hw), yaw, hw, prof, true);
@@ -1306,6 +1325,7 @@ function perimeter(S, r, sweep, back, apron) {
     }
     extrude(Math.sin(yaw) * S, Math.cos(yaw) * S, yaw, S, prof, false);
   }
+  extrude.apron = false;
   // r55: AND THE BANK'S END WALLS AT EACH GATE ARE SOLID. A ramp is a floor, not a solid, so riding into the end of
   // the bank from the gate's corridor took her INSIDE it -- and there is no floor under a bank. `npm run sim solid`
   // found it (four frames falling through at 20,-80). A run of boxes inside each end, each topped just under the
@@ -1320,8 +1340,10 @@ function perimeter(S, r, sweep, back, apron) {
         if (top < 0.15) continue;
         const um = S + (u + ub) / 2;
         for (const sx of [-1, 1]) solidAdd(ox * um + ux * sx * (g + 0.3), oz * um + uz * sx * (g + 0.3), 0.3, (ub - u) / 2, -1, top, yaw, { top: false, tag: 'bank end' }); } } }
-  if (PARK.gate > 0) { const g = PARK.gate, L = u0;
-    quad([-g, 0, S], [-g, 0, S + L], [g, 0, S + L], [g, 0, S], CONC);
+  if (PARK.gate > 0) { const g = PARK.gate, L = u0, ub = PARK.apronU;
+    // r90: the north corridor in two: the bank's own length drawn, the rest is the district's apron (masked, drawn by `parkApron`)
+    if (PARKD.on) { quad([-g, 0, S], [-g, 0, S + ub], [g, 0, S + ub], [g, 0, S], CONC); quad([-g, 0, S + ub], [-g, 0, S + L], [g, 0, S + L], [g, 0, S + ub], CONC, 'mask'); }
+    else quad([-g, 0, S], [-g, 0, S + L], [g, 0, S + L], [g, 0, S], CONC);
     quad([-g, 0, -S], [g, 0, -S], [g, 0, -S - L], [-g, 0, -S - L], CONC);
     quad([S, 0, -g], [S, 0, g], [S + L, 0, g], [S + L, 0, -g], CONC);
     quad([-S, 0, g], [-S, 0, -g], [-S - L, 0, -g], [-S - L, 0, g], CONC); }
@@ -1340,8 +1362,10 @@ function perimeter(S, r, sweep, back, apron) {
   // the four corners: the same profile, revolved a quarter turn about the corner POINT, each
   // covering exactly the quadrant its two edges leave behind
   const Q = Math.PI / 2;
-  for (const [cx, cz, a0] of [[S, S, 0], [S, -S, -Q], [-S, -S, Math.PI], [-S, S, Q]])
-    revolve(cx, cz, prof, 10, a0, a0 + Q);
+  for (const [cx, cz, a0] of [[S, S, 0], [S, -S, -Q], [-S, -S, Math.PI], [-S, S, Q]]) {
+    revolve.apron = PARKD.on && cz > 0;          // r90: the two north corners carry the district's apron too
+    revolve(cx, cz, prof, 10, a0, a0 + Q); }
+  revolve.apron = false;
 }
 
 // =====================================================================================================
@@ -2606,6 +2630,20 @@ const SHEET = { holes: [], x0: -450, x1: -160, z0: -270, z1: 150, spawn: null, a
 // (which hashes it), and `npm run export:park -- <name>` writes any of them out for Blender. A name is letters, digits, _ and -.
 try { const q = new URLSearchParams(location.search || '').get('park') || localStorage.getItem('rg.park');
   if (q && /^[a-z0-9_-]+$/i.test(q)) SHEET.url = 'parks/' + q + '.json'; } catch (e) {}
+// r90: THE PARK IS THE MAIN WORLD'S NORTH DISTRICT NOW. *"The way that you built the skatepark is perfect and this section of the
+// level [the Nexus] looks amazing AND is super functional ... build out more of the level like this AND integrate the skatepark."*
+// The schematic is built a second time, in world 0, on the apron north of the hub, out through the north gate -- where the
+// City stood. TURNED A HALF TURN so its main entry faces the gate, and placed by the one point that matters: the entry
+// (`at`, the schematic's spawn) lands just past the end of the gate's corridor. Nothing in the file changes; the same pieces,
+// the same pixels, a rigid transform (`kitSheet`'s `X`). The City is one switch away (`?city=1` / `rg.city` '1').
+const PARKD = { on: 1, rot: Math.PI, at: [0, 108], stops: [],
+  // THE NEXUS PALETTE: the kit's near-white reads as a blockout next to the painted districts. Warm sandstone faces, cream
+  // paving decks, teal coping (the Nexus bowl's tile band) -- and the detail pass puts the slice's own textures on all of it.
+  pal: { kcol: { cope: 0x2fd0c4, side: 0xb79c87, deck: 0xeadbc6 },
+    size: { S: 0xf2dcc4, M: 0xefd3b6, L: 0xeccaa9, XL: 0xe8c29e, XXL: 0xe3b893, MEGA: 0xdeae88 },
+    tints: { wood: '#c98b57', concrete: '#dccbb6', seat: '#a8b3c6', ground: '#e4d6c3', grass: '#7cbf6c' } } };
+try { const q = new URLSearchParams(location.search || '').get('city'), st = localStorage.getItem('rg.city');
+  if (q === '1' || (q == null && st === '1')) PARKD.on = 0; } catch (e) {}
 async function schematicLoad() {
   try { const r = await fetch(A(SHEET.url)); if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
     SHEET.data = await r.json(); }
@@ -2613,11 +2651,19 @@ async function schematicLoad() {
 }
 const SHEET_C = (c, J) => typeof c === 'number' ? c : (J.tints && J.tints[c] != null) ? SHEET_C(J.tints[c], J) : typeof c === 'string' ? parseInt(c.replace('#', ''), 16) : 0xdddddd;
 const SHEET_SPAN = { platform: o => o.d || KITW.W, frustum: o => o.len || 6, ledge: o => o.len || 8, bleachers: o => (o.rows || 5) * (o.rd || 0.9), shade: o => o.d || 8, rail: o => o.len || 8 };
-function kitSheet(J) {
+function kitSheet(J, X) {
   J = J || SHEET.data; if (!J) return;
   const m = J.mpp, [px0, py0] = J.pin.px, [wx0, wz0] = J.pin.world;
-  const W = p => [wx0 + (p[0] - px0) * m, wz0 + (p[1] - py0) * m], yawOf = d => Math.PI - (d || 0) * D2R;
-  const stop = [], all = []; SHEET.W = W; SHEET.yawOf = yawOf;
+  // r90: `X` places the park somewhere else as a RIGID transform -- turned `rot` (the game's yaw sense) about the schematic's
+  // spawn, which lands on `at`. `Wk` is where the file puts a pixel, `W` where it goes. A path piece is traced in `Wk`'s frame
+  // and anchored at `W` with the turn as its yaw, so its local coordinates are the kit world's to the digit and a terrain's
+  // hills (hashed from them) are the same hills.
+  const Wk = p => [wx0 + (p[0] - px0) * m, wz0 + (p[1] - py0) * m];
+  const th = X ? X.rot || 0 : 0, ct = Math.cos(th), st = Math.sin(th), K0 = X ? Wk(J.spawn ? J.spawn.p : J.pin.px) : [0, 0], At = X ? X.at : [0, 0];
+  const toW = X ? (x, z) => { const dx = x - K0[0], dz = z - K0[1]; return [At[0] + dx * ct + dz * st, At[1] + dz * ct - dx * st]; } : (x, z) => [x, z];
+  const W = X ? p => toW(...Wk(p)) : Wk; SHEET.toW = toW;
+  const yawOf = d => Math.PI - (d || 0) * D2R + th;
+  const stop = [], all = []; SHEET.W = W; SHEET.Wk = Wk; SHEET.yawOf = yawOf; SHEET.X = X || null;
   for (const Ar of J.areas) {
     const zone = 'sheet ' + Ar.name, grp = 'a' + Ar.id, recs = [];
     const put = (kind, size, x, z, yaw, o, label, y, group) => { const r = pk(zone, kind, size, x, z, yaw, o, group || grp, label, y); if (r) { r.area = Ar.id; recs.push(r); } return r; };
@@ -2661,7 +2707,7 @@ function kitSheet(J) {
       // r74: THE PATH PIECES TAKE THE DRAWING'S PIXELS -- `pts`, `outer`, `holes` and a point `face` are traced off the plan;
       // the piece is anchored at its first point (yaw 0, so a local [u, w] is just [z, x] from there)
       if (q.kind === 'wall' || q.kind === 'deck' || q.kind === 'walk' || q.kind === 'terrain' || q.kind === 'island') {
-        const A0 = W(q.pts[0]), loc = pp => { const [x, z] = W(pp); return [+(z - A0[1]).toFixed(3), +(x - A0[0]).toFixed(3)]; };
+        const A0 = W(q.pts[0]), K = Wk(q.pts[0]), loc = pp => { const [x, z] = Wk(pp); return [+(z - K[1]).toFixed(3), +(x - K[0]).toFixed(3)]; };
         o.pts = q.pts.map(pp => q.kind === 'walk' ? [...loc(pp), pp[2]] : loc(pp));
         if (q.outer) o.outer = q.outer.map(loc); if (q.holes) o.holes = q.holes.map(H => H.map(loc));
         if (Array.isArray(q.face)) o.face = loc(q.face); else if (q.face) o.face = q.face;
@@ -2669,7 +2715,7 @@ function kitSheet(J) {
         // park's ground gets a hole the shape of the deck's back edge (below)
         let yy = y; if (q.sink) { const Hs = o.rim != null ? o.rim : (KSZ[size] || KSZ.M).H; o.rim = Hs; yy = y - Hs; }
         if (q.bumps) o.bumps = q.bumps.map(([bx, by, r, h]) => [...loc([bx, by]), r, h]); if (q.trees) o.trees = q.trees.map(t => [...loc(t), t[2]]);      // r75
-        const r = put(q.kind, size, A0[0], A0[1], 0, o, q.label, yy, q.group); if (r && q.id) SHEET.at[q.id] = r;
+        const r = put(q.kind, size, A0[0], A0[1], th, o, q.label, yy, q.group); if (r && q.id) SHEET.at[q.id] = r;
         // r79: the hole is the deck's back edge AS BUILT (`r.back`). r77 offset the coping by a flat `deck`, which crosses
         // itself at a notch tighter than the deck is wide -- the clover's two hips -- and a self-crossing hole hands the
         // triangulator nonsense: ground triangles laid across the bowl, the flap at the wall he circled
@@ -2684,26 +2730,31 @@ function kitSheet(J) {
       if (r && q.id) SHEET.at[q.id] = r;
     }
     if (Ar.stop) { const [x, z] = W(Ar.stop.p); CITY.spots['sheet ' + Ar.name] = [x, Ar.stop.y || 0, z, yawOf(Ar.stop.dir)]; stop.push('sheet ' + Ar.name); }
-    if (Ar.label) { const [x, z] = W(Ar.label); kitLabel((Ar.id + ' ' + Ar.name).toUpperCase(), Ar.sub || '', x, Ar.labelY || 11, z); }
+    if (Ar.label && !(X && X.noLabel)) { const [x, z] = W(Ar.label); kitLabel((Ar.id + ' ' + Ar.name).toUpperCase(), Ar.sub || '', x, Ar.labelY || 11, z); }
     SHEET.areas.push({ id: Ar.id, name: Ar.name, recs }); all.push(...recs);
   }
   // the ground he drew: concrete under the park, grass where it is landscaped -- picture only, a hair over the floor
   // r77: the FIRST polygon is the park's floor -- collided, since `kitFloor` leaves its cells out, and cut by every sunk piece
   (J.ground || []).forEach((G, gi) => {
-    const P = G.pts.map(W), col = SHEET_C(G.color, J), y = 0.004 + (G.lift || 0), Hs = gi === 0 ? SHEET.holes : [];
-    if (gi === 0) SHEET.floor = P;      // r79: for the harness, which checks the cut floor's area
+    // r90: in the main world the park's floor IS the ground (the apron under it is masked), so it sits AT zero, not over it
+    const P = G.pts.map(W), col = SHEET_C(G.color, J), y = (X && gi === 0 ? 0 : 0.004) + (G.lift || 0), Hs = gi === 0 ? SHEET.holes : [];
+    if (gi === 0) { SHEET.floor = P; SHEET.floorM0 = MESH.pos.length; }     // r79: for the harness, which checks the cut floor's area
     const tris = THREE.ShapeUtils.triangulateShape(P.map(([x, z]) => new THREE.Vector2(x, z)), Hs.map(H => H.map(([x, z]) => new THREE.Vector2(x, z))));
     const V = P.concat(...Hs);
     for (const [a, b, c] of tris) { const A3 = [V[a][0], y, V[a][1]], B3 = [V[b][0], y, V[b][1]], C3 = [V[c][0], y, V[c][1]];
       const up = (B3[2] - A3[2]) * (C3[0] - A3[0]) - (B3[0] - A3[0]) * (C3[2] - A3[2]);
       if (up > 0) kTri(A3, B3, C3, col, gi === 0); else kTri(A3, C3, B3, col, gi === 0); }
+    if (gi === 0) SHEET.floorM1 = MESH.pos.length;
   });
   // the bounds the harness holds the park to: the fence, or everything
   const fx = [], fz = []; for (const r of all) if (r.bb && (r.kind === 'fence' || !all.some(q => q.kind === 'fence'))) { fx.push(r.bb[0], r.bb[3]); fz.push(r.bb[2], r.bb[5]); }
   if (fx.length) Object.assign(SHEET, { x0: Math.min(...fx), x1: Math.max(...fx), z0: Math.min(...fz), z1: Math.max(...fz) });
   if (J.spawn) { const [x, z] = W(J.spawn.p); SHEET.spawn = [x, J.spawn.y || 0, z, yawOf(J.spawn.dir)];
-    SPAWN.set(x, SHEET.spawn[1] + 0.2, z); SPAWN.h = SHEET.spawn[3]; CITY.spots['sheet ' + (J.spawn.name || 'spawn')] = SHEET.spawn.slice(); }
-  KITW.go.unshift(...stop);
+    if (!X) { SPAWN.set(x, SHEET.spawn[1] + 0.2, z); SPAWN.h = SHEET.spawn[3]; }
+    CITY.spots['sheet ' + (J.spawn.name || 'spawn')] = SHEET.spawn.slice(); }
+  // r90: placed in another world, the park's stops (the spawn first) go to whoever placed it
+  const sk = J.spawn ? 'sheet ' + (J.spawn.name || 'spawn') : null;
+  if (X) SHEET.stops = sk ? [sk, ...stop.filter(k => k !== sk)] : stop; else KITW.go.unshift(...stop);
   SHEET.n = all.length;
   console.log(`[park] ${J.name}: ${all.length} pieces in ${J.areas.length} areas`);
 }
@@ -2722,9 +2773,12 @@ function kitFlush(from, name, offset) {
   MESH.pos.length = MESH.nrm.length = MESH.col.length = from;
   return m;
 }
-function kitRailsDraw() {
-  for (const P of KITW.loops || []) if (!P.drawn) { P.drawn = 1; railDraw(P, { mat: 'boost' }); }
-  for (const { P, mat, posts } of KITW.rails || []) if (!P.drawn) { P.drawn = 1; railDraw(P, { mat, postMax: 7, posts }); }
+function kitRailsDraw(into) {      // r90: `into` collects them to be merged by material (the park district: 48 rails, not 100 draws)
+  for (const P of KITW.loops || []) if (!P.drawn) { P.drawn = 1; railDraw(P, { mat: 'boost', into }); }
+  for (const { P, mat, posts } of KITW.rails || []) if (!P.drawn) { P.drawn = 1; railDraw(P, { mat, postMax: 7, posts, into }); }
+  if (into) { const by = new Map(); for (const it of into) { let l = by.get(it.mat); if (!l) by.set(it.mat, l = []); l.push(it.geo); }
+    for (const [mat, geos] of by) { const g = mergeGeometries(geos); if (!g) { console.warn('[park district] a rail bucket did not merge'); continue; }
+      const m = new THREE.Mesh(g, mat); m.castShadow = true; m.name = 'park rails'; scene.add(m); } }
 }
 // THE KIT WORLD (`WORLD.zones` 2): the floor, every piece, and nothing else
 function kitWorld() {
@@ -2739,6 +2793,43 @@ function kitWorld() {
   console.log(`[kit] ${KITW.pieces.length} pieces, ${KITW.labels.length} labels`);
 }
 
+// r90: THE SKATE PARK DISTRICT -- the schematic park, built in the main world north of the hub (see `PARKD`)
+function parkDistrict() {
+  CITY.spots.park = [0, 0.2, -6, 0];
+  if (!SHEET.data) { console.warn('[park district] no schematic -- ' + (SHEET.err || 'not loaded')); return; }
+  const K = { ...KCOL }, T = {}; for (const k in KSZ) T[k] = KSZ[k].tint;
+  Object.assign(KCOL, PARKD.pal.kcol); for (const k in PARKD.pal.size) if (KSZ[k]) KSZ[k].tint = PARKD.pal.size[k];
+  const J = { ...SHEET.data, tints: { ...(SHEET.data.tints || {}), ...PARKD.pal.tints } };
+  const n0 = KITW.pieces.length;
+  try { kitSheet(J, { rot: PARKD.rot, at: PARKD.at, noLabel: 1 }); }
+  finally { Object.assign(KCOL, K); for (const k in T) KSZ[k].tint = T[k]; }
+  PARKD.pieces = KITW.pieces.slice(n0); PARKD.stops = SHEET.stops || [];
+  // THE FLOOR IS DRAWN PUSHED BACK IN DEPTH, the plaza's rule: every ramp's toe starts at its height
+  if (SHEET.floorM1 > SHEET.floorM0) PARKD.floorMesh = meshTake(SHEET.floorM0, SHEET.floorM1);
+  if (SHEET.floor) { const P = SHEET.floor, xs = P.map(q => q[0]), zs = P.map(q => q[1]);
+    TRI.mask = { P, x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }; }
+}
+// lift MESH's floats [a, b) out (a range at its tail: nothing after it has recorded an index into it)
+function meshTake(a, b) {
+  const out = { pos: MESH.pos.slice(a, b), nrm: MESH.nrm.slice(a, b), col: MESH.col.slice(a, b) };
+  for (const k of ['pos', 'nrm', 'col']) MESH[k].splice(a, b - a);
+  return out;
+}
+// THE NORTH APRON, DRAWN: the north edge's apron, the two north corners' and the gate's corridor past the bank, as ONE shape
+// with the park's floor cut out of it. Its rim is the same chords `revolve` and `extrude` collide with (`ap` segments, 'mask'),
+// so the picture and the collider meet edge to edge. Drawn only; those segments are the collider.
+function parkApron() {
+  const S = PARK.S, ub = PARK.apronU, u0 = PARK.apronEnd, Q = Math.PI / 2, n = 10, C = [];
+  for (let k = 0; k <= n; k++) { const a = Math.PI - k * Q / n; C.push([-S + ub * Math.cos(a), S + ub * Math.sin(a)]); }
+  for (let k = 0; k <= n; k++) { const a = Q - k * Q / n; C.push([S + ub * Math.cos(a), S + ub * Math.sin(a)]); }
+  for (let k = 0; k <= n; k++) { const a = k * Q / n; C.push([S + u0 * Math.cos(a), S + u0 * Math.sin(a)]); }
+  for (let k = 0; k <= n; k++) { const a = Q + k * Q / n; C.push([-S + u0 * Math.cos(a), S + u0 * Math.sin(a)]); }
+  const H = SHEET.floor && PARKD.pieces && PARKD.pieces.length ? [SHEET.floor] : [];
+  const tris = THREE.ShapeUtils.triangulateShape(C.map(([x, z]) => new THREE.Vector2(x, z)), H.map(h => h.map(([x, z]) => new THREE.Vector2(x, z))));
+  const V = C.concat(...H), m0 = MESH.pos.length;
+  for (const [a, b, c] of tris) kTri([V[a][0], 0, V[a][1]], [V[b][0], 0, V[b][1]], [V[c][0], 0, V[c][1]], CONC, false);
+  PARKD.apronMesh = meshTake(m0, MESH.pos.length); PARKD.apronTris = tris.length;
+}
 const SPAWN = new THREE.Vector3(0, 0.2, -6);
 SPAWN.h = 0;          // r64: the heading she spawns facing (a zone's spawn marker sets it)
 const BOWL = { x: -28, z: -26, r: 9 };
@@ -2761,6 +2852,7 @@ function buildPark() {
   kicker(11, 14, Math.PI, 2.6, 4.0, 38 * Math.PI / 180);
   funBox(14, -16, Math.PI / 2, 4.0, 8, 1.6, 4.5);
   bowlPit(BOWL.x, BOWL.z, BOWL.r, 3.2, 80 * Math.PI / 180, 48);
+  if (PARKD.on) { CITY.on = 0; parkDistrict(); parkApron(); }      // r90: the skate park district, where the City stood
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
@@ -2768,6 +2860,7 @@ function buildPark() {
   triBuild();
   solidBuild();
   buildRails();      // AFTER the collider: each post is measured down to the ground under it
+  if (PARKD.on) kitRailsDraw([]);    // r90: the park district's rails, posts measured down to its floors, merged
   orbitalRails();    // before cityRails, whose gemBuild has to see this district's gems too
   sliceRails();
   cityRails();
@@ -2793,11 +2886,18 @@ function buildPark() {
   // is coplanar with the floor to within depth precision whatever the geometry does. `polygonOffset`
   // moves only the depth the floor is tested at, not where it is drawn or collided, so her skates and
   // the collider are untouched.
-  const plazaMesh = new THREE.Mesh(geo([0, nPlaza]), detailPatch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0.0 })));
+  // r90: and so are the park district's floor and the north apron round it
+  const pg = geo([0, nPlaza]);
+  if (PARKD.on) for (const X of [PARKD.floorMesh, PARKD.apronMesh]) if (X) for (const [k, A] of [['position', 'pos'], ['normal', 'nrm'], ['color', 'col']]) {
+    const a = pg.getAttribute(k).array, b = new Float32Array(a.length + X[A].length); b.set(a); b.set(X[A], a.length); pg.setAttribute(k, new THREE.Float32BufferAttribute(b, 3)); }
+  pg.computeBoundingSphere();
+  const plazaMesh = new THREE.Mesh(pg, detailPatch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0.0 })));
   Object.assign(plazaMesh.material, { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 });
   plazaMesh.receiveShadow = true; plazaMesh.name = 'plaza';
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
+  // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
+  if (PARKD.on) { GO.unshift('park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -4832,6 +4932,8 @@ const SIGNS = [
   ['roll', 256, 320, (g, w, h) => { aPanel(g, 10, 10, w - 20, h - 20, 8, '#f4f0e6', '#1a1a1a', 4);
     ['ROLL', 'EXPLORE', 'RESPECT'].forEach((t, i) => { g.font = AF(40); g.fillStyle = '#151515'; g.textAlign = 'center'; g.fillText(t, w / 2, 70 + i * 52); });
     aAlien(g, w / 2, 250, 36, '#151515'); }],
+  ['megapark', 768, 192, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 26, '#141a38', NEON.pink, 8);      // r90: over the park district's entry
+    aNeon(g, 'MEGA', w * 0.24, h * 0.53, 88, '#ffffff'); aNeon(g, 'SKATE PARK', w * 0.66, h * 0.53, 64, NEON.teal); }],
   ['flow', 512, 192, (g, w, h) => { aPanel(g, 6, 6, w - 12, h - 12, 20, '#14284a', null); aNeon(g, 'FLOW', 170, 50, 50, NEON.teal); aNeon(g, 'THROUGH', 190, 100, 50, NEON.teal); aNeon(g, 'TOGETHER', 210, 150, 50, NEON.teal);
     g.save(); g.strokeStyle = NEON.teal; g.lineWidth = 14; g.shadowColor = NEON.teal; g.shadowBlur = 20; g.beginPath(); g.moveTo(370, 96); g.lineTo(470, 96); g.moveTo(440, 60); g.lineTo(476, 96); g.lineTo(440, 132); g.stroke(); g.restore(); }],
   ['nextstop', 512, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 14, '#07070c', '#333', 4); aNeon(g, 'NEXT STOP', w * 0.45, h * 0.32, 40, NEON.orange); aNeon(g, 'HIGHER GROUND', w * 0.45, h * 0.7, 40, NEON.orange); aCrown(g, w - 56, h / 2, 26, NEON.gold); }],
@@ -6057,7 +6159,7 @@ function buildShores() {
 const SLC = { on: 1, Q: 3, WY: 0.7, TER: 9, built: 0, glows: [], anim: [], meshes: [],
   canal: { x0: -204, x1: -117, z0: -14, z1: 0 },
   br: { x: -150, hw: 4, z0: -17, z1: 3, zc: -7, rise: 1.8 },
-  tex: 512, chunk: 48, chunkMin: 2400 };
+  tex: 512, chunk: 48, chunkMin: 2400, cellMin: 400 };
 const SLB = {};
 const SLV = (x, y, z) => new THREE.Vector3(x, y, z);
 let _slseed = 9101;
@@ -6983,6 +7085,57 @@ const HUB = { on: 1,
   gap: { x: -54, z: -38, hw: 3, r: 4.5, sweep: 37 * Math.PI / 180, bed: 2.8, land: 0.9, deck: 1.2, run: 6.5 },
   pav: { x: 30, z: 58, hx: 4.6, hz: 3.6, y: 3.0 },
   isle: { x: -56, z: 24, r: 3.2, h: 0.55 } };
+// r90: THE PARK DISTRICT, DRESSED LIKE THE NEXUS -- *"build new zones that work like the skatepark and have the style and
+// surroundings of this park of the level."* Everything here stands OUTSIDE the park's fence on the apron, never on a riding
+// line: a gateway over the entry (its pillars outside the gap, its beam out of reach), a row of shopfronts behind the north
+// fence looking across a street at the park, palms, lamps and mushrooms round the other sides, chevrons from the gate. The
+// slice's own generators, buckets and textures, so it costs no new material and it is chunked like the rest of the slice.
+const PDR = { gate: { x0: -15.6, x1: 10.6, z: 100.6, h: 7.4 }, north: [
+  // [x0, x1, front z, height, tint, shop]
+  [-112, -97, 261, 14, 0xf4e6c8, { sign: 'blades', signW: 4.0, col: 0xff6fb8, neon: 0x40e8ff, glow: 0x40e8ff, w: 8 }],
+  [-93, -80, 261, 11, 0xffc9a8, null], [-76, -58, 261, 17, 0xc6b4f2, { sign: 'roll', signW: 2.2, col: 0xff8a5c, neon: 0xffa040, glow: 0xffffff }],
+  [-54, -41, 261, 12, 0xf6e4cc, null], [-37, -21, 261, 15, 0xf2d2b6, { sign: 'ramen', signW: 3.0, col: 0xff5f8f, neon: 0xff4fa0, glow: 0xff5f8f }],
+  [-17, -4, 261, 10, 0xd8e8f4, null], [0, 12, 261, 13, 0xffd7b8, { sign: 'nexus', signW: 4.0, col: 0x2fb8b0, neon: 0x40e8ff, glow: 0x80f0ff }],
+  [19, 33, 253, 12, 0xf4e6c8, null], [37, 53, 253, 16, 0xffc9a8, { sign: 'blades', signW: 4.0, col: 0x3fd2c7, neon: 0xff6fd0, glow: 0xff6fd0, w: 8 }],
+  [57, 70, 253, 11, 0xc6b4f2, null], [74, 87, 253, 14, 0xf6e4cc, { sign: 'roll', signW: 2.2, col: 0xb98bff, neon: 0x40e8ff, glow: 0xffffff }]] };
+function parkDress() {
+  if (!PARKD.on || !PARKD.pieces || !PARKD.pieces.length) return;
+  const G = PDR.gate, cx = (G.x0 + G.x1) / 2, hues = [0xff9ad2, 0xc9a2ff, 0x7cf0ff];
+  // THE GATEWAY: two stone pillars either side of the fence's gap, a beam with the sign both ways, a neon orb on each pillar
+  for (const x of [G.x0, G.x1]) {
+    slBox('stone', x - 0.9, 0, G.z - 0.9, x + 0.9, G.h, G.z + 0.9, { top: 'paving', bev: 0.06, base: 0, solid: true, tag: 'park gate', tint: 0xf0e4d0 });
+    slBox('neon', x - 0.92, 1.0, G.z - 0.92, x + 0.92, 1.1, G.z + 0.92, { bev: 0, tint: 0x40e8ff, skip: 'yY' });
+    slGeo('neon', new THREE.SphereGeometry(0.5, 16, 10), slMat(x, G.h + 1.6, G.z), { smooth: true, tint: 0xbff6ff });
+    slGeo('stone', new THREE.CylinderGeometry(0.35, 0.55, 1.1, 12), slMat(x, G.h + 0.55, G.z), { smooth: true, tint: 0xf0e4d0, base: G.h });
+    slGlow(x, G.h + 1.6, G.z, 5, 0x80f0ff, 0.55); }
+  slBox('stone', G.x0 - 0.9, G.h, G.z - 0.7, G.x1 + 0.9, G.h + 1.0, G.z + 0.7, { bev: 0.05, solid: true, tag: 'park gate', tint: 0xf4eadc, skip: '' });     // seen from under it
+  slBox('neon', G.x0 + 0.9, G.h - 0.08, G.z - 0.72, G.x1 - 0.9, G.h, G.z - 0.68, { bev: 0, tint: 0xff6fd0, skip: 'yYz' });
+  slDecal('sign', 'megapark', [cx, G.h + 0.5, G.z - 0.72], [-1, 0, 0], [0, 1, 0], 8.8); slGlow(cx, G.h + 0.5, G.z - 1.6, 9, 0xff6fb8, 0.45);
+  slDecal('sign', 'megapark', [cx, G.h + 0.5, G.z + 0.72], [1, 0, 0], [0, 1, 0], 8.8);
+  for (let i = 0; i < 4; i++) slDecal('decal', 'chevron', [-2.4, 0.012, 98.4 + i * 1.5], [-1, 0, 0], [0, 0, 1], 1.4, null, 0.012);
+  // THE SOUTH STRIP: planters with palms between the hub's bank and the fence, lamps, and festoon lights strung pillar to lamp
+  const south = [-104, -86, -68, -50, -32, 24, 42, 60, 78];
+  south.forEach((x, i) => { slPlanter(x, 0, 100.9, 1.6, 1.6, 0.6); slPalm(x, 0.6, 100.9, 4.0 + (i % 3) * 0.5, hues[i % 3]); if (i % 2) slLamp(x + 9, 0, 101.2); });
+  for (const [x0, x1] of [[G.x0 - 0.9, -23], [G.x1 + 0.9, 33]]) { const A = [x0, G.h - 1.2, G.z], B = [x1, 3.4, 101.2], pts = [];
+    for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t - Math.sin(t * Math.PI) * 0.8, A[2] + (B[2] - A[2]) * t]); }
+    slTube('metal', pts, 0.012);
+    for (let i = 1; i < 12; i++) { const q = pts[i]; slGeo('lampglass', new THREE.SphereGeometry(0.07, 6, 4), slMat(q[0], q[1] - 0.1, q[2]), { smooth: true }); if (i % 2) slGlow(q[0], q[1] - 0.1, q[2], 0.9, 0xffd08a, 0.7); } }
+  slLamp(-23, 0, 101.2);      // (the one at 33 is the strip's own)
+  // THE NORTH ROW: shopfronts looking across a street at the park
+  PDR.north.forEach(([x0, x1, z0, h, tint, shop], i) => {
+    slBuilding(x0, x1, z0, z0 + 11, h, 'Z', { street: 0, tint, trimT: 0xf8f2e6, shop, flowers: 0.4, ivy: i % 3 ? 0.15 : 0.35, balc: h > 13 ? [1] : null, poster: i % 4 === 1 ? 'push' : null, ac: 1 + (i % 2) }); });
+  for (let x = -108; x <= 8; x += 14) { const k = Math.round((x + 108) / 14); slPlanter(x, 0, 256.6, 1.6, 1.6, 0.6); slPalm(x, 0.6, 256.6, 4.2 + (k % 3) * 0.4, hues[k % 3]); slLamp(x + 7, 0, 256.4); }
+  for (let x = 27; x <= 83; x += 14) { const k = Math.round((x - 27) / 14); slPlanter(x, 0, 248.2, 1.6, 1.6, 0.6); slPalm(x, 0.6, 248.2, 4.0 + (k % 3) * 0.4, hues[(k + 1) % 3]); }
+  for (const [x, z, ry] of [[-86, 257.5, Math.PI], [-46, 257.5, Math.PI], [-12, 257.5, Math.PI], [45, 249.2, Math.PI]]) slBench(x, 0, z, ry);
+  // THE SIDES: a promenade of palms and lamps down each, glowing mushrooms between, a bench now and then
+  for (let z = 114, k = 0; z < 244; z += 13, k++) {
+    slPlanter(-127.5, 0, z, 1.6, 1.6, 0.6); slPalm(-127.5, 0.6, z, 4.1 + (k % 3) * 0.5, hues[k % 3]);
+    if (k % 2) slLamp(-126.8, 0, z + 6.5); else slShroom(-128.2, 0, z + 6.5, 1.0 + (k % 3) * 0.3, [0x7cf0ff, 0xff6fd0, 0xc9a2ff][k % 3]);
+    slPlanter(97, 0, z, 1.6, 1.6, 0.6); slPalm(97, 0.6, z, 4.1 + ((k + 1) % 3) * 0.5, hues[(k + 1) % 3]);
+    if (k % 2) slShroom(97.6, 0, z + 6.5, 1.0 + (k % 3) * 0.3, [0xff6fd0, 0xc9a2ff, 0x7cf0ff][k % 3]); else slLamp(96.4, 0, z + 6.5); }
+  for (const z of [140, 192]) { slBench(-131.5, 0, z, Math.PI / 2); slBench(101, 0, z, -Math.PI / 2); }
+  CITY.spots['park gate'] = [cx, 0, 92, 0];
+}
 function hubDress() {
   if (!HUB.on) return;
   const D = HUB.deck, steel = (x0, y0, z0, x1, y1, z1) => slBox('metal', x0, y0, z0, x1, y1, z1, { bev: 0.01, skip: 'y' });
@@ -7429,6 +7582,7 @@ function buildSlice() {
   slIvy(-203.9, 38, -203.9, -42, 17.4, 1, 0, 0.6, 1.2, 3.4);
   sliceLayers();
   hubDress();       // r58: the park she starts in -- the deck, the ledges, the plinth, the edges
+  parkDress();      // r90: and the skate park district north of it, dressed like the Nexus
   Object.assign(CITY.spots, { slice: [-97.8, Q, -5.25, -Math.PI / 2], 'slice bridge': [BR.x, yB(BR.zc), BR.zc + 6, Math.PI], 'slice terrace': [-140, TER, 15, -Math.PI / 2] });
   SLC.built = 1;
 }
@@ -7504,6 +7658,11 @@ function sliceMeshes() {
     const nt = B.p.length / 9, cells = new Map(), C = SLC.chunk;
     for (let t = 0; t < nt; t++) { const key = nt < SLC.chunkMin ? '' : Math.floor((B.p[t * 9] + B.p[t * 9 + 3] + B.p[t * 9 + 6]) / 3 / C) + ',' + Math.floor((B.p[t * 9 + 2] + B.p[t * 9 + 5] + B.p[t * 9 + 8]) / 3 / C);
       let L = cells.get(key); if (!L) cells.set(key, L = []); L.push(t); }
+    // r90: A CELL WITH A FEW HUNDRED TRIANGLES IS NOT WORTH A DRAW CALL OF ITS OWN. The park district's dressing is spread thin
+    // over 240 x 180 m, and cut every 48 m it was 171 more meshes, most of them a lamp and a palm. The thin cells of a bucket
+    // go into one mesh of their own, culled as one -- a draw call costs more than the few hundred triangles it saves.
+    { const rest = []; for (const [key, L] of cells) if (key && L.length < SLC.cellMin) { rest.push(...L); cells.delete(key); }
+      if (rest.length) cells.set('rest', rest); }
     for (const [key, L] of cells) {
       const n = L.length, p = new Float32Array(n * 9), nr = new Float32Array(n * 9), u = new Float32Array(n * 6), c = new Float32Array(n * 9), ah = new Float32Array(n * 3);
       L.forEach((t, j) => { for (let q = 0; q < 9; q++) { p[j * 9 + q] = B.p[t * 9 + q]; nr[j * 9 + q] = B.n[t * 9 + q]; c[j * 9 + q] = B.c[t * 9 + q]; }
@@ -9290,7 +9449,7 @@ document.getElementById('resetB').addEventListener('click', respawn);
 // r45: THE CITY IS BIG AND HE TESTS ON A PHONE WITH NO CONSOLE, so a key walks round the places worth
 // looking at: the street, the Steps, the top of the Steps, the tower's spiral, its roof, the loop, his
 // buildings, the hydrant by C. The chip names where she went.
-const GO = ['skyway', 'skyway spire', 'hub deck', 'hub ledges', 'hub plinth', 'hub gap', 'slice', 'slice bridge', 'slice terrace', 'shores', 'alley', 'nova', 'transit', 'transit deck', 'spire', 'gardens', 'canals', 'overflow', 'bowls', 'gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
+let GO = ['skyway', 'skyway spire', 'hub deck', 'hub ledges', 'hub plinth', 'hub gap', 'slice', 'slice bridge', 'slice terrace', 'shores', 'alley', 'nova', 'transit', 'transit deck', 'spire', 'gardens', 'canals', 'overflow', 'bowls', 'gate', 'canal', 'nexus', 'rooftops', 'nimbus', 'nimbus top', 'sky', 'peak', 'street', 'steps', 'top', 'tower', 'roof', 'loop', 'his', 'hydrant', 'park'];
 let goI = -1;
 function goSpot(name) {
   const s = CITY.spots[name]; if (!s) return false;
@@ -11028,7 +11187,7 @@ tailLoad();
 // not need to be playable. The CITY and the GIRL are the two there is no game without.
 async function init() {
   setBoot(WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : 'building the park', 0.05);
-  if (WORLD.zones === 2) await schematicLoad();      // r73: the park his schematic describes, built with the kit
+  if (WORLD.zones === 2 || (!WORLD.zones && PARKD.on)) await schematicLoad();      // r73: the park his schematic describes, built with the kit (r90: and the main world's park district)
   buildPark();
   // r64: HIS ZONES' COLLIDERS ARE STARTED NOW AND WAITED FOR BEFORE SHE DROPS IN -- there is no floor without them
   const zonesCol = WORLD.zones === 1 ? levelImports(LEVEL.zones) : null;
@@ -11054,7 +11213,7 @@ async function init() {
   ready = true;
   if (WORLD.zones === 2) { CITY.goMsg = 'RAMP KIT PARK -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('RAMP KIT PARK', '#6fcfff'); } catch (e) {} }
   // r45: the city's pictures come down AFTER she is skating -- the boxes and the collider are already up
-  if (!WORLD.zones) { kitLoad(); hydLoad(); levelImports(LEVEL.imports); }
+  if (!WORLD.zones && !PARKD.on) { kitLoad(); hydLoad(); levelImports(LEVEL.imports); }
   document.getElementById('boot').classList.add('gone');
   setTimeout(() => { const b = document.getElementById('boot'); if (b && b.parentNode) b.parentNode.removeChild(b); }, 700);
 }
@@ -11066,6 +11225,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
+  PARKD, parkDistrict, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

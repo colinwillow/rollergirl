@@ -93,6 +93,42 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE MEGA PARK IS THE MAIN WORLD'S NORTH DISTRICT, WHERE THE CITY STOOD (r90, `PARKD`, `parkDistrict`, `parkApron`,
+  `TRI.mask`, `kitSheet`'s `X`, `parkDress`, `npm run sim parkd`).** *"The way you built the skatepark is perfect and this
+  section of the level looks amazing AND is super functional ... integrate the skatepark layout and build new zones that work
+  like the skatepark and have the style and surroundings of this park."*
+  - **THE SAME FILE, A RIGID TRANSFORM.** `kitSheet(J, X)` turns the schematic `rot` (pi) about its own spawn and lands that on
+    `at` (0, 108), just past the north gate's corridor, so the main entry faces the gate. A PATH piece is traced in the kit
+    world's frame (`Wk`) and anchored with the turn as its yaw, so its local coordinates are the kit world's to the digit and a
+    `terrain`'s hills, hashed from them, are the same hills. `SHEET.toW` maps a kit point into the world.
+  - **THE FLOOR UNDER IT IS MASKED, NOT REMOVED.** The perimeter profile's apron segment is marked `ap`; for the north edge,
+    both north corners and the north gate's corridor past the bank, `pushTri` takes it in `'mask'` mode: collided, flagged,
+    NOT drawn. `groundAt` skips a flagged triangle inside `TRI.mask` (the park's `ground[0]`, cut for the sunk bowl and pool),
+    so the park's own floor is the ground there and there is no lid over a bowl. `parkApron` draws the whole north apron as
+    ONE shape with the park's floor cut out, its rim on the same chords `revolve` collides with. The park floor sits AT 0 here
+    (not 0.004) and is drawn with the plaza, pushed back in depth, so every kit piece standing on it wins.
+  - **`npm run sim parkd` HOLDS IT TO THE KIT WORLD'S PARK** through a child process booted in that world (`parkdump`): 110 of
+    110 pieces, 46,971 floor points top AND under 0.5 m (3,477 down in a sunk bowl) with 0 off and 0.004 m worst, every solid,
+    all 48 rails' ends, nothing foreign inside the outline, the seam (534 points: apron outside, floor inside, no step), the
+    apron round it still floor, and rides: out of the gate into the entry, down into both sunk bowls, along the north street.
+    **Revert-tested**: mask off and 3,486 points read a lid at 0, and both bowl rides stop at 0.00.
+  - **THE CITY IS ONE SWITCH AWAY**, `?city=1` (or `rg.city` '1' in storage), URL only: `buildCity`, `cityRails`, the kit
+    instancing, the hydrants and the BKG import all stand down when the park district is on. `npm run sim city` boots with it,
+    in a child process like `kit` and `zones`, and still passes whole.
+  - **THE NEXUS PALETTE IS SWAPPED IN FOR THE BUILD AND PUT BACK** (`PARKD.pal`: `KCOL`, the size tints, the schematic's
+    named tints), so the kit world is untouched; the detail pass puts the slice's textures on top. `parkd` compares pieces
+    without their tint for exactly that reason.
+  - **THE DRESSING STANDS OUTSIDE THE FENCE** (`parkDress`, called beside `hubDress` so it shares the slice's buckets): a
+    gateway over the entry (pillars outside the gap, a beam out of reach, a new `megapark` sign in the atlas), a row of eleven
+    shopfronts across a street behind the north fence, palm and lamp promenades down both sides, mushrooms, benches, festoons.
+  - **AND IT COST 171 DRAW CALLS UNTIL THE CHUNKER WAS TOLD** -- thin dressing over 240 x 180 m, cut every 48 m, is a mesh per
+    lamp. A chunk cell under `SLC.cellMin` (400) triangles now joins one leftover mesh per material, and the park's rails are
+    merged by material (`kitRailsDraw(into)`). Scene drawables r89 325 -> r90 269.
+  - **`zfight` IS SCOPED TO THE HUB'S PLAZA**: the plaza mesh carries the district's floor too, and kit pieces lying on it is
+    the arrangement the offset exists for. It now also requires that floor to BE in the offset mesh.
+  - ➤ walks `park gate` and the park's stops first, and drops stops of districts that were not built.
+  - Not yet, and next: Neon Shores and Orbital reworked into skate-park sections the same way.
+
 - **MAP 4: THE AIR HOLDS SWAP BACK, THE FLICKS STAY (r89, `CTRL.map` 4, `airR`, `CTRL.grabDelay`, `p.rAir`).** *"I want the
   left stick to still control rotation in the air -- a press and hold. The left flick can still do melees, the right
   flick flips, which means grabs are the press and hold on the right stick."* Map 4 is map 3 with the two AIR HOLDS
