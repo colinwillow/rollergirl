@@ -4368,7 +4368,7 @@ CASES.sky = async () => {
   if (rg.WORLD.zones !== 3) { console.log('  booted in another world -- run `npm run sim sky`'); return false; }
   const S = rg.S3; if (!S.built) { console.log('  sk8 sky was not built'); return false; }
   if (process.env.SKYPROBE) { const mod = await import(pathToFileURL(path.resolve(process.env.SKYPROBE)).href); await mod.default(rg, THREE); }
-  say(`built: ${rg.KITW.pieces.length} kit pieces, ${rg.COMBOS.list.length} combos, ${S.paths.length} rails, ${rg.DYN.list.length} moving floors`, rg.COMBOS.list.length === 6 && rg.DYN.list.length === 3, '');
+  say(`built: ${rg.KITW.pieces.length} kit pieces, ${rg.COMBOS.list.length} combos, ${S.paths.length} rails, ${rg.DYN.list.length} moving floors, ${rg.SKYART.place.length} art placements of ${new Set(rg.SKYART.place.map(q => q.f)).size} files`, rg.COMBOS.list.length === 6 && rg.DYN.list.length === 3 && rg.SKYART.place.length > 40, '');
   say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
   const city = () => rg.stepCity(DT), g = rg.SK.g;
   const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; };
@@ -4388,24 +4388,49 @@ CASES.sky = async () => {
   { const bad = []; for (const n of S.go) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
       run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
     say('every ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${S.go.length} stops`); }
-  // a lift: on at the ground, up to the 40 m ring, off onto it
-  { const Lf = S.lifts[0]; let tw = 0; for (let k = 0; k < 800; k++) { const [, y] = Lf.fn(S.t + k * 0.05); if (y < 0.3) { tw = k * 0.05; break; } }
+  const Cp = S.core.pads, inPad = (q, tol) => P.grounded && Math.abs(P.pos.y - q[4]) < (tol || 0.12) && P.pos.x > q[0] && P.pos.x < q[1] && P.pos.z > q[2] && P.pos.z < q[3];
+  // THE LIFTS (r98): wait for one at the ground, stand on it, ride it to a stop, roll off onto the art's deck or pad there
+  const liftRide = (Lf, want, exit, done, label) => { let tw = 0; for (let k = 0; k < 2000; k++) { const [, y] = Lf.fn(S.t + k * 0.05); if (y < 0.3) { tw = k * 0.05; break; } }
     run(tw + 0.3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
-    reset(); place(Lf.x, Lf.y + 0.05, Lf.z, -Math.PI / 2, 0); P.vel.set(0, 0, 0); let up = -1, stay = 1;
-    for (let t = 0; t < 20 && up < 0; t += DT) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (!P.grounded) stay = 0; if (P.pos.y > 39.9) up = t; }
-    let off = 0; if (up >= 0) run(2, () => { steerTo(10, Lf.z); city(); if (on(40) && P.pos.x < 16) off = 1; });
-    say('a lift: from the ground up to the 40 m balcony, and off onto it', up >= 0 && stay && off, `${up >= 0 ? 'up at ' + fix(up, 1) + ' s' : 'never up, y ' + fix(P.pos.y)}${stay ? '' : ', FELL OFF'}, ${off ? 'on the balcony' : 'not on the balcony, ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
-  // the drop: from the 24 m balcony, hands off, down the bank, up the QP XL and back, still on the base
-  { go(13, -1, Math.PI / 2, 3, 24); let qp = 0; const r = ride(9, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.x > 86 && P.pos.y > 3) qp = 1; });
-    say('THE DROP: off the 24 m balcony, down the bank, up the QP XL', qp && r.clean && P.pos.y < 6, `${fix(r.vmax, 1)} m/s at the bottom, ${qp ? 'up the QP' : 'NEVER UP THE QP'}, ends ${at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
+    reset(); place(Lf.x, Lf.y + 0.05, Lf.z, 0, 0); P.vel.set(0, 0, 0); let up = -1, stay = 1;
+    for (let t = 0; t < 40 && up < 0; t += DT) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (!P.grounded) stay = 0; if (P.pos.y > want - 0.1) up = t; }
+    let off = 0; if (up >= 0) run(2.5, () => { steerTo(exit[0], exit[1]); city(); if (done()) off = 1; });
+    say(label, up >= 0 && stay && off, `${up >= 0 ? 'up at ' + fix(up, 1) + ' s' : 'never up, y ' + fix(P.pos.y)}${stay ? '' : ', FELL OFF'}, ${off ? 'off onto it' : 'not on it, ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); };
+  { const LA = S.lifts[0], LB = S.lifts[1], c = q => [(q[0] + q[1]) / 2, (q[2] + q[3]) / 2];
+    liftRide(LA, 24, [c(Cp[0])[0], c(Cp[0])[1] + 2], () => inPad(Cp[0]), 'the cargo lift: ground to the 24 m pad, off north onto it');
+    liftRide(LA, 32, [c(Cp[1])[0], c(Cp[1])[1] - 2], () => inPad(Cp[1]), 'the cargo lift: ground to the 32 m pad, off south onto it');
+    liftRide(LB, 50, [LB.x, 13], () => on(S.tower.deck) && Math.hypot(P.pos.x, P.pos.z) < S.tower.dr - 0.5, 'the deck lift: ground to the 50 m deck, off onto it'); }
+  // the art's deck: its railing is a wall (she rolls into it and stays on the deck), and its rail grinds end to end
+  { go(0, 13, Math.PI / 2, 7, S.tower.deck); const r = ride(3, () => { rg.stick.L.x = 1; rg.stick.L.y = 0; rg.cam.az = rg.cam.steerAz = 0; });
+    say('the deck\'s railing holds her on the deck', on(S.tower.deck) && r.clean, `ends ${at([P.pos.x, P.pos.y, P.pos.z])} r ${fix(Math.hypot(P.pos.x, P.pos.z), 1)}${cl(r)}`); }
+  for (const Pth of S.paths.filter(q => q.name === 'sk8 deck rail')) { const o = grindAll(Pth, 8, 8);
+    say('a deck rail grinds its arc end to end', o.reached && !o.r.bail, o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)); }
+  // the drop: from the art's 24 m pad, hands off, down the bank, up the QP XL and back, still on the base
+  { go((Cp[0][0] + Cp[0][1]) / 2 + 2, S.dropZ, Math.PI / 2, 3, 24); let qp = 0; const r = ride(9, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.x > 86 && P.pos.y > 3) qp = 1; });
+    say('THE DROP: off the 24 m pad, down the bank, up the QP XL', qp && r.clean && P.pos.y < 6, `${fix(r.vmax, 1)} m/s at the bottom, ${qp ? 'up the QP' : 'NEVER UP THE QP'}, ends ${at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
   for (const Pth of S.paths.filter(q => q.name === 'sky drop rail')) { const o = grindAll(Pth, 4, 8, () => on(0, 0.15));
-    say('a drop rail: grinds from the balcony to the floor', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the floor' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
-  // the bridges: from the 40 m balcony to each pad, along the deck
-  for (const [i, nm] of [[0, 'north'], [1, 'west'], [2, 'south']]) { const D = S.bridges[i], pd = S.pads.find(q => q.key === nm), pts = D.P.map(q => [q.x, q.z]);
-    reset(); const p0 = D.P[2]; go(p0.x, p0.z, Math.atan2(D.P[6].x - p0.x, D.P[6].z - p0.z), 7, 40); let on2 = 0;
+    say('a drop rail: grinds from the pad to the floor', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the floor' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  // the bridges: off the deck (north) and the art's 32 m pads (west, south), out to each pad
+  for (const [i, nm, from] of [[0, 'north', 'the deck'], [1, 'west', 'the north 32 m pad'], [2, 'south', 'the south-east 32 m pad']]) { const D = S.bridges[i], pd = S.pads.find(q => q.key === nm), pts = D.P.map(q => [q.x, q.z]);
+    reset(); const p0 = D.P[2]; go(p0.x, p0.z, Math.atan2(D.P[6].x - p0.x, D.P[6].z - p0.z), 7, p0.y); let on2 = 0;
     const r = ride(16, () => { const e = pts[pts.length - 1]; steerTo(e[0] + (e[0] - pts[0][0]) * 0.05, e[1] + (e[1] - pts[0][1]) * 0.05);
       if (P.grounded && Math.abs(P.pos.y - pd.y) < 0.12 && Math.abs(P.pos.x - pd.x) < pd.h && Math.abs(P.pos.z - pd.z) < pd.h) on2 = 1; });
-    say(`the ${nm} bridge: from the balcony out to the ${nm} pad`, on2 && r.clean, `${on2 ? 'on the pad' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
+    say(`the ${nm} bridge: from ${from} out to the ${nm} pad`, on2 && r.clean, `${on2 ? 'on the pad' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
+  // the pads that throw her: the ground up to the north 32 m pad, the west pad over to isle T, the south pad over to isle H
+  { const L = S.towerPad; go(L.x, L.z, Math.PI, 0); let got = 0; const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (inPad(Cp[2])) got = 1; });
+    say('the tower pad throws her up onto the north 32 m pad', got && r.clean, got ? 'on it' : `ends ${at([P.pos.x, P.pos.y, P.pos.z])}, up to ${fix(r.top)}${cl(r)}`); }
+  for (const [L, I] of [[S.isleT, rg.S3ISLES[0]], [S.isleH, rg.S3ISLES[1]]]) { go(L.x, L.z, 0, 0, L.y); let got = 0;
+    const tr = []; const r = ride(8, (t, i) => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && Math.abs(P.pos.y - I.y) < 0.15 && Math.hypot(P.pos.x - I.x, P.pos.z - I.z) < I.r) got = 1; if (process.env.ISLETR && i % 6 === 0) tr.push(at([P.pos.x, P.pos.y, P.pos.z]) + (P.grounded ? 'g' : '') + (P.lift ? 'L' : '')); }); if (tr.length) console.log('    ' + tr.join(' | '));
+    say(`isle ${I.key}: the pad throws her over and she lands on it, and stays`, got && !r.bail && !r.falls && Math.hypot(P.pos.x - I.x, P.pos.z - I.z) < I.r, `${got ? 'landed' : 'never on it'}, ends ${at([P.pos.x, P.pos.y, P.pos.z])}, up to ${fix(r.top)}${cl(r)}`); }
+  { const I = rg.S3ISLES[0], N = S.pads.find(q => q.key === 'north'), o = grindAll(S.paths.find(q => q.name === 'isle T rail'), 5, 16, () => P.grounded && Math.abs(P.pos.y - N.y) < 0.12);
+    say('isle T rail: off the isle down onto the north pad', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the pad' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  { const o = grindAll(S.paths.find(q => q.name === 'isle H rail'), 5, 12, () => on(rg.KSZ.XL.H));
+    say('isle H rail: off the isle down onto the bowl terrace', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the terrace' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  for (const nm of ['sky isle T', 'sky isle H', 'plaza coping']) { const o = grindAll(S.paths.find(q => q.name === nm), nm === 'plaza coping' ? 5 : 8, 5);
+    say(`${nm}: the ring grinds round`, !o.off && !o.r.bail, o.off ? 'CAME OFF at ' + at(o.off) : 'still on it after 5 s'); }
+  // the plaza's planter is a solid kerb
+  { const Pz = S.plaza; go(Pz.x - 9, Pz.z, Math.PI / 2, 5); const r = ride(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    say('the plaza planter is solid', Math.hypot(P.pos.x - Pz.x, P.pos.z - Pz.z) > 2.9 || P.pos.y > 0.85, `ends ${fix(Math.hypot(P.pos.x - Pz.x, P.pos.z - Pz.z), 2)} m from its middle at y ${fix(P.pos.y)}${cl(r)}`); }
   // the booster up to the high pad, and the long rail back down to the base
   { const B = S.paths.find(q => q.name === 'sky booster'), NE = S.pads.find(q => q.key === 'ne'); const o = grindAll(B, 6, 14, () => P.grounded && Math.abs(P.pos.y - NE.y) < 0.12);
     say('the booster: from the north pad up onto the high pad', o.reached && o.done && o.r.clean, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the high pad' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}${cl(o.r)}`); }
@@ -4431,6 +4456,28 @@ CASES.sky = async () => {
   { const N = S.pads.find(q => q.key === 'north'); go(N.x - 4, N.z - 6, 0, 0, N.y); run(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
     const f0 = rg.ORB.falls || 0; place(N.x - 4, N.y - 6, N.z + N.h + 6, 0, 0); P.grounded = false; run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
     say('off a pad into the sea: put back where she stood', (rg.ORB.falls || 0) > f0 && P.pos.y > 0, `${(rg.ORB.falls || 0) > f0 ? 'put back' : 'never'} at ${at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  // r98: HIS ART, THROUGH THE REAL LOADER AND THE SHIPPED `skyIngest`/`skyFlush` (textures cut: node decodes no images) --
+  // every placed file merges, and the colliders typed from the measurement sit ON the art: at each the art's own up-facing
+  // surface is found under the point and must be at the collider's height. A quarter turn the wrong way fails every row.
+  { const A = rg.SKYART, files = [...new Set(A.place.map(q => q.f))], miss = [];
+    for (const f of files) { try { rg.skyIngest(f, (await realGLB(A.dir + f + '.glb')).scene); } catch (e) { miss.push(f + ' ' + e.message); } }
+    rg.skyFlush(); let tris = 0, near = 0; const T = [];
+    for (const me of A.mesh.values()) { const g = me.geometry, P = g.attributes.position.array, I = g.index.array; tris += I.length / 3; if (!me.name.endsWith('|far')) near++;
+      if (!me.name.endsWith('|far')) for (let i = 0; i < I.length; i += 3) T.push(I[i] * 3, I[i + 1] * 3, I[i + 2] * 3, P); }
+    say(`his art: ${files.length} files merge into ${A.mesh.size} meshes (${near} near), ${Math.round(tris / 1000)}k triangles, ${A.mats.size} materials`, !miss.length && A.mesh.size === A.bk.size && A.mesh.size < 90, miss.join('; '));
+    // the art's surface under (x, z): the highest up-facing triangle within 3 m of `y`
+    const artAt = (x, z, y) => { let best = null; for (let t = 0; t < T.length; t += 4) { const P = T[t + 3], a = T[t], b = T[t + 1], c = T[t + 2];
+        const ax = P[a], az = P[a + 2], ux = P[b] - ax, uz = P[b + 2] - az, vx = P[c] - ax, vz = P[c + 2] - az, det = ux * vz - uz * vx; if (Math.abs(det) < 1e-9) continue;
+        const sc = ((x - ax) * vz - (z - az) * vx) / det, tc = (ux * (z - az) - uz * (x - ax)) / det; if (sc < 0 || tc < 0 || sc + tc > 1) continue;
+        const h = P[a + 1] + sc * (P[b + 1] - P[a + 1]) + tc * (P[c + 1] - P[a + 1]); if (Math.abs(h - y) < 3 && (best == null || Math.abs(h - y) < Math.abs(best - y))) best = h; } return best; };
+    const C = S.core, Pz = S.plaza, rows = [];
+    for (const q of C.pads) rows.push([`pad ${q[5]}`, (q[0] + q[1]) / 2, (q[2] + q[3]) / 2, q[4]]);
+    for (const [x0, x1, z0, z1, y] of C.blocks) rows.push([`block at ${fix((x0 + x1) / 2, 0)},${fix((z0 + z1) / 2, 0)}`, (x0 + x1) / 2, (z0 + z1) / 2, y]);
+    for (const A2 of [0, 90, 180, 270]) rows.push([`deck at ${A2} deg`, 13 * Math.sin(A2 * Math.PI / 180), 13 * Math.cos(A2 * Math.PI / 180), S.tower.deck]);
+    rows.push(['plaza planter', Pz.x + 1, Pz.z + 1, 0.89], ['plaza floor', Pz.x + 8, Pz.z - 3, 0.02]);
+    for (const I of rg.S3ISLES) rows.push([`isle ${I.key}`, I.x + 4, I.z - 4, I.y]);
+    const bad = []; for (const [nm, x, z, y] of rows) { const h = artAt(x, z, y); if (h == null || Math.abs(h - y) > 0.06) bad.push(`${nm}: art ${h == null ? 'none' : fix(h)} vs ${fix(y)}`); }
+    say('every collider typed from the art sits on the art', !bad.length, bad.join('; ') || `${rows.length} spots, all within 6 cm`); }
   rg.GRIND.intent = 0;
   return ok;
 };

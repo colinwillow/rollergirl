@@ -94,6 +94,46 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **HIS SKYLINE PACK IS IN SK8 SKY, AND THE TOWER IS HIS (r98, `SKYART`, `skyArt`, `skyArtLoad`, `skyIngest`, `skyFlush`,
+  `S3.core`, `S3ISLES`, `s3Art`, `dynRect`).** *"I just pushed all the assets we'd already made for that skyline -- if you want
+  to use any of that, feel free."* `zones/zone_skyline/assets_skyline/`: 48 GLBs, art only, metres, Y-up.
+  - **THE README'S ORIGINS ARE WRONG FOR THE ISLANDS.** It says a sky island's origin is on its walkable top. Read out of the
+    files, the origin is at the BOTTOM of the rock and the top is 14-54 m above it (`SKY_ISLAND_12` 18.23, `_11` 21.3, `_10`
+    54). A garden's origin IS its deck. The tower's deck is at 50, not the 56 its node names say (the nodes sit 6 m down).
+    **Measure the file, not the notes.** The scratchpad tools that did it: flat up-facing patches per height, connected
+    parts with bounds, a circle fitted to each rail mesh.
+  - **ONE MATERIAL PER NAME, OR A PHONE HOLDS GIGABYTES.** The pack is ~20 shared materials and 14 distinct images, embedded
+    again in every file: ~300 copies of 1254 px textures. `skyMat` keeps the first copy of each NAME, throws the rest away
+    before they are ever uploaded, and cuts the kept maps to 512 px (1024 for the stickers, the graffiti, the logo). The
+    BLEND ones (ivy, moss) become cutouts, and every piece is merged per material -- near and far apart, 59 meshes for the
+    whole pack, 114k triangles.
+  - **`bump.mjs` HASHES `zones/*/*` NOW.** `readdirSync` is not recursive; the pack's folder would have gone stale silently.
+  - **THE FAR SKYLINE IS PAST THE FOG.** His look's fog ends at 280 m, and the islet clusters stand at 300+: fully fogged they
+    are the fog's own colour, which is invisible. The far copies of each material are `fogCap`'d (`SKYART.farFog` .55).
+  - **THE TOWER CORE WAS REBUILT TO THE ART**, not the art fitted to the placeholder (rings at 12/24/40 would have cut through
+    his pads and porch). His tower, turned a quarter (`-PI/2`) so the deck's railing gaps face north and south:
+      pads      24 m north-east (the top of THE DROP, now at z 15.55), 32 m south-east, 32 m on the north face
+      deck      a full disc r 16.3 at 50 m; its railing two arcs, with a GAP north (the north bridge) and south (the deck lift)
+      lifts     a 9 x 20 m CARGO LIFT up the east face (ground / 24 / 32, `DYN` takes rectangles now: `hx`/`hz`, `dynIn`)
+                and a deck lift in the south gap (ground / 50)
+      bridges   north off the deck, west off the north 32 m pad, south off the south-east 32 m pad
+      the north 32 m pad   reached by a launcher on the ground north of the tower
+    The deck's railing is a low SOLID wall with the art's rail on it (`art: 1` rails are not drawn), so the deck's edge is
+    not a cliff. A plain stand-in draws the tower until the art lands, and stays if it never does.
+  - **`npm run sim sky` LOADS EVERY PLACED FILE THROUGH THE REAL LOADER** (textures cut, `glbNoTex`), runs the shipped
+    `skyIngest`/`skyFlush`, and checks that EVERY COLLIDER TYPED FROM THE ART SITS ON THE ART: at each pad, block, deck
+    point, the plaza and both isles, the art's own up-facing surface under the point must be within 6 cm of the collider's
+    height. **Revert-tested**: the tower turned `+PI/2` instead reads `art none` at every pad and block.
+  - **A THROWN LANDING ON A SMALL ISLAND NEEDS A RIM.** Isles T and H are thrown to from the west and south pads; with Plutopia's
+    flat throw (apex 3) she arrived at 40 m/s on a 25 m island and rolled into the sea, and with a kit piece on the landing
+    line she launched off it. Apex 12, a 0.9 m rim she bonks off (with the isle's ring rail on it), and each isle's piece
+    beside the line, not on it. And the throw test has to zero the stick: a thumb left over from the previous row steered her
+    off the island in the air.
+  - The START_PLAZA's colliders (planter + coping ring rail, sign posts, totem, benches, lamps) are typed from its parts; its
+    slab is 6 cm thick, so it sits 4 cm down. Waterfalls hang off the base's rim; gardens, the crystal isle, small isles and
+    seven building clusters on rock islets ring the sea, all `far`, none rideable.
+  - **NOT VERIFIABLE HERE:** how any of it LOOKS (no GPU), the downscale (node decodes no images), and phone memory under the
+    whole pack. The chip says `NO SKY ART n/m` for files that never arrive.
 - **SK8 SKY: A FOURTH WORLD, HIS REFERENCE PAINTINGS BUILT FROM THE KIT (r97, `WORLD.zones` 3, `?world=sky`, `S3`,
   `sk8World`, `npm run sim sky`).** *"These are the references I gave the Blender window ... it was super impressive and it's
   just not fun. I'm curious if you rebuild something similar with your understanding of big broad wide open spaces ...

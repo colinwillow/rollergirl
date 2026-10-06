@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r97</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r98</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r97';
+const BUILD = 'r98';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749"};
+const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -1020,8 +1020,10 @@ const _gr = { floor: -Infinity, ceil: Infinity, nx: 0, ny: 1, nz: 0, hit: false 
 // skating, the landing, the camera and every harness at once. Round in plan (a hex's inscribed circle), flat on top; a
 // side is not a wall (a ramp's rule). `stepDyn` moves them and CARRIES her when she is standing on one.
 const DYN = { list: [] };
+// r98: a platform is round (`cr`) or a RECTANGLE (`hx`/`hz`, axis-aligned) -- the tower's cargo lift is 9 x 20 m
+const dynIn = (p, x, z, pad) => p.hx ? Math.abs(x - p.x) <= p.hx + pad && Math.abs(z - p.z) <= p.hz + pad : (x - p.x) ** 2 + (z - p.z) ** 2 <= (p.cr + pad) ** 2;
 function dynAt(x, z, top) {
-  for (const p of DYN.list) { const dx = x - p.x, dz = z - p.z; if (dx * dx + dz * dz > p.cr * p.cr) continue;
+  for (const p of DYN.list) { if (!dynIn(p, x, z, 0)) continue;
     if (p.y <= top) { if (p.y > _gr.floor) { _gr.floor = p.y; _gr.nx = 0; _gr.ny = 1; _gr.nz = 0; _gr.hit = true; _gr.dyn = p; } }
     else if (p.y < _gr.ceil) _gr.ceil = p.y; }
   return _gr;
@@ -2988,19 +2990,102 @@ function kitRailsDraw(into) {      // r90: `into` collects them to be merged by 
     for (const [mat, geos] of by) { const g = mergeGeometries(geos); if (!g) { console.warn('[park district] a rail bucket did not merge'); continue; }
       const m = new THREE.Mesh(g, mat); m.castShadow = true; m.name = 'park rails'; scene.add(m); } }
 }
+// ===== r98: HIS SKYLINE ART (`SKYART`) -- the asset pack he and the Blender session built (`zones/zone_skyline/assets_skyline/`),
+// placed in SK8 SKY. ART ONLY: every riding surface under or beside a piece is a collider typed here from a MEASUREMENT of
+// the file, so the world rides the same whether the art has landed, is still coming, or never arrives.
+//   ONE MATERIAL PER NAME. The pack is ~20 shared materials embedded again in every file -- 14 distinct images, ~300 copies.
+//   Kept per file, that is gigabytes of texture on a phone; the first file to bring a material keeps it and every later copy
+//   is thrown away before it is ever uploaded. The kept maps are cut to `tex` px (the tiling ones are 18-300 KB of soft
+//   colour at 1254 px; the stickers, the graffiti and the logo keep `texBig`).
+//   MERGED PER MATERIAL (core and far kept apart so the far skyline casts no shadow): ~40 draw calls for every piece.
+//   A BLEND material (ivy, moss) is a CUTOUT -- a merged mesh cannot sort against itself.
+//   Loaded after she drops in, `conc` at a time, the tower first; the chip says NO SKY ART n/m for any that never arrive.
+const SKYART = { dir: 'zones/zone_skyline/assets_skyline/', place: [], tex: 512, texBig: 1024, big: /sticker|graffiti|logo/i, conc: 2,
+  failed: [], loaded: [], want: 0, mats: new Map(), keep: new Set(), bk: new Map(), mesh: new Map(), onLoad: {}, flushT: 0, tris: 0, farFog: 0.55 };
+function skyArt(f, x, y, z, yaw, o) { SKYART.place.push({ f, x, y, z, yaw: yaw || 0, s: (o && o.s) || 1, far: !!(o && o.far) }); }
+function skyTex(t) {
+  const im = t && t.image; if (!im || !im.width || typeof document === 'undefined') return t;
+  const lim = SKYART.big.test(t.name || '') ? SKYART.texBig : SKYART.tex; if (im.width <= lim && im.height <= lim) return t;
+  const k = lim / Math.max(im.width, im.height), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k));
+  const x = c.getContext && c.getContext('2d'); if (!x) return t;
+  x.drawImage(im, 0, 0, c.width, c.height);
+  const n = new THREE.CanvasTexture(c); for (const q of ['colorSpace', 'wrapS', 'wrapT', 'flipY', 'magFilter', 'minFilter', 'name']) n[q] = t[q]; n.anisotropy = 4; n.needsUpdate = true;
+  try { if (im.close) im.close(); } catch (e) {} t.dispose(); return n;
+}
+const SKYMAPS = ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap'];
+function skyMat(m) {
+  const key = m.name || m.uuid, have = SKYART.mats.get(key);
+  if (have) { if (have !== m) for (const q of SKYMAPS) { const t = m[q]; if (t && !SKYART.keep.has(t)) { try { if (t.image && t.image.close) t.image.close(); } catch (e) {} t.dispose(); } } return have; }
+  for (const q of SKYMAPS) if (m[q]) { m[q] = skyTex(m[q]); SKYART.keep.add(m[q]); }
+  if (m.transparent) { m.transparent = false; m.alphaTest = 0.5; m.depthWrite = true; }
+  m.vertexColors = true; m.needsUpdate = true; SKYART.mats.set(key, m); return m;
+}
+// a part cut down to position / normal / uv / colour, indexed, every attribute present (so a whole material merges)
+function skyGeo(g0) {
+  const g = new THREE.BufferGeometry(), n = g0.attributes.position.count, f32 = (a, k) => { const o = new Float32Array(n * k); for (let i = 0; i < n; i++) { o[i * k] = a.getX(i); o[i * k + 1] = a.getY(i); if (k > 2) o[i * k + 2] = a.getZ(i); } return o; };
+  g.setAttribute('position', new THREE.Float32BufferAttribute(f32(g0.attributes.position, 3), 3));
+  if (g0.attributes.normal) g.setAttribute('normal', new THREE.Float32BufferAttribute(f32(g0.attributes.normal, 3), 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(g0.attributes.uv ? f32(g0.attributes.uv, 2) : new Float32Array(n * 2), 2));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(g0.attributes.color ? f32(g0.attributes.color, 3) : new Float32Array(n * 3).fill(1), 3));
+  if (g0.index) g.setIndex(Array.from(g0.index.array)); else g.setIndex(Array.from({ length: n }, (_, i) => i));
+  if (!g0.attributes.normal) g.computeVertexNormals();
+  return g;
+}
+const _skM = new THREE.Matrix4(), _skQ = new THREE.Quaternion(), _skP = new THREE.Vector3(), _skS = new THREE.Vector3();
+function skyIngest(f, root) {
+  root.updateMatrixWorld(true);
+  const P = SKYART.place.filter(q => q.f === f), parts = []; root.traverse(o => { if (o.isMesh && o.geometry && o.geometry.attributes.position) parts.push(o); });
+  for (const o of parts) {
+    const m = skyMat(Array.isArray(o.material) ? o.material[0] : o.material), base = skyGeo(o.geometry).applyMatrix4(o.matrixWorld);
+    for (const q of P) { _skM.compose(_skP.set(q.x, q.y, q.z), _skQ.setFromAxisAngle(UP, q.yaw), _skS.set(q.s, q.s, q.s));
+      const key = m.name + (q.far ? '|far' : ''); let B = SKYART.bk.get(key); if (!B) SKYART.bk.set(key, B = { m, far: q.far, gs: [], dirty: 0 });
+      B.gs.push(base.clone().applyMatrix4(_skM)); B.dirty = 1; }
+    base.dispose(); o.geometry.dispose();
+  }
+}
+// THE FAR SKYLINE STANDS PAST THE FOG'S FAR PLANE (280 m in his look) -- fully fogged it is a wall of fog colour, which
+// is to say nothing at all. So the far copies of each material cap their fog, the Orbital backdrop's `fogCap`.
+const _skyFar = new Map();
+function skyFar(m) { let f = _skyFar.get(m); if (!f) { f = fogCap(m.clone(), SKYART.farFog); f.name = m.name + '|far'; _skyFar.set(m, f); } return f; }
+function skyFlush() {
+  for (const [key, B] of SKYART.bk) { if (!B.dirty || !B.gs.length) continue; B.dirty = 0;
+    const g = mergeGeometries(B.gs); if (!g) { console.warn('[sky art] could not merge ' + key); continue; }
+    g.computeBoundingSphere(); const old = SKYART.mesh.get(key);
+    if (old) { old.geometry.dispose(); old.geometry = g; } else { const me = new THREE.Mesh(g, B.far ? skyFar(B.m) : B.m); me.name = 'sky art:' + key; me.castShadow = !B.far; me.receiveShadow = true; scene.add(me); SKYART.mesh.set(key, me); } }
+  let t = 0; for (const me of SKYART.mesh.values()) t += me.geometry.index.count / 3; SKYART.tris = t;
+}
+async function skyArtLoad() {
+  if (WORLD.zones !== 3 || !SKYART.place.length) return;
+  const order = [...new Set(SKYART.place.map(q => q.f))]; SKYART.want = order.length; let i = 0, last = performance.now();
+  const one = async () => { while (i < order.length) { const f = order[i++];
+      try { const g = await loadGLB(SKYART.dir + f + '.glb'); skyIngest(f, g.scene); SKYART.loaded.push(f); if (SKYART.onLoad[f]) SKYART.onLoad[f]();
+        if (f === order[0] || performance.now() - last > 2500) { skyFlush(); last = performance.now(); } }       // the hero at once, the rest in batches
+      catch (e) { SKYART.failed.push(f); if (SKYART.failed.length === 1) console.warn('[sky art] ' + f + ' did not arrive: ' + (e && e.message)); } } };
+  await Promise.all(Array.from({ length: SKYART.conc }, one));
+  skyFlush(); for (const B of SKYART.bk.values()) { for (const g of B.gs) g.dispose(); B.gs = []; }   // merged: the parts are not needed again
+  console.log(`[sky art] ${SKYART.loaded.length}/${SKYART.want} files, ${SKYART.mats.size} materials, ${SKYART.mesh.size} meshes, ${Math.round(SKYART.tris / 1000)}k tris` + (SKYART.failed.length ? `, MISSING ${SKYART.failed.join(' ')}` : ''));
+}
 // ===== SK8 SKY (r97, `WORLD.zones` 3): a floating skate city, built from the kit -- his reference paintings (a base on
 // rock over the sea, the SK8 tower, balconies, bridges out to floating pads with their own little parks, halo rings),
 // made big, open and square: right angles and 45s, every riding surface a tested kit piece or combo, every level a
 // measured height on the kit's 1.2 m ladder. Separate from the main world so it can be as big as it wants to be.
 //   THE BASE      an octagon 192 m across (chamfer 28) at y 0, rock tiers under it, a sea 45 m below, a rail on its rim
-//   THE TOWER     SK8, 20 m square, 92 m, ring balconies at 12 / 24 / 40, two hex lifts stopping at every one
-//   THE DROP      a 24 m bank off the 24 m balcony's east face, rails down both sides, into a QP XL at the base's edge
+//   THE TOWER     SK8 -- his art since r98 (`SK8_TOWER.glb`): the 24 and 32 m pads, the 50 m deck, a cargo lift and a deck lift
+//   THE DROP      a 24 m bank off the 24 m pad's east edge, rails down both sides, into a QP XL at the base's edge
 //   THE CELLS     a 3 x 3 grid of 64 m cells round the tower: combos in five, a raised bowl terrace, the start plaza
-//   THE PADS      four floating mini parks: three by bridges off the 40 m balcony, one by a booster, a ferry between two
+//   THE PADS      four floating mini parks: three by bridges off the tower's deck and 32 m pads, one by a booster, a ferry
+//   THE ISLES     (r98) his two sky islands, T and H, thrown to from the pads, railed back down; his skyline round the sea
 const S3 = { on: 1, h: 96, c: 28, built: 0, go: [], rails: [], pads: [], lifts: [], t: 0,
-  tower: { h: 10, top: 92, rings: [12, 24, 40], rh: 16 },
-  pads: [{ key: 'north', x: 0, z: 150, y: 36, h: 18, hp: 'x', from: 'n' }, { key: 'west', x: -150, z: 0, y: 30, h: 18, hp: 'z', from: 'w' },
-         { key: 'south', x: 0, z: -150, y: 24, h: 18, hp: 'x', from: 's' }, { key: 'ne', x: 125, z: 125, y: 52, h: 16, hp: 'volcano' }],
+  tower: { h: 10, top: 74, deck: 50, dr: 16.3 },
+  // r98: the art's own decks, measured (see `s3Tower`): pads [x0, x1, z0, z1, top, name], solid blocks [x0, x1, z0, z1, top]
+  core: { arcs: [[27.2, 145.3], [-167.7, -19.8]], ar: 15.52, ay: 51.0,
+    pads: [[10.5, 20.5, 10.55, 20.55, 24, 'ne'], [11.0, 20.0, -20.05, -11.05, 32, 'se'], [-8.5, 1.5, 11.05, 20.05, 32, 'n']],
+    blocks: [[-17.9, -9.6, -8.35, 8.35, 10.8], [-20.9, -17.9, -4.75, 4.75, 11.8], [-6.0, 8.0, -14.15, -9.6, 6.6]],
+    // the cargo lift up the east face between the two east pads, and the deck lift in the deck's south gap
+    lifts: [{ x: 15.5, z: -0.25, hx: 4.5, hz: 10.3, stops: [0.25, 24, 32, 24], leg: 5, ph: 0 }, { x: 2.75, z: -20.3, hx: 3.8, hz: 3.8, stops: [0.25, 50], leg: 9, ph: 4 }] },
+  dropZ: 15.55,
+  pads: [{ key: 'north', x: 1, z: 150, y: 36, h: 18, hp: 'x', from: 'n' }, { key: 'west', x: -150, z: 15.55, y: 30, h: 18, hp: 'z', from: 'w' },
+         { key: 'south', x: 15.5, z: -150, y: 24, h: 18, hp: 'x', from: 's' }, { key: 'ne', x: 125, z: 125, y: 52, h: 16, hp: 'volcano' }],
   plaza: { x: -62, z: -62 }, bowl: { x: 58, z: -58, rc: 9 },
   col: { cream: 0xf4e6dc, lav: 0xd9cdf2, pink: 0xf6c6e2, trim: 0xfbf2fa, rock: 0x8d7ca8, rock2: 0x7a6a98, neonP: 0xff6fd0, neonC: 0x3ff0e0, gold: 0xffc84a } };
 const s3Oct = (h, c) => [[-h + c, -h], [h - c, -h], [h, -h + c], [h, h - c], [h - c, h], [-h + c, h], [-h, h - c], [-h, -h + c]];
@@ -3047,45 +3132,52 @@ function s3Base() {
   const P = s3Oct(H - 0.35, C);
   for (let i = 0; i < 8; i++) { const a = P[i], b = P[(i + 1) % 8], len = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len;
     for (let s = 0; s < len - 0.1; s += 4) { const s1 = Math.min(len, s + 4), mx = a[0] + ux * (s + s1) / 2, mz = a[1] + uz * (s + s1) / 2;
-      if (mx > 90 && Math.abs(mz) < 15) continue;
+      if (mx > 90 && Math.abs(mz - S3.dropZ) < 15) continue;
       s3Wall([a[0] + ux * s, a[1] + uz * s], [a[0] + ux * s1, a[1] + uz * s1], 0, 0.5, 0.35, k.trim);
       solidAdd(mx, mz, (s1 - s) / 2, 0.35, 0, 0.5, Math.atan2(-uz, ux), { top: true, tag: 'sky parapet' }); } }
   // the rim rail: from the quarter pipe's north side round to its south side
-  { const W = [[96 - 0.35, 15], ...[3, 4, 5, 6, 7, 0, 1].map(i => P[i]), [96 - 0.35, -68], [96 - 0.35, -15]];
+  { const W = [[96 - 0.35, S3.dropZ + 15], ...[3, 4, 5, 6, 7, 0, 1].map(i => P[i]), [96 - 0.35, -68], [96 - 0.35, S3.dropZ - 15]];
     S3.rails.push({ pts: acPoly(W, 1.5, 1.2).map(([x, z]) => [x, 0.55, z]), name: 'sky rim', bare: 1 }); }
 }
+// r98: THE TOWER IS HIS ART NOW (`SK8_TOWER.glb`, turned a quarter, `S3.art`), and the riding is put where the art's own decks
+// are -- MEASURED off the file, not eyeballed (the flat up-facing patches, and a circle fitted to each deck rail):
+//   the shaft     a +-9.6 m square to the drum, one box to the crown (74)
+//   the deck      a full disc r 16.3 at 50 m on a drum from 44; its railing two arcs (27..145 deg and -168..-20 deg, r 15.52,
+//                 top 51.0) with a GAP north and south -- the bridge leaves by the north one, the deck lift arrives at the south
+//   the pads      24 m (north-east corner, 10 x 10: the top of THE DROP), 32 m (south-east, the south bridge) and 32 m
+//                 (north face, the west bridge, reached by a launcher from the ground)
+//   the porch     the west face, 10.8 m, with its cornice to 11.8; a planted terrace on the south face at 6.6
+// None of it waits for the art: the colliders are typed from the measurement, and a plain stand-in draws until the file lands.
 function s3Tower() {
-  const T = S3.tower, k = S3.col, h = T.h, top = T.top;
-  slBox('plaster', -h, 0, -h, h, top, h, { bev: 0.15, tint: k.cream, solid: true, tag: 'sk8 tower', base: 0, skip: 'y' });
-  for (const yy of [12, 24, 40, 60, 80]) slBox('trim', -h - 0.25, yy - 0.5, -h - 0.25, h + 0.25, yy + 0.3, h + 0.25, { bev: 0.05, tint: k.lav, skip: '' });
-  for (const [ax, sg] of [['x', -1], ['x', 1], ['z', -1], ['z', 1]]) { const f = sg * (h + 0.03), nrm = ax === 'x' ? [0, 0, sg] : [sg, 0, 0], Q = (u, yy) => ax === 'x' ? [u, yy, f] : [f, yy, u];
-    for (let yy = 2; yy + 2.4 < top - 1; yy += 3.4) { if ([12, 24, 40].some(r => Math.abs(yy - r + 1.2) < 2.4)) continue; if (yy > 44 && yy < 60) continue;
-      for (let b = 0; b < 6; b++) { const u0 = -h + 1.4 + b * 2.87 + 0.15, u1 = u0 + 2.5, v = Math.floor(slr() * 4), uo = (v % 2) * 0.5, vo = Math.floor(v / 2) * 0.5;
-        slQuad('window', Q(u0, yy), Q(u1, yy), Q(u1, yy + 2.5), Q(u0, yy + 2.5), nrm, { uv4: [[uo, vo], [uo + 0.5, vo], [uo + 0.5, vo + 0.5], [uo, vo + 0.5]] }); } }
-    const sc = Q(0, 52); slDecal('sign', 'sk8', [sc[0] + nrm[0] * 0.05, 52, sc[2] + nrm[2] * 0.05], ax === 'x' ? [sg, 0, 0] : [0, 0, -sg], [0, 1, 0], 15, 15, 0.02);
-    slGlow(sc[0] + nrm[0] * 2, 52, sc[2] + nrm[2] * 2, 12, k.neonP, 0.25);
-    for (const e of [-h - 0.1, h + 0.1]) { const c2 = Q(e, 0); slBox('neon', c2[0] - 0.14, 0.5, c2[2] - 0.14, c2[0] + 0.14, top - 0.5, c2[2] + 0.14, { bev: 0, tint: k.neonC, skip: 'yY' }); } }
-  // the crown: a stepped cap, a ring, a spire with a light
-  slBox('trim', -h - 1, top, -h - 1, h + 1, top + 1.2, h + 1, { bev: 0.1, tint: k.lav, skip: '' });
-  slBox('plaster', -h + 3, top + 1.2, -h + 3, h - 3, top + 7, h - 3, { bev: 0.1, tint: k.pink, skip: '' });
-  slGeo('neon', new THREE.TorusGeometry(h - 1, 0.35, 6, 32).rotateX(Math.PI / 2), slMat(0, top + 2, 0), { tint: k.neonP });
-  slGeo('plaster', new THREE.ConeGeometry(4.5, 22, 4).rotateY(Math.PI / 4), slMat(0, top + 18, 0), { tint: k.lav });
-  slGeo('neon', new THREE.SphereGeometry(1.0, 12, 8), slMat(0, top + 30, 0), { smooth: true, tint: k.neonP }); slGlow(0, top + 30, 0, 14, k.neonP, 0.8);
-  // THE RINGS: a 6 m balcony round the tower at each height, a railing round its edge with gaps for the lifts, the drop, the bridges
-  for (const y of T.rings) { const R = T.rh;
-    for (const [x0, z0, x1, z1] of [[-R, h, R, R], [-R, -R, R, -h], [h, -h, R, h], [-R, -h, -h, h]])
-      slBox('concrete', x0, y - 1.2, z0, x1, y, z1, { top: 'paving', bev: 0.05, solid: true, tag: 'sk8 ring', tint: 0xf2eaf8, base: y - 1.2, skip: '' });
-    slBox('neon', -R - 0.02, y - 0.75, -R - 0.02, R + 0.02, y - 0.6, R + 0.02, { bev: 0, tint: y === 24 ? k.neonP : k.neonC, skip: 'yY' });
-    const e = R - 0.3, W = [[e, -e], [e, e], [-e, e], [-e, -e]];       // round the square anticlockwise from its south-east corner
-    // gaps, in arc length from the SE corner (side length 2e): east side 0..2e, north 2e..4e, west 4e..6e, south 6e..8e
-    const gp = [[e + 10 - 3.6, e + 10 + 3.6], [5 * e + 10 - 3.6, 5 * e + 10 + 3.6]];   // the two lifts: east side s = z + e, west side s = 4e + (e - z)
-    if (y === 24) gp.push([e - 5.6, e + 5.6]);                                          // the drop, east side z -5..5
-    if (y === 40) for (const c of [3 * e, 5 * e, 7 * e]) gp.push([c - 4.2, c + 4.2]);       // the north, west and south bridges
-    s3Railing(W, y, gp, 'sk8 ring ' + y, true); }
+  const T = S3.tower, C = S3.core;
+  solidAdd(0, 0, T.h, T.h, 0, T.top, 0, { top: true, tag: 'sk8 tower' });
+  // THE DECK: a ring floor from the shaft to the drum's edge (collider only -- the art draws it), the drum under it solid
+  const upTri = (a, b, c) => { const ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]); if (ny >= 0) triAdd(...a, ...b, ...c); else triAdd(...a, ...c, ...b); };
+  for (let i = 0; i < 64; i++) { const A = 2 * Math.PI * i / 64, B = 2 * Math.PI * (i + 1) / 64, y = T.deck;
+    const a = acRP(0, 0, T.h - 0.4, A, y), b = acRP(0, 0, T.dr, A, y), c = acRP(0, 0, T.dr, B, y), d = acRP(0, 0, T.h - 0.4, B, y); upTri(a, b, c); upTri(a, c, d); }
+  acRingSolid(0, 0, (T.h + T.dr) / 2, T.dr - T.h, T.deck - 6, T.deck - 0.05, 32, 'sk8 drum', false);
+  // ITS RAILING: a low solid wall under each arc (the deck's edge is not a cliff to roll off), the art's rail on top to grind
+  for (const [a0, a1] of C.arcs) { const n = Math.ceil((a1 - a0) / 4), pts = [];
+    for (let i = 0; i < n; i++) { const A = (a0 + (a1 - a0) * (i + 0.5) / n) * D2R, hl = C.ar * Math.tan((a1 - a0) / n / 2 * D2R) + 0.04;
+      solidAdd(C.ar * Math.sin(A), C.ar * Math.cos(A), hl, 0.2, T.deck, T.deck + 0.95, A, { top: false, tag: 'sk8 deck railing' }); }
+    for (let i = 0; i <= n * 2; i++) { const A = (a0 + (a1 - a0) * i / (n * 2)) * D2R; pts.push([C.ar * Math.sin(A), C.ay, C.ar * Math.cos(A)]); }
+    S3.rails.push({ pts, name: 'sk8 deck rail', art: 1 }); }
+  // THE ART'S PADS, THE PORCH, THE TERRACE: boxes, floors on top
+  for (const [x0, x1, z0, z1, y, nm] of C.pads) solidAdd((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, y - 1, y, 0, { top: true, tag: 'sk8 pad ' + nm });
+  for (const [x0, x1, z0, z1, y] of C.blocks) solidAdd((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0, y, 0, { top: true, tag: 'sk8 porch' });
+  // THE STAND-IN until the art lands (and for good if it never does: the chip says NO SKY ART)
+  const g = new THREE.Group(), M = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }), box = (x0, x1, y0, y1, z0, z1, c) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), M(c)); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); g.add(m); };
+  box(-9.6, 9.6, 0, T.top, -9.6, 9.6, 0xf4e6dc);
+  { const m = new THREE.Mesh(new THREE.CylinderGeometry(T.dr, T.dr - 3, 6, 32), M(0xf6c6e2)); m.position.y = T.deck - 3; g.add(m); }
+  for (const [x0, x1, z0, z1, y] of C.pads) box(x0, x1, y - 1, y, z0, z1, 0xf6c6e2);
+  for (const [x0, x1, z0, z1, y] of C.blocks) box(x0, x1, 0, y, z0, z1, 0xd9cdf2);
+  { const m = new THREE.Mesh(new THREE.ConeGeometry(5, 28, 8), M(0xd9cdf2)); m.position.y = T.top + 14; g.add(m); }
+  g.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); scene.add(g); S3.stand = g;
+  SKYART.onLoad.SK8_TOWER = () => { g.visible = false; };
 }
-// THE DROP: a filleted bank from the 24 m ring's east edge to the floor, 10 m wide, walled, a down rail on each wall
+// THE DROP: a filleted bank from the art's 24 m pad's east edge to the floor, 10 m wide, walled, a down rail on each wall
 function s3Drop() {
-  const y = 24, F = { x: 16, z: 0, yaw: Math.PI / 2, y: 0 }, s = Math.tan(22 * D2R), a = 2, Lt = y / s + 2 * a, w = 5, N = Math.ceil(Lt / 0.6), k = S3.col;
+  const y = 24, F = { x: S3.core.pads[0][1], z: S3.dropZ, yaw: Math.PI / 2, y: 0 }, s = Math.tan(22 * D2R), a = 2, Lt = y / s + 2 * a, w = 5, N = Math.ceil(Lt / 0.6), k = S3.col;
   for (let i = 0; i < N; i++) { const u0 = Lt * i / N, u1 = Lt * (i + 1) / N, y0 = acSlope(u0, y, s, a), y1 = acSlope(u1, y, s, a);
     slQuad('concrete', acP(F, u0, -w, y0), acP(F, u1, -w, y1), acP(F, u1, w, y1), acP(F, u0, w, y0), [0, 1, 0], { solid: true, tint: 0xf4e8f6, base: 0 });
     for (const sg of [-1, 1]) {   // the walls: 0.6 over the surface, drawn down to the floor, solid as steps
@@ -3097,7 +3189,7 @@ function s3Drop() {
     if (y1 > 1) { const m = acP(F, (u0 + u1) / 2, 0, 0); solidAdd(m[0], m[2], (u1 - u0) / 2 + 0.02, w, 0, Math.min(y0, y1) - 0.05, 0, { top: false, tag: 'sky drop body' }); } }
   for (const sg of [-1, 1]) { const pts = []; for (let u = 0.6; u <= Lt; u += 1.2) { const p = acP(F, u, sg * (w + 0.35), acSlope(u, y, s, a) + 0.6 + 0.05); pts.push(p); }
     S3.rails.push({ pts, name: 'sky drop rail', bare: 1 }); }
-  S3.drop = { Lt, toe: 16 + Lt };
+  S3.drop = { Lt, toe: F.x + Lt };
 }
 // A FLOATING PAD: a slab with rock under it, a parapet with gaps, a railing on the parapet, its own little park
 function s3Pad(p) {
@@ -3133,6 +3225,88 @@ function s3Bridge(a, b, y0, y1, w) {
     w, wallH: 0.9, rail: true, led: S3.col.neonC, thick: 1.0, side: 'concrete', top: 'paving', lamps: [0.25, 0.5, 0.75], tags: [[0.3, 1, 'push', 1.4], [0.6, -1, 'alien', 1.2]] });
   return d;
 }
+// r98: WHERE HIS ART GOES, and the colliders that make the parts she can reach rideable. Every number below a placement is
+// a measurement of that file (its flat up-facing patches and its parts' bounds), in the file's own frame, turned with it.
+const S3ISLES = [
+  // T: the target isle (SKY_ISLAND_12, top 18.23 over its origin, r 13), between the west and north pads, a volcano on it beside
+  // the landing line (each isle's piece is kept off the line the throw lands along: a bump there is a second launch)
+  { key: 'T', f: 'SKY_ISLAND_12', x: -100, z: 100, y: 40, top: 18.23, r: 13, rr: 12.4, rim: 0.9, planters: [[3.0, -10.8, 0.95, 0.76]], kit: ['volcano', 'S', -3.3, 5.6, 0, { top: 2 }] },
+  // H: the halo isle (SKY_ISLAND_11, top 21.3, r 12.1) off the south pad, a flat bar on it, a rail down onto the bowl terrace
+  { key: 'H', f: 'SKY_ISLAND_11', x: 100, z: -100, y: 14, top: 21.3, r: 12.1, rr: 11.6, rim: 0.9, planters: [[-8.9, 4.9, 1.35, 0.95], [7.1, -7.4, 1.35, 1.0], [8.1, 6.0, 1.35, 1.2]], kit: ['rail', 'S', -4, -5, 1.004, { h: 0.6, len: 8 }] },
+];
+function s3Isle(I) {
+  const k = S3.col, upTri = (a, b, c) => { const ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]); if (ny >= 0) triAdd(...a, ...b, ...c); else triAdd(...a, ...c, ...b); };
+  skyArt(I.f, I.x, I.y - I.top, I.z, 0);
+  for (let i = 0; i < 48; i++) { const A = 2 * Math.PI * i / 48, B = 2 * Math.PI * (i + 1) / 48; upTri([I.x, I.y, I.z], acRP(I.x, I.z, I.r - 0.2, A, I.y), acRP(I.x, I.z, I.r - 0.2, B, I.y)); }
+  for (const [px, pz, hh, ht] of I.planters) solidAdd(I.x + px, I.z + pz, hh, hh, I.y - 0.5, I.y + ht, 0, { top: true, tag: 'sky isle planter' });
+  // A RIM: a thrown landing arrives at 20 m/s on a 25 m island, and without a kerb to bonk off it rolls straight into the sea
+  // (Orbital's islands learnt it first). Ours, drawn: the art's top has no edge of its own. The ring rail rides on it.
+  acRingSolid(I.x, I.z, I.rr, 0.5, I.y - 0.2, I.y + I.rim, 40, 'sky isle rim', true);
+  acWallRing('stone', I.x, I.z, I.rr + 0.25, I.y - 0.3, I.y + I.rim, 40, 1, { tint: S3.col.trim }); acWallRing('stone', I.x, I.z, I.rr - 0.25, I.y, I.y + I.rim, 40, -1, { tint: S3.col.trim });
+  acDisc('stone', I.x, I.z, I.rr - 0.25, I.rr + 0.25, I.y + I.rim, 40, { tint: S3.col.lav });
+  const pts = []; for (let i = 0; i < 64; i++) { const A = 2 * Math.PI * i / 64; pts.push([I.x + I.rr * Math.sin(A), I.y + I.rim + 0.05, I.z + I.rr * Math.cos(A)]); }
+  S3.rails.push({ pts, name: 'sky isle ' + I.key, bare: 1, closed: 1, gems: 5 });
+  { const [kind, size, u, w, yaw, o] = I.kit; kitPiece(kind, size, { x: I.x + u * Math.sin(yaw) + w * Math.cos(yaw), y: I.y, z: I.z + u * Math.cos(yaw) - w * Math.sin(yaw), yaw }, o); }
+  CITY.spots['isle ' + I.key] = [I.x + I.rr - 4, I.y, I.z, -Math.PI / 2]; S3.go.push('isle ' + I.key);
+}
+// a rock islet in the sea for a skyline cluster to stand on: an octagon top, three tiers down into the water
+function s3Islet(cx, cz, h, y) {
+  const k = S3.col; let A = s3Oct(h, h * 0.3), yy = y;
+  for (let i = 1; i < 7; i++) slTri('stone', [A[0][0] + cx, y, A[0][1] + cz], [A[i + 1][0] + cx, y, A[i + 1][1] + cz], [A[i][0] + cx, y, A[i][1] + cz], { tint: 0xc9b8e6 });
+  for (const [dh, dy] of [[-2, 8], [6, 10], [10, 14]]) { const B = s3Oct(h - dh, (h - dh) * 0.3);
+    for (let i = 0; i < 8; i++) { const j = (i + 1) % 8, n = [(A[i][1] - A[j][1]), 0, -(A[i][0] - A[j][0])];
+      slQuad('stone', [A[i][0] + cx, yy, A[i][1] + cz], [A[j][0] + cx, yy, A[j][1] + cz], [B[j][0] + cx, yy - dy, B[j][1] + cz], [B[i][0] + cx, yy - dy, B[i][1] + cz], n.map(v => -v), { tint: (i & 1) ? k.rock : k.rock2 }); }
+    A = B; h -= dh; yy -= dy; }
+}
+function s3Art() {
+  const k = S3.col, Pz = S3.plaza, pad = q => S3.pads.find(p => p.key === q);
+  // THE HERO: SK8_TOWER, a quarter turn so its pads and gaps land where `S3.core` says, its axis on the origin
+  skyArt('SK8_TOWER', -0.2, 0, 0.25, -Math.PI / 2);
+  // THE START PLAZA: his logo plaza, its 15 m disc on our plaza's centre and 4 cm down (its slab is 6 cm thick, we ride at 0)
+  skyArt('START_PLAZA', Pz.x - 1.1, -0.04, Pz.z + 0.8, 0);
+  { const R = (dx, dz) => [Pz.x + dx, Pz.z + dz], B = (dx, dz, hx, hz, y1, tag) => { const [x, z] = R(dx, dz); solidAdd(x, z, hx, hz, 0, y1, 0, { top: true, tag }); };
+    acRingSolid(Pz.x, Pz.z, 2.4, 1.2, 0, 0.89, 16, 'plaza planter', true); B(0, 0, 1.75, 1.75, 0.89, 'plaza planter');
+    const pts = []; for (let i = 0; i < 40; i++) { const A = 2 * Math.PI * i / 40; pts.push([Pz.x + 3.05 * Math.sin(A), 0.99, Pz.z + 3.05 * Math.cos(A)]); }
+    S3.rails.push({ pts, name: 'plaza coping', art: 1, closed: 1 });
+    B(-21.5, 3.5, 0.3, 0.3, 12, 'plaza sign'); B(-21.5, -9.5, 0.3, 0.3, 12, 'plaza sign');
+    B(-15, -15, 1.1, 1.05, 0.79, 'plaza totem'); B(-15, -15, 0.8, 0.75, 13, 'plaza totem');
+    for (const [dx, dz, w, d] of [[-15.8, 5, 1.5, 2.5], [-12.2, -11.2, 2.1, 2.2], [-3.7, 16.2, 2.6, 1.4], [3.7, -16.1, 2.6, 1.4], [12.2, 11.3, 2.1, 2.2], [15.9, -4.9, 1.5, 2.5]]) B(dx, dz, w / 2, d / 2, 0.54, 'plaza bench');
+    for (const [dx, dz] of [[-14.1, 7], [-9.3, -12.7], [4.5, 15.2], [9.8, -12.3]]) B(dx, dz, 0.12, 0.12, 4.2, 'plaza lamp'); }
+  // THE ISLES she can reach, and how: a pad on the west pad throws her to T, a rail from T down onto the north pad;
+  // a pad on the south pad throws her to H, a rail from H down onto the bowl terrace
+  for (const I of S3ISLES) s3Isle(I);
+  { const T = S3ISLES[0], H = S3ISLES[1], Wp = pad('west'), N = pad('north'), Sp = pad('south');
+    const throwTo = (from, I, nm) => { const [lx, lz, ly] = from, d = Math.hypot(lx - I.x, lz - I.z), tx = I.x + (lx - I.x) / d * 6, tz = I.z + (lz - I.z) / d * 6;
+      ORB.launch.push({ x: lx, z: lz, y: ly, r: 1.7, tx, ty: I.y + 0.6, tz, apex: 12, cool: 0, name: nm });     // high: a flat throw lands at 40 m/s
+      slGeo('neon', new THREE.TorusGeometry(1.55, 0.14, 6, 28).rotateX(Math.PI / 2), slMat(lx, ly + 0.06, lz), { tint: k.neonC }); slGlow(lx, ly + 1, lz, 4, k.neonC, 0.6);
+      return { x: lx, z: lz, y: ly, tx, tz }; };
+    S3.isleT = throwTo([Wp.x + 6, Wp.z + 9, Wp.y], T, 'isle T pad'); S3.isleH = throwTo([Sp.x + 9, Sp.z + 2, Sp.y], H, 'isle H pad');
+    // T -> the north pad: a 45 down its diagonal, then east over the parapet, landing south of the pad's quarter pipe
+    { const W = [[T.x + T.rr, T.z], [T.x + T.rr + 40, T.z + 40], [N.x - 11, N.z - 13]], P = acPoly(W, 5, 1.0); let L = 0; const sl = [0];
+      for (let i = 1; i < P.length; i++) { L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); sl.push(L); }
+      S3.rails.push({ pts: P.map(([x, z], i) => [x, T.y + T.rim + 0.05 + (N.y + 1.3 - T.y - T.rim - 0.05) * sl[i] / L, z]), name: 'isle T rail', tube: 1, maxV: 20, gems: 8 }); }
+    // H -> the bowl terrace: west along the isle's edge over the sea, then north over the rim onto the terrace's free corner
+    { const W = [[H.x - H.rr, H.z], [77, H.z], [77, -79]], P = acPoly(W, 4, 1.0); let L = 0; const sl = [0];
+      for (let i = 1; i < P.length; i++) { L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); sl.push(L); }
+      S3.rails.push({ pts: P.map(([x, z], i) => [x, H.y + H.rim + 0.05 + (KSZ.XL.H + 1.0 - H.y - H.rim - 0.05) * sl[i] / L, z]), name: 'isle H rail', tube: 1, maxV: 18, gems: 6 }); } }
+  // FAR AWAY, FOR THE SKYLINE ONLY (`far`: no shadows, nothing to ride): the crystal isle, a garden, small isles,
+  // and six clusters of his buildings and lighthouse towers on rock islets in the sea
+  skyArt('SKY_ISLAND_10', -250, -20, -170, 0.6, { far: 1 });
+  skyArt('GARDEN_NORTH', -30, 15, 255, 0.4, { far: 1 });
+  for (const [f, x, y, z, yaw] of [['SKY_ISLAND_01', -195, 30, 70, 0.2], ['SKY_ISLAND_08', 60, 42, 235, 1.1], ['SKY_ISLAND_09', 215, 22, 55, 2.3], ['SKY_ISLAND_01', -60, 18, -235, 2.9], ['SKY_ISLAND_08', 175, 58, -195, 0.8], ['SKY_ISLAND_09', -215, 50, 210, 1.7]])
+    skyArt(f, x, y, z, yaw, { far: 1 });
+  for (const [cx, cz, tw, bs] of [[-320, 120, 'TOWER_A', ['BUILDING_09', 'BUILDING_04', 'BUILDING_12']], [-300, -110, 'TOWER_D', ['BUILDING_03', 'BUILDING_06', 'BUILDING_15']],
+      [60, -330, 'TOWER_E', ['BUILDING_10', 'BUILDING_14', 'BUILDING_09']], [330, 40, 'TOWER_G', ['BUILDING_04', 'BUILDING_15', 'BUILDING_06']],
+      [120, 330, 'TOWER_A', ['BUILDING_12', 'BUILDING_03', 'BUILDING_14']], [-210, 300, 'TOWER_E', ['BUILDING_10', 'BUILDING_09']], [300, -230, 'TOWER_D', ['BUILDING_14', 'BUILDING_12']]]) {
+    const y = -16, d = Math.hypot(cx, cz), bx = cx / d, bz = cz / d, sx = -bz, sz = bx, face = Math.atan2(-bx, -bz);
+    s3Islet(cx, cz, 36, y);
+    skyArt(tw, cx + bx * 10, y, cz + bz * 10, face, { far: 1 });
+    bs.forEach((f, i) => { const side = [-1, 1, 0][i], fwd = i === 2 ? -14 : -4; skyArt(f, cx + sx * side * 17 + bx * fwd, y, cz + sz * side * 17 + bz * fwd, face + (i - 1) * 0.35, { far: 1 }); }); }
+  // WATERFALLS: off the base's rim and the pads' outer edges into the sea, stretched to reach it (`s` is uniform, so the
+  // long ones are just the long files)
+  for (const [f, x, y, z, yaw] of [['WATERFALL_BIGSOUTHFALL', -99, -0.4, -35, 0], ['WATERFALL_HALOFALL', -40, -0.4, 99, 1.57], ['WATERFALL_CRYSTALFALL', 40, -0.4, -99, 1.57],
+      ['WATERFALL_PLAZAFALL', -84, -0.4, -84, 0.78], ['WATERFALL_S', 84, -0.4, 84, 0.78], ['WATERFALL_HALOSOUTHFALL', 99, -0.4, -45, 0]]) skyArt(f, x, y, z, yaw);
+}
 function sk8World() {
   CITY.on = 0; SLC.built = 1; SLC.canal = { x0: -480, x1: 454, z0: -480, z1: 480 }; SLC.WY = -45; SLC.railQ = []; SLC.railC = [];
   _slseed = 3131; const k = S3.col;
@@ -3141,7 +3315,7 @@ function sk8World() {
   try {
     s3Base(); s3Tower(); s3Drop();
     // the drop's quarter pipe XL at the east edge, square to it
-    { const S = KSZ.XL; kitPiece('qp', 'XL', { x: S3.h - 0.7 - S.lip - KITW.deck, y: 0, z: 0, yaw: Math.PI / 2 }, { w: 24 }); }
+    { const S = KSZ.XL; kitPiece('qp', 'XL', { x: S3.h - 0.7 - S.lip - KITW.deck, y: 0, z: S3.dropZ, yaw: Math.PI / 2 }, { w: 24 }); }
     // THE CELLS: tested combos, each entered from the side that faces the tower
     const cb = (key, x, z, yaw) => { const d = COMBO_DEFS.find(q => q.key === key); if (d) comboBuild(d, { x, y: 0, z, yaw }); };
     cb('spine_wave', 0, 34, 0); cb('stair_sets', -36, -10, -Math.PI / 2); cb('euro_gap', -36, 14, -Math.PI / 2); cb('funbox_gaps', 0, -36, Math.PI);
@@ -3158,9 +3332,8 @@ function sk8World() {
       CITY.spots['sk8 bowl'] = [B.x - R + 2, Y, B.z + R - 2, Math.PI * 0.75]; }
     // THE START PLAZA (south-west): painted rings, lamps, a halo ring rail floating over it and a pad to throw her up to it
     { const Pz = S3.plaza;
-      for (const [r0, r1, t] of [[7.6, 8.2, k.neonP], [13.6, 14.2, k.neonC], [19.6, 20, k.gold]]) acDisc('neon', Pz.x, Pz.z, r0, r1, 0.012, 48, { tint: t });
-      slDecal('decal', 'sameplanet', [Pz.x, 0.02, Pz.z], [1, 0, 0], [0, 0, -1], 9, null, 0.01);
-      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + 0.3; slLamp(Pz.x + Math.cos(a) * 23, 0, Pz.z + Math.sin(a) * 23); }
+      // r98: his START_PLAZA stands here (`s3Art`); only the gold ring outside its 15 m disc is ours
+      acDisc('neon', Pz.x, Pz.z, 19.6, 20, 0.012, 48, { tint: k.gold });
       const hy = 12, hr = 9, pts = []; for (let i = 0; i < 48; i++) { const a = i / 48 * Math.PI * 2; pts.push([Pz.x + Math.cos(a) * hr, hy, Pz.z + Math.sin(a) * hr]); }
       S3.rails.push({ pts, name: 'sky halo', bare: 1, closed: 1, gems: 4 });
       slGeo('neon', new THREE.TorusGeometry(hr, 0.12, 6, 48).rotateX(Math.PI / 2), slMat(Pz.x, hy - 0.2, Pz.z), { tint: k.neonP }); slGlow(Pz.x, hy, Pz.z, 22, k.neonP, 0.18);
@@ -3172,11 +3345,19 @@ function sk8World() {
       CITY.spots['sk8 start'] = [Pz.x + 14, 0, Pz.z + 14, Math.PI / 4]; }
     // THE PADS, and how you get to them
     const pad = q => S3.pads.find(p => p.key === q);
-    const N = pad('north'), Wp = pad('west'), Sp = pad('south'), NE = pad('ne'), R = S3.tower.rh;
-    N.gaps = [[0, N.z - N.h, 4.2], [N.x + N.h, N.z + 16, 2.5]]; Wp.gaps = [[Wp.x + Wp.h, 0, 4.2], [Wp.x + 14, Wp.z - Wp.h, 4.6]]; Sp.gaps = [[0, Sp.z + Sp.h, 4.2], [Sp.x - Sp.h, Sp.z - 13, 4.6]];
+    const N = pad('north'), Wp = pad('west'), Sp = pad('south'), NE = pad('ne'), Tw = S3.tower, Cp = S3.core.pads;
+    N.gaps = [[N.x, N.z - N.h, 4.2], [N.x + N.h, N.z + 16, 2.5]]; Wp.gaps = [[Wp.x + Wp.h, Wp.z, 4.2], [Wp.x + 14, Wp.z - Wp.h, 4.6]]; Sp.gaps = [[Sp.x, Sp.z + Sp.h, 4.2], [Sp.x - Sp.h, Sp.z - 13, 4.6]];
     NE.gaps = [[NE.x - NE.h, NE.z + 1.6, 2.5], [NE.x + 11, NE.z - NE.h, 2.5]];
     for (const p of S3.pads) s3Pad(p);
-    S3.bridges = [s3Bridge([0, R - 0.6], [0, N.z - N.h + 0.6], 40, N.y, 7), s3Bridge([-R + 0.6, 0], [Wp.x + Wp.h - 0.6, 0], 40, Wp.y, 7), s3Bridge([0, -R + 0.6], [0, Sp.z + Sp.h - 0.6], 40, Sp.y, 7)];
+    // north off the deck's north gap (50 -> 36); west off the north 32 m pad (32 -> 30); south off the south-east 32 m pad (32 -> 24)
+    S3.bridges = [s3Bridge([N.x, Math.sqrt(Tw.dr * Tw.dr - N.x * N.x) - 0.3], [N.x, N.z - N.h + 0.6], Tw.deck, N.y, 7),
+      s3Bridge([Cp[2][0] + 0.3, Wp.z], [Wp.x + Wp.h - 0.6, Wp.z], Cp[2][4], Wp.y, 7),
+      s3Bridge([Sp.x, Cp[1][2] + 0.3], [Sp.x, Sp.z + Sp.h - 0.6], Cp[1][4], Sp.y, 7)];
+    // the north 32 m pad is reached by a pad on the ground north of the tower (the deck overhangs it, so the throw comes up beside the drum)
+    { const P2 = Cp[2], tx = (P2[0] + P2[1]) / 2 - 1, tz = P2[3] - 2.2, lx = tx, lz = 30;
+      ORB.launch.push({ x: lx, z: lz, y: 0, r: 1.7, tx, ty: P2[4] + 0.6, tz, apex: 1.5, cool: 0, name: 'tower pad' });
+      slGeo('neon', new THREE.TorusGeometry(1.55, 0.14, 6, 28).rotateX(Math.PI / 2), slMat(lx, 0.06, lz), { tint: k.gold }); slGlow(lx, 1, lz, 4, k.gold, 0.6);
+      S3.towerPad = { x: lx, z: lz, tx, tz, y: P2[4] }; }
     // the booster from the north pad up to the high one, and the long down rail from it back to the base
     { const a = [N.x + N.h - 4, N.y + 0.95, N.z + 16], b = [NE.x - NE.h + 4, NE.y + 0.95, NE.z + 1.6], pts = [];
       for (let i = 0; i <= 40; i++) { const t = i / 40, e = Math.min(1, Math.max(0, (t - 0.06) / 0.86)); pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * t]); }
@@ -3185,12 +3366,14 @@ function sk8World() {
       for (let i = 1; i < pts.length; i++) { L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sl.push(L); }
       const top = NE.y + 0.95, flat = 7.5;
       S3.rails.push({ pts: pts.map(([x, z], i) => [x, sl[i] < flat ? top : sl[i] > L - 5 ? 1.0 : top + (1.0 - top) * (sl[i] - flat) / (L - 5 - flat), z]), name: 'sky long rail', tube: 1, maxV: 18, gems: 12 }); }
+    s3Art();
     // the tower plaza's corners: palms in planters, lamps on the avenues' edges (clear of the drop, the lifts, the banks)
     for (const [x, z] of [[26, 26], [-26, 26], [26, -26], [-26, -26]]) { slPlanter(x, 0, z, 3, 3, 0.6); slPalm(x, 0.6, z, 5.2, x * z > 0 ? 0xff9ad2 : 0xc9a2ff); }
     for (const [x, z] of [[9, 28], [-9, 28], [-28, 9], [-28, -9], [9, -28], [-9, -28], [28, 12], [28, -12]]) slLamp(x, 0, z);
     // stops
-    CITY.spots['sk8 tower 40'] = [0, 40, R - 3, 0]; CITY.spots['sk8 drop'] = [R - 3, 24, -2, Math.PI / 2];
-    S3.go.unshift('sk8 start', 'sk8 drop', 'sk8 tower 40', 'sk8 bowl');
+    CITY.spots['sk8 deck'] = [N.x, Tw.deck, 13, 0]; CITY.spots['sk8 drop'] = [(Cp[0][0] + Cp[0][1]) / 2 - 2, 24, (Cp[0][2] + Cp[0][3]) / 2, Math.PI / 2];
+    CITY.spots['sk8 pad 32'] = [(Cp[1][0] + Cp[1][1]) / 2, 32, (Cp[1][2] + Cp[1][3]) / 2 + 2, Math.PI];
+    S3.go.unshift('sk8 start', 'sk8 drop', 'sk8 deck', 'sk8 pad 32', 'sk8 bowl');
   } finally { Object.assign(KCOL, KC); for (const q in Tn) KSZ[q].tint = Tn[q]; }
   triBuild(); solidBuild();
   kitRailsDraw();
@@ -3201,6 +3384,7 @@ function sk8World() {
     if (R.tube) { slTube('orange', top, 0.07); let acc = 99; for (let i = 0; i < top.length; i++) { if (i) acc += Math.hypot(top[i][0] - top[i - 1][0], top[i][2] - top[i - 1][2]); if (acc < 6) continue; acc = 0;
         const [x, y, z] = top[i], g = groundAt(x, z, y - 0.2, 0), y0 = g.hit ? g.floor : -45; if (y - y0 < 14 && y - y0 > 0.3) slGeo('metal', new THREE.CylinderGeometry(0.05, 0.07, y - y0, 6, 1, true), slMat(x, (y + y0) / 2, z), { smooth: true }); } }
     else if (R.bare) slTube('metal', R.closed ? top.concat([top[0]]) : top, 0.04);
+    else if (R.art) { /* r98: drawn by his art (the tower's deck railing) */ }
     else top = slRailing(top, 1.0, { step: 2 });
     const opt = { name: R.name, boost: R.boost || 0, boostK: R.boost ? 10 : 0, maxV: R.maxV || (R.boost ? 22 : 0) };
     const P = R.closed ? railLoop(top.map(V), opt) : railPath(top.map(V), opt); S3.paths.push(P);
@@ -3209,11 +3393,12 @@ function sk8World() {
   railLink();
   ORB.built = 1; splashMake(m => scene.add(m));
   // THE LIFTS (0.25 / 12 / 24 / 40, a stop at each) and THE FERRY (west pad <-> south pad)
-  const stops = [0.25, 12, 24, 40, 24, 12], leg = 5;
-  for (const [lx, lz, ph] of [[S3.tower.rh + 3.2, 10, 0], [-S3.tower.rh - 3.2, -10, 15]]) {
-    const m = dynHex(3.6, 0xf2ecfa, k.neonC), p = { x: lx, y: 0.25, z: lz, cr: 3.1, mesh: m, kind: 'lift',
-      fn: (t) => { const u = ((t + ph) % (stops.length * leg)) / leg, i = Math.floor(u), f = u - i, a = stops[i], b = stops[(i + 1) % stops.length];
-        const e = f < 0.45 ? 0 : (f - 0.45) / 0.55, s = e * e * (3 - 2 * e); return [lx, a + (b - a) * s, lz]; } };
+  // THE LIFTS (`S3.core.lifts`): the cargo deck up the east face (ground, the 24 m pad, the 32 m pad), the deck lift in the south gap
+  for (const L of S3.core.lifts) {
+    const m = dynRect(L.hx, L.hz, 0xf2ecfa, k.neonC), stops = L.stops, n = stops.length, leg = L.leg, ph = L.ph;
+    const p = { x: L.x, y: stops[0], z: L.z, hx: L.hx, hz: L.hz, cr: Math.hypot(L.hx, L.hz), mesh: m, kind: 'lift', stops, leg,
+      fn: (t) => { const u = ((t + ph) % (n * leg)) / leg, i = Math.floor(u), f = u - i, a = stops[i], b = stops[(i + 1) % n];
+        const e = f < 0.45 ? 0 : (f - 0.45) / 0.55, s = e * e * (3 - 2 * e); return [L.x, a + (b - a) * s, L.z]; } };
     DYN.list.push(p); S3.lifts.push(p); }
   { const Wp = S3.pads.find(p => p.key === 'west'), Sp = S3.pads.find(p => p.key === 'south'), A = [Wp.x + 14, Wp.y, Wp.z - Wp.h - 4.1], B = [Sp.x - Sp.h - 4.1, Sp.y, Sp.z - 13];
     const m = dynHex(4.6, 0xfbe8f2, k.neonP), P0 = 28, p = { x: A[0], y: A[1], z: A[2], cr: 4.1, mesh: m, kind: 'ferry',
@@ -3234,6 +3419,20 @@ function dynHex(R, col, neon) {
     const pod = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.2, R * 0.24, 0.6, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0x5a5f78, side: THREE.DoubleSide })); pod.position.set(fx, -0.95, fz); g.add(pod);
     const glow = new THREE.Mesh(new THREE.CircleGeometry(R * 0.19, 12), new THREE.MeshBasicMaterial({ color: neon, transparent: true, opacity: 0.85 })); glow.rotation.x = Math.PI / 2; glow.position.set(fx, -1.2, fz); g.add(glow);
     const fan = new THREE.Mesh(new THREE.BoxGeometry(R * 0.36, 0.05, 0.12), new THREE.MeshStandardMaterial({ color: 0x2a2f44 })); fan.position.set(fx, -0.9, fz); g.add(fan); fans.push(fan); }
+  g.traverse(o => { if (o.material) o.material.userData = { noHole: true }; });
+  scene.add(g); return { g, fans };
+}
+// r98: a RECTANGULAR lift -- a slab with a neon rim and a fan in each quarter (the cargo deck is 9 x 20 m)
+function dynRect(hx, hz, col, neon) {
+  const g = new THREE.Group();
+  const top = new THREE.Mesh(new THREE.BoxGeometry(hx * 2, 0.7, hz * 2), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, metalness: 0.2 })); top.position.y = -0.35; g.add(top);
+  const nm = new THREE.MeshBasicMaterial({ color: neon });
+  for (const [w, d, x, z] of [[hx * 2, 0.12, 0, hz - 0.1], [hx * 2, 0.12, 0, -hz + 0.1], [0.12, hz * 2, hx - 0.1, 0], [0.12, hz * 2, -hx + 0.1, 0]]) { const r = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, d), nm); r.position.set(x, 0.02, z); g.add(r); }
+  const fans = [], nx = hx > 3 ? 2 : 1, nz = Math.max(1, Math.round(hz / hx)) * nx, R = Math.min(hx / nx, hz / nz) * 0.7;
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const fx = -hx + hx * 2 * (i + 0.5) / nx, fz = -hz + hz * 2 * (j + 0.5) / nz;
+    const pod = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.1, 0.6, 14, 1, true), new THREE.MeshStandardMaterial({ color: 0x5a5f78, side: THREE.DoubleSide })); pod.position.set(fx, -0.95, fz); g.add(pod);
+    const glow = new THREE.Mesh(new THREE.CircleGeometry(R * 0.95, 14), new THREE.MeshBasicMaterial({ color: neon, transparent: true, opacity: 0.85 })); glow.rotation.x = Math.PI / 2; glow.position.set(fx, -1.2, fz); g.add(glow);
+    const fan = new THREE.Mesh(new THREE.BoxGeometry(R * 1.8, 0.05, 0.14), new THREE.MeshStandardMaterial({ color: 0x2a2f44 })); fan.position.set(fx, -0.9, fz); g.add(fan); fans.push(fan); }
   g.traverse(o => { if (o.material) o.material.userData = { noHole: true }; });
   scene.add(g); return { g, fans };
 }
@@ -8345,7 +8544,7 @@ function stepDyn(t) {
   for (const D of DYN.list) {
     const [x, y, z] = D.fn(t), dx = x - D.x, dy = y - D.y, dz = z - D.z;
     // CARRY: standing on it (on the ground, not on a rail, inside it, at its height), she goes where it goes
-    if (p.grounded && !p.grind && Math.hypot(p.pos.x - D.x, p.pos.z - D.z) < D.cr + 0.05 && Math.abs(p.pos.y - D.y) < 0.2) { p.pos.x += dx; p.pos.y += dy; p.pos.z += dz; p.onDyn = D; }
+    if (p.grounded && !p.grind && dynIn(D, p.pos.x, p.pos.z, 0.05) && Math.abs(p.pos.y - D.y) < 0.2) { p.pos.x += dx; p.pos.y += dy; p.pos.z += dz; p.onDyn = D; }
     D.x = x; D.y = y; D.z = z;
     if (D.mesh) { D.mesh.g.position.set(x, y, z); for (const f of D.mesh.fans) f.rotation.y += 0.6; }
   }
@@ -11988,7 +12187,7 @@ function hud(dt) {
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : '') +
       // a console warning is invisible on a phone, and "the sky never loaded" looks like "it is meant to be grey"
-      (LOOK.failed ? ' · NO SKY IMG' : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
+      (LOOK.failed ? ' · NO SKY IMG' : '') + (WORLD.zones === 3 && SKYART.failed.length ? ' · NO SKY ART ' + SKYART.failed.length + '/' + SKYART.want : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
@@ -12452,6 +12651,7 @@ async function init() {
   if (WORLD.zones === 2) { CITY.goMsg = 'RAMP KIT PARK -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('RAMP KIT PARK', '#6fcfff'); } catch (e) {} }
   // r45: the city's pictures come down AFTER she is skating -- the boxes and the collider are already up
   if (!WORLD.zones && !PARKD.on) { kitLoad(); hydLoad(); levelImports(LEVEL.imports); }
+  if (WORLD.zones === 3) skyArtLoad();                       // r98: his skyline pack, the tower first, after she is skating
   document.getElementById('boot').classList.add('gone');
   setTimeout(() => { const b = document.getElementById('boot'); if (b && b.parentNode) b.parentNode.removeChild(b); }, 700);
 }
@@ -12463,7 +12663,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  PARKD, parkDistrict, LINKS, S3, sk8World, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

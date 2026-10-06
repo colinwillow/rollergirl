@@ -32,7 +32,9 @@ s = s.replace(/<b id="buildN">[^<]*<\/b>/, `<b id="buildN">${next}</b>`);
 const DIRS = ['parks', 'images', 'models', 'models/kit', 'models/props', 'models/ramps', 'models/chars', 'audio', 'audio/songs', 'audio/skateboarding_sound_effects', 'audio/jetpack_sound'];
 // r64: every zone folder he drops into `zones/` is hashed with no edit here -- a new folder is the one thing this
 // list has always been forgotten for, and a zone is a folder per zone by construction
-try { for (const d of fs.readdirSync('zones', { withFileTypes: true })) if (d.isDirectory()) DIRS.push('zones/' + d.name); } catch (e) {}
+// r98: AND ONE LEVEL DOWN -- his asset pack lives in `zones/zone_skyline/assets_skyline/`, and `readdirSync` is not recursive
+try { for (const d of fs.readdirSync('zones', { withFileTypes: true })) if (d.isDirectory()) { DIRS.push('zones/' + d.name);
+  for (const e of fs.readdirSync('zones/' + d.name, { withFileTypes: true })) if (e.isDirectory()) DIRS.push('zones/' + d.name + '/' + e.name); } } catch (e) {}
 const EXT = /\.(png|jpe?g|webp|glb|mp3|ogg|wav|json)$/i;      // r73: a park schematic is fetched too
 const map = {};
 for (const d of DIRS) {
