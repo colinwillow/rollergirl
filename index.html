@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r125</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r126</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r125';
+const BUILD = 'r126';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
+const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -839,10 +839,11 @@ LOOK.bright = LOOK.style > 0 ? 1 : 0;
 // Remembered under its own key; `?world=park|zones|kit` in the URL overrides it for one load.
 const WORLD = { zones: 0, fallY: -40, at: undefined };   // r65: the built-in park is the default again; his zones are one ⚙ switch away
 try {
-  const v = localStorage.getItem('rg.world'); if (v === '0' || v === '1' || v === '2' || v === '3') WORLD.zones = +v;
+  const v = localStorage.getItem('rg.world'); if (v === '0' || v === '1' || v === '2' || v === '3' || v === '4') WORLD.zones = +v;
   const q = new URLSearchParams(location.search || '').get('world');
-  if (q === 'park') WORLD.zones = 0; else if (q === 'zones') WORLD.zones = 1; else if (q === 'kit') WORLD.zones = 2; else if (q === 'sky') WORLD.zones = 3;
+  if (q === 'park') WORLD.zones = 0; else if (q === 'zones') WORLD.zones = 1; else if (q === 'kit') WORLD.zones = 2; else if (q === 'sky') WORLD.zones = 3; else if (q === 'weirdport') WORLD.zones = 4;
 } catch (e) {}
+if (WORLD.zones === 4) { LOOK.style = 2; LOOK.bright = 1; }      // r126: his city is lit the way weirdport lights it
 if (LOOK.style === 2) {
   // weirdport's measured numbers: imgK 1.35 for the sky, envInt .35 of that for the bounce
   Object.assign(LOOK, { hdri: 'images/hdri_game.png', exposure: 1.0, envI: 0.47, bgI: 1.35, blurW: 0, fogNear: 60, fogFar: 280 });
@@ -4892,7 +4893,22 @@ function levelFn(o, place, name, st) {
   else kitFlush(m0, 'fn:' + o.name);
   st.fn = (st.fn || 0) + 1; return true;
 }
-function levelIngest(vis, col, place, name) {
+// r126: THE CONNECTED PARTS OF A MESH, as lists of world points. Positions are welded to a millimetre first -- an export
+// that splits vertices at every hard edge would otherwise read every face of a box as its own part.
+function meshParts(pos, idx, W) {
+  const n = pos.count, id = new Int32Array(n), key = new Map();
+  for (let i = 0; i < n; i++) { const k = Math.round(pos.getX(i) * 1000) + ',' + Math.round(pos.getY(i) * 1000) + ',' + Math.round(pos.getZ(i) * 1000);
+    let v = key.get(k); if (v === undefined) { v = key.size; key.set(k, v); } id[i] = v; }
+  const par = new Int32Array(key.size); for (let i = 0; i < par.length; i++) par[i] = i;
+  const find = a => { while (par[a] !== a) { par[a] = par[par[a]]; a = par[a]; } return a; };
+  const m = idx ? idx.count : n;
+  for (let t = 0; t + 2 < m; t += 3) { const a = find(id[idx ? idx.getX(t) : t]); for (let k = 1; k < 3; k++) { const b = find(id[idx ? idx.getX(t + k) : t + k]); if (a !== b) par[b] = a; } }
+  const out = new Map(), seen = new Set();
+  for (let i = 0; i < n; i++) { if (seen.has(id[i])) continue; seen.add(id[i]); const r = find(id[i]); let L = out.get(r); if (!L) out.set(r, L = []); L.push(W(i)); }
+  return [...out.values()];
+}
+function levelIngest(vis, col, place, name, opt) {
+  opt = opt || {};     // r126: `split` (a box mesh holding many boxes), `noCells`, `cast`, `alpha` (keep RGBA colour), `cell` (merge per cell), `skip(o)`
   const st = { meshes: 0, mats: 0, floors: 0, boxes: 0, cells: 0, rails: 0 };
   const _p = new THREE.Vector3();
   if (vis) {
@@ -4903,7 +4919,7 @@ function levelIngest(vis, col, place, name) {
     const buckets = new Map();
     vis.traverse(o => {
       if (/^fn_/.test(o.name)) { levelFn(o, place, name, st); return; }
-      if (!o.isMesh || /^col_/.test(o.name)) return;
+      if (!o.isMesh || /^col_/.test(o.name) || (opt.skip && opt.skip(o))) return;
       // r64: KEPT INDEXED. `toNonIndexed` tripled every vertex, and a zone is half a million triangles -- 70 MB of
       // floats for nothing. Every member gets an index (a plain 0..n one if it had none) so a bucket can merge.
       const g0 = o.geometry, g = g0.clone();
@@ -4911,22 +4927,32 @@ function levelIngest(vis, col, place, name) {
       for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
       for (const k of ['normal', 'uv', 'color']) {
         const a = g.attributes[k]; if (!a) continue;
-        const n = k === 'uv' ? 2 : 3, out = new Float32Array(a.count * n);
-        for (let i = 0; i < a.count; i++) { out[i * n] = a.getX(i); out[i * n + 1] = a.getY(i); if (n === 3) out[i * n + 2] = a.getZ(i); }
+        const n = k === 'uv' ? 2 : k === 'color' && opt.alpha ? a.itemSize : 3, out = new Float32Array(a.count * n);
+        for (let i = 0; i < a.count; i++) { out[i * n] = a.getX(i); out[i * n + 1] = a.getY(i); if (n >= 3) out[i * n + 2] = a.getZ(i); if (n === 4) out[i * n + 3] = a.getW(i); }
         g.setAttribute(k, new THREE.Float32BufferAttribute(out, n));
       }
       g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(place, o.matrixWorld));
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       const m = mats[0];
-      if (!buckets.has(m)) buckets.set(m, []);
-      buckets.get(m).push(g); st.meshes++;
+      // r126: MERGED PER CELL AS WELL AS PER MATERIAL when asked -- one mesh per material spanning a whole city is always on
+      // screen, so nothing is ever culled (the slice's own lesson, r54). Weirdport merges per 48 m cell for the same reason.
+      let key = m;
+      if (opt.cell) { g.computeBoundingSphere(); const c = g.boundingSphere.center; key = (m && m.uuid) + '|' + Math.floor(c.x / opt.cell) + ',' + Math.floor(c.z / opt.cell); }
+      if (!buckets.has(key)) buckets.set(key, { m, gs: [] });
+      buckets.get(key).gs.push(g); st.meshes++;
     });
-    for (const [m, gs] of buckets) {
+    for (const { m, gs } of buckets.values()) {
       const want = ['normal', 'uv', 'color'].filter(k => gs.some(g => g.attributes[k]));
+      const cn = Math.max(3, ...gs.map(g => g.attributes.color ? g.attributes.color.itemSize : 3));
       for (const g of gs) for (const k of want) {
+        if (k === 'color' && g.attributes.color && g.attributes.color.itemSize !== cn) {      // r126: RGB beside RGBA, padded to RGBA
+          const a = g.attributes.color, out = new Float32Array(a.count * 4);
+          for (let i = 0; i < a.count; i++) { out[i * 4] = a.getX(i); out[i * 4 + 1] = a.getY(i); out[i * 4 + 2] = a.getZ(i); out[i * 4 + 3] = 1; }
+          g.setAttribute('color', new THREE.Float32BufferAttribute(out, 4)); continue;
+        }
         if (g.attributes[k]) continue;
         if (k === 'normal') { g.computeVertexNormals(); continue; }
-        const n = k === 'uv' ? 2 : 3, a = new Float32Array(g.attributes.position.count * n);
+        const n = k === 'uv' ? 2 : k === 'color' ? cn : 3, a = new Float32Array(g.attributes.position.count * n);
         if (k === 'color') a.fill(1);
         g.setAttribute(k, new THREE.Float32BufferAttribute(a, n));
       }
@@ -4934,12 +4960,12 @@ function levelIngest(vis, col, place, name) {
       if (!merged) { console.warn('[level] could not merge material ' + (m && m.name)); continue; }
       merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged, m);
-      mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = 'level:' + name + ':' + (m && m.name);
+      mesh.castShadow = opt.cast == null ? true : !!opt.cast; mesh.receiveShadow = true; mesh.name = 'level:' + name + ':' + (m && m.name);
       scene.add(mesh); st.mats++;
     }
     // HIS GENERATOR'S ROOTS SAY WHICH CELLS ARE BUILDING AND HOW TALL, and that is the wall collider: the
     // export bakes no box for an intact wall (weirdport builds those out of chunk boxes).
-    vis.traverse(o => {
+    if (!opt.noCells) vis.traverse(o => {
       const u = o.userData || {};
       if (!u.cells || !u.heights) return;
       let cells, hts; try { cells = JSON.parse(u.cells); hts = JSON.parse(u.heights); } catch (e) { return; }
@@ -5032,6 +5058,14 @@ function levelIngest(vis, col, place, name) {
           triAdd(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); st.floors++;
         }
       } else if (/^(bld|solid|prop)_/.test(nm)) {
+        // r126: ONE MESH CAN HOLD A WHOLE STREET OF BOXES. Weirdport's `prop_street`, `prop_tree_trunks` and `solid_posts`
+        // are each every bench, trunk and post in the city in ONE mesh -- and its bounding box is the city. Split by
+        // connected parts first (positions welded, then shared indices), and each part is its own box.
+        if (opt.split && pos.count > 8) {
+          for (const pts of meshParts(pos, idx, W)) { const B = obbOf(pts); if (B.y1 - B.y0 < 0.05) continue;
+            solidAdd(B.cx, B.cz, B.hx, B.hz, B.y0, B.y1, B.yaw, { tag: 'col:' + nm }); st.boxes++; st.parts = (st.parts || 0) + 1; }
+          return;
+        }
         const pts = []; for (let i = 0; i < pos.count; i++) pts.push(W(i));
         const B = obbOf(pts);
         // r64: A SLOPED PIECE EXPORTED AS ITS BOUNDING BOX. His bridges, sky bridges, the loop track and a few stairs
@@ -5106,6 +5140,92 @@ function levelIngest(vis, col, place, name) {
   if (st.fn && !col) { kitRailsDraw(); railLink(); }
   triBuild(); solidBuild();
   return st;
+}
+
+// ---- r126: WEIRDPORT CITY (`WORLD.zones` 4) -------------------------------------------------------------------------
+// *"If we can get the world we're building looking anywhere near the quality of [Weirdport], that would be a perfect world."*
+// Step one: his kit city, whole, as its own world on the LEVEL key. Three of his files, copied byte for byte from weirdport's
+// `models/toon_city_kit/` (re-copy them after every export of his there):
+//     visual      the streets, kerbs, lots, props, debris, plants, trees, the 11 hero buildings and every kit building's pipes
+//     buildings   60 kit buildings, 13k primitives -- walls, glass, doors, ivy, AC units, signs, all INTACT
+//     collision   7,693 objects in weirdport's naming, which `levelIngest` already reads: floors `road_`/`ground_`/`deck_`/
+//                 `ramp_`, boxes `bld_`/`solid_`/`prop_` -- every kit box an 8-corner box baked to world space
+// NOTHING ABOUT HOW IT LOOKS IS RE-AUTHORED HERE. His textures are KTX2 (ETC1S: small on the GPU, which is the point on a
+// phone), so the loader gets weirdport's transcoder -- imported only in this world, so the others never fetch it. His paint
+// tint (`wk_tint`: near-white texels take the vertex colour, the vertex alpha is grime) is his shader body verbatim, and his
+// anti-tiling module (`weirdkit_detile.js`) is loaded as it is and chained on after the tint, his own order.
+const WPC = { dir: 'models/wpcity/', vis: 'toon_city_visual_ktx2.glb', bld: 'toon_city_kit_buildings_ktx2.glb', col: 'toon_city_collision.glb',
+  detile: 'weirdkit_detile.js', tint: 1, cast: 0, cell: 48, fillRe: /^ground_wr_(lots|dirt)/,
+  spawn: [0, 0.05, 0, 0], stats: {}, failed: [], done: [], fill: 0, dt: -1, ktx: 0, roots: [] };
+function wpTint(m) {
+  if (!WPC.tint || !m || !m.userData || !m.userData.wk_tint || m.userData.wpTint) return 0;
+  m.userData.wpTint = 1; m.vertexColors = true;
+  m.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', [
+      '#if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )',
+      '  vec3 wkTex = diffuseColor.rgb;',
+      '  float wkMx = max(max(wkTex.r, wkTex.g), wkTex.b);',
+      '  float wkMn = min(min(wkTex.r, wkTex.g), wkTex.b);',
+      '  float wkSat = wkMx > 1e-4 ? (wkMx - wkMn) / wkMx : 0.0;',
+      '  float wkMask = clamp((wkMx - 0.28) * 2.5, 0.0, 1.0) * clamp((0.75 - wkSat) * 4.0, 0.0, 1.0);',
+      '  vec3 wkTint = vec3(clamp(wkMx * 1.25, 0.0, 1.0)) * pow(max(vColor.rgb, vec3(0.0)), vec3(1.45));',
+      '  diffuseColor.rgb = mix(wkTex, wkTint, wkMask);',
+      '  #ifdef USE_COLOR_ALPHA',
+      '    diffuseColor.rgb *= vColor.a;',
+      '  #endif',
+      '#endif'].join('\n'));
+  };
+  m.customProgramCacheKey = () => 'wk-tint';      // a custom hook needs its own cache key or three hands it someone else's program
+  m.needsUpdate = true;
+  return 1;
+}
+// his materials, once each: the tint, and sharper maps at a grazing angle (sides are r124's `solidSides`, like every world)
+function wpDress(root) {
+  const seen = new Set(); let n = 0;
+  root.traverse(o => { if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) { if (!m || seen.has(m)) continue; seen.add(m);
+      if (m.map) m.map.anisotropy = Math.min(8, renderer.capabilities && renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1);
+      n += wpTint(m); } });
+  return n;
+}
+// THE GRASS UNDER HIS OLD LOTS. The collision file's `ground_lots` has holes where weirdport's first sixty buildings stood,
+// and his kit buildings are smaller than the ones they replaced -- so the visual's own lots and dirt go into the floor too
+// (weirdport's `kcGroundCapture`, m185). Where his collision grass exists it is the same height and nothing changes.
+function wpFill(root) {
+  root.updateMatrixWorld(true); const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(); let n = 0;
+  root.traverse(o => { if (!o.isMesh || !WPC.fillRe.test(o.name || (o.parent && o.parent.name) || '')) return;
+    const pos = o.geometry.attributes.position, idx = o.geometry.index, m = idx ? idx.count : pos.count;
+    for (let t = 0; t + 2 < m; t += 3) {
+      A.fromBufferAttribute(pos, idx ? idx.getX(t) : t).applyMatrix4(o.matrixWorld); B.fromBufferAttribute(pos, idx ? idx.getX(t + 1) : t + 1).applyMatrix4(o.matrixWorld);
+      C.fromBufferAttribute(pos, idx ? idx.getX(t + 2) : t + 2).applyMatrix4(o.matrixWorld);
+      triAdd(A.x, A.y, A.z, B.x, B.y, B.z, C.x, C.y, C.z); n++; } });
+  return n;
+}
+// THE FILE'S OWN GEOMETRY IS LET GO ONCE IT IS MERGED -- `levelIngest` merged CLONES, so the root would otherwise hold the
+// whole city a second time. The materials stay on it, because the anti-tiling pass finds its partners by walking them.
+const WPC_EMPTY = new THREE.BufferGeometry();
+function wpDrop(root) { root.traverse(o => { if (o.isMesh && o.geometry !== WPC_EMPTY) { o.geometry.dispose(); o.geometry = WPC_EMPTY; } }); }
+// a marker, a ladder volume, a collider child or a detile carrier is not a picture
+const wpSkip = o => { const u = o.userData || {}; return !!(u.collider || u.dt_carrier || u.marker) || /^(col_|nav_|room_|marker)/.test(o.name || ''); };
+// THE COLLIDER AND THE STREETS ARE WAITED FOR (there is no floor without the first, and no grass without the second); the
+// buildings -- the biggest file -- land whenever they land, and the anti-tiling goes on once both pictures are in.
+async function wpCityLoad() {
+  try { const { KTX2Loader } = await import('./vendor/KTX2Loader.js');
+    loader.setKTX2Loader(new KTX2Loader().setTranscoderPath('./vendor/basis/').detectSupport(renderer)); WPC.ktx = 1;
+  } catch (e) { console.warn('[wpcity] no KTX2 loader', e); WPC.failed.push('ktx2'); }
+  const I = new THREE.Matrix4(), vopt = { noCells: 1, cast: WPC.cast, alpha: 1, cell: WPC.cell, skip: wpSkip };
+  const get = (f, what) => loadGLB(WPC.dir + f).then(g => g.scene, e => { WPC.failed.push(what); console.warn('[wpcity] ' + f + ' did not arrive', e); return null; });
+  const cP = get(WPC.col, 'collision'), vP = get(WPC.vis, 'streets'), bP = get(WPC.bld, 'buildings');
+  const [C, V] = await Promise.all([cP, vP]);
+  if (V) { wpDress(V); WPC.fill = wpFill(V); WPC.stats.vis = levelIngest(V, null, I, 'wpcity', vopt); wpDrop(V); WPC.done.push('streets'); WPC.roots.push(V); }
+  if (C) WPC.stats.col = levelIngest(null, C, I, 'wpcity', { split: 1, noCells: 1 });
+  console.log('[wpcity] streets ' + JSON.stringify(WPC.stats.vis) + ' collision ' + JSON.stringify(WPC.stats.col) + ' fill ' + WPC.fill);
+  bP.then(async B => {
+    if (B) { wpDress(B); WPC.stats.bld = levelIngest(B, null, I, 'wpcity', vopt); wpDrop(B); WPC.done.push('buildings'); WPC.roots.push(B); console.log('[wpcity] buildings ' + JSON.stringify(WPC.stats.bld)); }
+    try { const mod = await import('./' + A(WPC.dir + WPC.detile)); WPC.dt = mod.applyDetile(WPC.roots); console.log('[wpcity] detile ' + WPC.dt + ' materials'); }
+    catch (e) { console.warn('[wpcity] detile', e); WPC.failed.push('detile'); }
+    WPC.roots.length = 0; solidSides();
+  });
 }
 
 // ---- HYDRANTS ------------------------------------------------------------------------------------------
@@ -14473,7 +14593,7 @@ function hud(dt) {
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
-      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
+      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
       (HYD.failed ? ' · NO HYDRANT GLB' : '') + (performance.now() - (CITY.goAt || -1e9) < 3000 ? ' · → ' + CITY.goMsg : '') + (player.grind && player.grind.rail && player.grind.rail.path.name !== 'park' ? ' ' + player.grind.rail.path.name : '');
     if (gemsB) { gemsB.textContent = GEM.got; gemsN.textContent = GEM.list.length; } }
 }
@@ -14662,7 +14782,7 @@ const TAILUI = [
   ['TRAIL.alpha',    'Trail strength', 0, 1, 0.05, ''],
   ['Look (r34)', ''],
   ['LOOK.style',     'Look 0 dusk 1 robits 2 weirdport (reload)', 0, 2, 1, ''],
-  ['WORLD.zones',    'World 0 park 1 his zones 2 ramp kit 3 sk8 sky (reload)', 0, 3, 1, ''],
+  ['WORLD.zones',    'World 0 park 1 his zones 2 ramp kit 3 sk8 sky 4 weirdport (reload)', 0, 4, 1, ''],
   ['WORLD.fallY',    'Zones: fall back below (m)', -120, -5, 1, ''],
   ['LEVEL.slopeFix', 'Zones: rebuild sloped decks (reload)', 0, 1, 1, ''],
   ['LOOK.exposure',  'Exposure',       0.5, 2,   0.05, ''],
@@ -14881,6 +15001,7 @@ function tailPanel() {
 const WORLDS = [[0, 'park', 'SKATE PARK', 'the built-in park and its districts'],
   [3, 'sky', 'SK8 SKY', 'the floating skate city: the tower, the drop, pads in the sky'],
   [2, 'kit', 'RAMP KIT PARK', 'the example park built from the kit, plus every piece in rows'],
+  [4, 'weirdport', 'WEIRDPORT CITY', 'his painted kit city from weirdport: streets, sixty buildings, props'],
   [1, 'zones', 'HIS ZONES', 'the Blender zones']];
 function worldGo(k, q) { try { localStorage.setItem('rg.world', String(k)); } catch (e) {} location.href = location.pathname + '?world=' + q; }
 function worldPanel() {
@@ -14916,11 +15037,12 @@ tailLoad();
 // to take the card down with it and leave a game that is unreachable over a feature it does
 // not need to be playable. The CITY and the GIRL are the two there is no game without.
 async function init() {
-  setBoot(WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : WORLD.zones === 3 ? 'building sk8 sky' : 'building the park', 0.05);
+  setBoot(WORLD.zones === 4 ? 'loading weirdport city' : WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : WORLD.zones === 3 ? 'building sk8 sky' : 'building the park', 0.05);
   if (WORLD.zones === 2 || (!WORLD.zones && PARKD.on)) await schematicLoad();      // r73: the park his schematic describes, built with the kit (r90: and the main world's park district)
   buildPark();
   // r64: HIS ZONES' COLLIDERS ARE STARTED NOW AND WAITED FOR BEFORE SHE DROPS IN -- there is no floor without them
-  const zonesCol = WORLD.zones === 1 ? levelImports(LEVEL.zones) : null;
+  const zonesCol = WORLD.zones === 1 ? levelImports(LEVEL.zones) : WORLD.zones === 4 ? wpCityLoad() : null;
+  if (WORLD.zones === 4) { SPAWN.set(WPC.spawn[0], WPC.spawn[1], WPC.spawn[2]); SPAWN.h = WPC.spawn[3]; CITY.spots['weirdport street'] = WPC.spawn.slice(); if (!LEVEL.go.includes('weirdport street')) LEVEL.go.unshift('weirdport street'); }
   // HIS PICK FIRST, THEN ANY OF THEM. A missing or half-downloaded file is one character, not
   // an empty street -- which matters most here, where one of the two is a test export that
   // may well be replaced in place while he is looking at it.
@@ -14936,13 +15058,14 @@ async function init() {
     } catch (e) { console.warn('[boot] ' + CHARS[i].file + ' did not arrive', e); }
   }
   if (!got && window.__crash) window.__crash('no character loaded\n' + CHARS.map(c => c.file).join('\n'));
-  if (zonesCol) { setBoot('loading the zones', 0.9); await zonesCol; }
+  if (zonesCol) { setBoot(WORLD.zones === 4 ? 'loading weirdport city' : 'loading the zones', 0.9); await zonesCol; }
   setBoot('drop in', 1);
   respawn();
   solidSides();      // r124: every world material both sides (imports and his art are caught as they land)
   hudGutter(); resize();
   ready = true;
   if (WORLD.zones === 3) { CITY.goMsg = 'SK8 SKY -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('SK8 SKY', '#ff6fd0'); } catch (e) {} }
+  if (WORLD.zones === 4) { CITY.goMsg = 'WEIRDPORT CITY'; CITY.goAt = performance.now(); try { toast('WEIRDPORT CITY', '#ffb347'); } catch (e) {} }
   if (WORLD.zones === 2) { CITY.goMsg = 'RAMP KIT PARK -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('RAMP KIT PARK', '#6fcfff'); } catch (e) {} }
   // r45: the city's pictures come down AFTER she is skating -- the boxes and the collider are already up
   if (!WORLD.zones && !PARKD.on) { kitLoad(); hydLoad(); levelImports(LEVEL.imports); }
@@ -14956,7 +15079,7 @@ window.rg = { SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtm
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
+  WORLD, WPC, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
   STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   HRING, hubRing, vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,

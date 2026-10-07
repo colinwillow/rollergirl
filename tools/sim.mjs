@@ -42,7 +42,7 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 (0, eval)(stubs);
 // r64: WHICH WORLD. Every case but `zones` measures the built-in park, and his zones stand on the same ground, so
 // the page is booted in the world the case is about (`rg.world` is what the game reads at load).
-globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : process.argv[2] === 'sky' ? '3' : '0');
+globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : process.argv[2] === 'sky' ? '3' : process.argv[2] === 'wpcity' ? '4' : '0');
 // r90: the main world's north district is the skate park now; the City it replaced is one switch away, and `city` boots with it
 if (process.argv[2] === 'city') globalThis.localStorage.setItem('rg.city', '1');
 
@@ -3088,6 +3088,38 @@ CASES.score = () => {
     say('a bail loses the combo', S.combo === 0 && S.total === 0, `combo ${S.combo}, total ${S.total}`); P.wasBail = false; }
   return ok;
 };
+// ---------------------------------------------------------------- weirdport city (r126)
+// His kit city's collision file through the real loader and the shipped `levelIngest` (the pictures are draco + KTX2 and are
+// not loaded here, so the grass fill from the visual is a stated gap). Does it split into sane boxes, is there a street to
+// stand on at the spawn, and does she skate the streets without going through anything.
+CASES.wpcity = async () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(50)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  if (rg.WORLD.zones !== 4) { console.log('  booted in another world -- run `npm run sim wpcity`'); return false; }
+  const g = await realGLB('models/wpcity/toon_city_collision.glb');
+  const b0 = rg.SOLID.all.length, t0 = performance.now(), st = rg.levelIngest(null, g.scene, new THREE.Matrix4(), 'wpcity', { split: 1, noCells: 1 });
+  console.log(`  ingest ${fix(performance.now() - t0, 0)} ms: ${JSON.stringify(st)}`);
+  const mine = rg.SOLID.all.slice(b0), big = mine.filter(B => Math.max(B.hx, B.hz) > 20);
+  say('the boxes split into parts', st.boxes > 5000 && st.parts > 100, `${st.boxes} boxes, ${st.parts} from split meshes`);
+  say('no box spans the city', !big.length, big.length ? big.slice(0, 5).map(B => B.tag + ' ' + fix(B.hx * 2, 0) + 'x' + fix(B.hz * 2, 0)).join('; ') : `largest ${fix(Math.max(...mine.map(B => 2 * Math.max(B.hx, B.hz))), 1)} m`);
+  const sp = rg.SPAWN, gq = rg.groundAt(sp.x, sp.z, sp.y + 1, 0.5);
+  say('a street under the spawn', gq.hit && Math.abs(gq.floor) < 0.35 && !rg.solidAt(sp.x, sp.y + 0.8, sp.z, 0.3), `floor ${fix(gq.floor, 2)}`);
+  // skate from the spawn every way round for 4 s, pushing: never under the street, never inside a box
+  let worst = 0, inside = 0, far = 0;
+  for (let k = 0; k < 8; k++) {
+    rg.respawn(); const h = k * Math.PI / 4; P.heading = P.faceH = h; rg.cam.az = h; rg.stick.L.x = 0; rg.stick.L.y = -1;
+    let d = 0; const x0 = P.pos.x, z0 = P.pos.z;
+    for (let i = 0; i < 240; i++) { rg.stepPlayer(DT); const f = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 0.3, 0.5); if (f.hit) worst = Math.max(worst, f.floor - P.pos.y);
+      if (rg.solidAt(P.pos.x, P.pos.y + 0.8, P.pos.z, -0.05)) inside++; }
+    far = Math.max(far, Math.hypot(P.pos.x - x0, P.pos.z - z0));
+  }
+  rg.stick.L.y = 0;
+  say('skating the streets: never under the floor', worst < 0.15, `worst ${fix(worst, 3)} m under`);
+  say('skating the streets: never inside a box', inside === 0, `${inside} frames inside`);
+  say('she gets somewhere', far > 15, `furthest ${fix(far, 1)} m in 4 s`);
+  return ok;
+};
+
 // ---------------------------------------------------------------- his zones (r64)
 // *"Import zone_skyline (visual + collision GLB) via LEVEL.imports at [0,0,0] ... spawn me at marker_spot spawn and
 // run the headless sim over a few rails/launchers."* The page is booted in the ZONES world (no park, no districts),
@@ -5842,10 +5874,10 @@ for (const k of Object.keys(CASES)) {
   console.log(`\n== ${k} ==`);
   let ok = false;
   // the zones case needs a page booted in the OTHER world, so a full run hands it to a process of its own
-  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky') && !only) {
+  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky' || k === 'wpcity') && !only) {
     const { spawnSync } = await import('child_process');
     const r = spawnSync(process.execPath, [process.argv[1], k], { encoding: 'utf8', maxBuffer: 64 << 20 });
-    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
+    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky|wpcity) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
   try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.LAND.flipBail = 0; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on

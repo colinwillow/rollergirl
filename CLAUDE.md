@@ -98,6 +98,27 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **WEIRDPORT CITY IS WORLD 4, AND IT IS HIS FILES, NOT A RE-BUILD (r126, `WPC`, `wpCityLoad`, `wpTint`, `wpFill`, `meshParts`,
+  `?world=weirdport`, `npm run sim wpcity`).** Step one of four for *"looking anywhere near the quality of weirdport"*: his kit
+  city whole, on the LEVEL key. `models/wpcity/` is a byte copy of weirdport's `models/toon_city_kit/` visual, buildings and
+  collision (both pictures are the `_ktx2` bakes) plus `weirdkit_detile.js`. **Re-copy them after every export of his there.**
+  - **KTX2**: `vendor/KTX2Loader.js` + its three deps + `vendor/basis/` from weirdport (identical three r180). Dynamically imported
+    and set on the shared loader ONLY in world 4, so the other worlds never fetch the 527 KB transcoder.
+  - **His paint tint** (`wk_tint`) is his shader body verbatim; Rollergirl has no global hooks to chain, so it stands alone. His
+    anti-tiling module is loaded as it is and chains on after the tint (his order). The chip says `WPC n/2 DTn`.
+  - **`levelIngest` took options for it**, all off by default so every other import is unchanged (`zones` re-run, passes):
+    `cell` merges per material PER 48 m CELL (one mesh per material across a city never culls), `alpha` keeps RGBA colour
+    (the tint's grime is the vertex alpha), `cast`, `noCells` (his kit roots carry `cells`/`heights`, and the collision file
+    already has every wall box), `skip(o)` (markers, `collider` children, `dt_carrier`s), and **`split`**:
+  - **ONE COLLISION MESH CAN BE A WHOLE STREET OF BOXES.** `prop_street`, `prop_tree_trunks` and `solid_posts` are every bench,
+    trunk and post in the city in one mesh each, and `obbOf` of that is a box the size of the city. `meshParts` splits by
+    connected parts (positions welded to a millimetre) and each part is a box: 6,374 boxes, the largest 14.6 m.
+  - **The grass under his old lots comes from the VISUAL** (`wpFill`, weirdport's `kcGroundCapture`): the collision file's lots
+    have holes where the first sixty buildings stood. The sim cannot load the visual (draco + KTX2), so that is a stated gap.
+  - **The source roots' geometry is dropped after the merge** (`wpDrop`): `levelIngest` merges clones, so keeping them is the
+    city twice in memory. Their materials stay, because the anti-tiling finds its partner textures by walking them.
+  - Shadows: the city receives and does not cast (weirdport's own call). Spawn (0, 0), a street.
+
 - **THE IDENTITY PASS STARTS AT THE HUB: A TOWN ROUND THE BANKS (r125, `HRING`, `hubRing`, `hubRingClear`, `HFLOOR`,
   `hubFloorArt`, `SLX`/`slFrame`).** *"I want the whole world to look like this [the canal street] ... we should just do an identity
   pass, zone by zone."* The hub was a 140 m lavender floor inside four blank peach banks.

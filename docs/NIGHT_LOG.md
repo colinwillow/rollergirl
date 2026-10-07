@@ -539,3 +539,10 @@ tied together by booster coasters you grind:
   signs, shutters, balconies, ivy, lamps, planters). `slFrame` runs the slice builders in a turned frame so they face all ways.
 - Floor: a warm paving band at every bank's toe, seven big painted pieces on open ground (paint only, no collider).
 - ➤ stop: the hub spawn; look up at the bank tops, or ride up a bank onto the promenade.
+
+## r126 -- WEIRDPORT CITY (world 4)
+
+His weirdport kit city, whole, as its own world on the LEVEL key (`?world=weirdport`): his visual, buildings and collision
+files copied byte for byte, KTX2 textures through weirdport's transcoder, his paint tint and anti-tiling shaders, merged per
+material per 48 m cell. Collider: 6,374 boxes (three city-wide meshes split into their parts), 31k floor triangles, 112
+rails. ➤ stop: `weirdport street`. Step 1 of 4; next is a prop and building library from it for the main world.
