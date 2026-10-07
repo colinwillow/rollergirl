@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r143</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r144</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -237,7 +237,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r143';
+const BUILD = 'r144';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -16116,23 +16116,27 @@ function wingBuild() {
   const dark = new THREE.MeshStandardMaterial({ color: 0x2a1f3d, roughness: 0.6, metalness: 0.3 });
   const metal = new THREE.MeshStandardMaterial({ color: 0x9aa3b8, roughness: 0.3, metalness: 0.8 });
   const mesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; return m; };
-  const pack = mesh(new THREE.BoxGeometry(0.30, 0.36, 0.13), dark); pack.position.set(0, 0, -0.07); g.add(pack);
-  const stripe = mesh(new THREE.BoxGeometry(0.31, 0.05, 0.14), edge); stripe.position.set(0, 0.08, -0.07); g.add(stripe);
+  const pack = mesh(new THREE.BoxGeometry(0.30, 0.36, 0.11), dark); pack.position.set(0, 0, -0.06); g.add(pack);
+  const stripe = mesh(new THREE.BoxGeometry(0.31, 0.05, 0.12), edge); stripe.position.set(0, 0.08, -0.06); g.add(stripe);
   WG.pack = pack;
+  // r144: THE PANELS LIE FLAT ALONG HER BACK -- span along her left-right (X), chord up her spine (Y), thin through her back (Z).
+  // *"The flat part would be along her back -- right now it feels like the plane goes along the top of her head."* r142 built
+  // them flat in X-Z, which is across her back like a hat brim; laid forward in flight that stood them on edge. Now, lying
+  // forward, her back is up and the wings are an airplane's: leading edge toward her head (+Y), jets blowing toward her feet.
   for (const s of [1, -1]) {
     const k = s > 0 ? 0 : 1;
     let par = g;
     for (let i = 0; i < 3; i++) {
       const L = WING.seg[i], C = WING.chord[i], jt = new THREE.Group();
-      if (i === 0) jt.position.set(s * 0.12, 0.10, -0.12); else jt.position.set(s * WING.seg[i - 1], 0.012 * (i % 2 ? 1 : -1), 0);
+      if (i === 0) jt.position.set(s * 0.12, 0.10, -0.14); else jt.position.set(s * WING.seg[i - 1], 0, -0.012 * (i % 2 ? 1 : -1));
       par.add(jt); WG.j[k].push(jt);
-      const pl = mesh(new THREE.BoxGeometry(L, 0.022, C), panel); pl.position.set(s * L / 2, 0, -C * 0.25); jt.add(pl);
-      const le = mesh(new THREE.BoxGeometry(L, 0.03, 0.035), edge); le.position.set(s * L / 2, 0.004, C * 0.25); jt.add(le);
+      const pl = mesh(new THREE.BoxGeometry(L, C, 0.022), panel); pl.position.set(s * L / 2, -C * 0.25, 0); jt.add(pl);
+      const le = mesh(new THREE.BoxGeometry(L, 0.035, 0.03), edge); le.position.set(s * L / 2, C * 0.25, -0.004); jt.add(le);
       par = jt;
     }
-    const tip = new THREE.Group(); tip.position.set(s * WING.seg[2], 0, -0.03); par.add(tip);
-    const noz = mesh(new THREE.CylinderGeometry(0.032, 0.05, 0.15, 10), metal); noz.rotation.x = Math.PI / 2; noz.position.set(0, 0, -0.06); tip.add(noz);
-    const jet = glowBall(0.12); jet.position.set(0, 0, -0.17); tip.add(jet);
+    const tip = new THREE.Group(); tip.position.set(s * WING.seg[2], -0.03, 0); par.add(tip);
+    const noz = mesh(new THREE.CylinderGeometry(0.05, 0.032, 0.15, 10), metal); noz.position.set(0, -0.06, 0); tip.add(noz);
+    const jet = glowBall(0.12); jet.position.set(0, -0.17, 0); tip.add(jet);
     WG.tips.push(tip); WG.jets.push(jet);
   }
   WG.g = g;
@@ -16144,8 +16148,10 @@ function wingFold(k) {
     const s = side ? -1 : 1, J = WG.j[side];
     for (let i = 0; i < 3; i++) {
       const u = clamp((k - i * 0.25) / 0.5, 0, 1), e = u * u * (3 - 2 * u);
-      if (i === 0) J[i].rotation.set(0, s * lerp(0.25, 0.22, e), s * lerp(-1.35, 0.14, e));
-      else J[i].rotation.set(0, s * lerp(i === 1 ? 2.85 : -2.85, 0.10, e), s * lerp(0, 0.05, e));
+      // closed: the root hangs down her back (about Z, in the plane of her back) and the outer panels fold flat over it like an
+      // accordion (about Y, the chord); open: swept back toward her feet (-Z rotation) with the tips lifted off her back (dihedral)
+      if (i === 0) J[i].rotation.set(0, s * lerp(0, 0.14, e), -s * lerp(1.35, 0.22, e));
+      else J[i].rotation.set(0, s * lerp(i === 1 ? 2.95 : -2.95, 0.05, e), -s * lerp(0, 0.06, e));
     }
   }
 }
@@ -16941,7 +16947,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { WINGROW, arcPaint, WING, WG, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { WINGROW, arcPaint, WING, WG, wingFold, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,

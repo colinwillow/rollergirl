@@ -657,3 +657,9 @@ jump: the second tap in the air propels you upward and she does a flip."*
 - A hub-ring building (r125) stood on the slice Nexus's top platform at (-89, 18): riding up the bank there met a wall. The ring now
   keeps the Nexus clear (`HRING.keep`). `npm run sim slice` had read it since r125.
 - `npm run sim trail` failed only in the full run: the blaster case's speed-skate rows left the boost's look on. Both cases tidy up.
+
+## r144 -- the wings lie along her back
+
+- The wing panels were flat across her back like a hat brim; they now lie flat along it, so flying face-down her back is up and
+  the wings are horizontal like an airplane's, leading edge toward her head and the jets blowing toward her feet. Folded, they
+  still tuck down onto the pack.

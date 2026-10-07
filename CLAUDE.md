@@ -100,6 +100,14 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE WING PANELS LIE ALONG HER BACK (r144, `wingBuild`, `wingFold`).** *"The flat part would be along her back -- right now it
+  feels like the plane goes along the top of her head, rotationally."* r142 built each panel flat in her body's X-Z plane --
+  across her back like a hat brim, so laid forward in flight they stood on edge. They are X-Y now (span left-right, chord up
+  her spine, thin through her back): lying forward, her back is up and they are an airplane's wings, leading edge toward her
+  head, the jets blowing toward her feet. Closed, the root hangs down her back about Z and the outer panels fold flat over it
+  about the chord (Y). Measured with the shipped `wingFold`: open, every panel's normal is within 14 deg of her back axis,
+  1.19 m of span a side, swept 0.24 m toward her feet and tips 0.34 m off her back; closed, the tips sit on the pack.
+
 - **THE FULL SUITE FOUND TWO THINGS THE r142 CASES COULD NOT (r143).** A hub-ring building (r125) stood on the slice Nexus's top
   platform -- `slice` had been red since r125, because r125 ran `hub`, `solid`, `inside` and `zfight` and not `slice` -- and the
   ring now keeps the Nexus clear (`HRING.keep`). And `trail` failed only after `gun`: the speed-skate rows left `boostFx` on,
