@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r111</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r112</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r111';
+const BUILD = 'r112';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3530,6 +3530,7 @@ function buildPark() {
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
   buildSlice();      // r52: the slice -- one street of the painting built to a look, west through the west gate
+  buildNorthway();   // r112: the elevated highway across the north field, and its interchange
   buildStation();    // r110: the deck at 210 m over the mothership, and the corkscrew up to it off the sky rail
   buildTram();       // r109: the Crosstown tram round the hub's south side, and its express lanes
   buildBlend();      // r108: the seams between districts dressed by their mixed cultures, and skate spots in them
@@ -3584,7 +3585,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -9420,6 +9421,64 @@ function wireRails() {
   W.built = W.made.length > 0 ? 1 : 0;
   console.log(`[high wires] ${W.made.length} strung (${W.made.map(m => `${m.a} - ${m.b} ${Math.round(m.L)} m`).join(', ')})${W.skipped.length ? ', LEFT OUT: ' + W.skipped.join('; ') : ''}`);
 }
+// ===== r112: THE NORTHWAY -- *"highway systems ... connective tissue."* An elevated skate highway across the open north field:
+// off the north edge of the Acropolis sky agora (28 m), round and east under the sky rail's line at 25-28 m, and down
+// onto the top of the Great Pyramid (22 m) -- 430 m of deck, two EXPRESS LANES (conveyors, one each way), parapets you
+// grind, piers to the ground. Near its east end, THE INTERCHANGE: a helix off its north side (the south is the park's fence), two turns down to the street,
+// with a lane UP it, so the street is on the highway too. Built in the kit phase (slDeck queues its parapet rails for
+// `sliceRails`), the collider rebuilt first so its piers can stand on what is under them -- the pyramid's face included.
+const NW = { on: 1, built: 0, stops: [], w: 8, lane: { v: 18, acc: 9, gov: 3, hw: 1.8, off: 1.9 },
+  pts: [[-214, 28, 246], [-214, 28, 256], [-208, 27.9, 270], [-192, 27.6, 280], [-160, 27.2, 284], [-60, 26.2, 285], [40, 25.0, 285], [80, 24.4, 284],
+        [104, 23.6, 280], [122, 22.8, 271], [129, 22.3, 263], [130, 22.0, 257]],
+  helix: { x: 72, r: 13, w: 6, turns: 2, merge: 20, lane: { v: 12, acc: 9, gov: 3 } } };
+function buildNorthway() {
+  if (!NW.on || WORLD.zones || !PARKD.on || !ACR.built || !PYR.built) return;
+  _slseed = 11212;
+  triBuild(); solidBuild();
+  const N = NW, w = N.w, H = N.helix, under = (x, z, y) => { const g = groundAt(x, z, y - 0.8, 60); return g.hit ? g.floor : 0; };
+  // the mainline's own curve, so the interchange can meet it at exactly its height
+  const C = new THREE.CatmullRomCurve3(N.pts.map(p => SLV(p[0], p[1], p[2])), false, 'centripetal', 0.5), CP = C.getSpacedPoints(Math.ceil(C.getLength()));
+  const yAt = x => { let b = CP[0], bd = 1e9; for (const p of CP) if (Math.abs(p.z - 285) < 6 && Math.abs(p.x - x) < bd) { bd = Math.abs(p.x - x); b = p; } return b; };
+  // the helix runs alongside the NORTH edge (heading east that is the deck's right, s +1), then circles right round (H.x, cz)
+  const m0 = yAt(H.x - H.merge), m1 = yAt(H.x), zc = m1.z + w / 2 + H.w / 2, cz = zc + H.r;
+  const inMerge = p => p.x > H.x - H.merge - 1 && p.x < H.x + 1 && Math.abs(p.z - m1.z) < 8 && p.y > m1.y - 0.6;
+  // and no RAIL on the parapets of the last stretch onto the pyramid's top (the walls stay -- without them she sails off the
+  // open end at 18 m/s): its north-west hip rail starts right there, and a
+  // swipe at it must not find the highway's railing instead
+  const atTop = p => p.x > 118 && p.z < 266, atEdge = p => p.x > 118 && p.z < 258.6;     // (and the walls stop 1.6 m short of it, clear of the hip's corner)
+  const main = slDeck({ pts: N.pts, w, wallH: 0.9, rail: true, led: 0x3ff0e0, thick: 0.7, side: 'masonry', top: 'paving',
+    wallR: (p) => !inMerge(p) && !atEdge(p), wallL: (p) => !atEdge(p), railSkip: (sd, t, p) => atTop(p), piers: { base: under, every: 10, start: 14, size: 1.4 }, lamps: [0.15, 0.35, 0.55, 0.75, 0.9], tags: [[0.3, 1, 'push', 1.3], [0.55, -1, 'alien', 1.0], [0.7, 1, 'cat', 1.1]] });
+  // THE INTERCHANGE: a straight alongside (its north wall open, the mainline's south wall open), then two turns down
+  const hp = [[H.x - H.merge, m0.y, zc], [H.x - H.merge / 2, (m0.y + m1.y) / 2, zc], [H.x, m1.y, zc]], nA = Math.ceil(H.turns * 24);
+  for (let i = 1; i <= nA; i++) { const a = 2 * Math.PI * H.turns * i / nA; hp.push([H.x + H.r * Math.sin(a), m1.y * (1 - i / nA) + 0.02 * (i / nA), cz - H.r * Math.cos(a)]); }
+  hp.push([H.x + 8, 0.02, zc], [H.x + 16, 0.02, zc]);
+  const hx = slDeck({ pts: hp, w: H.w, wallH: 0.9, rail: true, led: 0xff6fd0, thick: 0.6, side: 'masonry', top: 'paving', seg: 0.8,
+    wallL: (p) => !inMerge(p) && p.y > 0.8, wallR: (p) => p.y > 0.8 });     // no piers: two turns stand over the same ground
+  { const h = m1.y - 1, r = H.r - H.w / 2 - 0.8;     // the drum it winds round
+    slGeo('concrete', new THREE.CylinderGeometry(r, r + 0.4, h, 28), slMat(H.x, h / 2, cz), { tint: 0xe6dcf2 });
+    slGeo('neon', new THREE.TorusGeometry(r + 0.05, 0.12, 4, 40).rotateX(Math.PI / 2), slMat(H.x, h, cz), { tint: 0xff6fd0 });
+    solidAdd(H.x, cz, r * 0.7, r * 0.7, 0, h, 0, { top: false, tag: 'interchange drum' }); }
+  // the express lanes: eastbound on the north half, westbound on the south, chevrons every 6 m; the interchange's lane goes UP
+  const lane = (D, off, rev, o, name) => { let pts = D.P.map((p, i) => SLV(p.x + D.R[i][0] * off, p.y + 0.01, p.z + D.R[i][1] * off)); if (rev) pts = pts.reverse();
+    ORB.lanes.push({ pts, hw: o.hw || N.lane.hw, v: o.v, acc: o.acc, gov: o.gov, name });
+    let cum = 0, next = 3; for (let i = 0; i < pts.length - 1; i++) { const L = pts[i].distanceTo(pts[i + 1]);
+      while (next <= cum + L) { const u = (next - cum) / L, q = pts[i].clone().lerp(pts[i + 1], u); obDecal('chevron', q.x, q.y + 0.03, q.z, Math.atan2(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z), 2.6); next += 6; }
+      cum += L; } return pts; };
+  N.east = lane(main, N.lane.off, false, N.lane, 'northway east'); N.west = lane(main, -N.lane.off, true, N.lane, 'northway west');
+  N.up = lane({ P: hx.P.slice(Math.round(8 / 0.8)), R: hx.R.slice(Math.round(8 / 0.8)) }, 0, true, { ...H.lane, hw: 1.9 }, 'interchange up');     // stops 8 m short of the stub's end
+  // THE STUB'S END: the merge straight stops in the air beside the mainline, so it is walled -- drift along it and you bonk
+  { const a = hx.P[0], ry = hx.R[0], y = a.y, hw = H.w / 2;
+    solidAdd(a.x - 0.2, a.z, 0.2, hw, y - 0.3, y + 0.9, 0, { top: false, tag: 'interchange end' });
+    slBox('masonry', a.x - 0.4, y - 0.6, a.z - hw, a.x, y + 0.9, a.z + hw, { bev: 0.04 }); slBox('neon', a.x - 0.42, y + 0.6, a.z - hw, a.x + 0.02, y + 0.7, a.z + hw, { tint: 0xff6fd0, bev: 0 }); void ry; }
+  N.main = main; N.hx = hx;
+  // the seam dressing stays off the deck's shadow and the interchange's ground
+  for (const p of main.P.filter((_, i) => i % 8 === 0)) BLEND.clear.push([p.x - 9, p.z - 9, p.x + 9, p.z + 9]);
+  BLEND.clear.push([H.x - H.r - 6, cz - H.r - 6, H.x + H.r + 22, cz + H.r + 6]);
+  CITY.spots['northway'] = [-100, yAt(-100).y, yAt(-100).z, Math.PI / 2];
+  CITY.spots['interchange'] = [H.x + 18, 0.02, zc, -Math.PI / 2];
+  N.stops = ['northway', 'interchange'];
+  N.built = 1;
+}
 // ===== r106: THE LAUNCH -- *"big fucking jumps ... the sky rail ... everything so integrated."* The open south-west field
 // under the sky rail, south of the Heights. A tower with a deck at 36 m; the sky rail spirals down onto it (stick toward
 // it as you pass); a cargo lift up its north side from the street. Off the deck's west edge THE DROP: a walled 27 degree
@@ -13847,7 +13906,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

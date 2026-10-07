@@ -3854,10 +3854,11 @@ CASES.parkd = async () => {
         if (inside == null || inside < -0.01) in0++;
         else if (Math.abs(inside) < 0.06 && Math.abs(inside - outside) > 0.02) step++; } }
     say('  the seam: apron outside, floor inside, no step', m > 100 && !out0 && !in0 && !step, `${m} points along the outline, ${out0} with no apron, ${in0} with a hole, ${step} stepped`); }
-  // and the apron round it is still the ground
+  // and the apron round it is still the ground (except where r112's Northway and its interchange come down onto it)
+  const underNW = (x, z) => rg.NW && rg.NW.built && [rg.NW.main, rg.NW.hx].some(D => D.P.some(p => Math.hypot(p.x - x, p.z - z) < 5));
   { let miss = 0, k = 0; for (let x = -300.3; x < 300; x += 7.1) for (let z = 98.7; z < 320; z += 7.1) { if (x > S.x0 - 3 && x < S.x1 + 3 && z > S.z0 - 3 && z < S.z1 + 3) continue;
       const rr = Math.hypot(Math.max(0, Math.abs(x) - rg.PARK.S), Math.max(0, z - rg.PARK.S)); if (rr < rg.PARK.apronU + 0.5 || rr > rg.PARK.apronEnd - 0.5) continue;
-      k++; const f = gf(x, z, 0.5); if (f == null || Math.abs(f) > 0.01) { if (!rg.SOLID.all.some(b => Math.abs(b.cx - x) < b.hx + b.hz + 1 && Math.abs(b.cz - z) < b.hx + b.hz + 1)) miss++; } }
+      k++; const f = gf(x, z, 0.5); if (f == null || Math.abs(f) > 0.01) { if (!rg.SOLID.all.some(b => Math.abs(b.cx - x) < b.hx + b.hz + 1 && Math.abs(b.cz - z) < b.hx + b.hz + 1) && !underNW(x, z)) miss++; } }
     say('  the north apron round it is still floor', k > 500 && !miss, `${k} points, ${miss} without a floor at 0`); }
   rg.DYN.list.push(...dynKeep);
   // THE DRESSING (`parkDress`): the gateway, the shop row behind the north fence -- and the street between them still rides
@@ -4415,7 +4416,7 @@ CASES.blend = () => {
   // the weights are each district's own at its centre: the gradient has its peaks where the districts are
   { const bad = B.d.filter((q, i) => { const w = rg.blendW(q.x, q.z); return w.indexOf(Math.max(...w)) !== i; }); say('each district is its own colour at its centre', !bad.length, bad.map(q => q.key).join(', ') || `${B.d.length} of ${B.d.length}`); }
   { const c = {}; for (const p of B.placed) c[p[2]] = (c[p[2]] || 0) + 1;
-    say(`${B.placed.length} props in the seams, ${B.spotList.length} seam spots`, B.placed.length > 100 && B.spotList.length >= 6 && Object.keys(c).length >= 5, JSON.stringify(c)); }
+    say(`${B.placed.length} props in the seams, ${B.spotList.length} seam spots`, B.placed.length > 100 && B.spotList.length >= 4 && Object.keys(c).length >= 5, JSON.stringify(c)); }
   // nothing dressed where a stop or a pad stands, or on the steer run
   { const bad = []; for (const [x, z] of [...B.placed, ...B.spotList.map(s => [s.x, s.z])]) { for (const [n, sp] of Object.entries(rg.CITY.spots)) if (Math.hypot(x - sp[0], z - sp[2]) < B.keep - 6) bad.push(`${n} ${fix(Math.hypot(x - sp[0], z - sp[2]), 1)} m`);
       for (const L of rg.ORB.launch) if (Math.hypot(x - L.x, z - L.z) < 10) bad.push(`pad ${L.name || ''}`); }
@@ -4427,6 +4428,58 @@ CASES.blend = () => {
         const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); });
       const past = (P.pos.x - S.x) * fx + (P.pos.z - S.z) * fz; if (r.bail || r.deep > 0.12 || past < 2) bad.push(`${S.key}@${fix(S.x, 0)},${fix(S.z, 0)} ${lane ? 'kicker' : 'funbox'}: ${r.bail ? 'BAIL ' : ''}${r.deep > 0.12 ? 'INSIDE ' + fix(r.deep) + ' ' : ''}past ${fix(past, 1)}`); }
     say('every seam spot rolls through: over the funbox, off the kicker', !bad.length, bad.join('; ') || `${B.spotList.length} spots, both lanes`); }
+  return ok;
+};
+// r112: THE NORTHWAY -- its deck clear and continuous, both ways end to end (the sky agora to the Great Pyramid's top and
+// back), the express lanes, UP the interchange from the street onto the highway and DOWN it again, the stops, a parapet grind.
+CASES.northway = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const N = rg.NW; if (!N.built) { console.log('  the northway was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), H = N.helix, G = rg.PYR.ps[0], I = rg.ACR.IS;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  // steers down a deck's own line (offset `off` across it: a lane), looking further ahead the faster she goes
+  const follow = (D, dir, off = 0) => { const pts = D.P.map((p, i) => [p.x + D.R[i][0] * off, p.z + D.R[i][1] * off]); if (dir < 0) pts.reverse(); return () => { let bi = 0, bd = 1e9;
+      for (let i = 0; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - P.pos.x, pts[i][1] - P.pos.z); if (d < bd) { bd = d; bi = i; } }
+      const la = Math.round(4 + P.speed * 0.6), t = pts[Math.min(pts.length - 1, bi + la)], e = pts[pts.length - 1], tx = bi + la >= pts.length ? e[0] + (e[0] - pts[pts.length - 2][0]) * 4 : t[0], tz = bi + la >= pts.length ? e[1] + (e[1] - pts[pts.length - 2][1]) * 4 : t[1];
+      const h = Math.atan2(tx - P.pos.x, tz - P.pos.z); rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = P.speed < 9 ? -1 : 0; }; };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, low: 999 }; let kq = 0, done = 0; run(sec, (t, i) => { if (done) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (process.env.NT && kq++ % (+process.env.NT) === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', P.onLane || '', fix(P.speed, 1));
+      if (P.bailT > 0) r.bail = 1; r.low = Math.min(r.low, P.pos.y);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); if (stop && stop()) done = 1; }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const len = D => D.P.reduce((a, p, i) => i ? a + p.distanceTo(D.P[i - 1]) : 0, 0);
+  say(`${fix(len(N.main), 0)} m of highway, a ${fix(len(N.hx), 0)} m interchange, ${rg.ORB.lanes.filter(l => /northway|interchange/.test(l.name)).length} lanes`, len(N.main) > 350 && rg.ORB.lanes.filter(l => /northway|interchange/.test(l.name)).length === 3, `from ${at(N.main.P[0])} to ${at(N.main.P[N.main.P.length - 1])}`);
+  // the deck: a floor at its own height all along, nothing solid across it but its parapets
+  { let gaps = 0, worst = 0; const bad = new Map();
+    for (const D of [N.main, N.hx]) D.P.forEach((p, i) => { for (const o of [-1.9, 0, 1.9]) { const x = p.x + D.R[i][0] * o, z = p.z + D.R[i][1] * o, g = rg.groundAt(x, z, p.y + 0.4, 0);
+      if (!g.hit || Math.abs(g.floor - p.y) > 0.08) { gaps++; worst = Math.max(worst, g.hit ? Math.abs(g.floor - p.y) : 99); } for (const dy of [0.5, 1.5]) { const b = rg.solidAt(x, p.y + dy, z, 0.3); if (b && b.tag !== 'interchange end') bad.set(b.tag, at(p)); } } });     // (the stub's end wall is meant to be there)
+    say('the deck is a floor all along, nothing standing on it', !gaps && !bad.size, `${gaps} gaps (worst ${fix(worst)}); ${[...bad].map(([k, v]) => k + ' at ' + v).join('; ') || 'clear'}`); }
+  { const bad = []; for (const n of N.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Northway ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${N.stops.length} stops`); }
+  // EAST: off the sky agora's north edge, the whole way, onto the Great Pyramid's top
+  { reset(); place(N.main.P[0].x, I.y + 0.3, N.main.P[0].z - 8, 0, 6); P.pos.y = I.y; let top = null;
+    const r = ride(60, follow(N.main, 1, 1.9), () => { if (!top && P.grounded && P.pos.y > G.h - 0.3 && Math.abs(P.pos.x - G.x) < G.t + 0.5 && Math.abs(P.pos.z - G.z) < G.t + 0.5) top = P.pos.clone(); return top; });     // (at 18 m/s she is across the 10 m top in half a second)
+    say('east: the sky agora to the top of the Great Pyramid', top && r.clean && r.low > G.h - 0.5, top ? `on the top at ${at(top)}, lowest ${fix(r.low)}${cl(r)}` : `ends ${at(P.pos)}, lowest ${fix(r.low)}${cl(r)}`); }
+  // WEST: off the pyramid's top, back the whole way to the sky agora
+  { reset(); place(G.x, G.h + 0.3, G.z, 0, 5); P.pos.y = G.h; let home = null;
+    const r = ride(60, follow(N.main, -1, -1.9), () => { if (!home && P.grounded && Math.abs(P.pos.y - I.y) < 0.15 && P.pos.z < N.main.P[0].z - 1) home = P.pos.clone(); return home; });
+    say('west: the pyramid\'s top back to the sky agora', home && r.clean && r.low > G.h - 0.5, home ? `on the sky agora at ${at(home)}, lowest ${fix(r.low)}${cl(r)}` : `ends ${at(P.pos)}, lowest ${fix(r.low)}${cl(r)}`); }
+  // the express lanes: hands off, each carries her up to speed its way
+  for (const [nm, pts] of [['northway east', N.east], ['northway west', N.west]]) { reset(); const k = Math.floor(pts.length * 0.3), a = pts[k], b = pts[k + 2];
+    place(a.x, a.y + 0.3, a.z, Math.atan2(b.x - a.x, b.z - a.z), 2); P.pos.y = a.y; let hi = 0, onl = 0;
+    const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; hi = Math.max(hi, P.speed); if (P.onLane === nm) onl = 1; });
+    say(`hands off on the ${nm} lane: carried up to speed`, onl && hi > 15 && r.clean, `peak ${fix(hi, 1)} m/s, ends ${at(P.pos)}${cl(r)}`); }
+  // UP the interchange from the street, onto the highway
+  { reset(); rg.goSpot('interchange'); P.vel.set(0, 0, 0); place(P.pos.x, P.pos.y + 0.3, P.pos.z, -Math.PI / 2, 4); P.pos.y = 0.02; let up = null;
+    const r = ride(40, follow(N.hx, -1), () => { if (!up && P.grounded && P.pos.y > N.hx.P[0].y - 0.4 && Math.abs(P.pos.x - (H.x - H.merge)) < 6) up = P.pos.clone(); return up; });
+    say('up the interchange from the street onto the highway', up && r.clean, up ? `on the highway at ${at(up)}` : `ends ${at(P.pos)}${cl(r)}`); }
+  // DOWN it from the highway to the street
+  { reset(); const a = N.hx.P[2], b = N.hx.P[6]; place(a.x, a.y + 0.3, a.z, Math.atan2(b.x - a.x, b.z - a.z), 5); P.pos.y = a.y; let down = null, air = 0;
+    const r = ride(40, () => { follow(N.hx, 1)(); if (!P.grounded) air += DT; }, () => { if (!down && P.grounded && P.pos.y < 0.2) down = P.pos.clone(); return down; });
+    const zc = N.hx.P[N.hx.P.length - 1].z;
+    say('down the interchange from the highway to the street', down && r.clean && air < 0.8 && Math.hypot(down.x - H.x, down.z - zc) < 14, down ? `down at ${at(down)}, ${fix(air, 2)} s in the air on the way` : `ends ${at(P.pos)}${cl(r)}`); }
   return ok;
 };
 // r111: THE HIGH WIRES -- every wire that was strung: each end over its deck, and ridden BOTH ways, on with a swipe down off the

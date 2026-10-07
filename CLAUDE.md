@@ -94,6 +94,25 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE NORTHWAY: AN slDeck HIGHWAY, AND THE THINGS ALREADY STANDING IN THE SKY DECIDED ITS LINE (r112, `NW`,
+  `buildNorthway`, `npm run sim northway`).** 378 m at 28 -> 22 m from the Acropolis sky agora's north edge (x -214) east at
+  z ~284 onto the Great Pyramid's top (130, 22, 257); two conveyors (`northway east/west`, 18 m/s); THE INTERCHANGE, a helix
+  (r 13, two turns, `interchange up` lane) off its NORTH side at x 72 down to the street.
+  - **THE SKY RAIL RUNS ALONG z 300-307 UP THERE AND ITS PARK-STATION LIFT (a DYN, cr 3.6) STANDS AT (0, 296.6).** The first
+    line (z 300) went straight through the lift's column. Probe `SKR.pts` and `SKR.lifts` before routing anything north.
+  - **THE PARK DISTRICT'S FENCE IS AT z 251.4 UP TO x 90**, so the helix cannot go south of the highway at x 56-88.
+  - **A merge stub that ends in the air is a drop.** The helix's top straight runs alongside the highway (its wall and
+    the highway's opened, `inMerge`) and stops at x 52: a fast rider drifting along it fell 25 m off the end until it got a
+    wall (`interchange end`); the up lane stops 8 m short of it.
+  - **No piers on a helix:** two turns stand over the same ground, so a pier to the upper turn is a post in the lower
+    turn's lane. It winds round a drum instead.
+  - **`railSkip` drops a railing without dropping its wall.** The last stretch onto the pyramid keeps its parapets (without
+    them she sails off the end at 18 m/s) but not their rails (the NW hip rail starts right there, and `pyramids`' hip
+    swipe grabbed the railing); the walls stop 1.6 m short of the edge (`atEdge`) or the hop to the hip hits them.
+  - Built in the kit phase with `triBuild(); solidBuild()` first, so `piers.base` can ask what is under each pier.
+  - The seam dressing is kept off it (`BLEND.clear`), which left 4 seam spots (`blend` now asks for >= 4); `parkd`'s apron
+    check exempts ground under its decks (`underNW`) the way it exempts solids.
+
 - **THE HIGH WIRES: ENDS FOUND BY WALKING THE DECK, AND A WIRE THAT DOES NOT CLEAR IS LEFT OUT (r111, `WIRE`, `wireEnd`,
   `wireNear`, `wireRails`, `npm run sim wires`).** Booster rails (16 m/s, both ways) between same-height decks of different
   districts, listed as ➤ spot name pairs in `WIRE.list`. Strung: launch deck - nimbus top (223 m at 36), acro sky - roof line

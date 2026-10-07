@@ -297,3 +297,28 @@ there grabbed the wire.
 
 **Watch for:** you arrive at ~16 m/s. On the Garage roof, hands off, you roll straight across and off the far side.
 Brake or turn when you land. Off the Launch end you roll into the big drop, which is a line in itself.
+
+---
+
+## r112 — THE NORTHWAY (the elevated highway across the north field)
+
+**➤ stops:** `northway` (on the deck), `interchange` (the street end of the helix)
+**Sim:** `node tools/sim.mjs northway` (9 rows)
+
+A skate highway 25–28 m up across the open north field, 378 m long. It starts at the north edge of the **Acropolis
+sky agora**, swings round and runs east under the sky rail's line, and comes down onto the **top of the Great
+Pyramid**. From there you drop straight down the pyramid's face into the valley and the table-top jump.
+
+- **Two express lanes** (the chevrons), one each way. Stand on one and it takes you to 18 m/s.
+- **Parapets you can grind** the whole way, lamps, and piers down to whatever is underneath (the pyramid's own face at
+  the east end).
+- **THE INTERCHANGE**, near the east end on the north side: a helix two turns round a drum, down to the street, with a
+  conveyor UP it. The street is on the highway too: ride in at the `interchange` stop and it carries you up. At the top
+  it runs alongside the highway; that stub has a wall across its far end so you can't sail off it.
+
+Measured end to end both ways (sky agora → pyramid top, pyramid top → sky agora), both lanes, up the interchange from
+the street and down it again. The route was moved off its first line because the sky rail's park-station lift stands
+at (0, 297), right where the deck would have been.
+
+**Small knock-ons:** the seam dressing keeps off the highway (4 seam spots now, was 6). The highway's railings stop
+short of the pyramid's top so a swipe there still finds the hip rail.
