@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r121</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r122</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r121';
+const BUILD = 'r122';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -12634,7 +12634,7 @@ const DASH = { on: 1, n: 0.95, win: 0.5, add: 4.5, cap: 30, fx: 0.45 };
 // is map 1 (r81's layout), now the default again: RIGHT tap = jump (straight up and back on vert), flick up on/just off
 // vert = transfer, flick down = grind (the dive), any other flick = melee; LEFT flick in the air = flip, on the ground up =
 // boost and down/sideways = slide, tap = swivel; air holds: left = turn, right = grab. Maps 2-4 stay on the panel.
-const CTRL = { map: 1, rotDelay: 0.18, grabDelay: 0.28 };
+const CTRL = { map: 1, rotDelay: 0.18, grabDelay: 0.28, rDown: 1 };     // r122 `rDown`: on the ground the right flick DOWN switches stance (0 = r71's hop onto a rail)
 const ctrl82 = () => CTRL.map > 1.5;
 const ctrl84 = () => CTRL.map > 2.5;
 const airR = () => CTRL.map > 1.5 && CTRL.map < 3.5;      // map 2/3: the RIGHT thumb turns her in the air and the left grabs
@@ -12665,6 +12665,23 @@ function boostGo(air) {
   p.boostT = BOOST.dur; p.boostFx = BOOST.fx; p.boostCool = BOOST.cool;
   trick('BOOST', 10);
   return true;
+}
+// r122: THE SPEED SKATE. *"Right stick down still swaps her between regular and fakie, right stick up does the melee -- and if you
+// HOLD right up, she does the speed skate."* The thumb held up past `at` (within 45 deg of straight up) for `hold` -- longer
+// than a flick's own window (`FLICK.let`), so a flick up is still the strike and never also this -- on the ground, on anything
+// flatter than `n`: she pushes hard, `acc` m/s^2 along her travel up to `cap` (over her ordinary top speed), in the boost's
+// look (`blade_hard` at `BOOST.rate`, the trails, the lens) for as long as the thumb stays up. Map 1 only.
+const SPEED = { on: 1, at: 0.55, hold: 0.3, acc: 9, cap: 31, n: 0.85 };
+function speedStep(dt) {
+  const p = player, R = stick.R;
+  const up = SPEED.on && !ctrl82() && R.down && R.y < -SPEED.at && Math.abs(R.x) < -R.y;
+  p.rUpT = up ? (p.rUpT || 0) + dt : 0;
+  p.speedSk = up && p.rUpT > SPEED.hold && p.grounded && !p.grind && !(p.bailT > 0) && p.n.y > SPEED.n;
+  if (!p.speedSk) return;
+  p.boostFx = Math.max(p.boostFx || 0, 0.25);
+  const v = p.vel.length(), a = Math.min(SPEED.acc * dt, Math.max(0, SPEED.cap - v));
+  if (a <= 0) return;
+  if (v > 0.5) p.vel.multiplyScalar((v + a) / v); else { p.vel.x += Math.sin(p.heading) * a; p.vel.z += Math.cos(p.heading) * a; }
 }
 function boostStep(dt) {
   const p = player;
@@ -13641,6 +13658,8 @@ function rightFlick(dx, dy) {
     return null; }
   // r71: THE SWIPE DOWN ASKS FOR A GRIND -- on the ground a hop onto the nearest rail or ledge (or, with nothing in
   // reach, the strike it always was); in the air a dive at it
+  // r122: ON THE GROUND THE SWIPE DOWN SWITCHES STANCE (`CTRL.rDown`) -- the grind is jump, then swipe down in the air
+  if (dir === 'down' && p.grounded && CTRL.rDown > 0.5) return swivel() ? 'switch' : null;
   if (dir === 'down' && GRIND.intent) { const g = grindDown(); if (g) return g; }
   if (p.grounded) {
     // r57: a swipe UP is the transfer ONLY on the steep face itself -- swiped instead of the ollie as she goes off the
@@ -13687,6 +13706,7 @@ function stepPlayer(dt) {
   stepMelee(dt);
   grabStep();
   boostStep(dt);      // r80
+  speedStep(dt);      // r122: the right pad held up
   if (!p.grounded || p.grind) p.stopT = 0;      // r84: a skid is a thing wheels do on the ground
   // r81: the dive's pose lasts until she touches anything; its trails a moment longer
   if (p.dive && (p.grounded || p.grind || p.bailT > 0)) p.dive = null;
@@ -13991,7 +14011,7 @@ function stepCam(dt) {
   // camera you spend the whole session putting back.
   // r55: in the air the right pad is the GRABS, so it does not also orbit -- held left it was swinging the lens round
   // her for the whole flight while she held the grab
-  const rx = (!p.grounded && !p.grind && MOVES.grab) ? 0 : stick.R.x;
+  const rx = (!p.grounded && !p.grind && MOVES.grab) || p.speedSk ? 0 : stick.R.x;      // r122: and a held speed skate does not swing the lens
   const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
   if (yaw) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
   if (!stick.L.down) { cam.steerAz = cam.az; cam.thA = null; }   // no left thumb: the frames agree (see stickWorld)
@@ -14344,6 +14364,9 @@ const TAILUI = [
   ['DASH.add',       'Dash boost', 0, 12, 0.5, 'm/s'],
   ['BOOST.on',       'Left flick up = boost (r80)', 0, 1, 1, ''],
   ['BOOST.add',      'Boost speed', 0, 16, 0.5, 'm/s'],
+  ['SPEED.acc',      'Speed skate push (R held up)', 0, 20, 0.5, 'm/s2'],
+  ['SPEED.cap',      'Speed skate top speed', 15, 45, 1, 'm/s'],
+  ['CTRL.rDown',     'R flick down on the ground: 1 switch stance, 0 hop onto a rail', 0, 1, 1, ''],
   ['BOOST.cap',      'Boost up to', 20, 42, 1, 'm/s'],
   ['BOOST.fov',      'Boost lens kick', 0, 20, 1, 'deg'],
   ['DASH.win',       'Dash counts after leaving', 0.1, 1.2, 0.05, 's'],
@@ -14406,7 +14429,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
+const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -14578,7 +14601,7 @@ window.rg = { SK, AIR, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, A
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

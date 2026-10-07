@@ -485,3 +485,14 @@ tied together by booster coasters you grind:
   pyramid). You get off on the island instead of flying off the far side.
 
 ➤ stops: `coaster gate`, `coaster vert`, `coaster core`, `coaster wheel`.
+
+## r122 — THE RIGHT STICK, SORTED (stance switch, melee, speed skate)
+
+- **Right stick flick down on the ground swaps regular and fakie again.** To grind, jump and then swipe down in the air,
+  the way the dive already works. (Panel: "R flick down on the ground" puts the old ground hop back.)
+- **Right stick flick up (or any other way) on the ground is still the melee**, and every ground strike still gives a
+  little boost.
+- **Hold the right stick up on the ground to speed skate**: she goes into the hard pump with the trails and the lens
+  effect, and keeps gaining speed for as long as you hold, up to 31 m/s (above her normal top speed). A quick flick up is
+  still the strike. Panel: "Speed skate push", "Speed skate top speed".
+- **Left stick flick up is still the one-shot boost.**

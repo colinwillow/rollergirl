@@ -63,6 +63,7 @@ if (!rg.ready()) { console.error('the module never became ready'); process.exit(
 // `CASES.intent` is the one that drives the swipe.
 rg.GRIND.intent = 0;
 rg.CTRL.map = 1;      // r82: every case but `ctrl` was written against the old pad layout
+rg.CTRL.rDown = 0;    // r122: and against the ground swipe down as the hop onto a rail (`ctrl98` drives the shipped stance switch)
 
 // ---- driving ----
 let DT = 1 / 60;   // a case may drop it: a phone is not 60 Hz and the gap between
@@ -2257,7 +2258,7 @@ CASES.vertair = () => {
 CASES.ctrl98 = async () => {
   let ok = true; const say = (label, good, msg) => { console.log(`  ${label.padEnd(56)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
   const D = rg.UI_DEF; say('shipped: map 1, flick-up boost off, swipe-up transfer on', D['CTRL.map'] === 1 && D['VERT.flickBoost'] === 0 && D['VERT.swipeXfer'] === 1, `map ${D['CTRL.map']}, flickBoost ${D['VERT.flickBoost']}, swipeXfer ${D['VERT.swipeXfer']}`);
-  rg.CTRL.map = D['CTRL.map']; rg.VERT.flickBoost = D['VERT.flickBoost']; rg.VERT.swipeXfer = D['VERT.swipeXfer']; rg.GRIND.intent = 1;
+  rg.CTRL.map = D['CTRL.map']; rg.VERT.flickBoost = D['VERT.flickBoost']; rg.VERT.swipeXfer = D['VERT.swipeXfer']; rg.GRIND.intent = 1; rg.CTRL.rDown = D['CTRL.rDown'];
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const keep = { m: rg.girl.moves, r: rg.girl.ready, lock: P.stanceLock };
   rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves; rg.girl.ready = false; P.stanceLock = true;
@@ -2277,7 +2278,12 @@ CASES.ctrl98 = async () => {
   { ground(4); const g = rg.groundAt(a0.x + uz / ul * 1.6 + ux / ul * 1.5, a0.z - ux / ul * 1.6 + uz / ul * 1.5, 5, 1);
     place(a0.x + uz / ul * 1.6 + ux / ul * 1.5, (g.hit ? g.floor : 0) + 0.1, a0.z - ux / ul * 1.6 + uz / ul * 1.5, Math.atan2(ux, uz), 4); clear();
     await flick(eR, R, 0, 70); let got = null; run(1.6, () => { if (P.grind && !got) got = P.grind.rail.path; });
-    say('ground beside rail 0, RIGHT swipe down: hops onto it, grinds', got === R0, got === R0 ? 'grinding rail 0' : got ? 'grinding ' + got.name : 'no grind'); }
+    say('ground beside rail 0, RIGHT swipe down: switches stance, no grind (r122)', !got && P.stance === -1, `${got ? 'GRINDING ' + got.name : 'no grind'}, stance ${P.stance > 0 ? 'regular' : 'FAKIE'}`); }
+  // r122: THE SPEED SKATE -- the right thumb HELD up on the ground; and let go, no strike fires
+  { ground(10); run(0.1); const v0 = P.speed; let mx = 0, sk = 0; await wait(160); R.dispatchEvent(eR('pointerdown', 150, 150)); R.dispatchEvent(eR('pointermove', 150, 80));
+    run(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; mx = Math.max(mx, P.speed); if (P.speedSk) sk = 1; }); await wait(330); R.dispatchEvent(eR('pointerup', 150, 80)); run(0.05);
+    say('ground, RIGHT held up: the speed skate, and no strike on the release', sk && mx > v0 + 6 && P.boostFx > 0 && !P.mel, `${fix(v0, 1)} -> ${fix(mx, 1)} m/s${sk ? '' : ' NEVER SKATED'}${P.mel ? ', a STRIKE on release' : ''}`); }
+  { ground(10); await flick(eR, R, 0, -70); say('...and a quick flick up is still the strike, no speed skate', P.mel && P.mel.kind === 'strike' && !P.speedSk, P.mel ? P.mel.kind : 'nothing'); }
   { air(); P.pos.set(a0.x + ux / ul * 2, a0.y + 5, a0.z + uz / ul * 2); P.vel.set(ux / ul * 6, 2, uz / ul * 6); clear();
     await flick(eR, R, 0, 70); const dv = !!P.dive; let got = null; run(1.5, () => { if (P.grind && !got) got = P.grind.rail.path; });
     say('air over rail 0, RIGHT swipe down: the dive onto it', dv && !P.flip && got === R0, got === R0 ? 'grinding rail 0' : (P.flip ? 'a FLIP' : 'no grind')); }
@@ -2309,7 +2315,7 @@ CASES.ctrl98 = async () => {
     run(0.7, () => { rg.stick.R.down = 1; rg.stick.R.x = 0; rg.stick.R.y = -1; if (!P.grounded && P.grab) grab = grab || P.grab.k; });
     say('...pressed in the air and held: the grab', !!grab, grab ? `grab ${grab}` : 'NONE');
     rg.stick.R.down = 0; rg.stick.R.x = rg.stick.R.y = 0; P.grab = null; }
-  rg.girl.moves = keep.m; rg.girl.ready = keep.r; P.stanceLock = keep.lock; clear(); rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = 0;
+  rg.girl.moves = keep.m; rg.girl.ready = keep.r; P.stanceLock = keep.lock; clear(); rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = 0; rg.CTRL.rDown = 0;
   return ok;
 };
 // r86: *"Flick or tap the right stick, she launches off the vert straight up regardless -- the flick gets you a boost. Only

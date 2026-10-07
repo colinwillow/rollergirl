@@ -94,6 +94,18 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE RIGHT PAD ON THE GROUND (r122, `CTRL.rDown`, `SPEED`, `speedStep`, `npm run sim ctrl98`).** *"Right stick down still
+  swaps her between regular and fakie, right stick up does the melee -- and if you HOLD right up, she does the speed skate."*
+  - **Flick down on the ground = `swivel()`** (r82's decision again: the grind is jump, then the air swipe down). `CTRL.rDown`
+    0 is r71's ground hop. **Every sim case but `ctrl98` runs with `rDown` 0** (set at the top of `sim.mjs`, like `map` 1),
+    because they swipe onto rails from the ground. A stated gap, not a silent one.
+  - **The speed skate starts only after `SPEED.hold` (0.3 s) of a thumb held up** -- longer than `FLICK.let` (0.26), so a
+    flick up is still the strike and never also a skate, and the release of a hold fires no flick. It keeps `boostFx`
+    alive (the boost's clip, trails and lens), accelerates `acc` m/s^2 to `cap`, ground only, on floors flatter than
+    `n` (so holding up into a vert wall is not a rocket), and `stepCam` ignores the right pad's x while it runs.
+  - The ctrl98 row drives it through the REAL pad with a real-time wait over `FLICK.let` before the pointerup, or the
+    harness's own release would fire the flick it is checking does not fire.
+
 - **THE COASTER PARK: FOUR ISLANDS IN THE SKY, BOOSTER COASTERS BETWEEN THEM, A BRAKE RUN AT EVERY END (r121, `CPK`,
   `cpLine`, `buildCoaster`, `coasterRails`, `npm run sim coaster`).** Gate (alien, arch, the halo's wire in), vert (half pipe L),
   core (tower), wheel (eight DYN cabins round a 22 m wheel), 50-62 m over the north park. Tracks gate-vert (loop),
