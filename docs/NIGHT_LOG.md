@@ -361,3 +361,22 @@ beacon on a pole beside each pad; they're on the ➤ key as `shores cannon`, `ac
 
 Each throw is solved the moment you stand on the pad, against what's actually in the way, like every other launcher.
 **Landing catches you at 8 m/s**, so you arrive on a 7 m ring deck instead of shooting straight off the other side.
+
+---
+
+## r115 — THE DONUT
+
+**Sim:** `node tools/sim.mjs donut` (9 rows), plus a fifth row in `cannons`
+
+**A half pipe bent into a ring, floating 72 m over the hub.** Pink frosting, sprinkles on both decks, a dough body with a
+glowing ring under it so it reads from the street. The channel is 10 m wide between an inner wall around the hole and an
+outer wall, with a deck on each side and a parapet on each edge. Both parapets have grind rings on top: **the halo**
+(outside) and **the hole** (inside).
+
+- **Up:** the **donut cannon** on the hub plaza (-40, -40), with a green beacon like the others. It throws you into the channel.
+- **Down: THE DUNK.** Grind the halo and push the stick out, away from the middle: a booster rail branches off and winds 1.1
+  turns down around the hub onto the skyway spire's ring, where the sky helix carries on down to the plaza. Hands off, you
+  just keep going round the halo.
+- **The dunk also works upward.** Catch it low and the booster carries you all the way back up onto the halo.
+
+The ➤ key's first stop is `the donut`, and the cannon is `donut cannon`.

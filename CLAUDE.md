@@ -94,6 +94,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE DONUT: ONE PROFILE REVOLVED, BECAUSE 72 m UP THERE IS NO GROUND (r115, `DNT`, `buildDonut`, `donutRails`,
+  `donutAim`, `npm run sim donut`).** A ring half pipe over the hub (deck 72, floor 68.4, hole 12 m, outer ~36 m). The whole
+  cross-section, from the inner deck through both transitions to the outer deck, is one `[r, y, tint]` list revolved with
+  `slQuad`. Every face that looks up is `solid`, so the channel floor exists. A kit bowl's floor is the ground, and there
+  is none up here (the Pantheon's lesson again).
+  - **THE DUNK STARTS ON ONE OF THE HALO'S OWN VERTICES**, so `railLink` makes a T and the stick takes it. It kicks out at
+    about 45 deg (a branch tangent to its parent can never win `railPick`). It ends on the skyway spire's EAST ring point
+    at about 43 deg to that edge, coming in from outside the island. The west point is the sky helix's, the north is the sky span's,
+    and the south approach would pass over the sky helix's top turn.
+  - **WHICH SIDE IS "OUT" ON A RING, IN THE HARNESS:** her right is `(-fz, fx)`, so going round with increasing angle her
+    right is OUTWARD and `cam.az = travel - PI/2` points the stick there. `+PI/2` pointed it inward, and the branch row read
+    "never took it".
+  - **A cannon into the donut must stand ~50 m out from its centre**, or the rising arc passes up through the outer deck
+    (`launchSolve`'s floor test cannot fix that by raising the apex). `donutAim` aims at the channel's middle on the pad's side.
+
 - **THE CANNONS: A THROW IS NOT HELD TO `SK.max`, AND IT IS CAUGHT ON LANDING (r114, `CANNON`, `buildCannons`, `p.thrown`,
   `L.landV`, `npm run sim cannons`).** Four `ORB.launch` pads in the seams, each throwing her onto another district's deck
   (Shores transit ring, Acropolis sky agora, the Northway, the Garage roof's bowl). Each has a beacon and a ➤ stop.

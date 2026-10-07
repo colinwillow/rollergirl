@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r114</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r115</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r114';
+const BUILD = 'r115';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3558,6 +3558,7 @@ function buildPark() {
   buildSlice();      // r52: the slice -- one street of the painting built to a look, west through the west gate
   buildNorthway();   // r112: the elevated highway across the north field, and its interchange
   buildStation();    // r110: the deck at 210 m over the mothership, and the corkscrew up to it off the sky rail
+  buildDonut();      // r115: the donut ring 72 m over the hub (before the cannons: one of them throws her into it)
   buildCannons();    // r114: launch pads in the seams that throw her onto other districts' decks
   buildTram();       // r109: the Crosstown tram round the hub's south side, and its express lanes
   buildBlend();      // r108: the seams between districts dressed by their mixed cultures, and skate spots in them
@@ -3575,6 +3576,7 @@ function buildPark() {
   pyramidRails();    // r105: after the sky rail, which the obelisk drop branches off
   launchRails();     // r106: likewise its spiral
   stationRails();    // r110: the corkscrew and the parapet's grind ring
+  donutRails();      // r115: its two grind rings and the dunk down to the skyway spire
   wireRails();       // r111: the high wires between districts' decks (after every deck is in the collider)
   garageRails();     // r107: its ramps' lanes, its rail onto the Table
   acroRails();       // r92
@@ -3612,7 +3614,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(DNT.built ? DNT.stops : []), ...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -9527,11 +9529,14 @@ const CANNON = { on: 1, built: 0, stops: [], landV: 8, list: [
   { name: 'shores cannon', x: 106, z: 50, to: 'transit deck', t: [211.6, 121], apex: 10 },
   { name: 'acro cannon', x: -108, z: 60, to: 'acro sky', apex: 12 },
   { name: 'northway cannon', x: -60, z: 305, to: 'northway', apex: 4 },
-  { name: 'garage cannon', x: 200, z: 278, to: 'garage roof', t: [251, 198.5], apex: 8 }], made: [] };
+  { name: 'garage cannon', x: 200, z: 278, to: 'garage roof', t: [251, 198.5], apex: 8 },
+  { name: 'donut cannon', x: -40, z: -40, to: 'the donut', t: 'donut', apex: 12 }], made: [] };
+// the donut's channel floor, on the side facing the pad
+function donutAim(C) { const D = DNT, h = Math.atan2(C.x - D.x, C.z - D.z); return [D.x + D.Rm * Math.sin(h), D.fy, D.z + D.Rm * Math.cos(h)]; }
 function buildCannons() {
   if (!CANNON.on || WORLD.zones || !PARKD.on) return;
   triBuild(); solidBuild();
-  for (const C of CANNON.list) { const S0 = CITY.spots[C.to]; if (!S0) continue; const T = C.t ? [C.t[0], S0[1], C.t[1]] : S0;   // `t`: a nearer point on that deck
+  for (const C of CANNON.list) { const S0 = CITY.spots[C.to]; if (!S0) continue; const T = C.t === 'donut' ? donutAim(C) : C.t ? [C.t[0], S0[1], C.t[1]] : S0;   // `t`: a nearer point on that deck
     const g = groundAt(T[0], T[2], T[1] + 1, 0.5), ty = (g.hit ? g.floor : T[1]) + 0.6;
     shPad(C.x, C.z, 0, T[0], ty, T[2], C.apex); const L = ORB.launch[ORB.launch.length - 1]; L.name = C.name; L.r = 1.7; L.landV = CANNON.landV;
     // a tall beacon beside it, so a pad in an open field can be found from a distance
@@ -9542,6 +9547,85 @@ function buildCannons() {
     CITY.spots[C.name] = [C.x + 5 * Math.sin(h), 0, C.z + 5 * Math.cos(h), h + Math.PI];
     CANNON.made.push({ ...C, L, tx: T[0], ty, tz: T[2] }); CANNON.stops.push(C.name); }
   CANNON.built = CANNON.made.length ? 1 : 0;
+}
+// ===== r115: THE DONUT -- *"a floating donut ring"* (his reference sheet). A half pipe bent into a ring, 72 m over the hub:
+// a channel 10 m wide between an inner wall (round the hole) and an outer wall, a deck on each side, a parapet on each edge
+// with a grind ring on top. Frosted, with sprinkles, on a baked dough body. Up: the hub's DONUT CANNON. Down: THE DUNK, a
+// booster rail that leaves the outer ring (stick out to the side) and winds 1.1 turns down onto the skyway spire's ring --
+// and from there the sky helix runs on down to the plaza. The same rail is ridden UP off the spire's ring.
+//   It is built the way the Pantheon's floor is: a kit bowl is only its walls, and 72 m up there is no ground, so the whole
+// cross-section (deck, transition, floor, transition, deck) is one profile revolved here, every face that looks up a floor.
+const DNT = { on: 1, built: 0, stops: [], x: 0, z: 0, y: 72, hole: 12, dIn: 3, dOut: 3, floor: 10, size: 'L', par: 0.9, n: 96,
+  dunk: { turns: 6.9, r1: 44, r2: 51, kick: 0.5, end: 0.25, boost: 16, boostK: 2.5, maxV: 22 },
+  frost: 0xff8fc8, frost2: 0xffb3dc, dough: 0xd99a5a, dough2: 0xb87a40, cope: 0xfff4fb };
+function buildDonut() {
+  if (!DNT.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 11515;
+  const D = DNT, cx = D.x, cz = D.z, Y = D.y, n = D.n, S = KSZ[D.size], H = S.H, sw = S.sweep, rq = H / (1 - Math.cos(sw)), lip = rq * Math.sin(sw);
+  const cIn = D.hole + D.dIn, toeIn = cIn + lip, toeOut = toeIn + D.floor, cOut = toeOut + lip, Ro = cOut + D.dOut;
+  Object.assign(D, { H, lip, cIn, toeIn, toeOut, cOut, Ro, fy: Y - H, Rm: (toeIn + toeOut) / 2 });
+  // THE CROSS-SECTION, inner edge to outer edge: [r, y, tint]
+  const P = [[D.hole, Y, D.frost], [cIn - 0.3, Y, D.frost], [cIn, Y, D.cope]], seg = 22;
+  for (let i = seg - 1; i >= 0; i--) { const a = sw * i / seg; P.push([cIn + lip - rq * Math.sin(a), Y - H + rq * (1 - Math.cos(a)), D.frost2]); }
+  P.push([toeOut, Y - H, D.frost2]);
+  for (let i = 1; i <= seg; i++) { const a = sw * i / seg; P.push([toeOut + rq * Math.sin(a), Y - H + rq * (1 - Math.cos(a)), i === seg ? D.cope : D.frost2]); }
+  P.push([cOut + 0.3, Y, D.frost], [Ro, Y, D.frost]);
+  for (let i = 0; i < n; i++) { const A = 2 * Math.PI * i / n, B = 2 * Math.PI * (i + 1) / n, M = (A + B) / 2;
+    for (let j = 0; j < P.length - 1; j++) { const [r0, y0, t0] = P[j], [r1, y1] = P[j + 1], dr = r1 - r0, dy = y1 - y0, l = Math.hypot(dr, dy); if (l < 1e-6) continue;
+      const nr = -dy / l, ny = dr / l;
+      slQuad(j === 0 || j === P.length - 2 ? 'paving' : 'concrete', acRP(cx, cz, r0, A, y0), acRP(cx, cz, r0, B, y0), acRP(cx, cz, r1, B, y1), acRP(cx, cz, r1, A, y1),
+        [nr * Math.sin(M), ny, nr * Math.cos(M)], { solid: true, tint: t0, base: Y - H }); } }
+  // THE PARAPETS: a solid ring on each edge (a wall to her), a frosted top, and the rings' rails go on top of them
+  for (const [r, sg] of [[Ro - 0.35, 1], [D.hole + 0.35, -1]]) {
+    acRingSolid(cx, cz, r, 0.7, Y, Y + D.par, n, 'donut parapet', false);
+    acDisc('stone', cx, cz, r - 0.35, r + 0.35, Y + D.par, n, { tint: D.cope });
+    acWallRing('stone', cx, cz, r - 0.35 * sg, Y, Y + D.par, n, -sg, { tint: D.frost2, base: Y }); }
+  // THE BODY: dough, a torus flattened to a cushion under the channel, its equator meeting the rim walls; the frosting runs
+  // over the rims and down them in drips
+  const Rm = (D.hole + Ro) / 2, rt = (Ro - D.hole) / 2, ky = 0.45, yc = Y - H - 0.25 - ky * rt; D.yc = yc;
+  slGeo('plaster', new THREE.TorusGeometry(Rm, rt, 20, 96).rotateX(Math.PI / 2).scale(1, ky, 1), slMat(cx, yc, cz), { smooth: true, tint: D.dough });
+  for (const [r, sg] of [[Ro, 1], [D.hole, -1]]) {
+    acWallRing('plaster', cx, cz, r, yc, Y - 1.4, n, sg, { tint: D.dough2 });
+    acWallRing('stone', cx, cz, r, Y - 1.4, Y + D.par, n, sg, { tint: D.frost });
+    for (let i = 0; i < n; i++) { const A = 2 * Math.PI * (i + 0.5) / n, w = 0.11 + 0.05 * Math.sin(i * 1.7), d = 0.6 + 1.6 * (0.5 + 0.5 * Math.sin(i * 2.3 + r)) * (0.5 + 0.5 * Math.cos(i * 0.9)), rr = r + sg * 0.03;
+      slQuad('stone', acRP(cx, cz, rr, A - w, Y - 1.39), acRP(cx, cz, rr, A + w, Y - 1.39), acRP(cx, cz, rr, A + w * 0.4, Y - 1.4 - d), acRP(cx, cz, rr, A - w * 0.4, Y - 1.4 - d), [sg * Math.sin(A), 0, sg * Math.cos(A)], { tint: D.frost }); } }
+  // a glazed neon ring round its belly and a glow under it, so it reads from the street at dusk
+  slGeo('neon', new THREE.TorusGeometry(Rm, 0.35, 6, 96).rotateX(Math.PI / 2), slMat(cx, yc - ky * rt + 0.2, cz), { tint: 0xff6fd0 });
+  for (let i = 0; i < 8; i++) { const A = i / 8 * 2 * Math.PI; slGlow(cx + Rm * Math.sin(A), yc - ky * rt - 0.5, cz + Rm * Math.cos(A), 9, 0xff6fd0, 0.6); }
+  // SPRINKLES on both decks: a hair over the frosting, never in the collider
+  const SPR = [0xff4f6d, 0xffd84a, 0x4fd8ff, 0x8dff3a, 0xb98bff, 0xffffff, 0xff9a3a];
+  for (let k = 0; k < 520; k++) { const inner = k % 4 === 0, r = inner ? D.hole + 0.8 + slr() * (D.dIn - 1.2) : cOut + 0.5 + slr() * (D.dOut - 1.2), A = slr() * 2 * Math.PI, ang = slr() * Math.PI;
+    const c = acRP(cx, cz, r, A, Y + 0.012), ux = Math.cos(ang) * 0.16, uz = Math.sin(ang) * 0.16, vx = -Math.sin(ang) * 0.045, vz = Math.cos(ang) * 0.045;
+    slQuad('neon', [c[0] - ux - vx, c[1], c[2] - uz - vz], [c[0] + ux - vx, c[1], c[2] + uz - vz], [c[0] + ux + vx, c[1], c[2] + uz + vz], [c[0] - ux + vx, c[1], c[2] - uz + vz], [0, 1, 0], { tint: SPR[k % SPR.length] }); }
+  // gems round the channel
+  for (let i = 0; i < 18; i++) { const A = 2 * Math.PI * (i + 0.5) / 18, p = acRP(cx, cz, D.Rm, A, Y - H + 0.9); gem(p[0], p[1], p[2]); }
+  // THE DUNK's line (its rail goes in with the others, after the collider): it starts ON the outer ring at one of its own
+  // vertices -- a T, so the stick takes it -- kicks out at ~45 deg, winds down at r1, swings wide to r2 and comes in onto the
+  // skyway spire's EAST ring point at ~45 deg to that edge, so from the spire's ring the stick takes it too
+  { const K = D.dunk, I3 = SKYW.isl[2], e = [I3.x + I3.hx - SKYW.inset, I3.y + SKYW.ring, I3.z], Rr = Ro - 0.35, yr = Y + D.par + 0.05;
+    const Ae = Math.atan2(e[0] - cx, e[2] - cz), rE = Math.hypot(e[0] - cx, e[2] - cz), st = 2 * Math.PI / n;
+    const A0 = Math.round((Ae + 2 * Math.PI - K.turns) / st) * st, Phi = ((Ae - A0) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) + 2 * Math.PI;
+    const rOf = ph => { const pb = Phi - ph;
+      if (pb < K.end) { const u = pb / K.end; return rE + (K.r2 - rE) * (1 - Math.pow(1 - u, 3.3)); }
+      if (pb < 1) { const u = (pb - K.end) / (1 - K.end), s = u * u * (3 - 2 * u); return K.r2 + (K.r1 - K.r2) * s; }
+      if (ph < K.kick) { const v = ph / K.kick; return Rr + (K.r1 - Rr) * (1 - Math.pow(1 - v, 2)); }
+      return K.r1; };
+    const M = 1400, xz = []; let L = 0;
+    for (let i = 0; i <= M; i++) { const ph = Phi * i / M, A = A0 + ph, r = rOf(ph); xz.push([cx + r * Math.sin(A), cz + r * Math.cos(A)]); if (i) L += Math.hypot(xz[i][0] - xz[i - 1][0], xz[i][1] - xz[i - 1][1]); }
+    const pts = [SLV(cx + Rr * Math.sin(A0), yr, cz + Rr * Math.cos(A0))]; let s = 0, last = 0;
+    for (let i = 1; i <= M; i++) { s += Math.hypot(xz[i][0] - xz[i - 1][0], xz[i][1] - xz[i - 1][1]); if (s - last >= 1.2 || i === M) { pts.push(SLV(xz[i][0], yr + (e[1] - yr) * s / L, xz[i][1])); last = s; } }
+    pts[pts.length - 1].set(e[0], e[1], e[2]);
+    Object.assign(K, { pts, L, A0, grade: (yr - e[1]) / L, e }); }
+  CITY.spots['the donut'] = [cx + (cOut + 1.5) * Math.sin(0.3), Y, cz + (cOut + 1.5) * Math.cos(0.3), 0.3 + Math.PI / 2];
+  D.stops = ['the donut'];
+  D.built = 1;
+}
+function donutRails() {
+  if (!DNT.built) return;
+  const D = DNT, K = D.dunk, n = D.n, ring = r => { const pts = []; for (let i = 0; i < n; i++) { const p = acRP(D.x, D.z, r, 2 * Math.PI * i / n, D.y + D.par + 0.05); pts.push(SLV(p[0], p[1], p[2])); } return pts; };
+  D.halo = railLoop(ring(D.Ro - 0.35), { name: 'donut halo' }); railDraw(D.halo, { mat: 'boost', posts: false });
+  D.holeR = railLoop(ring(D.hole + 0.35), { name: 'donut hole' }); railDraw(D.holeR, { mat: 'boost', posts: false });
+  D.dunkR = railPath(K.pts, { name: 'donut dunk', boost: K.boost, boostK: K.boostK, maxV: K.maxV }); railDraw(D.dunkR, { mat: 'boost', postMax: 4 }); gemsAlong(D.dunkR, 16, 0.9, 14);
 }
 // ===== r106: THE LAUNCH -- *"big fucking jumps ... the sky rail ... everything so integrated."* The open south-west field
 // under the sky rail, south of the Heights. A tower with a deck at 36 m; the sky rail spirals down onto it (stick toward
@@ -13971,7 +14055,7 @@ window.rg = { SK, AIR, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, A
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

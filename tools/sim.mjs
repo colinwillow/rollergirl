@@ -4448,6 +4448,49 @@ CASES.cannons = () => {
     say(`${m.name}: thrown onto the ${m.to}, and stays on it`, there && !bail && kept, `${up ? 'thrown' : 'NEVER THROWN'} (${m.L.clear === 'lift' ? 'a lift' : m.L.clear === -1 ? 'NO CLEAR ARC' : '+' + m.L.clear + ' m'}), top ${fix(top, 1)}, ${land ? 'down at ' + at(land) : 'never down'}, 3 s later ${stay ? at(stay) : '-'}${bail ? ' BAIL' : ''}`); }
   return ok;
 };
+// r115: THE DONUT -- the ring 72 m over the hub: a floor all the way round the channel, both decks, riding it hands-off in
+// every direction without falling out of it or into its walls, the halo ring, the dunk off it with the stick (and not without),
+// down onto the skyway spire's ring, and back UP it on the booster.
+CASES.donut = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const D = rg.DNT; if (!D.built) { console.log('  no donut'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), K = D.dunk;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; P.thrown = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  const RP = (r, A, y) => [D.x + r * Math.sin(A), y, D.z + r * Math.cos(A)], wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
+  say('the donut', true, `deck ${fix(D.y, 1)}, floor ${fix(D.fy, 1)}, hole ${D.hole} m, channel ${fix(D.toeIn, 1)}..${fix(D.toeOut, 1)}, outer ${fix(D.Ro, 1)} m; dunk ${fix(K.L, 0)} m at ${fix(K.grade * 100, 1)}%`);
+  { let bad = []; for (let i = 0; i < 48; i++) { const A = 2 * Math.PI * (i + 0.37) / 48;
+      for (const [r, y] of [[D.toeIn + 0.4, D.fy], [D.Rm, D.fy], [D.toeOut - 0.4, D.fy], [D.hole + 1.6, D.y], [D.cOut + 1.4, D.y]]) { const p = RP(r, A, y), g = rg.groundAt(p[0], p[2], y + 1, 0); if (!g.hit || Math.abs(g.floor - y) > 0.05) bad.push(`r ${fix(r, 1)} A ${fix(A, 2)} ${g.hit ? fix(g.floor, 2) : '-'}`); } }
+    say('a floor all round the channel, and both decks', !bad.length, bad.slice(0, 4).join('; ') || '240 points'); }
+  // hands-off rides from the channel floor, along it, out into the outer wall, in at the inner one
+  for (const [nm, dh, v] of [['along the channel', 0, 14], ['out into the outer wall', -0.9, 13], ['in at the inner wall', 0.9, 13], ['along it, fast', 0.25, 20]]) {
+    reset(); const A = 0.8, p = RP(D.Rm, A, D.fy), h = A + Math.PI / 2 + dh; place(p[0], D.fy + 0.3, p[2], h, v); P.pos.y = D.fy;
+    let lo = 1e9, deep = 0, hiY = 0; run(10, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); lo = Math.min(lo, P.pos.y); hiY = Math.max(hiY, P.pos.y);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) deep = Math.max(deep, q.floor - P.pos.y); });
+    const r = Math.hypot(P.pos.x - D.x, P.pos.z - D.z);
+    say(`hands off ${nm} at ${v} m/s: she stays in the donut`, lo > D.fy - 0.3 && deep < 0.12 && r > D.hole && r < D.Ro, `lowest ${fix(lo, 2)}, highest ${fix(hiY, 1)}, ends ${at(P.pos)} (r ${fix(r, 1)})${deep >= 0.12 ? ' INSIDE ' + fix(deep) : ''}`); }
+  // the halo: a swipe down from the outer deck puts her on it
+  { reset(); const A = 2.2, p = RP(D.Ro - 1.8, A, D.y), h = A + Math.PI / 2; place(p[0], D.y + 0.3, p[2], h, 8); P.pos.y = D.y;
+    rg.GRIND.intent = 1; rg.ledgeClear(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, t = 0; run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === D.halo) { on = 1; t += DT; } });
+    say('a swipe down from the outer deck: onto the halo ring', on && t > 2, `${on ? 'on it ' + fix(t, 1) + ' s' : 'NEVER ON IT'}, ends ${at(P.pos)}`); }
+  // the dunk: grinding the halo toward where it leaves, stick out -> the dunk, down onto the spire's ring; hands off -> round the halo
+  for (const stick of [true, false]) {
+    reset(); const A = K.A0 - 0.9, p = RP(D.Ro - 0.35, A, D.y + D.par + 0.05 + 0.4), h = A + Math.PI / 2;     // heading with increasing angle, the way the dunk leaves
+    place(p[0], p[1], p[2], h, 14); P.pos.set(p[0], p[1], p[2]); P.grounded = false; P.vel.y = -1;
+    let took = 0, ring = 0, past = 0, vmax = 0;
+    run(40, () => { if (stick && P.grind) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - Math.PI / 2; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;   // square out to her right: away from the donut's middle
+      city(); if (P.grind && P.grind.rail.path === D.dunkR) { took = 1; vmax = Math.max(vmax, P.speed); } if (took && P.grind && P.grind.rail.path.name === 'sky ring') ring = 1;
+      if (!took && P.grind && P.grind.rail.path === D.halo && wrapAngle(Math.atan2(P.pos.x - D.x, P.pos.z - D.z) - K.A0) > 0.5) past = 1; });
+    if (stick) say('grinding the halo, stick out: down the dunk onto the spire\'s ring', took && ring, `${took ? 'took it' : 'NEVER TOOK IT'}, ${ring ? 'onto the sky ring' : 'ends ' + at(P.pos)}, fastest ${fix(vmax, 1)}`);
+    else say('hands off, she carries on round the halo', !took && past, took ? 'TOOK THE DUNK' : past ? 'carried on' : `ends ${at(P.pos)}`); }
+  // UP the dunk: caught 30 m up from its foot, the booster carries her to the halo
+  { reset(); const Q = rg.RAILS.filter(q => q.path === D.dunkR); let s = 0, q0 = null; for (let i = Q.length - 1; i >= 0; i--) { s += Q[i].len; if (s > 30) { q0 = Q[i]; break; } }
+    const h = Math.atan2(q0.a.x - q0.b.x, q0.a.z - q0.b.z); place(q0.b.x, q0.b.y + 0.4, q0.b.z, h, 8); P.pos.set(q0.b.x, q0.b.y + 0.4, q0.b.z); P.grounded = false; P.vel.y = -1;
+    let on = 0, top = 0, halo = 0; run(40, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === D.dunkR) on = 1; top = Math.max(top, P.pos.y); if (on && P.grind && P.grind.rail.path === D.halo) halo = 1; });
+    say('up the dunk on its booster, onto the halo', on && (halo || P.pos.y > D.fy - 0.5 && Math.hypot(P.pos.x - D.x, P.pos.z - D.z) < D.Ro), `${on ? 'on it' : 'NEVER ON IT'}, highest ${fix(top, 1)}, ${halo ? 'onto the halo' : 'ends ' + at(P.pos)}`); }
+  return ok;
+};
 // r113: THE AIR -- standing in a district for a while, the fog, the sky light and the rim lamp come round to its colour;
 // back at the hub they go back; with it off they are the plain sky's.
 CASES.atmo = () => {
