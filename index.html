@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r137</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r138</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r137';
+const BUILD = 'r138';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -558,7 +558,7 @@ const SK = {
   // last of her speed, and under `restV` she is STOPPED: velocity zero and gravity's slope term off, which is the static
   // friction a skate's bearings have. On a moving platform that is relative to the platform (`stepDyn` carries position),
   // so she rides a lift standing still. Steering still pivots her on the spot.
-  creep: 1.0, restV: 0.45, restG: 1.4,
+  creep: 1.0, creepV: 2.5, restV: 0.45, restG: 1.4,
   // AND A HELD BRAKE IS A STOP, NOT A TURN-AROUND (r131). *"If I just hold down she just goes the other way ... you can't
   // hold something to stop."* r23 let the held brake become a push the other way once she had stopped; now the latch holds
   // her stopped for as long as the thumb stays back -- on slopes up to `brakeHold` m/s^2 of pull (about 12 deg) too. To go
@@ -3718,7 +3718,7 @@ function spwDam() {
       // length of the terrace, broken only where a line crosses the lip: the chute, the staircase's landings, the drain,
       // the fish ladder's turns, the penstock. Riding off a terrace is a thing you do down a line, not by accident.
       { const [u0, u1] = spwU(F, t.v0 + 0.4), g = [], c = SPW.chute.cut, St = SPW.stair;
-        if (F.key === 'C') { g.push([70 - c - 0.8, 70 + c + 0.8], [70 + St.x - St.w / 2 - 0.5, 70 + St.x + St.w / 2 + 0.5], [79, 85]); if (i === 0) g.push([70 + St.x2 - St.w / 2 - 0.5, 70 + St.x2 + St.w / 2 + 0.5]); }
+        if (F.key === 'C') { g.push([70 - c - 0.8, 70 + c + 0.8], [70 + St.x - St.w / 2 - 0.5, 70 + St.x + St.w / 2 + 0.5], [79, 85]); g.push([70 + St.x2 - St.w / 2 - 0.5, 70 + St.x2 + St.w / 2 + 0.5]); }
         if (F.key === 'W' && i === 0) g.push([34.5, 45.5]);
         if (F.key === 'E') { if (i === 0 || i === 2) g.push([18, 26]); if (i === 1) g.push([76, 84]); }
         spwParapet(F, t.v0 + 0.4, t.y, u0 + 0.3, u1 - 0.3, g, 'terrace ' + (i + 1) + ' lip');
@@ -3842,7 +3842,7 @@ function spwStairs() {
   const St = SPW.stair, T = SPW.tiers, M = KSZ.MEGA, Lm = M.lip + KITW.deck, Lq = KSZ.S.lip + 0.5;
   SPW.ups = [];
   for (let i = 0; i < T.length; i++) { const t = T[i], yb = i ? T[i - 1].y : 0;
-    for (const x of i ? [St.x] : [St.x, St.x2]) {
+    for (const x of [St.x, St.x2]) {      // r138: two staircases, x -40 and x +40, all the way up
       const up = kitPiece('qp', 'MEGA', { x, y: yb, z: t.v0 - Lm, yaw: 0 }, { w: St.w });
       const dn = kitPiece('qp', 'S', { x, y: t.y, z: t.v0 + Lq, yaw: Math.PI }, { w: St.w, deck: 0.5 });
       SPW.ups.push({ x, tier: i, up, dn, yb, y: t.y, v0: t.v0, lipZ: t.v0 - KITW.deck }); } }
@@ -4052,7 +4052,7 @@ function spwWestPark() {
   bld(W, 'BUILDING_14', 24, 89, 24.3, 24.6, 18.5); bld(W, 'BUILDING_09', 62, 94, 14.3, 14.3, 34.4);
   bld(E, 'BUILDING_07', 50, 24.2, 9.1, 18.3, 17.8); bld(E, 'BUILDING_08', 70, 25.3, 21.6, 16.3, 15.8);
   bld(E, 'BUILDING_14', 60, 88, 24.3, 24.6, 18.5); bld(E, 'BUILDING_04', 36, 95, 12.3, 12.3, 26.6);
-  bld(C, 'BUILDING_04', 115, 27.5, 12.3, 12.3, 26.6); bld(C, 'BUILDING_09', 125, 94, 14.3, 14.3, 34.4); bld(C, 'BUILDING_12', 90, 95, 11.3, 10.6, 31.1);
+  bld(C, 'BUILDING_04', 128, 27.5, 12.3, 12.3, 26.6); bld(C, 'BUILDING_09', 125, 94, 14.3, 14.3, 34.4); bld(C, 'BUILDING_12', 90, 95, 11.3, 10.6, 31.1);
   const s = spwP(W, 30, 48, y); CITY.spots['spillway west park'] = [s[0], y, s[2], yawN]; CITY.spots['spillway intake'] = [90, 0, -30, Math.PI / 2];
   // r136: THE CREST ROAD -- a pump track of rollers along its west half toward the chute, and THE RAINBOW: a rail arched
   // across the chute's mouth, 3 m over the road, so the top of the world has a grind and a drop-in of its own
@@ -14537,9 +14537,12 @@ function stepGround(dt) {
   // r131: COMING TO REST -- see `SK.creep`. The slope's own pull along the surface is g * sin(angle) * cos(angle).
   const pull = SK.g * n.y * Math.sqrt(Math.max(0, 1 - n.y * n.y)), held = ctrl && p.braked && !go;
   let rest = false;
-  if (ctrl && !go && !skid && !(p.shoveT > 0) && (pull < SK.restG || (held && pull < SK.brakeHold))) {
+  // r138: THE CREEP IS THE TAIL, NOT THE RIDE. Applied at any speed it cost every tuned run-up in the kit (23 rows of
+  // `npm run sim kit` red at r131, 21 of them this): it acts only under `creepV`, where the exponential coast has already
+  // done its work and what is left is the slide he complained of. And a BOOST stroke is a push: the rest latch waits for it.
+  if (ctrl && !go && !skid && !(p.shoveT > 0) && !(p.boostT > 0) && (pull < SK.restG || (held && pull < SK.brakeHold))) {
     // the creep waits out `coastAfter` like the coast does, so a half pipe's flat bottom is not taxed on every crossing
-    if (pull < SK.restG && p.flatT > SK.coastAfter) along -= Math.sign(along) * Math.min(Math.abs(along), SK.creep * dt);
+    if (pull < SK.restG && p.flatT > SK.coastAfter && Math.hypot(along, lat) < SK.creepV) along -= Math.sign(along) * Math.min(Math.abs(along), SK.creep * dt);
     if (Math.hypot(along, lat) < SK.restV || (held && Math.abs(along) < 0.55)) { along = 0; lat = 0; rest = true; }
   }
   p.rest = rest;
@@ -15883,6 +15886,7 @@ const TAILUI = [
   ['SK.brakeHold',   'Held brake holds her on slopes up to', 0, 12, 0.1, 'm/s2'],
   ['SK.restV',       'Comes to rest under (r131)', 0, 1.5, 0.05, 'm/s'],
   ['SK.creep',       'Rolling stop (thumb off, flat)', 0, 3, 0.05, 'm/s2'],
+  ['SK.creepV',      'Rolling stop acts under (r138)', 0, 6, 0.1, 'm/s'],
   ['SK.restG',       'Stands still on slopes up to', 0, 4, 0.1, 'm/s2'],
   ['VERT.swipeXfer', 'Swipe up on vert = transfer, tap = straight up (r81)', 0, 1, 1, ''],
   ['VERT.flickBoost', 'Flick up on vert = boost; HOLD right up in the air = transfer (r86)', 0, 1, 1, ''],

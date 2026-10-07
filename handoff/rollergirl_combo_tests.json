@@ -52,17 +52,17 @@
    {
     "test": "a wall from the side",
     "pass": true,
-    "measured": "ends 3.26 m from its middle (R 2.5) at y 0.00"
+    "measured": "ends 3.00 m from its middle (R 2.5) at y 0.00"
    },
    {
     "test": "a wall from the side",
     "pass": true,
-    "measured": "ends 3.91 m from its middle (R 3) at y 0.00"
+    "measured": "ends 3.46 m from its middle (R 3) at y 0.00"
    },
    {
     "test": "a wall from the side",
     "pass": true,
-    "measured": "ends 2.49 m from its middle (R 1.5) at y 0.00"
+    "measured": "ends 1.98 m from its middle (R 1.5) at y 0.00"
    },
    {
     "test": "a tap beside it grinds the ring",

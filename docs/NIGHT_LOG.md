@@ -12,6 +12,16 @@ system, the sky rail, flying platforms, warehouses, fields, pyramids, alien UFOs
 
 ---
 
+## r138 — the rolling stop scoped to the tail (a fix to r131), two staircases on the Spillway
+
+r131's rolling stop (a linear creep with the thumb off on the flat) acted at any speed and drained every hands-off ride in
+the game: 23 rows of `npm run sim kit` red, `combos`, `hub`, `city` and `boost` with them. Found by running the full suite
+after the Spillway shipped; dated by bisection (`boost` passes at r130, fails at r131). The creep now acts only under
+`SK.creepV` (2.5 m/s) and the rest latch waits out a boost stroke. The Spillway's staircase is doubled: MEGA quarter pipes
+at x +40 as well as -40, all three risers.
+
+---
+
 ## r132 — THE SPILLWAY (a sixth world: `?world=spillway`, the LEVEL key)
 
 **➤ stops:** `spillway crest`, `spillway chute`, `spillway landing`, `spillway hall roof`, `spillway harbour`, `spillway plaza`,

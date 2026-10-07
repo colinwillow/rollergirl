@@ -43,8 +43,8 @@ the kicker at 20; the kicker (XL, 3.2 m lip at 34 degrees) throws her over the t
 the 6 m deck, into the QP XL at its end. *Harness: hands off from the crest, 34 m/s top, off the kicker at 20.1, down on the
 bank at 0,1.9,-61.* Steer in the channel; the walls are quarter pipes (80 degrees) you can ride up.
 
-**L8 THE STAIRCASE.** ➤ `spillway plaza`, then each terrace. A MEGA quarter pipe (9.6 m) against every riser at x -40 (and a
-second pair on the plaza at +40), a landing QP S at the lip above it facing back down, and a SURGE STRIP (boost lane, 26 m/s)
+**L8 THE STAIRCASE.** ➤ `spillway plaza`, then each terrace. A MEGA quarter pipe (9.6 m) against every riser at x -40 and
+again at x +40 (two staircases, r138), a landing QP S at the lip above it facing back down, and a SURGE STRIP (boost lane, 26 m/s)
 across each terrace into the MEGA's toe. Ride the strip, up the MEGA, swipe up at its lip: the transfer carries her 3.6 m up
 and over onto the next terrace, into the S. Three risers to the top terrace, then the crest pad. *Harness: all three risers,
 swipe at 24.5 m/s, down on each terrace.*

@@ -100,6 +100,17 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **r131's ROLLING STOP DRAINED EVERY HANDS-OFF RIDE IN THE GAME, AND THE FULL SUITE IS WHAT SAID SO (r138, `SK.creepV`).**
+  The creep -- a linear 1 m/s^2 with the thumb off on the flat -- was applied at ANY speed, so every tuned run-up lost a
+  metre a second: 23 rows of `npm run sim kit` red (roll-ins stopped on their decks, QPs short of their copings, gaps never
+  landed), `combos`, `hub`, `city` and `boost` red with it (a boost stroke from a standstill was zeroed by the rest latch
+  frame by frame: 0.0 m/s). It shipped at r131 because the full suite was not run; the Spillway's own case passed throughout.
+  **Measured by bisection, not reasoning**: `boost` passes at r130 and fails at r131; `kit` under `SKOLD='{"creep":0}'` goes
+  23 red to 1, and under creep 0 / restV 0 / brakeFlip 1 to 0. The creep is now the TAIL and not the ride: it acts only under
+  `creepV` (2.5 m/s), where the exponential coast has already done its work and what is left is the slide he complained of;
+  and the rest latch waits out a boost stroke (`p.boostT`) the way it waits out a push. Two harness drop-in rows that nudged
+  her onto a lip at 1-2 m/s now start at 3: a 1 m/s roll on a flat deck is exactly what the rolling stop is for.
+  **Run the full suite before a physics change ships, whatever the budget note says about simulating.**
 - **THE SPILLWAY: A SIXTH WORLD, A DAM, AND A CHUTE PIECE (r132, `WORLD.zones` 5, `?world=spillway`, `SPW`, `SPWF`, `spwP`,
   `kChute`, `spillwayWorld`, `npm run sim spillway`, `npm run export:spillway`, `docs/SPILLWAY.md`, `docs/spillway_map.svg`).**
   *"A completely new zone ... an awe-dropping visual masterpiece ... lines where you hit this pipe to get onto this rail to get

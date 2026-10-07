@@ -1270,7 +1270,7 @@ CASES.panel = () => {
   { const wk = document.getElementById('worldB'), down = () => (wk._h.pointerdown || []).forEach(f => f({ preventDefault() {}, stopPropagation() {} }));
     down(); const wb = P.children.filter(c => c.className && c.className.startsWith('wbtn')).map(b => b.textContent);
     const open1 = P.classList.contains('on'); down(); const shut = !P.classList.contains('on');
-    const okW = open1 && shut && wb.length === 5 && ['SKATE PARK', 'SK8 SKY', 'RAMP KIT PARK', 'WEIRDPORT CITY', 'HIS ZONES'].every(t => wb.some(x => x.includes(t)));
+    const okW = open1 && shut && wb.length === 6 && ['SKATE PARK', 'SK8 SKY', 'RAMP KIT PARK', 'WEIRDPORT CITY', 'HIS ZONES', 'THE SPILLWAY'].every(t => wb.some(x => x.includes(t)));
     console.log(`  LEVEL key: opens ${open1 ? 'yes' : 'NO'}, ${wb.length} worlds (${wb.map(x => x.split(/[a-z]/)[0].trim()).join(' / ')}), closes on a second tap ${shut ? 'yes' : 'NO'}`); if (!okW) ok = false;
     rg.tailPanel(); }
   const wb = P.children.filter(c => c.className === 'btns').flatMap(c => c.children || []).map(b => b.textContent);
@@ -3456,7 +3456,8 @@ CASES.kit = async () => {
       const l = loc(pc); if (P.grounded && Math.abs(P.pos.y - S.H) < 0.1 && l.u > pc.len - 4 && l.u < pc.len) on = 1; });
     say(`bank ${sz}: rolls up onto its platform`, on && !r.falls, on ? `on the platform at y ${fix(P.pos.y)}` : `never got on (ends y ${fix(P.pos.y)} at u ${fix(loc(pc).u, 1)})`); }
   // 7. ROLL-INS: drop off the deck and come out fast
-  for (const sz of ['L', 'XL']) { const pc = find('rollin', sz), S = KSZ[sz]; go(pc, pc.top + 1.2, 0, Math.PI, 1); P.pos.y = S.H; P.grounded = true;
+  // (r138: 3 m/s onto the lip, not 1 -- a 1 m/s roll on a flat deck is the tail the rolling stop exists to end, and it did)
+  for (const sz of ['L', 'XL']) { const pc = find('rollin', sz), S = KSZ[sz]; go(pc, pc.top + 1.2, 0, Math.PI, 3); P.pos.y = S.H; P.grounded = true;
     let vOut = 0, tr = []; const r = ride(5, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.y < 0.1 && P.grounded) vOut = Math.max(vOut, P.speed);
       if (process.env.TRACE && Math.round(t * 60) % 12 === 0) tr.push(`u${fix(loc(pc).u)} y${fix(P.pos.y)} v${fix(P.hSpeed, 1)} sp${fix(P.speed || 0, 1)} ${P.grounded ? 'g' : 'a'}`); });
     if (process.env.TRACE) console.log(tr.join(' | '));
@@ -3563,7 +3564,11 @@ CASES.kit = async () => {
   const follow = (pts, sec, o = {}) => { let far = 0, offMax = 0, lowest = 99; const r = ride(sec, () => {
       let bi = 0, bd = 1e9; for (let i = 0; i < pts.length; i++) { const d = Math.hypot(pts[i][0] - P.pos.x, pts[i][1] - P.pos.z); if (d < bd && i >= far - 20) { bd = d; bi = i; } }
       far = Math.max(far, bi); if (bd > offMax && bi < pts.length - 10) { offMax = bd; o.at = `x${fix(P.pos.x, 1)} z${fix(P.pos.z, 1)} y${fix(P.pos.y)} v${fix(P.hSpeed, 1)} ${P.grounded ? 'g' : 'a'} near pt ${bi}`; } lowest = Math.min(lowest, P.pos.y);
-      const t = pts[Math.min(pts.length - 1, bi + (o.ahead || 6))]; fwd(Math.atan2(t[0] - P.pos.x, t[1] - P.pos.z)); if (o.coast && P.hSpeed > o.coast) rg.stick.L.y = 0; city(); });
+      const t = pts[Math.min(pts.length - 1, bi + (o.ahead || 6))]; fwd(Math.atan2(t[0] - P.pos.x, t[1] - P.pos.z)); if (o.coast && P.hSpeed > o.coast) rg.stick.L.y = 0;
+      // r138: a held thumb that has drifted behind her is a held BRAKE, and since r131 a held brake holds (no flip into a push) --
+      // so a driver that never lifts its thumb would sit braked for ever in a pipe's elbow. A thumb lifts; so does this one.
+      if (P.braked && P.hSpeed < 2) { rg.stick.L.x = rg.stick.L.y = 0; }
+      city(); });
     return { ...r, far, offMax, lowest }; };
   const line = recs => { const out = []; for (const r of recs) for (const q of r.cl || []) { const l = out[out.length - 1];
       if (!l) { out.push(q); continue; } const d = Math.hypot(l[0] - q[0], l[1] - q[1]); if (d < 0.5) continue;
@@ -3577,7 +3582,7 @@ CASES.kit = async () => {
           if (r.falls || r.bail || r.low < -0.05 || r.top < 2.2) bad.push(`at ${fix(h * 180 / Math.PI, 0)}: low ${fix(r.low)} top ${fix(r.top)}${r.falls ? ' FELL' : ''}`); }
         say('path bowl L: dropped in from four sides, swings', !bad.length && deepest < 0.15, bad.join('; ') || `deepest ${fix(deepest)}`); }
       // the kidney pool decked to a square: in from its deck it swings; at its outer wall from outside it is a wall
-      { const k = lab('kidney pool M, decked to a square'); reset(); place(k.T.x + 9.5, 2.8, k.T.z - 1, -Math.PI / 2, 2); const r = ride(6);
+      { const k = lab('kidney pool M, decked to a square'); reset(); place(k.T.x + 9.5, 2.8, k.T.z - 1, -Math.PI / 2, 3); const r = ride(6);
         say('path kidney M: dropped in, swings', !r.falls && !r.bail && r.low < 0.1 && r.top > 1.6, `low ${fix(r.low)} top ${fix(r.top)}`);
         reset(); place(k.T.x + 20, 0.2, k.T.z, -Math.PI / 2, 8); ride(2, () => { fwd(-Math.PI / 2); city(); });      // (u is z, w is x: the square is x +-12)
         say('path kidney M: its outer wall stops her', P.pos.x > k.T.x + 11.5 && P.pos.y < 0.3, `ends x ${fix(P.pos.x - k.T.x, 1)} (wall at 12)`); }
@@ -6079,7 +6084,7 @@ CASES.spillway = async () => {
       if (process.env.SPWTR && fired && !land && (tr.length < 40)) tr.push(`${at()} v${fix(P.vel.x,1)},${fix(P.vel.y,1)},${fix(P.vel.z,1)}${P.grounded ? ' gr' : ''}${P.vlip ? ' LOCK' : ''}`); });
     if (tr.length) console.log('    ' + tr.filter((_, i) => i % 3 === 0).join('\n    '));
     return { fired, vl, land, bail }; };
-  for (const U of S.ups.filter(u => u.x === S.stair.x)) { const i = U.tier; go(U.x, U.v0 - 16, 0, 3, U.yb); P.heading = 0;
+  for (const U of S.ups) { const i = U.tier; go(U.x, U.v0 - 16, 0, 3, U.yb); P.heading = 0;
     const o = pumpUp(U, 15, 45), good = o.land && Math.abs(o.land.y - U.y) < 0.2 && o.land.z > U.v0 - 0.5 && o.land.z < T[i].v1 && !o.bail;
     say(`L8 riser ${i + 1}: pump the pair at x ${U.x}, transfer onto terrace ${i + 1}`, good, o.fired ? `swipe at ${fix(o.vl, 1)} m/s, down at ${o.land ? o.land.x.toFixed(1) + ',' + o.land.y.toFixed(2) + ',' + o.land.z.toFixed(1) : 'never'}${o.bail ? ' BAIL' : ''}` : 'never fast enough at the lip'); }
   // L2 THE FISH LADDER: grind it foot to top, pop off onto the top terrace
