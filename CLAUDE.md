@@ -34,6 +34,10 @@ No screenshots, no playwright unless he asks for it by name.
   relative-URL base, so every `loadGLB` rejects with `ERR_INVALID_URL`); anything else that
   rejects is a real fault.
 
+**THE FULL SIM IS NOT A GATE ON PUSHING.** *"I don't need you to sim, I need you to build. I am the simulator."*
+Bump, `npm run check`, push. Run the one or two sim cases a change actually touches when the question genuinely needs
+simulating; never hold a push waiting on the whole suite.
+
 **`npm run sim` IS THE THIRD, AND IT IS THE ONE THAT PAYS.** Everything that matters here is
 reachable without a GPU: the collider is triangles in a grid and `stepPlayer` is arithmetic, so
 "does a half pipe actually work" has an answer in three seconds. **It calls `rg.stepPlayer`, it
