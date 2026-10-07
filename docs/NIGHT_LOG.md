@@ -533,3 +533,9 @@ tied together by booster coasters you grind:
 - **Big structures are solid from behind.** Most of the world was drawn one-sided, so from behind a wall, under a deck or
   past an open edge you looked straight through it. Every opaque world material is drawn both sides now, including his
   art and imported levels as they arrive.
+
+## r125 -- the identity pass begins: the hub gets a town
+- 38 canal-street buildings on the hub's four bank decks, faced inward: the deck is a promenade of shopfronts (awnings, neon
+  signs, shutters, balconies, ivy, lamps, planters). `slFrame` runs the slice builders in a turned frame so they face all ways.
+- Floor: a warm paving band at every bank's toe, seven big painted pieces on open ground (paint only, no collider).
+- ➤ stop: the hub spawn; look up at the bank tops, or ride up a bank onto the promenade.

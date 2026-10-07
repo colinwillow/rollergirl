@@ -98,6 +98,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE IDENTITY PASS STARTS AT THE HUB: A TOWN ROUND THE BANKS (r125, `HRING`, `hubRing`, `hubRingClear`, `HFLOOR`,
+  `hubFloorArt`, `SLX`/`slFrame`).** *"I want the whole world to look like this [the canal street] ... we should just do an identity
+  pass, zone by zone."* The hub was a 140 m lavender floor inside four blank peach banks.
+  - **38 canal-street buildings stand on the OUTER edge of each bank's 4 m deck (6.58 m up), faced inward**, so the deck is a
+    promenade of shopfronts. They stand over the bank's back slope, which nothing reaches any more: a launch that sailed over the
+    deck now meets a facade and comes back. Gates (`gate` 13.5) and corners (`end` 68.5) stay clear.
+  - **`slFrame(a, tx, tz)` / `SLX` RUNS ANY SLICE BUILDER IN A TURNED FRAME.** `slTri` (positions, `nrm3`), `slGlow` and `solidAdd`
+    transform on the way out; `x' = tx + x c + z s, z' = tz - x s + z c` carries a box's local x axis to (c, -s), which IS
+    `solidAdd`'s yaw convention, so a solid's yaw is `+ a`. Every facade builder faced only +/-z; now one table dresses four sides.
+    **`SLX` is declared above `solidAdd`** (the TDZ landmine). **Always `slFrame(null)` after**, or every solid added later turns.
+  - **The ring saves and restores `_slseed`**, so nothing built after it (the park district's tanks are solids) moves.
+  - **`HRING.keep` keeps the Acropolis hub run clear**: probed against every `RAILS` segment, it went through two west-edge
+    buildings at 12.7-14.2 m (z 44-48). Any new long rail near the banks wants the same probe.
+  - **The floor is paint**: a warm paving band at every bank's toe and seven big atlas pieces on the open 7 m squares a probe found.
+    Nothing in it is in the collider. ~+75k triangles in all; `hub`, `solid`, `inside`, `zfight` pass.
 - **SWIPE DOWN, CHAINED FLIPS, BOTH SIDES (r124, `CTRL.rDownCone`, `LAND.chain`/`chainMin`/`chainLate`/`flipBail`, `solidSides`).**
   - *"Swipe down on the right stick ... it's doing a melee."* `rightFlick` classes a flick by its LARGER axis, so a thumb that
     drifts sideways on the way down was a sideways flick -- a strike. On the ground the stance switch now takes anything within

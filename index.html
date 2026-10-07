@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r124</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r125</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r124';
+const BUILD = 'r125';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -4413,8 +4413,18 @@ const CITY = { on: 1, bay: 3, floor: 3, railK: 0.85 };   // railK (r48): the str
 // going INTO the face is touched (and `bounce` of it sent back), so a graze along a wall keeps its speed.
 // A box top within `SK.step` of her feet is a kerb she rolls up, which is the same rule the floors use.
 const SOLID = { cell: 8, x0: -480, z0: -480, w: 120, h: 120, cells: null, all: [], r: 0.3, hgt: 1.7, bounce: 0.12 };
+// r125: A QUARTER-TURN FRAME THE SLICE BUILDERS CAN BE RUN IN. Every builder here (`slBuilding`, `slShop`, the props) was
+// written facing +/-z; set `SLX` and everything they emit -- triangles, normals, solids, glows -- is turned about Y by `a`
+// and moved by (tx, tz) on the way out, so one facade builder faces all four ways. x' = tx + x c + z s, z' = tz - x s + z c,
+// which carries a box's local x axis to (c, -s): exactly `solidAdd`'s yaw, so a solid's yaw is simply `+ a`.
+let SLX = null;
+const slXp = (x, z) => SLX ? [SLX.tx + x * SLX.c + z * SLX.s, SLX.tz - x * SLX.s + z * SLX.c] : [x, z];
+const slXv = v => { const q = slXp(v[0], v[2]); return [q[0], v[1], q[1]]; };
+const slXn = n => SLX ? [n[0] * SLX.c + n[2] * SLX.s, n[1], -n[0] * SLX.s + n[2] * SLX.c] : n;
+const slFrame = (a, tx, tz) => { SLX = a === null ? null : { a, c: Math.cos(a), s: Math.sin(a), tx: tx || 0, tz: tz || 0 }; };
 function solidAdd(cx, cz, hx, hz, y0, y1, yaw, o) {
   yaw = yaw || 0; o = o || {};
+  if (SLX) { const q = slXp(cx, cz); cx = q[0]; cz = q[1]; yaw += SLX.a; }     // r125: a builder run in a turned frame
   const b = { cx, cz, hx, hz, y0, y1, c: Math.cos(yaw), s: Math.sin(yaw), yaw, live: true, tag: o.tag || '',
     on: o.on || null, floor: o.top !== false, brk: o.brk || 0, onBreak: o.onBreak || null };
   if (b.floor) {
@@ -7404,6 +7414,7 @@ const SLT_T = { stone: 2.4, masonry: 3.2, paving: 4.8, concrete: 4.0, dark: 3.0,
 const _slc = new THREE.Color();
 function slTri(k, a, b, c, o) {
   o = o || {};
+  if (SLX) { a = slXv(a); b = slXv(b); c = slXv(c); if (o.nrm3) o = Object.assign({}, o, { nrm3: o.nrm3.map(slXn) }); }
   if (!Number.isFinite(a[0] + a[1] + a[2] + b[0] + b[1] + b[2] + c[0] + c[1] + c[2])) return;
   const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
   let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const nl = Math.hypot(nx, ny, nz); if (nl < 1e-12) return;
@@ -7503,7 +7514,7 @@ function slDecal(k, key, c, r, u, w, h, nOff) {
   slQuad(k, P(-1, -1), P(1, -1), P(1, 1), P(-1, 1), n, { uv4: [[u0, v0], [u1, v0], [u1, v1], [u0, v1]] });
   return { c, w, h };
 }
-const slGlow = (x, y, z, s, col, a) => SLC.glows.push({ x, y, z, s, col, a: a === undefined ? 0.85 : a });
+const slGlow = (x, y, z, s, col, a) => { if (SLX) [x, z] = slXp(x, z); SLC.glows.push({ x, y, z, s, col, a: a === undefined ? 0.85 : a }); };
 // a tube along points, into a bucket (smooth)
 function slTube(k, pts, r, o) {
   const curve = new THREE.CatmullRomCurve3(pts.map(p => SLV(p[0], p[1], p[2])), false, 'centripetal', 0.1);
@@ -10723,6 +10734,82 @@ function seamSpot(x, z, q) {
   for (const u of [-9, 9]) { const L = T(u, -12); slLamp(L.x, 0, L.z); }     // in the spot's own frame, off all three lanes
   BLEND.spotList.push({ x, z, yaw, cult: q ? q.cult : null, key: q ? q.key : null });
 }
+// r125: THE HUB RING -- *"I want the whole world to look like this ... textured, a lot of variety, stuff close together."*
+// The hub was a 140 m lavender floor inside four blank peach banks, with nothing standing on top of them. Each bank has a
+// 4 m deck at its top (`PARK.wallR`'s lip, 6.58 m up); a row of the canal street's own buildings now stands on the OUTER
+// edge of that deck, faced inward, so the deck is a promenade of shopfronts and the plaza is a square with a town round it.
+// Built once in the north edge's frame and run four times through `slFrame` (`SLX`), so one table dresses all four sides.
+// The buildings stand over the bank's BACK slope, which nothing can reach any more -- a launch that used to sail over the
+// deck onto it now meets a facade and comes back, which is the bank doing its job better. The gates stay clear (`gate`),
+// the corners stay clear (`end`), and `skip` drops any building with a rail or a deck through it (`hubRingClear`).
+const HRING = { on: 1, front: 83.45, back: 95.4, gate: 13.5, end: 68.5, wMin: 9, wMax: 14.5, floors: [2, 3, 3, 4],
+  tints: [0xf2d2b6, 0xffc9a8, 0xc6b4f2, 0xf6e4cc, 0xd8e8f4, 0xffd7b8, 0xe9c2d8, 0xcfe6c8, 0xf4e6c8, 0xbfd8f2],
+  shops: [{ sign: 'blades', signW: 4.0, col: 0xff6fb8, neon: 0x40e8ff, glow: 0x40e8ff }, { sign: 'ramen', signW: 3.0, col: 0xff5f8f, neon: 0xff4fa0, glow: 0xff5f8f },
+    { sign: 'roll', signW: 2.2, col: 0xff8a5c, neon: 0xffa040, glow: 0xffffff }, { sign: 'nexus', signW: 4.0, col: 0x2fb8b0, neon: 0x40e8ff, glow: 0x80f0ff },
+    { sign: 'monstermart', signW: 4.2, col: 0x7d5cff, neon: 0xb98bff, glow: 0xb98bff }, { sign: 'kickflip', signW: 3.6, col: 0xffc23f, neon: 0xffe066, glow: 0xffd070 },
+    { sign: 'skatejp', signW: 3.2, col: 0x3fd2c7, neon: 0xff6fd0, glow: 0xff6fd0 }, { sign: 'cosmic', signW: 3.8, col: 0x5aa8ff, neon: 0x40e8ff, glow: 0x9fe0ff }],
+  posters: ['push', 'sameplanet', 'further', 'goodlines', 'flow', 'curiosity', 'humans'], built: [], skipped: [],
+  // world boxes kept clear: the Acropolis hub run crosses the west bank at z 40-50 on its way down to the hub deck (it read
+  // 12.7-14.2 m over x -86..-82 when probed against the first ring, through buildings 35 and 36)
+  keep: [{ name: 'acro hub run', x0: -100, x1: -78, z0: 30, z1: 64 }] };
+function hubRing() {
+  if (!HRING.on || WORLD.zones) return;
+  const H = PARK.wallR * (1 - Math.cos(PARK.wallSweep)), R = HRING, seed0 = _slseed; _slseed = 125001;
+  let n = 0;
+  for (let e = 0; e < 4; e++) {
+    slFrame(e * Math.PI / 2);
+    for (const side of [-1, 1]) {
+      let a = R.gate;
+      while (a < R.end - R.wMin * 0.6) {
+        const w = Math.min(R.end - a, R.wMin + slr() * (R.wMax - R.wMin)), x0 = side > 0 ? a : -a - w, x1 = side > 0 ? a + w : -a;
+        const fl = slpick(R.floors), top = H + 4.0 + fl * 3.3 + 0.6, tint = slpick(R.tints), shop = slr() < 0.55 ? slpick(R.shops) : null;
+        const balc = slr() < 0.4 ? [1] : null, poster = !shop && slr() < 0.6 ? slpick(R.posters) : null;
+        const c0 = slXp(x0, R.front), c1 = slXp(x1, R.back);
+        const box = { x0: Math.min(c0[0], c1[0]), x1: Math.max(c0[0], c1[0]), z0: Math.min(c0[1], c1[1]), z1: Math.max(c0[1], c1[1]), y0: H, y1: top + 3 };
+        const why = hubRingClear(box);
+        if (why) R.skipped.push(why + ' @' + Math.round((box.x0 + box.x1) / 2) + ',' + Math.round((box.z0 + box.z1) / 2));
+        else {
+          slBuilding(x0, x1, R.front, R.back, top, 'Z', { street: H, tint, trimT: 0xf8f2e6, shop: shop && Object.assign({ w: Math.min(8, w - 2.5) }, shop),
+            flowers: 0.45, ivy: 0.3, balc, balcX: (slr() - 0.5) * 2, poster, ac: 1 + Math.floor(slr() * 2), shut: slr() < 0.4 ? slpick([0x3a8f7a, 0x2f6fa8, 0xb8503a, 0x6a4fa0]) : undefined });
+          // a lamp and a planter on the promenade in front of every other building, against the facade so the deck stays open
+          if (n % 2 === 0) slLamp((x0 + x1) / 2 + (slr() - 0.5) * 3, H, R.front - 0.55);
+          else slPlanter((x0 + x1) / 2, H, R.front - 0.7, Math.min(3.2, w * 0.3), 0.9, 0.55);
+          R.built.push(box); n++;
+        }
+        a += w;
+      }
+    }
+  }
+  slFrame(null);
+  hubFloorArt(H);
+  _slseed = seed0;
+}
+// r125: AND THE FLOOR STOPS BEING ONE SHEET. A warm paving border at the foot of every bank (the band a real plaza has where
+// the paving changes before a wall), and big painted pieces on the open ground -- the canal street's sticker vocabulary
+// laid flat. Paint only: nothing here is in the collider, so no line through the plaza can change. The spots are the open
+// 7 m squares `probe` found farthest apart (floor at 0 to 3 cm over 25 samples, no solid within 0.3 m).
+const HFLOOR = { band: [66.4, 69.6], art: [[12, -45, 'bowlart', 9, 0.3], [6, 24, 'kickflip', 7.5, -0.5], [-36, -9, 'alien', 7, 2.4],
+  [58, -6, 'saturn', 6.5, 0.9], [-15, 59, 'further', 9, 0], [-58, 40, 'cat', 6, 1.8], [44, 44, 'skatejp', 7, -2.2]] };
+function hubFloorArt() {
+  const [b0, b1] = HFLOOR.band, y = 0.009;
+  for (let e = 0; e < 4; e++) { slFrame(e * Math.PI / 2);
+    const L = e % 2 ? b0 : b1;     // north/south run corner to corner, east/west stop inside them, so no two quads overlap
+    slQuad('paving', [-L, y, b0], [L, y, b0], [L, y, b1], [-L, y, b1], [0, 1, 0], { tint: 0xf2d6b4, T: 1.6, base: 0 });
+    slQuad('stone', [-L, y + 0.003, b0 - 0.3], [L, y + 0.003, b0 - 0.3], [L, y + 0.003, b0], [-L, y + 0.003, b0], [0, 1, 0], { tint: 0xc4a07c, base: 0 }); }
+  slFrame(null);
+  for (const [x, z, key, w, a] of HFLOOR.art) { const c = Math.cos(a), s = Math.sin(a);
+    slDecal('decal', key, [x, 0.014, z], [c, 0, s], [s, 0, -c], w, null, 0.002); }
+}
+// a building may not stand where a rail runs or a deck floats -- probed against the rail definitions that exist at build
+// time (the roofline, the skyway, the sky rail) by the boxes' own volume, plus a metre
+function hubRingClear(b) {
+  for (const K of HRING.keep) if (b.x1 > K.x0 && b.x0 < K.x1 && b.z1 > K.z0 && b.z0 < K.z1) return K.name;
+  const inside = (x, y, z) => x > b.x0 - 1 && x < b.x1 + 1 && z > b.z0 - 1 && z < b.z1 + 1 && y > b.y0 - 1 && y < b.y1 + 2;
+  for (const L of HRING.avoid || []) { const pts = typeof L.pts === 'function' ? L.pts() : L.pts;
+    for (let i = 0; i < pts.length; i++) { const p = pts[i]; if (inside(p[0], p[1], p[2])) return L.name;
+      if (i) { const q = pts[i - 1]; for (let t = 0.25; t < 1; t += 0.25) if (inside(q[0] + (p[0] - q[0]) * t, q[1] + (p[1] - q[1]) * t, q[2] + (p[2] - q[2]) * t)) return L.name; } } }
+  return null;
+}
 function hubDress() {
   if (!HUB.on) return;
   const D = HUB.deck, steel = (x0, y0, z0, x1, y1, z1) => slBox('metal', x0, y0, z0, x1, y1, z1, { bev: 0.01, skip: 'y' });
@@ -11168,6 +11255,7 @@ function buildSlice() {
   slIvy(-117, -0.24, -204, -0.24, Q - 0.02, 0, -1, 0.5, 0.6, 1.8); slIvy(-117, -13.76, -204, -13.76, Q - 0.02, 0, 1, 0.5, 0.6, 1.8);
   slIvy(-203.9, 38, -203.9, -42, 17.4, 1, 0, 0.6, 1.2, 3.4);
   sliceLayers();
+  hubRing();        // r125: the town round the hub's banks -- shopfronts on all four bank decks
   hubDress();       // r58: the park she starts in -- the deck, the ledges, the plinth, the edges
   parkDress();      // r90: and the skate park district north of it, dressed like the Nexus
   buildAcro();      // r92: and the Acropolis west of that, four levels up
@@ -14871,7 +14959,7 @@ window.rg = { SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtm
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
   STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
-  vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
+  HRING, hubRing, vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
   tp(x, z) { player.pos.set(x, 40, z); player.vel.set(0, 0, 0); player.grounded = false; },
