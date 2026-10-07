@@ -22,7 +22,11 @@ const SRC = process.argv[2] || '../colinwillow/weirdport/models/characters/zap.g
 const DST_RIG = 'models/alien_rollerskate_blue.glb';
 const OUT = 'models/melee_zap.glb';
 const CLIPS = ['melee_01', 'melee_02', 'melee_03', 'melee_04', 'melee_05', 'melee_extra',
-  'weapon_melee_01', 'weapon_melee_02', 'weapon_melee_03', 'weapon_melee_04', 'slide_kick', 'flying_kick'];
+  'weapon_melee_01', 'weapon_melee_02', 'weapon_melee_03', 'weapon_melee_04', 'slide_kick', 'flying_kick',
+  // r140: THE BLASTER'S UPPER BODY. `idle_rifle` is the gun carried at rest, `shoot` the shot -- and its FIRST
+  // FRAME is the sighted hold (weirdport's `rifle_aim`, derived at load). Only their spine-up half is ever used:
+  // the game lays it over her skating legs, so the hips translation remap below means nothing for these two.
+  'idle_rifle', 'shoot'];
 
 if (!fs.existsSync(SRC)) { console.error(`no source at ${SRC} -- clone colinwillow/weirdport beside this repo, or pass the path`); process.exit(1); }
 const Z = readGLB(SRC), A = readGLB(DST_RIG);

@@ -120,6 +120,17 @@
   #tailP .wbtn small{display:block;font:500 11px system-ui,sans-serif;letter-spacing:0;opacity:.7;margin-top:3px}
   #tailB{right:calc(110px + env(safe-area-inset-right))}
   #goB{right:calc(158px + env(safe-area-inset-right))}
+  /* r140: THE BLASTER KEY sits just above the right pad's zone (68% of the screen from the bottom), where the thumb that fires
+     it already lives -- weirdport's kit keys over the right stick. Lit while the gun is out. */
+  #gunB{top:auto;right:calc(18px + env(safe-area-inset-right));bottom:calc(68% + 10px);width:84px;
+    font:800 12px system-ui,sans-serif;letter-spacing:.08em;background:#ff6fa533;color:#ffd0e2;border-bottom-color:#a0305faa}
+  #gunB.on{background:#ff6fa5d9;color:#fff}
+  /* THE RETICLE: only while the trigger is held. It tightens as the charge fills and goes hot at full. */
+  #gunRet{position:fixed;left:0;top:0;width:34px;height:34px;border-radius:50%;pointer-events:none;z-index:6;display:none;
+    border:3px solid #7ff3ff;box-shadow:0 0 0 2px #1b103399,0 0 12px #2ec8ff;box-sizing:border-box}
+  #gunRet::after{content:'';position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#fff}
+  #gunRet.on{display:block}
+  #gunRet.full{border-color:#ffd23f;box-shadow:0 0 0 2px #1b103399,0 0 16px #ffb02e}
   /* THE TAIL PANEL. He tunes on a phone with no console, so every dial is a slider he can drag
      with a thumb. Above the pads (z 5) so a touch on it is never also a stick. */
   #tailP{position:fixed;z-index:8;display:none;top:calc(58px + env(safe-area-inset-top));left:50%;
@@ -183,7 +194,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r139</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r140</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -194,6 +205,8 @@
 <button class="key" id="tailB" aria-label="settings">&#9881;</button>
 <button class="key" id="goB" aria-label="go somewhere">&#10148;</button>
 <button class="key" id="worldB" aria-label="switch level">LEVEL</button>
+<button class="key" id="gunB" aria-label="blaster">BLASTER</button>
+<div id="gunRet"></div>
 <div id="tailP"></div>
 <button id="newer">build ready &middot; tap</button>
 
@@ -207,7 +220,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r139';
+const BUILD = 'r140';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +239,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_kit.glb":"2cdf7243","models/wpprops/wp_props.glb":"1ea211af","models/wpprops/tex/brick.webp":"37aea86b","models/wpprops/tex/brick_n.webp":"393bbe15","models/wpprops/tex/curb.webp":"212eabd5","models/wpprops/tex/curb_n.webp":"232902fb","models/wpprops/tex/decals.webp":"ca166bfb","models/wpprops/tex/floor.webp":"32db72cd","models/wpprops/tex/floor_n.webp":"26d29278","models/wpprops/tex/graffiti.webp":"6038adee","models/wpprops/tex/pave.webp":"1d39ddda","models/wpprops/tex/pave_n.webp":"5963621d","models/wpprops/tex/wall.webp":"90ca36f9","models/wpprops/tex/wall_n.webp":"f0ba3697","models/wpprops/tex/wood.webp":"ca2c416e","models/wpprops/tex/wood_n.webp":"b774078a","models/wpprops/tex/wptex.json":"85caa6f9","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
+const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"4d7e5824","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_kit.glb":"2cdf7243","models/wpprops/wp_props.glb":"1ea211af","models/wpprops/tex/brick.webp":"37aea86b","models/wpprops/tex/brick_n.webp":"393bbe15","models/wpprops/tex/curb.webp":"212eabd5","models/wpprops/tex/curb_n.webp":"232902fb","models/wpprops/tex/decals.webp":"ca166bfb","models/wpprops/tex/floor.webp":"32db72cd","models/wpprops/tex/floor_n.webp":"26d29278","models/wpprops/tex/graffiti.webp":"6038adee","models/wpprops/tex/pave.webp":"1d39ddda","models/wpprops/tex/pave_n.webp":"5963621d","models/wpprops/tex/wall.webp":"90ca36f9","models/wpprops/tex/wall_n.webp":"f0ba3697","models/wpprops/tex/wood.webp":"ca2c416e","models/wpprops/tex/wood_n.webp":"b774078a","models/wpprops/tex/wptex.json":"85caa6f9","models/weapons/alien_antenna_blaster_game.glb":"54083b44","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -323,6 +336,34 @@ const MELEE = {
   airLunge: 3,         // m/s toward the flick in the air
   airLift: 2,          // the first strike of an airtime props her up this much (m/s); later ones do not
   airAim: 1,           // an air strike flicked toward a rail is solved onto it (what the flying kick used to do)
+};
+
+// r140: THE BLASTER, BORROWED FROM WEIRDPORT (`GUN`, `gunStep`, `gunPose`, `gunTwist`, `gunFire`, `stepBolts`). *"Take out a
+// blaster ... the way that you shoot is you press forward on the right stick which charges the shot and then you let go to shoot
+// it, and you can turn the camera, which is the aimer, with left and right on the right stick -- which still leaves you free to
+// skate with the left stick."* Weirdport's trigger, ball and aim; Zap's model and his `idle_rifle` / `shoot` clips.
+//   THE KEY above the right stick takes it out and puts it away. Out, the right pad HELD UP is the trigger (the speed skate
+//   stands down): `fireAt` arms it, `keepAt` keeps it (the gap is hysteresis), `armT` is how long, `arc` how far off straight up
+//   -- so a sideways drag is still the camera, which IS the aim. Release fires; under `minChg` it is a fumble and fires nothing,
+//   which is also what keeps a quick flick up a melee strike.
+//   THE MOUNT: her rig has no weapon joint yet, so Zap's `weapon_root_right` is rebuilt on HER right hand with his local
+//   rotation (the two rigs share a bind pose to 0.03 deg) and his offset scaled by the two forearms. The blaster file is built
+//   round that joint, so the art lands where it does on him. `len` sizes it to her (weirdport: 55% of the wearer's height).
+//   THE BODY IS A HYBRID: her skating clips own the hips and legs, Zap's gun poses own SPINE-UP (`upper`), laid over on top of
+//   the mixer's answer -- carried (`idle_rifle`), sighted (frame 0 of `shoot`) or the shot itself. And the SPINE TURNS so the
+//   BARREL points down the aim: the barrel is measured off the mount AFTER the pose and BEFORE the twist, so the twist that puts
+//   it on the aim is exact, not a loop (a rotation about world Y adds exactly its angle to a direction's yaw).
+const GUN = {
+  on: 1, file: 'models/weapons/alien_antenna_blaster_game.glb', failed: 0, out: 0,
+  len: 0.55,                    // the gun's length as a fraction of her height
+  idle: 'idle_rifle', shoot: 'shoot',
+  upper: /Spine|Neck|Head|Shoulder|Arm|Hand/,
+  fireAt: 0.78, keepAt: 0.48, armT: 0.09, arc: 1.05,
+  chargeT: 1.15, minChg: 0.10,
+  shootBeat: 0.26, shootHold: 0.30,
+  poseHL: 0.06, outHL: 0.09,    // the pose blend, and the gun coming up / going down
+  range: 60, boltV: 44, boltLife: 2.4, ball0: 0.45, ball1: 1.9, boltR: 0.17, hitK: 0.6,
+  twist: { on: 1, bones: ['mixamorig_Spine', 'mixamorig_Spine1', 'mixamorig_Spine2'], max: 110 * Math.PI / 180, ease: 0.05, carry: 0 },
 };
 
 // THE ROSTER. ONE CHARACTER AT A TIME -- a switch is a menu action, not a parade, so there is
@@ -13294,7 +13335,8 @@ function holdClip(src, name, at) {
 // clip objects to a second mixer. A failure is a missing feature, not a missing character.
 let borrowP = null;
 function loadBorrow() {
-  if (!borrowP) borrowP = loadGLB(MELEE.file).catch(e => { MELEE.failed = 1; console.warn('[melee] borrowed clips did not load', e); return null; });
+  if (!borrowP) borrowP = loadGLB(MELEE.file).then(g => { gunZap(g.scene); return g; })
+    .catch(e => { MELEE.failed = 1; console.warn('[melee] borrowed clips did not load', e); return null; });
   return borrowP.then(g => g ? g.animations.map(c => c.clone()) : null);
 }
 function buildGirl(gltf, extra) {
@@ -13330,6 +13372,11 @@ function buildGirl(gltf, extra) {
   girl.model = model;
   girl.mixer = new THREE.AnimationMixer(model);
   const clips = prepClips(normaliseClips((gltf.animations || []).concat(extra || [])), model);
+  // r140: THE GUN POSES ARE NOT THE MIXER'S. They are laid over spine-up after it (`gunPose`), so they never enter the
+  // weight table -- which has to sum to 1 for the WHOLE body, and these only ever mean the top half of it.
+  const gunC = {};
+  for (const nm of [GUN.idle, GUN.shoot]) { const i = clips.findIndex(c => c.name === nm); if (i >= 0) gunC[nm] = clips.splice(i, 1)[0]; }
+  gunTracks(model, gunC);
   const R = clipRoles(clips);
   girl.clipLen = R.len; girl.cyc = R.cyc; girl.fallback = R.fallback; girl.solo = R.solo;
   for (const c of clips) {
@@ -13350,6 +13397,7 @@ function buildGirl(gltf, extra) {
   if (girl.moves) console.log('[moves] ' + JSON.stringify(girl.moves));
   girl.tail = tailFind(model, clips);
   girl.ready = true;
+  gunMount();      // r140: onto THIS skin's right hand (a swap drops the old model and the gun with it)
   const T = girl.tail;
   console.log(`girl: ${(m.h).toFixed(3)} units -> x${girl.scale.toFixed(3)} = ${RIG.height} m; clips ` +
               clips.map(c => `${c.name}(${c.duration.toFixed(2)}s)`).join(' ') +
@@ -14313,7 +14361,7 @@ function boostGo(air) {
 const SPEED = { on: 1, at: 0.55, hold: 0.3, acc: 9, cap: 31, n: 0.85 };
 function speedStep(dt) {
   const p = player, R = stick.R;
-  const up = SPEED.on && !ctrl82() && R.down && R.y < -SPEED.at && Math.abs(R.x) < -R.y;
+  const up = SPEED.on && !GUN.out && !ctrl82() && R.down && R.y < -SPEED.at && Math.abs(R.x) < -R.y;      // r140: with the gun out, held up is the trigger
   p.rUpT = up ? (p.rUpT || 0) + dt : 0;
   p.speedSk = up && p.rUpT > SPEED.hold && p.grounded && !p.grind && !(p.bailT > 0) && p.n.y > SPEED.n;
   if (!p.speedSk) return;
@@ -15191,7 +15239,7 @@ function grabStep() {
   const m4 = CTRL.map > 3.5, rg1 = m4 || CTRL.map < 1.5;      // r99: map 1 grabs on the right thumb too, so a press must begin in the air (r55's quick pushed grab is kept)
   const air = !p.grounded && !p.grind && p.bailT <= 0;
   if (p.xferHold) { if (!R.down) p.xferHold = 0; p.grab = null; return; }     // r47: that hold was a transfer
-  if (!air || !R.down || (c82 && !p.lAir) || (rg1 && !p.rAir) || (m4 && hold < CTRL.grabDelay) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
+  if (!air || !R.down || (!c82 && (p.gAim || p.gArm > 0)) || (c82 && !p.lAir) || (rg1 && !p.rAir) || (m4 && hold < CTRL.grabDelay) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
   // r55: *"The grabs don't really work."* Two reasons, both fixed. The direction was decided ONCE, at `grabAt` after
   // the press -- and the stick floats, so the thumb lands as the centre and at 0.3 s it had often not moved yet:
   // every grab came out as the centre one, and pushing the thumb over afterwards changed nothing. And held DOWN it was
@@ -15280,6 +15328,9 @@ function dashGo() {
 }
 const tapXferOn = () => VERT.tapXfer > 0.5 && !(VERT.swipeXfer > 0.5) && !(VERT.flickBoost > 0.5);      // r81: the tap transfers only with the swipe off
 function rightFlick(dx, dy) {
+  // r140: A RELEASE THAT FIRES IS THE SHOT, NOT ALSO A FLICK. A quick flick up arms the trigger and lets go under `minChg` --
+  // a fumble, no shot -- so it is still the strike; past `minChg` the gun takes it.
+  if (GUN.out && player.gAim && (player.gChg || 0) >= GUN.minChg) return 'fire';
   const p = player, dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy < 0 ? 'up' : 'down');
   const w = flickWorld(dx, dy);
   // r81: THE SWIPE UP IS THE WAY OUT OF A PIPE AGAIN -- on the steep face (armed, fired as she goes off the lip), just off
@@ -15341,7 +15392,7 @@ function stepPlayer(dt) {
   const p = player;
   if (stick.R.down && !(p.rHold > 0)) p.rAir = !p.grounded && !p.grind; if (!stick.R.down) p.rAir = false;      // r89: map 4's grab, r87's rule
   p.rHold = stick.R.down ? p.rHold + dt : 0;
-  p.xferUpT = stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y ? (p.xferUpT || 0) + dt : 0;      // r86
+  p.xferUpT = !GUN.out && stick.R.down && stick.R.y < -VERT.xferAt && Math.abs(stick.R.x) < -stick.R.y ? (p.xferUpT || 0) + dt : 0;      // r86 (r140: not with the gun out -- that hold is the trigger)
   // r86: *"she's not doing the in-air pose, she's just doing the idle pose."* The LEFT thumb is the grab in the air (r82) and it
   // is also the thumb that STEERS, so it is down on every takeoff -- and she grabbed (a style skate, which reads as an idle)
   // the instant she left the ground, every jump. A grab or a settle on the left pad now needs a press that BEGAN in the air.
@@ -15368,6 +15419,7 @@ function stepPlayer(dt) {
   p.grindCool = Math.max(0, p.grindCool - dt); p.wallCool = Math.max(0, (p.wallCool || 0) - dt);
   p.xferArm = p.grounded && p.n.y > 0.97 ? 0 : Math.max(0, (p.xferArm || 0) - dt);     // r57: back on the flat, it is gone
   stepMelee(dt);
+  gunStep(dt);        // r140: with the blaster out the right pad held UP is the trigger
   grabStep();
   boostStep(dt);      // r80
   speedStep(dt);      // r122: the right pad held up
@@ -15594,6 +15646,290 @@ function bodyAlign(dt) {
   }
   girl.wasGr = p.grounded && !onUps;
 }
+// ---------- r140: the blaster (see `GUN`) ----------
+const gun = { parts: null, zap: null, group: null, mount: null, muzzle: new THREE.Vector3(), tracks: null,
+              w: [1, 0, 0], tIdle: 0, idleLen: 1, shootLen: 1, out: 0, twist: 0, twD: [], twB: [], cm: 0, ret: null };
+let gunP = null;
+// WHAT A WEAPON FILE CONTAINS: the name of its own mount, and every mesh under it with the transform RELATIVE TO THAT MOUNT --
+// which IS the authored placement. The file is `Armature(0.01) > weapon_root_right > mesh`; cloning the whole scene onto a
+// joint already inside HER Armature(0.01) applies the hundredth twice (weirdport's `weaponParts`, and Shredworld's c98).
+function gunLoad() {
+  if (!gunP) gunP = loadGLB(GUN.file).then(g => {
+    let fr = null; g.scene.traverse(o => { if (!fr && /^weapon_root/.test(o.name)) fr = o; });
+    if (!fr) throw new Error('no weapon_root in ' + GUN.file);
+    g.scene.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(fr.matrixWorld).invert(), parts = [];
+    fr.traverse(o => { if (o.isMesh) parts.push({ geometry: o.geometry, material: o.material, matrix: new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld) }); });
+    if (!parts.length) throw new Error('no mesh under ' + fr.name);
+    gun.parts = parts;
+    if (girl.ready) gunMount();
+  }).catch(e => { GUN.failed = 1; console.warn('[gun] blaster did not load', e); });
+  return gunP;
+}
+// ZAP'S MOUNT, read off the borrowed skeleton: `weapon_root_right`'s local transform on his right hand, and his forearm (the
+// hand bone's offset from its parent) to scale the offset into HER units. Nothing here is typed.
+function gunZap(root) {
+  let wr = null, rh = null;
+  root.traverse(o => { if (o.name === 'weapon_root_right') wr = o; if (o.name === 'mixamorig_RightHand') rh = o; });
+  if (wr && rh) gun.zap = { p: wr.position.clone(), q: wr.quaternion.clone(), fore: rh.position.length() };
+  if (gun.zap && girl.ready && gun.parts && !gun.group) gunMount();
+}
+function gunMount() {
+  if (gun.mount) gun.mount.removeFromParent();
+  gun.group = null; gun.mount = null; gun.twB = []; gun.twD = [];
+  if (!gun.parts || !girl.model) return;
+  const hand = girl.model.getObjectByName('mixamorig_RightHand');
+  if (!hand) { console.warn('[gun] no mixamorig_RightHand on this skin'); return; }
+  const mount = new THREE.Object3D(); mount.name = 'weapon_root_right';
+  if (gun.zap) { mount.quaternion.copy(gun.zap.q); mount.position.copy(gun.zap.p).multiplyScalar(hand.position.length() / Math.max(1e-6, gun.zap.fore)); }
+  else mount.quaternion.set(-0.5, 0.5, -0.5, 0.5);     // Zap's, to four places, until the borrow arrives
+  hand.add(mount);
+  const g = new THREE.Group(); g.name = 'blaster';
+  for (const q of gun.parts) {
+    const o = new THREE.Mesh(q.geometry, q.material);
+    o.matrixAutoUpdate = false; o.matrix.copy(q.matrix); o.castShadow = true; o.frustumCulled = false;
+    g.add(o);
+  }
+  mount.add(g);
+  // SIZED TO HER, MEASURED: the art's length along the mount's X (the barrel axis -- `weapon_tip` sits at -14.31, 0, 0) in
+  // WORLD metres through every scale above it, then scaled to `len` of her height. The muzzle is the far end of the geometry
+  // along that axis, not the tip marker (weirdport: the marker is 28% along the gun).
+  const bb = new THREE.Box3();
+  for (const o of g.children) { o.geometry.computeBoundingBox(); bb.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrix)); }
+  girl.model.updateMatrixWorld(true);
+  const ws = new THREE.Vector3(); g.getWorldScale(ws);
+  const lenW = (bb.max.x - bb.min.x) * ws.x;
+  g.scale.setScalar(GUN.len * RIG.height / Math.max(1e-6, lenW));
+  gun.cm = Math.round(GUN.len * RIG.height * 100);
+  gun.muzzle.copy(bb.getCenter(new THREE.Vector3())); gun.muzzle.x = bb.min.x;
+  g.visible = gun.out > 0.05;
+  gun.group = g; gun.mount = mount;
+  for (const nm of GUN.twist.bones) { const b = girl.model.getObjectByName(nm); if (b) gun.twB.push(b); }
+  console.log(`[gun] mounted on ${girl.who ? girl.who.key : '?'}'s right hand, ${lenW.toFixed(3)} m as authored -> ${gun.cm} cm, ` +
+              `${gun.zap ? 'Zap\'s offset x' + (hand.position.length() / gun.zap.fore).toFixed(2) : 'no borrow yet'}, twist bones ${gun.twB.length}`);
+}
+// THE UPPER-BODY TRACKS: per bone, an interpolant into `idle_rifle` and one into `shoot`, plus `shoot`'s FIRST FRAME held as
+// the sighted pose (weirdport's `rifle_aim`: the shot then continues from the very frame the hold was sitting on).
+function gunTracks(model, C) {
+  gun.tracks = null;
+  const I = C[GUN.idle], S = C[GUN.shoot]; if (!I && !S) return;
+  const by = {};
+  for (const c of [I, S]) if (c) for (const t of c.tracks) {
+    if (!/\.quaternion$/.test(t.name)) continue;
+    const bn = t.name.slice(0, t.name.lastIndexOf('.'));
+    if (GUN.upper.test(bn)) (by[bn] || (by[bn] = {}))[c === I ? 'i' : 's'] = t;
+  }
+  const out = [];
+  for (const bn in by) {
+    const b = model.getObjectByName(bn); if (!b) continue;
+    const e = by[bn];
+    out.push({ b, ii: e.i ? e.i.createInterpolant() : null, si: e.s ? e.s.createInterpolant() : null,
+               aim: e.s ? new THREE.Quaternion().fromArray(e.s.createInterpolant().evaluate(0)) : null, q: new THREE.Quaternion() });
+  }
+  gun.tracks = out.length ? out : null;
+  gun.idleLen = I ? Math.max(0.1, I.duration) : 1; gun.shootLen = S ? Math.max(0.1, S.duration) : 1;
+  console.log(`[gun] ${out.length} spine-up bones posed from ${[I && I.name, S && S.name].filter(Boolean).join(' + ')}`);
+}
+// AN OVERRIDE, NOT A BLEND: the mixer has already posed her whole body off the skating clips; spine-up is then slerped onto
+// the gun pose by how far the gun is up (`gun.out`). Averaging a push's swinging arms with a held rifle would give neither --
+// Shredworld's and weirdport's `__up` / `__legs` lesson, done here without cloning every skating clip.
+const _gqA = new THREE.Quaternion(), _gqB = new THREE.Quaternion();
+function gunPose(dt) {
+  const p = player;
+  gun.out = damp(gun.out, GUN.out && !GUN.failed ? 1 : 0, GUN.outHL, dt);
+  if (gun.group) gun.group.visible = gun.out > 0.05;
+  if (!gun.tracks || gun.out < 0.002) return;
+  const tw0 = p.gFireT > 0 ? 0 : p.gAim ? 0 : 1, tw1 = p.gFireT > 0 ? 0 : p.gAim ? 1 : 0, tw2 = p.gFireT > 0 ? 1 : 0;
+  gun.w[0] = damp(gun.w[0], tw0, GUN.poseHL, dt); gun.w[1] = damp(gun.w[1], tw1, GUN.poseHL, dt); gun.w[2] = damp(gun.w[2], tw2, GUN.poseHL, dt);
+  gun.tIdle = (gun.tIdle + dt) % gun.idleLen;
+  // THE SHOT PLAYS FAST AND THEN HOLDS (weirdport's `shootBeat` / `shootHold`)
+  const since = GUN.shootBeat + GUN.shootHold - (p.gFireT || 0), ts = clamp(since / GUN.shootBeat, 0, 1) * gun.shootLen * 0.999;
+  const wi = gun.w[0], wa = gun.w[1], wsh = gun.w[2];
+  for (const T of gun.tracks) {
+    const q = T.q.set(0, 0, 0, 0); let acc = 0;
+    const add = (src, w) => {
+      if (!src || w < 1e-3) return;
+      if (q.x * src.x + q.y * src.y + q.z * src.z + q.w * src.w < 0) w = -w;     // the same hemisphere, or the sum cancels
+      q.x += src.x * w; q.y += src.y * w; q.z += src.z * w; q.w += src.w * w; acc += Math.abs(w);
+    };
+    if (T.ii) add(_gqA.fromArray(T.ii.evaluate(gun.tIdle)), wi);
+    add(T.aim, wa);
+    if (T.si) add(_gqB.fromArray(T.si.evaluate(ts)), wsh);
+    if (acc < 1e-3) continue;
+    T.b.quaternion.slerp(q.normalize(), gun.out);
+  }
+}
+// WHERE THE BARREL POINTS, as a world yaw: the mount's -X, which is the line `weapon_root_right` -> `weapon_tip` in the file.
+const _gbv = new THREE.Vector3(), _gbw = new THREE.Vector3();
+function gunBarrel() {
+  if (!gun.mount) return null;
+  gun.mount.updateWorldMatrix(true, false);
+  _gbv.set(-1, 0, 0).transformDirection(gun.mount.matrixWorld);
+  return Math.hypot(_gbv.x, _gbv.z) < 1e-4 ? null : Math.atan2(_gbv.x, _gbv.z);
+}
+// THE SPINE TURNS SO THE BARREL IS ON THE AIM. One rotation about world Y, conjugated into each bone's parent frame (City's
+// `aimTwist`, c126) -- rig-agnostic, and it STACKS on the pose. Measured BEFORE it is applied, in the same frame, so the
+// twist that puts the barrel on `cam.az` is exactly their difference: a rotation about world Y adds exactly its angle to a
+// direction's yaw. It eases, so a flicked camera swings her shoulders rather than snapping them, and `max` is how far a
+// body turns at the waist -- past it the shot still goes where the reticle is; the gun just cannot follow.
+const _gtQ = new THREE.Quaternion(), _gtP = new THREE.Quaternion(), _gtT = new THREE.Quaternion(), _gtY = new THREE.Vector3(0, 1, 0);
+function gunTwist(dt) {
+  const p = player, T = GUN.twist;
+  const live = T.on && gun.out > 0.5 && (p.gAim || p.gFireT > 0 || T.carry) && !(p.bailT > 0) && gun.twB.length;
+  let want = 0;
+  if (live) { const b = gunBarrel(); if (b !== null) want = clamp(wrapAngle(cam.az - b), -T.max, T.max); }
+  gun.twist = damp(gun.twist, want, T.ease, dt);
+  if (Math.abs(gun.twist) < 0.002) return;
+  const per = gun.twist / gun.twB.length;
+  for (let i = 0; i < gun.twB.length; i++) {
+    const b = gun.twB[i]; if (!b.parent) continue;
+    b.parent.updateWorldMatrix(true, false); b.parent.getWorldQuaternion(_gtP);
+    _gtQ.setFromAxisAngle(_gtY, per);
+    _gtT.copy(_gtP).invert().multiply(_gtQ).multiply(_gtP);
+    b.quaternion.premultiply(_gtT);
+    (gun.twD[i] || (gun.twD[i] = new THREE.Quaternion())).copy(_gtT); gun.twD.n = i + 1;
+    b.updateMatrixWorld(true);
+  }
+}
+// ...AND IT COMES BACK OFF BEFORE THE MIXER, OR IT COMPOUNDS (City's c128: "the spine just started rotating"). A relative edit
+// is safe only if something rewrites the bone from scratch every frame, and a bone no playing clip keys is not rewritten.
+function gunUntwist() {
+  const n = gun.twD.n || 0;
+  for (let i = 0; i < n; i++) { const b = gun.twB[i]; if (b) b.quaternion.premultiply(_gtT.copy(gun.twD[i]).invert()); }
+  gun.twD.n = 0;
+}
+// THE TRIGGER: weirdport's four gates. A full pull, held.
+function padUp(on) {
+  const R = stick.R, up = -R.y;
+  if (!R.down || up <= 0 || Math.abs(Math.atan2(R.x, up)) >= GUN.arc) return false;
+  return Math.hypot(R.x, R.y) > (on ? GUN.keepAt : GUN.fireAt);
+}
+function gunStep(dt) {
+  const p = player;
+  p.gFireT = Math.max(0, (p.gFireT || 0) - dt);
+  if (!GUN.out || GUN.failed) { p.gAim = 0; p.gArm = 0; p.gChg = 0; return; }
+  const busy = p.bailT > 0 || !!p.mel || !!p.wall;
+  if (!busy && padUp(p.gAim)) {
+    if (p.gAim) p.gChg = Math.min(1, (p.gChg || 0) + dt / GUN.chargeT);
+    else if ((p.gArm = (p.gArm || 0) + dt) >= GUN.armT) { p.gAim = 1; p.gChg = 0; }
+  } else {
+    if (p.gAim && !busy && (p.gChg || 0) >= GUN.minChg) gunFire(p.gChg);
+    p.gAim = 0; p.gArm = 0; p.gChg = 0;
+  }
+}
+function gunSet(on) {
+  GUN.out = on ? 1 : 0;
+  if (GUN.out) gunLoad();
+  const b = document.getElementById('gunB'); if (b) b.classList.toggle('on', !!GUN.out);
+  toast(GUN.out ? 'BLASTER' : 'HOLSTERED');
+}
+// ---- the shot ----
+// ONE SOFT RADIAL DOT, and every glowing thing is a stack of them at one point -- haze, body, core -- which is what makes a
+// ball read as a ball wrapped in light rather than as a flat disc. Additive, and NOT tone-mapped, or it saturates to white.
+const GDOT = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'); if (!g) return null;
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+function glowSprite(col, size) {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GDOT, color: col, transparent: true, blending: THREE.AdditiveBlending,
+                                                         depthWrite: false, toneMapped: false }));
+  sp.scale.setScalar(size); return sp;
+}
+function glowBall(size) {
+  const g = new THREE.Group();
+  g.add(glowSprite(0x7a3cff, size * 1.9)); g.add(glowSprite(0x2ec8ff, size * 1.15)); g.add(glowSprite(0xffffff, size * 0.52));
+  g.userData.base = size; return g;
+}
+function ballSize(g, k) { const b = g.userData.base || 1; g.children[0].scale.setScalar(b * 1.9 * k); g.children[1].scale.setScalar(b * 1.15 * k); g.children[2].scale.setScalar(b * 0.52 * k); }
+function glowDrop(g) { scene.remove(g); g.traverse(o => { if (o.material) o.material.dispose(); }); }
+const BOLTS = [], GFX = [];
+const gunCharge = glowBall(0.22); gunCharge.visible = false; scene.add(gunCharge);
+function gunMuzzle(out) {
+  if (gun.group && gun.group.parent) { gun.group.updateWorldMatrix(true, false); return gun.group.localToWorld(out.copy(gun.muzzle)); }
+  return out.set(player.pos.x, player.pos.y + RIG.height * 0.62, player.pos.z);
+}
+// A BOLT STOPS ON WHAT SHE STOPS ON: a floor rising through it, or a solid box.
+function gunBlocked(x, y, z) { const g = groundAt(x, z, y, 0.3); return (g.hit && g.floor > y) || !!solidAt(x, y, z, 0.05); }
+// WHERE IS SHE POINTING? Walked from the muzzle along the CAMERA's bearing until it meets something, bisected (a quantised probe
+// is a reticle that jumps a step at a time). The reticle is drawn at it and the bolt is aimed at it: ONE answer, so the mark is a
+// promise the gun keeps by construction (weirdport's m20).
+const _gAim = new THREE.Vector3();
+function gunAim(m) {
+  const dx = Math.sin(cam.az), dz = Math.cos(cam.az), step = 1.1, R = GUN.range;
+  let d = 0, hit = 0;
+  for (; d < R; d += step) if (gunBlocked(m.x + dx * Math.min(R, d + step), m.y, m.z + dz * Math.min(R, d + step))) { hit = 1; break; }
+  if (hit) { let lo = d, hi = Math.min(R, d + step); for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (gunBlocked(m.x + dx * mid, m.y, m.z + dz * mid)) hi = mid; else lo = mid; } d = lo; }
+  else d = R;
+  return _gAim.set(m.x + dx * d, m.y, m.z + dz * d);
+}
+const _gmz = new THREE.Vector3();
+function gunFire(chg) {
+  const p = player, m = gunMuzzle(_gmz).clone(), a = gunAim(m);
+  const dir = new THREE.Vector3(a.x - m.x, a.y - m.y, a.z - m.z);
+  if (dir.lengthSq() < 0.25) dir.set(Math.sin(cam.az), 0, Math.cos(cam.az));
+  dir.normalize();
+  const size = lerp(GUN.ball0, GUN.ball1, chg), g = glowBall(size);
+  g.position.copy(m); scene.add(g);
+  BOLTS.push({ g, pos: m, vel: dir.multiplyScalar(GUN.boltV), t: 0, chg, size });
+  gunFx(m, size * 0.7, 0.16, 6);
+  p.gFireT = GUN.shootBeat + GUN.shootHold;
+  gun.shots = (gun.shots || 0) + 1;
+}
+// AN IMPACT IS A FLASH THAT SWELLS AND FADES, AND A SCATTER OF SPARKS -- the bolt's own colours.
+function gunFx(pos, size, life, n) {
+  const g = glowBall(size); g.position.copy(pos); scene.add(g);
+  GFX.push({ g, t: 0, life, k0: 1, k1: 2.2 });
+  for (let i = 0; i < n; i++) {
+    const s = glowSprite(i & 1 ? 0x2ec8ff : 0xffffff, size * 0.22); s.position.copy(pos); scene.add(s);
+    const a = Math.random() * Math.PI * 2, u = Math.random() * 2 - 1, r = Math.sqrt(1 - u * u), v = 4 + Math.random() * 6;
+    GFX.push({ g: s, t: 0, life: life * 2.4, vel: new THREE.Vector3(Math.cos(a) * r * v, Math.abs(u) * v + 2, Math.sin(a) * r * v) });
+  }
+}
+function stepBolts(dt) {
+  for (let i = BOLTS.length - 1; i >= 0; i--) {
+    const b = BOLTS[i];
+    b.t += dt;
+    let dead = b.t > GUN.boltLife, hit = null;
+    // TWO HALF-STEPS A FRAME: at forty-four metres a second a frame is most of a metre, wide enough to pass through a pane
+    for (let k = 0; k < 2 && !dead; k++) {
+      b.pos.addScaledVector(b.vel, dt * 0.5);
+      if (gunBlocked(b.pos.x, b.pos.y, b.pos.z)) { dead = true; hit = solidAt(b.pos.x, b.pos.y, b.pos.z, GUN.boltR); }
+    }
+    b.g.position.copy(b.pos);
+    if (!dead) continue;
+    // A BREAKABLE SOLID BREAKS (the Works' windows): the shot is a blow at any speed
+    if (hit && hit.brk && hit.live) { hit.live = false; if (hit.onBreak) hit.onBreak(hit, 99); }
+    if (b.t <= GUN.boltLife) gunFx(b.pos, b.size * GUN.hitK, 0.26, 10 + Math.round(b.chg * 10));
+    glowDrop(b.g); BOLTS.splice(i, 1);
+  }
+  for (let i = GFX.length - 1; i >= 0; i--) {
+    const f = GFX[i]; f.t += dt; const u = f.t / f.life;
+    if (u >= 1) { glowDrop(f.g); GFX.splice(i, 1); continue; }
+    if (f.vel) { f.vel.y -= 14 * dt; f.g.position.addScaledVector(f.vel, dt); f.g.material.opacity = 1 - u; }
+    else { ballSize(f.g, lerp(f.k0, f.k1, u)); for (const c of f.g.children) c.material.opacity = 1 - u * u; }
+  }
+}
+// THE CHARGE BALL at the muzzle, and the RETICLE: drawn only while the trigger is held, because a mark that is always up is a
+// HUD element and this one exists to be read during the one moment there is a decision in it.
+function gunFrame(dt) {
+  const p = player;
+  stepBolts(dt);
+  const el = gun.ret || (gun.ret = document.getElementById('gunRet'));
+  if (!p.gAim || !gun.group) { gunCharge.visible = false; if (el) el.classList.remove('on', 'full'); return; }
+  const m = gunMuzzle(_gmz);
+  gunCharge.visible = true; gunCharge.position.copy(m);
+  ballSize(gunCharge, lerp(0.6, 2.4, p.gChg) * (1 + Math.sin(performance.now() * 0.03) * 0.08));
+  if (!el) return;
+  const a = gunAim(m.clone());
+  _gbw.copy(a).project(camera);
+  if (_gbw.z > 1) { el.classList.remove('on'); return; }
+  el.style.transform = `translate(${((_gbw.x + 1) / 2 * innerWidth).toFixed(1)}px, ${((1 - _gbw.y) / 2 * innerHeight).toFixed(1)}px) translate(-50%,-50%) scale(${(1.25 - 0.45 * p.gChg).toFixed(3)})`;
+  el.classList.add('on'); el.classList.toggle('full', p.gChg >= 0.995);
+}
 function poseGirl(dt) {
   if (!girl.ready) return;
   const p = player;
@@ -15631,9 +15967,11 @@ function poseGirl(dt) {
     centreOffset(girl.hipsLocal, girl.model.scale.x, girl.model.rotation.y, RIG.centre, _cv);
     girl.model.position.x = _cv.x; girl.model.position.z = _cv.z;
   }
-  footUndo(); hipLeanUndo();
+  footUndo(); hipLeanUndo(); gunUntwist();
   girl.mixer.update(dt);
   hipLeanApply();
+  gunPose(dt);      // r140: Zap's gun pose over spine-up, then the spine turned so the barrel is on the aim
+  gunTwist(dt);
   footGround(dt);
   // THE TAIL RUNS AFTER THE MIXER, because it reads the pose the animation just put her in --
   // and it writes bone rotations the next `mixer.update` is free to overwrite, which is what
@@ -15676,9 +16014,9 @@ function stepCam(dt) {
   // camera you spend the whole session putting back.
   // r55: in the air the right pad is the GRABS, so it does not also orbit -- held left it was swinging the lens round
   // her for the whole flight while she held the grab
-  const rx = (!p.grounded && !p.grind && MOVES.grab) || p.speedSk ? 0 : stick.R.x;      // r122: and a held speed skate does not swing the lens
+  const rx = ((!p.grounded && !p.grind && MOVES.grab && !p.gAim) || p.speedSk) ? 0 : stick.R.x;      // r140: aiming, the right pad's x IS the aim, in the air too      // r122: and a held speed skate does not swing the lens
   const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
-  if (yaw) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;
+  if (yaw || p.gAim) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;      // r140: a held trigger owns the bearing -- no follow
   if (!stick.L.down) { cam.steerAz = cam.az; cam.thA = null; }   // no left thumb: the frames agree (see stickWorld)
   // r47: A HELD THUMB IS A FIXED DIRECTION. *"I'm pushing this direction and she's not going that direction."*
   // The follow camera used to drag the steering frame round with it, so a thumb held still pointed somewhere new
@@ -15785,7 +16123,7 @@ function hud(dt) {
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : '') +
       // a console warning is invisible on a phone, and "the sky never loaded" looks like "it is meant to be grey"
-      (LOOK.failed ? ' · NO SKY IMG' : '') + ((WORLD.zones === 3 || WORLD.zones === 0 || WORLD.zones === 5) && SKYART.failed.length ? ' · NO SKY ART ' + SKYART.failed.length + '/' + SKYART.want : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
+      (LOOK.failed ? ' · NO SKY IMG' : '') + ((WORLD.zones === 3 || WORLD.zones === 0 || WORLD.zones === 5) && SKYART.failed.length ? ' · NO SKY ART ' + SKYART.failed.length + '/' + SKYART.want : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (GUN.failed ? ' · NO GUN GLB' : GUN.out ? ' · GUN ' + (gun.group ? gun.cm + 'cm' : 'none') + (gun.tracks ? '' : ' nopose') : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
@@ -15834,6 +16172,7 @@ function frame() {
   sparkStep(dt);
   stepCity(dt);
   stepCam(dt);
+  gunFrame(dt);       // r140: bolts, the charge ball and the reticle (after the camera, so the reticle projects through it)
   trailStep(dt);
   hud(dt);
   // the Bright look switch is read at LOAD (the park's colours are baked), so it is remembered here
@@ -15902,6 +16241,9 @@ async function wearChar(i, onProg) {
 // ONE KEY, TAPPED, CYCLING -- and the CHIP says who is worn, because a key that cycles a
 // roster is blind without it: "did that take" must not be a question you answer by
 // recognising her.
+// r140: THE BLASTER KEY. A tap takes it out or puts it away; `g` on a keyboard does the same.
+document.getElementById('gunB').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); gunSet(!GUN.out); });
+addEventListener('keydown', e => { if (e.key && e.key.toLowerCase() === 'g' && !e.repeat) gunSet(!GUN.out); });
 document.getElementById('charB').addEventListener('pointerdown', e => {
   e.preventDefault();
   if (girl.loading) return;
@@ -16296,6 +16638,7 @@ async function init() {
   solidSides();      // r124: every world material both sides (imports and his art are caught as they land)
   hudGutter(); resize();
   ready = true;
+  gunLoad();      // r140: 110 KB, fetched now so the first press of the key has a gun to show
   if (WORLD.zones === 3) { CITY.goMsg = 'SK8 SKY -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('SK8 SKY', '#ff6fd0'); } catch (e) {} }
   if (WORLD.zones === 5) { CITY.goMsg = 'THE SPILLWAY -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('THE SPILLWAY', '#3ff0e0'); } catch (e) {} }
   if (WORLD.zones === 4) { CITY.goMsg = 'WEIRDPORT CITY'; CITY.goAt = performance.now(); try { toast('WEIRDPORT CITY', '#ffb347'); } catch (e) {} }
@@ -16308,7 +16651,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { GUN, gun, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,

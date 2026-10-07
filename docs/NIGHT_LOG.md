@@ -614,3 +614,10 @@ Painted surfaces, District colour, Painted surface brightness, Paving slab size 
 - Every world: the r130 floor decals and graffiti were wound backwards and drew BLACK (DoubleSide lit them from behind).
 - The south causeway met the plateau 0.2 m low (`links`) and the tram row's 2.5 m/s start crept into the gap (r131's stop).
 
+## r140 -- the blaster
+- BLASTER key above the right stick (or `g`). Out: hold the right stick UP to charge, release to fire; the right stick's left/right
+  is the camera and the camera is the aim. A quick flick up is still the strike; the speed skate waits until it is put away.
+- Weirdport's blaster on her right hand at Zap's mount, Zap's rifle poses on her spine-up over her skating legs, and her spine
+  turned so the barrel points down the camera. A charged ball, a reticle, an impact flash; it breaks the Works' windows.
+- `npm run sim gun`. Placeholder until her export has weapon joints and her own gun clips.
+

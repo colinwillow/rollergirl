@@ -100,6 +100,38 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE BLASTER, BORROWED FROM WEIRDPORT (r140, `GUN`, `gun`, `gunMount`, `gunPose`, `gunTwist`/`gunUntwist`, `gunStep`, `gunFire`,
+  `stepBolts`, `gunFrame`, the BLASTER key, `npm run sim gun`).** *"Take out a blaster ... press forward on the right stick which charges
+  the shot, let go to shoot, turn the camera, which is the aimer, with left and right on the right stick ... we don't have a weapon
+  joint, so orient the blaster to the hand joint ... borrow the hero's blaster animations, spine one and up ... and procedurally rotate
+  the spine so you're always aiming toward your aim."*
+  - **THE ASSETS:** `models/weapons/alien_antenna_blaster_game.glb` (weirdport's, draco, 110 KB; `models/weapons` is in `bump.mjs`'s
+    `DIRS`), and `idle_rifle` + `shoot` added to `npm run borrow`'s list (`melee_zap.glb` now 14 clips -- `sim melee` counts 14).
+  - **THE MOUNT IS ZAP'S, REBUILT ON HER HAND.** `borrow` keeps his whole skeleton, so `weapon_root_right` is in that file: `gunZap`
+    reads its local transform on his `mixamorig_RightHand`; `gunMount` puts the same rotation on HER right hand (the rigs share a bind
+    pose) and his offset scaled by forearm length (x1.05). The blaster file is built round that joint, so only the meshes BELOW its
+    `weapon_root` are taken (the armature-twice trap), and the group is sized to `GUN.len` (0.55) of her height, MEASURED in world
+    metres: 94 cm. Muzzle = the far end of the geometry along the mount's -X. **The day her export carries a weapon joint, use it.**
+  - **THE GUN POSES NEVER ENTER THE MIXER.** `buildGirl` splices `idle_rifle`/`shoot` out of her pool (the weight table must sum to 1
+    for the whole body) and `gunTracks` keeps per-bone interpolants for spine-up (`GUN.upper`). `gunPose` runs AFTER the mixer and slerps
+    those bones onto the carried pose, the sighted pose (frame 0 of `shoot`, weirdport's `rifle_aim`) or the shot (`shootBeat` then
+    `shootHold`), by `gun.out`. An override, not a blend: her skating owns hips-down, Zap owns spine-up.
+  - **THE TWIST IS MEASURED IN THE SAME FRAME, SO IT IS EXACT, NOT A LOOP.** After the pose and before the twist the barrel (mount -X)
+    yaw is read; a rotation about world Y adds exactly its angle to a direction's yaw, so `wrap(cam.az - barrel)` IS the twist. City's
+    `aimTwist` read last frame's barrel and needed an integrator. Split over Spine/Spine1/Spine2, conjugated into each parent frame,
+    eased, clamped at `max` 110 deg, and **taken back off before the mixer** (`gunUntwist`, City's c128 unravel).
+    Measured on her real skeleton with Zap's real clips: **the sighted pose holds the barrel 42.4 deg to her left** (weirdport's
+    shoot is barrel -18 on a -62 deg hips stance, and she does not take his hips) and 9 deg low; the twist lands it 0.00 deg off the
+    camera from -40 to +150 deg of camera, and clamps past -68. Asymmetric by construction -- a right-handed stance.
+  - **THE TRIGGER IS WEIRDPORT'S FOUR GATES** (`padUp`: `fireAt` .78 to arm, `keepAt` .48 to keep, `armT` .09, `arc` 60 deg off up).
+    Out, held up is the trigger: `speedStep`, `grabStep` and the r86 `xferUpT` stand down; `stepCam` keeps the right pad's x as the
+    aim in the air too and holds `cam.idle` at 0 (no follow while the trigger is held). **A release that fires eats the flick**
+    (`rightFlick` returns 'fire'); under `minChg` it is a fumble, nothing fires, and the flick is still the strike.
+  - **The bolt** is weirdport's ball (violet haze, cyan body, white core, additive, not tone-mapped), 44 m/s, two half-steps a frame,
+    aimed at `gunAim` -- the camera bearing walked from the muzzle to the first floor or solid, bisected, which is also where the
+    reticle (`#gunRet`) is drawn: one answer. It breaks a `brk` solid (the Works' panes). No targets, no sound (this game has none).
+  - **NOT VERIFIABLE HERE:** how the pose LOOKS on her (her skin is draco), whether the 94 cm reads right, the reticle, the FX.
+    The chip says `GUN 94cm`, `GUN none` (no mount), `nopose` (no borrowed clips), or `NO GUN GLB`.
 - **THE DECALS WERE BLACK IN EVERY WORLD FROM r130 TO r138, AND ONLY A RENDER COULD SAY SO (r139, `decBuild`).** The quads were
   wound so their face looked AWAY from the normal they carried; on a DoubleSide material three flips the normal for a back face,
   so every crack, manhole and tag was lit from underneath -- black blots. Wound to look along `n` now. No harness here renders.

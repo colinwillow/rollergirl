@@ -2627,7 +2627,7 @@ function meleeCase() {
   const bad = clips.filter(c => !(c.duration > 0.3));
   console.log(`  ${clips.length} borrowed clips (${clips.map(c => c.name.replace('weapon_melee', 'wm')).join(' ')})`);
   console.log(`  tracks with no bone of hers to drive: ${unbound}; clips with a bad duration: ${bad.length}`);
-  if (clips.length !== 12 || unbound || bad.length) ok = false;
+  if (clips.length !== 14 || unbound || bad.length) ok = false;      // r140: + idle_rifle and shoot, the gun's upper body
   // HOW HIGH HER FEET END UP in the borrowed poses, on her real skeleton, as a fraction of her leg:
   // the hips were re-based on her rest and scaled by leg length, so a standing strike keeps a foot down
   { const { root, by } = skelFromGLB(alien);
@@ -2717,6 +2717,99 @@ function meleeCase() {
 // The shipped `footFind` + `legIK` on a FABRICATED leg (a skin is draco and cannot be built here, but the
 // IK only reads bone positions and world matrices). It must move the ankle where it is asked to, keep
 // both bone lengths, lay a tilted foot flat, and stay finite when asked for the impossible.
+// r140: THE BLASTER, on her REAL skeleton (rebuilt from the GLB's nodes -- a skeleton needs no mesh, so draco never comes into
+// it), Zap's REAL borrowed clips and mount, and a stand-in mesh the size of the real one's accessor bounds (the blaster's mesh is
+// draco). It runs the shipped `gunZap` / `gunTracks` / `gunMount` / `gunPose` / `gunTwist` / `gunStep` / `stepBolts`:
+//   the gun lands on her right hand at `len` of her height;
+//   in the sighted pose the barrel is near level;
+//   the twist puts the BARREL on the camera's bearing at every angle inside `max`, and stops at `max` past it;
+//   the trigger arms on a held push up, charges, and fires on release; a quick flick does not fire; a sideways drag never arms;
+//   the speed skate stands down while the gun is out; and a bolt flies and dies.
+CASES.gun = () => {
+  let ok = true;
+  const say = (l, c, x) => { console.log(`  ${l.padEnd(58)} ${c ? 'ok' : 'WRONG'} ${x}`); if (!c) ok = false; };
+  const G = rg.gun, GUN = rg.GUN, girl = rg.girl, P = rg.player;
+  const keep = { model: girl.model, ready: girl.ready, who: girl.who };
+  const A = readGLB('models/alien_rollerskate_blue.glb'), sk = skelFromGLB(A.json);
+  const model = new THREE.Group(); model.add(sk.root);
+  const h0 = 1.75, scl = 1;   // her armature carries its 0.01; the model's own scale is 1 here
+  model.updateMatrixWorld(true);
+  // Zap's skeleton and clips, out of the borrowed file exactly as the game reads it
+  const B = readGLB('models/melee_zap.glb'), zs = skelFromGLB(B.json);
+  rg.gunZap(zs.root);
+  say('Zap\'s mount read off the borrowed skeleton', !!G.zap, G.zap ? `offset ${G.zap.p.toArray().map(v => fix(v, 2))} forearm ${fix(G.zap.fore, 2)}` : 'none');
+  const clips = rg.normaliseClips(buildClips(B, THREE)), C = {};
+  for (const c of clips) if (c.name === GUN.idle || c.name === GUN.shoot) C[c.name] = c;
+  rg.gunTracks(model, C);
+  say('spine-up bones posed from idle_rifle + shoot', G.tracks && G.tracks.length > 20, `${G.tracks ? G.tracks.length : 0} bones`);
+  // a stand-in for the draco mesh: a box over its own accessor bounds, placed by its node relative to weapon_root_right
+  const W = readGLB('models/weapons/alien_antenna_blaster_game.glb'), ws = skelFromGLB(W.json);
+  const mi = W.json.nodes.findIndex(n => n.mesh !== undefined), mesh = W.json.meshes[W.json.nodes[mi].mesh];
+  const acc = W.json.accessors[mesh.primitives[0].attributes.POSITION], mn = acc.min, mx = acc.max;
+  const geo = new THREE.BoxGeometry(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]).translate((mx[0] + mn[0]) / 2, (mx[1] + mn[1]) / 2, (mx[2] + mn[2]) / 2);
+  const wr = ws.by.weapon_root_right, mo = ws.by[W.json.nodes[mi].name];
+  const mat = new THREE.Matrix4().copy(wr.matrixWorld).invert().multiply(mo.matrixWorld);
+  G.parts = [{ geometry: geo, material: new THREE.MeshBasicMaterial(), matrix: mat }];
+  girl.model = model; girl.ready = true; girl.who = { key: 'alien' };
+  rg.gunMount();
+  const hand = sk.by.mixamorig_RightHand;
+  let onHand = false; for (let o = G.mount; o; o = o.parent) if (o === hand) onHand = true;
+  say('mounted on her mixamorig_RightHand', !!G.group && onHand, `${G.cm} cm (len ${GUN.len} of ${rg.RIG.height} m)`);
+  // its real length in the world, measured off the stand-in after the mount
+  const bb = new THREE.Box3().setFromObject(G.group), L = bb.getSize(new THREE.Vector3());
+  say('the gun is the length it was sized to', Math.abs(Math.max(L.x, L.y, L.z) - GUN.len * rg.RIG.height) < 0.05 * GUN.len * rg.RIG.height,
+      `${fix(Math.max(L.x, L.y, L.z), 3)} m`);
+  // HER FORWARD, measured off the rig rather than assumed: the toes (weirdport's rule)
+  const tw = n => sk.by[n].getWorldPosition(new THREE.Vector3());
+  const fw = tw('mixamorig_LeftToeBase').add(tw('mixamorig_RightToeBase')).sub(tw('mixamorig_LeftFoot')).sub(tw('mixamorig_RightFoot'));
+  const fy = Math.atan2(fw.x, fw.z);
+  console.log(`  her forward measured off the toes: yaw ${fix(fy * 57.3, 1)} deg`);
+  // pose: out, sighted
+  // the boot's own fetch of the blaster fails headless (no URL base), which stands the gun down -- this case IS the gun
+  const saveOut = GUN.out, saveF = GUN.failed; GUN.failed = 0; GUN.out = 1; G.out = 1; P.gAim = 1; P.gFireT = 0; P.bailT = 0;
+  for (let i = 0; i < 90; i++) { rg.gunUntwist(); rg.gunPose(1 / 60); G.out = 1; model.updateMatrixWorld(true); }
+  const bdir = () => { G.mount.updateWorldMatrix(true, false); return new THREE.Vector3(-1, 0, 0).transformDirection(G.mount.matrixWorld); };
+  const d0 = bdir();
+  say('the sighted pose holds the barrel near level', Math.abs(d0.y) < 0.5, `pitch ${fix(Math.asin(d0.y) * 57.3, 1)} deg, yaw ${fix(wrap(Math.atan2(d0.x, d0.z) - fy) * 57.3, 1)} deg off her nose before the twist`);
+  // the twist, at every bearing
+  const D = Math.PI / 180;
+  for (const off of [0, 40, -40, 90, -90, 150]) {
+    rg.cam.az = fy + off * D; G.twist = 0;
+    for (let i = 0; i < 120; i++) { rg.gunUntwist(); rg.gunPose(1 / 60); rg.gunTwist(1 / 60); model.updateMatrixWorld(true); }
+    const d = bdir(), err = wrap(Math.atan2(d.x, d.z) - rg.cam.az) / D;
+    // what the spine has to turn is the gap from where the POSE holds the barrel (measured above), not from her nose
+    const need = Math.abs(wrap(off * D - Math.atan2(d0.x, d0.z) + fy)) <= GUN.twist.max - 2 * D;
+    say(`camera ${off} deg off her nose: the barrel on the aim`, need ? Math.abs(err) < 1.5 : Math.abs(G.twist) >= GUN.twist.max * 0.99,
+        `barrel ${fix(err, 2)} deg off the aim, spine turned ${fix(G.twist / D, 1)} deg${need ? '' : ' (past max: clamped)'}`);
+  }
+  // and it comes back off: a frame with nothing applied leaves the spine where the pose put it
+  rg.gunUntwist(); P.gAim = 0; G.twist = 0;
+  // ---- the trigger, through the shipped step ----
+  const R = rg.stick.R, stepN = (n, f) => { for (let i = 0; i < n; i++) { if (f) f(i); rg.gunStep(1 / 60); } };
+  const reset = () => { P.gAim = 0; P.gArm = 0; P.gChg = 0; P.gFireT = 0; R.down = 0; R.x = 0; R.y = 0; rg.BOLTS.length = 0; };
+  reset(); R.down = 1; R.y = -1; stepN(80); const armed = P.gAim, chg = P.gChg;
+  R.down = 0; R.y = 0; stepN(1);
+  say('held up 1.33 s: armed, charged, and the release fires', armed && chg > 0.99 && rg.BOLTS.length === 1, `aim ${armed} charge ${fix(chg, 2)} bolts ${rg.BOLTS.length}`);
+  const b = rg.BOLTS[0];
+  if (b) { const p0 = b.pos.clone(); for (let i = 0; i < 30; i++) rg.stepBolts(1 / 60); console.log(`  the bolt flew ${fix(b.pos.distanceTo(p0), 1)} m in 0.5 s (${GUN.boltV} m/s)${rg.BOLTS.includes(b) ? '' : ', and hit something'}`); }
+  reset(); R.down = 1; R.y = -1; stepN(9); R.down = 0; R.y = 0; stepN(1);
+  say('a quick flick up (0.15 s) does not fire', rg.BOLTS.length === 0, `bolts ${rg.BOLTS.length}`);
+  reset(); R.down = 1; R.y = -1; stepN(20); const fl = rg.rightFlick(0, -40);
+  say('a release that fires is not also a flick', fl === 'fire', `rightFlick -> ${fl}`);
+  reset(); R.down = 1; R.x = 1; R.y = 0; stepN(60);
+  say('a sideways drag (the camera) never arms', !P.gAim && !(P.gArm > 0), `aim ${P.gAim}`);
+  reset(); R.down = 1; R.x = 0.6; R.y = -0.75; stepN(20);
+  say('up and to the side (inside the arc) still arms -- the camera turns as it charges', !!P.gAim, `aim ${P.gAim}`);
+  // the speed skate stands down
+  reset(); place(60, 0.1, 0, 0, 6); P.rUpT = 0; R.down = 1; R.y = -1; for (let i = 0; i < 40; i++) rg.speedStep(1 / 60);
+  say('the speed skate stands down while the gun is out', !P.speedSk, `speedSk ${!!P.speedSk}`);
+  GUN.out = 0; P.rUpT = 0; for (let i = 0; i < 40; i++) rg.speedStep(1 / 60); GUN.out = 1;
+  say('...and comes back when it is put away', !!P.speedSk, `speedSk ${!!P.speedSk}`);
+  reset(); P.rUpT = 0; P.speedSk = 0;
+  GUN.out = saveOut; GUN.failed = saveF; G.out = 0; if (G.mount) G.mount.removeFromParent(); G.group = null; G.mount = null; G.twB = []; G.tracks = null; G.twist = 0;
+  girl.model = keep.model; girl.ready = keep.ready; girl.who = keep.who;
+  return ok;
+};
 CASES.footik = () => {
   const root = new THREE.Group(); let ok = true;
   const mk = (name, x, y, z, par) => { const b = new THREE.Bone(); b.name = name; b.position.set(x, y, z); par.add(b); return b; };
