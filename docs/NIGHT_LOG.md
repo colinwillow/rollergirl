@@ -558,3 +558,10 @@ muted), and ~870 pieces of his weeds, litter, leaves, bags and boxes are laid al
 Every canal-street building in the main world is assembled from his weirdport building kit instead (2.9 MB library cut from
 his buildings file: 15 styles, walls/windows/doors/shopfronts/corners/parapets/roofs/floors), on the same collider, with
 procedural drainpipes and AC units on the roofs. Panel: Buildings 1/0 (reload). Step 3 of 4.
+
+## r129 -- HIS PAINTED SURFACES
+
+The generated concrete, plaster and paving under every ramp, wall and floor of the main world are his weirdport textures now
+(stucco on ramps, concrete block on walls, his sidewalk on flat floors), and the slice's ashlar, masonry, dark concrete, paving,
+plaster and wood are his concrete block, brick, curb, sidewalk, stucco and planks, tinted to the old colours. Six textures at
+512 px with derived normal maps, 0.75 MB (`npm run wptex`). Panel: Surfaces 1/0 (reload). Step 4 of 4.

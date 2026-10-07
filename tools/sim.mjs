@@ -63,6 +63,12 @@ if (process.argv[2] === 'wpp') {
       L['wk:' + st + ':' + pc] = { parts: [{ geo: new T.BoxGeometry(3, 3, 0.25).translate(1.5, 1.5, -0.125), mat: mats.wall || (mats.wall = new T.MeshStandardMaterial({ name: 'wall' })), local: new T.Matrix4() }], s: 1, h: 3 };
     L['wk:ac'] = { parts: [{ geo: new T.BoxGeometry(0.3, 0.2, 0.2), mat: mats.prop, local: new T.Matrix4().makeScale(5.6, 5.6, 5.6) }], s: 1, h: 0.2 };
     return L; };
+  // r129: his painted surfaces, as flat stand-ins (node decodes no WebP): the six slots, each a map, a normal and a mean
+  globalThis.window.__wptFake = T => { const o = {};
+    for (const [k, m] of Object.entries({ floor: [0.6, 0.6, 0.6], wall: [0.57, 0.57, 0.57], pave: [0.38, 0.28, 0.24], brick: [0.54, 0.54, 0.54], curb: [0.61, 0.55, 0.48], wood: [0.72, 0.64, 0.52] })) {
+      const d = new Uint8Array(4 * 4 * 4).fill(180), t = new T.DataTexture(d, 4, 4), n = new T.DataTexture(new Uint8Array(64).fill(128), 4, 4);
+      o[k] = { map: t, nrm: n, mean: m, lum: 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2] }; }
+    return o; };
 }
 
 const html = fs.readFileSync('index.html', 'utf8');
@@ -3150,6 +3156,16 @@ CASES.wpp = async () => {
         return y > B.y0 - 0.1 && y < B.y1 + 0.1 && Math.abs(Math.max(Math.abs(lx) - B.hx, Math.abs(lz) - B.hz)) < 0.05 && Math.abs(lx) < B.hx + 0.05 && Math.abs(lz) < B.hz + 0.05; });
       if (!near) off++; }
     say('every kit wall lies on a building box face', n > 0 && !off, `${off} of ${n} off a face`); }
+  // r129: his painted surfaces -- the detail pass takes his three, normalised by their own luminance, and the slice's materials
+  // carry his maps tinted to the generated textures' means
+  { const T = rg.WPT.tex, D = rg.detailTex();
+    say('his six surfaces in', rg.WPT.n === 6 && !rg.WPT.failed, `${rg.WPT.n} slots`);
+    say('the detail pass uses his three', D.f === T.floor && D.w === T.wall && D.p === T.pave && Math.abs(D.m.x * T.floor.lum - 1) < 1e-6, `m ${D.m.x.toFixed(2)} ${D.m.y.toFixed(2)} ${D.m.z.toFixed(2)}`);
+    const mats = new Set(); rg.scene.traverse(o => { if (o.isMesh && o.material && !Array.isArray(o.material)) mats.add(o.material); });
+    const hisM = [...mats].filter(m => Object.values(T).some(h => m.map === h.map));
+    const tinted = hisM.filter(m => m.color.r !== 1 || m.color.g !== 1 || m.color.b !== 1);
+    say('the slice draws with his maps, tinted', hisM.length >= 5 && tinted.length >= 5 && hisM.every(m => isFinite(m.color.r + m.color.g + m.color.b)),
+      `${hisM.length} materials on his maps, ${tinted.length} tinted, e.g. ${tinted.slice(0, 3).map(m => m.color.getHexString()).join(' ')}`); }
   return ok;
 };
 

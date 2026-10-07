@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r128</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r129</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r128';
+const BUILD = 'r129';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_kit.glb":"2cdf7243","models/wpprops/wp_props.glb":"1ea211af","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
+const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_kit.glb":"2cdf7243","models/wpprops/wp_props.glb":"1ea211af","models/wpprops/tex/brick.webp":"37aea86b","models/wpprops/tex/brick_n.webp":"393bbe15","models/wpprops/tex/curb.webp":"212eabd5","models/wpprops/tex/curb_n.webp":"232902fb","models/wpprops/tex/floor.webp":"32db72cd","models/wpprops/tex/floor_n.webp":"26d29278","models/wpprops/tex/pave.webp":"1d39ddda","models/wpprops/tex/pave_n.webp":"5963621d","models/wpprops/tex/wall.webp":"90ca36f9","models/wpprops/tex/wall_n.webp":"f0ba3697","models/wpprops/tex/wood.webp":"ca2c416e","models/wpprops/tex/wood_n.webp":"b774078a","models/wpprops/tex/wptex.json":"af18f0e1","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -8346,13 +8346,54 @@ blendSet();
 // the weights the shader uses, for anything in JS that wants the same answer (the dressing, the sim)
 function blendW(x, z) { return BLEND.d.map(q => { const dx = (x - q.x) / q.r, dz = (z - q.z) / q.r; return Math.exp(-(dx * dx + dz * dz)); }); }
 let DETAILTEX = null;
-function texMeanLum(t) {        // the mean LINEAR luminance of an sRGB DataTexture, so the shader can normalise by it
+function texMeanRGB(t) {        // the mean LINEAR colour of an sRGB DataTexture
   const d = t.image.data, lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-  let s = 0, n = 0; for (let i = 0; i < d.length; i += 4 * 7) { s += 0.2126 * lin(d[i]) + 0.7152 * lin(d[i + 1]) + 0.0722 * lin(d[i + 2]); n++; }
-  return s / Math.max(1, n);
+  let r = 0, g = 0, b = 0, n = 0; for (let i = 0; i < d.length; i += 4 * 7) { r += lin(d[i]); g += lin(d[i + 1]); b += lin(d[i + 2]); n++; }
+  n = Math.max(1, n); return [r / n, g / n, b / n];
+}
+function texMeanLum(t) {        // the mean LINEAR luminance of an sRGB DataTexture, so the shader can normalise by it
+  const c = texMeanRGB(t); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+// r129: HIS PAINTED SURFACES IN PLACE OF THE GENERATED ONES (`WPT`, `npm run wptex`). Step four. Six textures out of his weirdport
+// kit, by material name -- his stucco on ramps and sloped floors, his concrete block on walls, his sidewalk on flat floors, and for
+// the slice his brick, his weathered curb concrete and his painted planks -- at 512 px with a normal map derived from each one's
+// luminance (his kit has none), and each one's mean LINEAR colour in `wptex.json`. A texture here is a SURFACE, never a colour:
+// the detail pass already takes a texture as luminance over its own mean, so it needs only `lum`; the slice uses its maps as
+// colour, so each of his is tinted by (the generated texture's mean / his mean) on `material.color` and a sandstone wall stays
+// sandstone with his blocks in it. Loaded beside the prop library and given `wait` seconds (a stalled fetch never rejects);
+// anything missing falls back to the generated texture, slot by slot. `WPT.on` 0 on the panel is the old look (reload).
+const WPT = { on: 1, dir: 'models/wpprops/tex/', wait: 10, tex: {}, failed: 0, n: 0 };
+async function wptLoad() {
+  if (!WPT.on) return;
+  try {
+    const to = new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), WPT.wait * 1000));
+    const go = (async () => {
+      const r = await fetch(A(WPT.dir + 'wptex.json')); if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
+      const J = await r.json(), TL = new THREE.TextureLoader(), out = {};
+      const one = (f, srgb) => new Promise((res, rej) => TL.load(A(WPT.dir + f), t => {
+        t.flipY = false;      // `slTexOut`'s convention, which the tool writes the normal maps in: row 0 is v 0
+        t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+        t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.anisotropy = 4; t.needsUpdate = true; res(t); }, undefined, rej));
+      await Promise.all(Object.keys(J.slots).map(async k => { try {
+        const [map, nrm] = await Promise.all([one(k + '.webp', 1), one(k + '_n.webp', 0)]);
+        out[k] = { map, nrm, mean: J.slots[k].mean, lum: J.slots[k].lum }; } catch (e) { console.warn('[wpt] ' + k, e); WPT.failed = 1; } }));
+      return out;
+    })();
+    WPT.tex = await Promise.race([go, to]); WPT.n = Object.keys(WPT.tex).length;
+    console.log('[wpt] ' + WPT.n + ' painted surfaces');
+  } catch (e) { WPT.failed = 1; WPT.tex = {}; console.warn('[wpt] his painted surfaces did not arrive -- the generated ones stand', e);
+    if (typeof window !== 'undefined' && window.__wptFake) { WPT.tex = window.__wptFake(THREE); WPT.n = Object.keys(WPT.tex).length; WPT.failed = 0; } }      // `npm run sim wpp`
+}
+// a generated texture's stand-in: his map and normal, tinted so its mean colour is the generated one's
+function wptFor(t, slot) {
+  const H = WPT.tex[slot]; if (!H) return t;
+  const m = texMeanRGB(t.map), c = new THREE.Color().setRGB(m[0] / Math.max(1e-3, H.mean[0]), m[1] / Math.max(1e-3, H.mean[1]), m[2] / Math.max(1e-3, H.mean[2]));
+  return { map: H.map, nrm: H.nrm, color: c, his: slot };
 }
 function detailTex() {
-  if (!DETAILTEX) { const f = slConcTex(false), w = slPlasterTex(), p = slPaveTex(); DETAILTEX = { f, w, p, m: new THREE.Vector3(1 / texMeanLum(f.map), 1 / texMeanLum(w.map), 1 / texMeanLum(p.map)) }; }
+  if (!DETAILTEX) { const H = WPT.tex, f = H.floor || slConcTex(false), w = H.wall || slPlasterTex(), p = H.pave || slPaveTex();
+    const ml = t => t.lum || texMeanLum(t.map);
+    DETAILTEX = { f, w, p, m: new THREE.Vector3(1 / ml(f), 1 / ml(w), 1 / ml(p)) }; }
   return DETAILTEX;
 }
 function detailPatch(mat) {
@@ -11717,9 +11758,14 @@ function slAO(mat) {
 function sliceMeshes() {
   if (!SLC.built) return;
   const t0 = performance.now();
-  const DT = detailTex(), st = slStoneTex('stone'), ms = slStoneTex('masonry'), pv = DT.p, cc = DT.f, dk = slConcTex(true), pl = DT.w, wd = slWoodTex();     // r55: the three it shares with the detail pass, built once
+  const DT = detailTex(), his = WPT.n > 0;
+  // r129: with his painted surfaces in, each slot is his texture tinted to the generated one's mean (`wptFor`); the generated
+  // ones are still made, for their colour, and never uploaded
+  const st = wptFor(slStoneTex('stone'), 'wall'), ms = wptFor(slStoneTex('masonry'), 'brick'), dk = wptFor(slConcTex(true), 'curb'), wd = wptFor(slWoodTex(), 'wood');
+  const pv = his && WPT.tex.pave ? wptFor(slPaveTex(), 'pave') : DT.p, cc = his && WPT.tex.floor ? wptFor(slConcTex(false), 'floor') : DT.f,
+    pl = his && WPT.tex.floor ? wptFor(slPlasterTex(), 'floor') : DT.w;     // r55: the three it shares with the detail pass, built once
   const win = slWindowTex(), A = orbAtlas();
-  const std = (t, o) => slAO(new THREE.MeshStandardMaterial(Object.assign({ map: t.map, normalMap: t.nrm, vertexColors: true, roughness: 0.9, metalness: 0 }, o)));
+  const std = (t, o) => slAO(new THREE.MeshStandardMaterial(Object.assign({ map: t.map, normalMap: t.nrm, vertexColors: true, roughness: 0.9, metalness: 0 }, t.color ? { color: t.color } : {}, o)));
   const M = {
     stone: std(st, { normalScale: new THREE.Vector2(1, 1) }), masonry: std(ms, { normalScale: new THREE.Vector2(1.2, 1.2) }), paving: std(pv, { roughness: 0.85 }),
     concrete: std(cc, { roughness: 0.8, normalScale: new THREE.Vector2(0.6, 0.6) }), dark: std(dk, { roughness: 0.85 }), plaster: std(pl, { roughness: 0.95, normalScale: new THREE.Vector2(0.5, 0.5) }),
@@ -14885,7 +14931,7 @@ function hud(dt) {
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
-      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (!WORLD.zones && WPP.failed ? ' · NO WP PROPS' : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
+      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (!WORLD.zones && WPP.failed ? ' · NO WP PROPS' : '') + (WPT.on && WPT.failed && WORLD.zones !== 4 ? ' · NO WP TEX' + (WPT.n ? ' ' + WPT.n + '/6' : '') : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
       (HYD.failed ? ' · NO HYDRANT GLB' : '') + (performance.now() - (CITY.goAt || -1e9) < 3000 ? ' · → ' + CITY.goMsg : '') + (player.grind && player.grind.rail && player.grind.rail.path.name !== 'park' ? ' ' + player.grind.rail.path.name : '');
     if (gemsB) { gemsB.textContent = GEM.got; gemsN.textContent = GEM.list.length; } }
 }
@@ -15079,6 +15125,7 @@ const TAILUI = [
   ['WPP.kit',        'Buildings: 1 weirdport kit 0 canal street (reload)', 0, 1, 1, ''],
   ['WPP.swap',       'Props: 1 weirdport 0 procedural (reload)', 0, 1, 1, ''],
   ['WPP.clutter.on', 'Weirdport clutter along walls (reload)', 0, 1, 1, ''],
+  ['WPT.on',         'Surfaces: 1 his painted textures 0 generated (reload)', 0, 1, 1, ''],
   ['LEVEL.slopeFix', 'Zones: rebuild sloped decks (reload)', 0, 1, 1, ''],
   ['LOOK.exposure',  'Exposure',       0.5, 2,   0.05, ''],
   ['LOOK.envI',      'Sky light on her', 0, 2,   0.05, ''],
@@ -15200,7 +15247,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, WPP, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
+const UIOBJ = { WORLD, WPP, WPT, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -15333,7 +15380,8 @@ tailLoad();
 // not need to be playable. The CITY and the GIRL are the two there is no game without.
 async function init() {
   setBoot(WORLD.zones === 4 ? 'loading weirdport city' : WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : WORLD.zones === 3 ? 'building sk8 sky' : 'building the park', 0.05);
-  if (!WORLD.zones) { setBoot('loading weirdport props', 0.04); await wppLoad(); }      // r127: before the park builds, so its props can be his
+  if (!WORLD.zones) { setBoot('loading weirdport props', 0.04); await Promise.all([wppLoad(), wptLoad()]); }      // r127: before the park builds, so its props can be his
+  else if (WORLD.zones !== 4) await wptLoad();      // r129: his painted surfaces, before anything asks `detailTex`
   if (WORLD.zones === 2 || (!WORLD.zones && PARKD.on)) await schematicLoad();      // r73: the park his schematic describes, built with the kit (r90: and the main world's park district)
   buildPark();
   if (!WORLD.zones) { try { wppBuild(); } catch (e) { console.warn('[wpp] build', e); WPP.failed = 2; } }
@@ -15376,7 +15424,7 @@ window.rg = { SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtm
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  WORLD, WPC, WPP, wkBuilding, wkPipe, wkKey, wppLoad, wppBuild, wppClutter, wppAt, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
+  WORLD, WPC, WPP, WPT, wptLoad, wptFor, detailTex, wkBuilding, wkPipe, wkKey, wppLoad, wppBuild, wppClutter, wppAt, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
   STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   HRING, hubRing, vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,

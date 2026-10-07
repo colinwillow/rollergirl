@@ -29,7 +29,7 @@ s = s.replace(/<b id="buildN">[^<]*<\/b>/, `<b id="buildN">${next}</b>`);
 
 // Every asset the game fetches at runtime. NOT icons/ -- iOS drops an apple-touch-icon link
 // whose href carries a query string, which is why those version their FILENAME instead.
-const DIRS = ['parks', 'images', 'models', 'models/kit', 'models/props', 'models/ramps', 'models/chars', 'models/wpcity', 'models/wpprops', 'audio', 'audio/songs', 'audio/skateboarding_sound_effects', 'audio/jetpack_sound'];
+const DIRS = ['parks', 'images', 'models', 'models/kit', 'models/props', 'models/ramps', 'models/chars', 'models/wpcity', 'models/wpprops', 'models/wpprops/tex', 'audio', 'audio/songs', 'audio/skateboarding_sound_effects', 'audio/jetpack_sound'];
 // r64: every zone folder he drops into `zones/` is hashed with no edit here -- a new folder is the one thing this
 // list has always been forgotten for, and a zone is a folder per zone by construction
 // r98: AND ONE LEVEL DOWN -- his asset pack lives in `zones/zone_skyline/assets_skyline/`, and `readdirSync` is not recursive

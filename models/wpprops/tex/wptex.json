@@ -1,0 +1,60 @@
+{
+ "size": 512,
+ "from": "../colinwillow/weirdport/models/toon_city_kit",
+ "slots": {
+  "floor": {
+   "mat": "WK_M_stucco_or_plaster",
+   "mean": [
+    0.6014,
+    0.6014,
+    0.6014
+   ],
+   "lum": 0.6014
+  },
+  "wall": {
+   "mat": "WK_M_concrete",
+   "mean": [
+    0.56894,
+    0.56894,
+    0.56894
+   ],
+   "lum": 0.56894
+  },
+  "pave": {
+   "mat": "WR_Stone",
+   "mean": [
+    0.38458,
+    0.27766,
+    0.24199
+   ],
+   "lum": 0.29781
+  },
+  "brick": {
+   "mat": "WK_M_brick",
+   "mean": [
+    0.54054,
+    0.54054,
+    0.54054
+   ],
+   "lum": 0.54054
+  },
+  "curb": {
+   "mat": "WR_Curb",
+   "mean": [
+    0.6143,
+    0.55014,
+    0.48433
+   ],
+   "lum": 0.55903
+  },
+  "wood": {
+   "mat": "WK_M_vertical_wood_planks",
+   "mean": [
+    0.71831,
+    0.63935,
+    0.51658
+   ],
+   "lum": 0.64727
+  }
+ }
+}

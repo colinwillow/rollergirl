@@ -22,7 +22,8 @@
     "plan": "node tools/plan.mjs",
     "trace": "node tools/trace.mjs",
     "export:park": "node tools/export.mjs park",
-    "wpprops": "node tools/wpprops.mjs"
+    "wpprops": "node tools/wpprops.mjs",
+    "wptex": "node tools/wptex.mjs"
   },
   "type": "module",
   "devDependencies": {

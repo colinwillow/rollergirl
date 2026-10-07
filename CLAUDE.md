@@ -77,7 +77,7 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   whole. No draco (custom attributes), WebP textures. `models/props/prop_hydrant.glb` is his hydrant.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo. Since r126 also weirdport's KTX2Loader (+ WorkerPool, ktx-parse, zstddec) and `basis/`.
-- `models/wpcity/` (r126, world 4), `models/wpprops/wp_props.glb` (r127) and `wp_kit.glb` (r128) — his weirdport city, and the
+- `models/wpcity/` (r126, world 4), `models/wpprops/wp_props.glb` (r127), `wp_kit.glb` (r128) and `tex/` (r129, `npm run wptex`) — his weirdport city, and the
   prop and building-kit libraries `npm run wpprops` cuts from it. Re-run that after every export of his city.
 - `handoff/` — **the level-building brief for his Blender session (r83)**: `LEVEL_BUILDING.md`, `rollergirl_blender.py`,
   and `rollergirl_kit_library.glb/.json` (regenerate with `npm run export:lib`; it IS committed, unlike `exports/`). Since r91
@@ -99,6 +99,26 @@ way round. Measuring components made a six-frame stride and a static clip look i
 honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
+
+- **HIS PAINTED SURFACES REPLACE THE GENERATED ONES (r129, `WPT`, `wptLoad`, `wptFor`, `npm run wptex`,
+  `models/wpprops/tex/`).** Step four. Six of his weirdport textures, picked out of his raw kit GLBs BY MATERIAL NAME (so a
+  repaint under the same name comes through on a re-run), cut to 512 px, each with a normal map derived from its luminance (his
+  kit has none) and its mean LINEAR colour in `wptex.json`:
+      floor  WK_M_stucco_or_plaster   the detail pass's ramps/sloped floors; the slice's concrete and plaster
+      wall   WK_M_concrete (block)    the detail pass's walls; the slice's ashlar
+      pave   WR_Stone (his sidewalk)  the detail pass's flat floors; the slice's paving
+      brick / curb / wood             the slice's masonry, dark concrete and wood
+  - **A TEXTURE HERE IS A SURFACE, NEVER A COLOUR.** The detail pass already applies luminance over the texture's own mean, so
+    it only needs `lum`. The slice uses maps as colour, so `wptFor` tints his by (generated mean / his mean) on
+    `material.color` -- a sandstone wall stays sandstone with his blocks in it. The generated textures are still MADE (for that
+    mean, and as the fallback) and never uploaded.
+  - **`flipY = false` on the loaded maps** -- the tool writes the normals in `slTexOut`'s convention (row 0 is v 0). A loaded
+    image defaults to flipY true, which would invert the green channel against the geometry.
+  - Loaded beside the prop library in world 0 and before `buildPark` in every world but 4, with `wait` s against a stalled
+    fetch; a missing slot falls back to its generated texture. Chip `NO WP TEX`. `npm run sim wpp` hands in stand-ins
+    (`__wptFake`) and checks both halves.
+  - **Not measured: how it LOOKS** -- no GPU here. The relief strengths (`ns` per slot in `tools/wptex.mjs`) and the tiling
+    (`DETAIL.floorT/wallT/paveT`, `SLT_T`) are guesses for him to judge.
 
 - **HIS KIT BUILDINGS STAND WHERE THE CANAL STREET'S DID (r128, `wkBuilding`, `wkPut`, `wkKey`, `wkPipe`, `WKB`, `WKPIPE`,
   `models/wpprops/wp_kit.glb`).** Step three. `npm run wpprops` now cuts a SECOND library out of his buildings file: one node
