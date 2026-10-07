@@ -100,6 +100,38 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE SPILLWAY: A SIXTH WORLD, A DAM, AND A CHUTE PIECE (r132, `WORLD.zones` 5, `?world=spillway`, `SPW`, `SPWF`, `spwP`,
+  `kChute`, `spillwayWorld`, `npm run sim spillway`, `npm run export:spillway`, `docs/SPILLWAY.md`, `docs/spillway_map.svg`).**
+  *"A completely new zone ... an awe-dropping visual masterpiece ... lines where you hit this pipe to get onto this rail to get
+  onto this building."* An arch dam in THREE FACETS (a 140 m centre, two 85 m wings turned 22 deg toward the reservoir), three
+  terraces 12 m apart, a 35 deg face to the crest at 60, the reservoir behind; THE CHUTE cut down the middle to a kicker over
+  the tailrace onto the turbine hall's landing; eight lines, every one with a row in the harness. The lines are in the doc.
+  - **EVERYTHING IS PLACED IN FACET COORDINATES.** `spwP(F, u, v, y)` turns (u along the dam, v toward the water) into world
+    space, `spwU(F, v)` is the u range at a depth once the MITRE with the neighbour (tan 11 deg) is taken off, and every
+    terrace, riser, parapet, rail and lift is the centre's code run in a turned frame. **Solids in that frame are
+    `solidAdd(cx, cz, hv, hu, ..., atan2(ux, uz))`** -- hx is ACROSS the box (along v), hz along it, the kit's own convention.
+  - **THE RESERVOIR IS A POLYGON, NOT A RECT.** The first version was `ORB.water` z > 152 -- and the dam is an arch, so that
+    rect reached over the wings' ends and the east lift took a swim at 55 m: *FELL at 35.3 s, her 105.4, 54.37, 151.6*, put
+    back every other frame to the last safe spot on the car. `tris` (the zones importer's own polygon water) behind the crest
+    LINE. **The sea needs no entry at all**: under -8 is a put-back in every world but his zones.
+  - **A LANDING QP M AT A TERRACE LIP IS A WALL (`spwStairs`).** The transfer's outward kick is a fixed 4.5 m/s, so the 2.4 m
+    from the MEGA's coping up to the terrace plus a QP M's 2.4 m deck box had to be cleared in 1.5 m of travel -- measured:
+    she rose to 14.2 at the deck's face and bounced back onto the MEGA at any speed. A QP S with `deck: 0.5` (under the box
+    threshold) asks 3.6 m over 2 m, the Stack's own number, and rising through its deck stands her on it.
+  - **AND A TERRACE CANNOT BE PUMPED TO 24 m/s.** The S gives nothing back; 14 at the lip against 15 needed. The SURGE STRIPS
+    (boost lanes, 26 m/s, chevrons) are the dam's own pumps and the sluice gates' vocabulary; the plaza pair keeps its QP XL.
+  - **A RAIL PIECE'S ORIGIN IS UNDER THE BAR'S START, AND THE HELIX'S CIRCLE LIES TO ITS RIGHT.** Placed on the tower it
+    circled a point 9 m east of it (the trace: r 5.9, 11.9, 17.9 from the tower). `T = M - w * r`. And off its end at 14 m/s
+    she cleared the mole's rim into the harbour: a QP L stands where the rail ends, facing it. The lift stands OUTSIDE the
+    circle (a car inside it is a car the rail runs through) and a dock slab reaches from the deck out to it.
+  - **A CHUTE ON THE PLAZA TAKES THE PLAZA'S CELLS OUT FROM UNDER IT (`SPW.foot`) -- AND ONLY ITS OWN.** The first drain
+    footprint also took the floor out from under the loop's run-in: she fell through at the channel's end.
+  - **A HARNESS THAT KEEPS DRIVING AFTER THE LANDING IS MEASURING ITS OWN INPUT** (the c186 lesson, again): L1 read FELL
+    because the row went on stepping her hands-off up the bank, into the QP, back down and into the tailrace. Stop at the
+    landing. Likewise the lift row read a different lift (`S.lifts[0]` was the lighthouse's after that was built in the try
+    block) -- find it by key.
+  - **NOT VERIFIABLE HERE:** how any of it looks (46 art placements, two water planes, the neon, no GPU), and the chute's
+    speed between gates (34 m/s against the 22 the gates hold inside them) is a phone decision.
 - **SHE COMES TO REST, A HELD BRAKE HOLDS, AND HER ROLLING POSE IS A RIDING FRAME (r131, `SK.creep/restV/restG`,
   `SK.brakeHold/brakeFlip`, `holdClip`, `MOVES.rollFrom`, `npm run sim rest`).** *"There's almost no way to stop her -- she's always
   slightly sliding ... if I just hold down she just goes the other way ... on an elevator she's always sliding around, there's no

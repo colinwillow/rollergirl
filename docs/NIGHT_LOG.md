@@ -12,6 +12,23 @@ system, the sky rail, flying platforms, warehouses, fields, pyramids, alien UFOs
 
 ---
 
+## r132 — THE SPILLWAY (a sixth world: `?world=spillway`, the LEVEL key)
+
+**➤ stops:** `spillway crest`, `spillway chute`, `spillway landing`, `spillway hall roof`, `spillway harbour`, `spillway plaza`,
+`spillway terrace 1..3`, `spillway fish ladder`, `spillway east lift`, `spillway street`, `spillway islands`, `spillway drain`,
+`spillway lighthouse`, `spillway lantern`
+**Sim:** `node tools/sim.mjs spillway` (24 rows) · **Doc:** `docs/SPILLWAY.md` · **Map:** `docs/spillway_map.svg`
+
+A hydroelectric dam skated from the crest to the harbour: an arch dam in three facets, three terraces, a 35-degree face, the
+crest road at 60 m, the reservoir behind it. L1 THE CHUTE (a new piece, `kChute`) cut down the middle to a kicker over the
+tailrace onto the turbine hall's landing bank; L8 THE STAIRCASE (MEGA transfers up every riser on surge strips); L2 THE FISH
+LADDER (a boosted zigzag rail up the east wing); L3 THE PENSTOCK (crest to the harbour ledge through the hall); L4 THE TERRACE
+STREET; L5 THE ISLANDS (his sky islands over the reservoir, a launcher, kickers island to island, a drop rail home); L6 THE
+DRAIN (a second chute into a surface loop); L7 THE LIGHTHOUSE (TOWER_E on a mole, a lift, a helix rail down). Inclined lifts at
+both wing ends, four launchers, the crest rail. 46 of his art placements, unverified by anything with a GPU.
+
+---
+
 ## r100 — THE STACK (south-east of the hub, past Orbital's north quay)
 
 **➤ stops:** `the stack`, `stack 1` … `stack 5`, `summit`, `plunge 1`, `plunge 2`

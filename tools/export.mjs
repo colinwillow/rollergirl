@@ -58,7 +58,9 @@ const KITMODE = process.argv[2] === 'kit' || PARKMODE;
 // r83: `npm run export:lib` -- the gallery ALONE (every kind at every size, no example parks), into `handoff/`, as the
 // piece library a Blender session duplicates from. The full kit with both parks is 18 MB; the library is the part to hand over.
 const LIBMODE = KITMODE && process.argv[3] === 'lib';
-globalThis.localStorage.setItem('rg.world', KITMODE ? '2' : '0');
+// r132: `npm run export:spillway` -- THE SPILLWAY (world 5) whole, the same two files under its own name
+const SPWMODE = process.argv[2] === 'spillway';
+globalThis.localStorage.setItem('rg.world', KITMODE ? '2' : SPWMODE ? '5' : '0');
 if (KITMODE) globalThis.__kitKeep = 1;
 if (PARKMODE && process.argv[3]) globalThis.localStorage.setItem('rg.park', process.argv[3]);      // r88: `npm run export:park -- <name>`     // each piece keeps a copy of its own triangles to be written out
 
@@ -336,7 +338,7 @@ if (KITMODE) {
 }
 
 // which district a thing belongs to, by where it is -- the gates are at the plaza's edges, |x| or |z| ~ 100
-const district = (x, z) => Math.hypot(x, z) > 380 ? 'backdrop' : Math.abs(x) < 100 && Math.abs(z) < 100 ? 'hub' : Math.abs(x) >= Math.abs(z) ? (x < 0 ? 'slice' : 'shores') : (z < 0 ? 'orbital' : rg.PARKD && rg.PARKD.on ? 'park' : 'city');     // r90: the north is the skate park district unless ?city=1
+const district = SPWMODE ? ((x, z) => Math.hypot(x, z) > 380 ? 'backdrop' : z > 136 && Math.abs(x) > 100 ? 'reservoir' : z >= 0 || (Math.abs(x) > 70 && z > (Math.abs(x) - 70) * 0.404) ? 'dam' : z > -84 ? 'plaza' : 'harbour') : (x, z) => Math.hypot(x, z) > 380 ? 'backdrop' : Math.abs(x) < 100 && Math.abs(z) < 100 ? 'hub' : Math.abs(x) >= Math.abs(z) ? (x < 0 ? 'slice' : 'shores') : (z < 0 ? 'orbital' : rg.PARKD && rg.PARKD.on ? 'park' : 'city');     // r90: the north is the skate park district unless ?city=1
 
 // ---------------------------------------------------------------- the picture
 const W = glbWriter(), WW = W, groups = {}, grp = name => groups[name] != null ? groups[name] : (groups[name] = W.node(name, null));
@@ -448,8 +450,9 @@ for (const o of todo) {
   (rg.GEM.list || []).forEach((G, i) => empty('gems', 'gem_' + i, G.x, G.y, G.z, { kind: 'gem' }));
   console.log(`markers: ${Object.keys(rg.CITY.spots).length + 1} spots, ${(O.water || []).length} water, ${(O.launch || []).length} launchers, ${(O.lanes || []).length} lanes, ${(O.bounce || []).length} trampolines, ${(rg.HYD.list || []).length} hydrants, ${(rg.GEM.list || []).length} gems`); }
 if (W.J.materials.some(m => m.extensions)) W.J.extensionsUsed = ['KHR_materials_unlit'];
-const sz = W.write(`${OUT}/rollergirl_world.glb`);
-console.log(`world: ${nMesh} objects, ${Math.round(nTri / 1000)}k triangles, ${W.J.materials.length} materials, ${W.J.images.length} textures, ${rg.PATHS.length} rails -> ${OUT}/rollergirl_world.glb (${(sz / 1e6).toFixed(1)} MB)`);
+const WNAME = SPWMODE ? 'rollergirl_spillway' : 'rollergirl_world';
+const sz = W.write(`${OUT}/${WNAME}.glb`);
+console.log(`world: ${nMesh} objects, ${Math.round(nTri / 1000)}k triangles, ${W.J.materials.length} materials, ${W.J.images.length} textures, ${rg.PATHS.length} rails -> ${OUT}/${WNAME}.glb (${(sz / 1e6).toFixed(1)} MB)`);
 console.log('  by district: ' + Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', '));
 
 // ---------------------------------------------------------------- the collider, in the handoff's naming
@@ -473,7 +476,8 @@ console.log('  by district: ' + Object.entries(counts).map(([k, v]) => `${k} ${v
     const pos = new Float32Array(P), dk = district(b.cx, b.cz), nm = `bld_${dk}_${(b.tag || 'box').replace(/[^a-z0-9]+/gi, '_')}_${nb++}`;
     C.J.meshes.push({ name: nm, primitives: [{ attributes: { POSITION: C.acc(pos, 'VEC3', 5126, true) }, material: 1, mode: 4 }] });
     C.node(nm, cgrp(dk), { mesh: C.J.meshes.length - 1, extras: { kind: 'solid', tag: b.tag || '', top_is_floor: !!b.floor, yaw: b.yaw } }); }
-  const s2 = C.write(`${OUT}/rollergirl_collision.glb`);
-  console.log(`collision: ${n} floor triangles, ${nb} boxes -> ${OUT}/rollergirl_collision.glb (${(s2 / 1e6).toFixed(1)} MB)`); }
+  const CNAME = SPWMODE ? 'rollergirl_spillway_collision' : 'rollergirl_collision';
+  const s2 = C.write(`${OUT}/${CNAME}.glb`);
+  console.log(`collision: ${n} floor triangles, ${nb} boxes -> ${OUT}/${CNAME}.glb (${(s2 / 1e6).toFixed(1)} MB)`); }
 console.log(`done in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 process.exit(0);

@@ -22,6 +22,7 @@
     "plan": "node tools/plan.mjs",
     "trace": "node tools/trace.mjs",
     "export:park": "node tools/export.mjs park",
+    "export:spillway": "node tools/export.mjs spillway",
     "wpprops": "node tools/wpprops.mjs",
     "wptex": "node tools/wptex.mjs"
   },

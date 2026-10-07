@@ -42,7 +42,7 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 (0, eval)(stubs);
 // r64: WHICH WORLD. Every case but `zones` measures the built-in park, and his zones stand on the same ground, so
 // the page is booted in the world the case is about (`rg.world` is what the game reads at load).
-globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : process.argv[2] === 'sky' ? '3' : process.argv[2] === 'wpcity' ? '4' : '0');
+globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : process.argv[2] === 'sky' ? '3' : process.argv[2] === 'wpcity' ? '4' : process.argv[2] === 'spillway' ? '5' : '0');
 // r90: the main world's north district is the skate park now; the City it replaced is one switch away, and `city` boots with it
 if (process.argv[2] === 'city') globalThis.localStorage.setItem('rg.city', '1');
 // r127: `wpp` boots with a STAND-IN prop library (boxes under his kind names) -- headless there is no KTX2 and no draco worker,
@@ -6032,6 +6032,111 @@ if (process.argv[2] === 'parkdump') {
   for (const pc of sheet) for (const R of pc.rails || (pc.rail ? [pc.rail] : [])) out.rails.push([R.segs[0].a, R.segs[R.segs.length - 1].b].map(e => [e.x, e.y, e.z]));
   fs.writeFileSync(process.argv[3], JSON.stringify(out)); process.exit(0);
 }
+// r132: THE SPILLWAY, booted in world 5 -- every line through the shipped step over the real dam
+CASES.spillway = async () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(66)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  if (rg.WORLD.zones !== 5) { console.log('  booted in another world -- run `npm run sim spillway`'); return false; }
+  const S = rg.SPW; if (!S.built) { console.log('  the spillway was not built'); return false; }
+  if (process.env.SPWPROBE) { const mod = await import(pathToFileURL(path.resolve(process.env.SPWPROBE)).href); await mod.default(rg, THREE); }
+  say(`built: ${rg.KITW.pieces.length} kit pieces, ${S.paths.length} rails, ${rg.ORB.lanes.length} lanes, ${rg.ORB.launch.length} pads, ${rg.DYN.list.length} lifts, ${rg.SKYART.place.length} art placements`, S.paths.length > 5, '');
+  say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
+  const city = () => rg.stepCity(DT), g = rg.SK.g;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.braked = 0; P.rest = 0; };
+  const go = (x, z, h, v, y) => { reset(); place(x, (y || 0) + 0.3, z, h, v); const q = rg.groundAt(x, z, (y || 0) + 0.6, 1); if (q.hit) P.pos.y = q.floor; };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, grind: new Set(), top: -99, low: 999, falls: rg.ORB.falls || 0, vmax: 0, air: 0 }; run(sec, (t, i) => { if (stop && stop(t)) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (P.bailT > 0) r.bail = 1; if (P.grind) r.grind.add(P.grind.rail.path); r.top = Math.max(r.top, P.pos.y); r.low = Math.min(r.low, P.pos.y); r.vmax = Math.max(r.vmax, P.speed || 0); if (!P.grounded) r.air = 1;
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 2 && q.floor - P.pos.y > r.deep) { r.deep = q.floor - P.pos.y; r.deepAt = at() + ' t' + fix(t, 1); } }); r.falls = (rg.ORB.falls || 0) - r.falls; r.clean = !r.bail && !r.falls && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) + ' at ' + r.deepAt : ''}`;
+  const at = () => `${fix(P.pos.x, 1)},${fix(P.pos.y, 2)},${fix(P.pos.z, 1)}`;
+  const on = (y, tol) => P.grounded && Math.abs(P.pos.y - y) < (tol || 0.12);
+  const fwd = () => { rg.cam.az = rg.cam.steerAz = P.heading; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  const steerTo = (x, z) => { const h = Math.atan2(x - P.pos.x, z - P.pos.z); rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  const grindAll = (Pth, v, sec, after) => { const S0 = Pth.segs[0], G = Pth.segs[Pth.segs.length - 1]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), v); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: v, side: 'left' }); let reached = 0, off = null, tE = 0, done = 0;
+    const gtr = []; const r = ride(sec, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === Pth) { if (Math.hypot(P.pos.x - G.b.x, P.pos.z - G.b.z) < 2 && Math.abs(P.pos.y - G.b.y) < 3 && !reached) { reached = 1; tE = t; } } else if (!reached && !off) { off = at(); gtr.push(`OFF at ${fix(t, 2)}s ${at()} vel ${[P.vel.x, P.vel.y, P.vel.z].map(v => fix(v, 1)).join(',')} grind ${P.grind ? P.grind.rail.path.name : '-'}`); }
+      if (process.env.SPWTR && Math.round(t / DT) % 30 === 0 && !reached) gtr.push(`${fix(t, 1)}s ${at()} ${P.grind ? 'on ' + P.grind.rail.path.name + ' s' + fix(P.grind.s, 1) : 'free'}`);
+      if (reached && after && after()) done = 1; }); if (gtr.length && process.env.SPWTR) console.log('    ' + gtr.join('\n    ')); return { r, reached, off, tE, done }; };
+  const T = S.tiers, inTier = (i, tol) => on(T[i].y, tol || 0.15) && P.pos.z > T[i].v0 - 0.5 && P.pos.z < T[i].v1 + 0.5 && Math.abs(P.pos.x) < 70;
+  // the stops
+  { const bad = []; for (const n of S.go) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.6) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${S.go.length} stops`); }
+  // L1 THE CHUTE: from the crest, a push to the lip, then hands off down the whole channel, over the kicker, onto the landing bank
+  { go(0, 146, Math.PI, 2, S.crest.y); let lip = 0, kick = 0, land = null, vk = 0, tr = []; const L = S.land;
+    const r = ride(22, (t, i) => { if (land) { P.vel.set(0, 0, 0); return; } if (t < 1.5) fwd(); else { rg.stick.L.x = rg.stick.L.y = 0; } if (P.pos.z < 136) lip = 1; if (!kick && P.pos.z < -40 && !P.grounded) { kick = 1; vk = P.speed; }
+      if (kick && !land && P.grounded && P.pos.z < -44) land = P.pos.clone(); if (process.env.SPWTR && i % 15 === 0) tr.push(`${fix(t, 1)}s ${at()} v${fix(P.speed, 1)}${P.grounded ? '' : ' air'}`); });
+    if (tr.length) console.log('    ' + tr.join('\n    '));
+    const good = land && land.x > L.x0 && land.x < L.x1 && land.z < L.v0 && land.z > L.v0 - L.bank - L.flat - 1 && land.y > 0.3;
+    say('L1 THE CHUTE: crest to the kicker hands off, over the tailrace onto the landing bank', good && r.clean, `${fix(r.vmax, 1)} m/s top, ${kick ? 'off the kicker at ' + fix(vk, 1) : 'NEVER OFF THE KICKER'}, ${land ? 'down at ' + land.x.toFixed(1) + ',' + land.y.toFixed(2) + ',' + land.z.toFixed(1) : 'never down, ends ' + at()}${cl(r)}`); }
+  // the sluice gates hold her speed in the chute: the top of the chute is not 40 m/s
+  // L8 THE STAIRCASE: on each terrace, pump the half pipe along x = -40 and swipe at the MEGA's lip onto the next terrace
+  const pumpUp = (U, need, maxT) => { const cx = U.x, lipZ = U.lipZ, tr = []; let fired = 0, vl = 0, land = null, air = 0, bail = 0;
+    run(maxT, () => { if (land) return; const az = rg.cam.az = P.hSpeed > 0.5 ? Math.atan2(P.vel.x, P.vel.z) : rg.cam.az, fx = Math.sin(az), fz = Math.cos(az), dz = Math.sign(P.vel.z || 1), dx = 0.12 * (cx - P.pos.x), dl = Math.hypot(dx, dz);
+      rg.stick.L.y = P.grounded && !fired ? -((dx * fx + dz * fz) / dl) : 0; rg.stick.L.x = P.grounded && !fired ? ((dx * -fz + dz * fx) / dl) : 0;
+      if (!fired && P.grounded && P.pos.z > lipZ - 0.6 && P.vel.y > 0.5 && P.speed >= need) { fired = 1; vl = P.speed; rg.rightFlick(0, -60); }
+      city(); if (P.bailT > 0) bail = 1; if (fired && !P.grounded) air = 1; if (fired && air && P.grounded) land = P.pos.clone();
+      if (process.env.SPWTR && fired && !land && (tr.length < 40)) tr.push(`${at()} v${fix(P.vel.x,1)},${fix(P.vel.y,1)},${fix(P.vel.z,1)}${P.grounded ? ' gr' : ''}${P.vlip ? ' LOCK' : ''}`); });
+    if (tr.length) console.log('    ' + tr.filter((_, i) => i % 3 === 0).join('\n    '));
+    return { fired, vl, land, bail }; };
+  for (const U of S.ups.filter(u => u.x === S.stair.x)) { const i = U.tier; go(U.x, U.v0 - 16, 0, 3, U.yb); P.heading = 0;
+    const o = pumpUp(U, 15, 45), good = o.land && Math.abs(o.land.y - U.y) < 0.2 && o.land.z > U.v0 - 0.5 && o.land.z < T[i].v1 && !o.bail;
+    say(`L8 riser ${i + 1}: pump the pair at x ${U.x}, transfer onto terrace ${i + 1}`, good, o.fired ? `swipe at ${fix(o.vl, 1)} m/s, down at ${o.land ? o.land.x.toFixed(1) + ',' + o.land.y.toFixed(2) + ',' + o.land.z.toFixed(1) : 'never'}${o.bail ? ' BAIL' : ''}` : 'never fast enough at the lip'); }
+  // L2 THE FISH LADDER: grind it foot to top, pop off onto the top terrace
+  { const o = grindAll(S.paths.find(q => q.name === 'fish ladder'), 6, 40, () => on(T[2].y, 0.2));
+    say('L2 THE FISH LADDER: grinds from the plaza to the top terrace', o.reached && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off}, ${o.done ? 'onto the terrace' : 'ends ' + at()}`); }
+  // L3 THE PENSTOCK: crest to the harbour ledge
+  { const o = grindAll(S.paths.find(q => q.name === 'penstock'), 5, 40, () => on(S.prom.y, 0.2));
+    say('L3 THE PENSTOCK: crest, the face, the terraces, the hall, the harbour', o.reached && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off}, ${o.done ? 'on the promenade' : 'ends ' + at()}`); }
+  // the crest rail and the harbour ledge
+  for (const nm of ['crest rail', 'harbour ledge']) { const Pth = S.paths.find(q => q.name === nm), o = grindAll(Pth, 8, 40); say(`${nm}: grinds end to end`, o.reached && !o.r.bail, o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off); }
+  // THE LIFTS: the east one from the plaza to the crest, off onto the road
+  { const Lf = S.lifts.find(l => l.key === 'E'); let tw = 0; for (let k = 0; k < 4000; k++) { const [, y] = Lf.fn(S.t + k * 0.05); if (y < 0.4) { tw = k * 0.05; break; } }
+    run(tw + 0.3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    reset(); place(Lf.x, Lf.y + 0.05, Lf.z, 0, 0); P.vel.set(0, 0, 0); let up = -1, stay = 1, hit = [];
+    const ltr = []; for (let t = 0; t < 80 && up < 0; t += DT) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (!P.grounded && stay) { stay = 0; const g1 = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1, 2); ltr.push('FELL at ' + fix(t, 1) + 's her ' + at() + ' vel ' + [P.vel.x, P.vel.y, P.vel.z].map(v => fix(v, 2)).join(',') + ' lift ' + fix(Lf.x, 2) + ',' + fix(Lf.y, 2) + ',' + fix(Lf.z, 2) + ' cr ' + Lf.cr + ' ground ' + (g1.hit ? fix(g1.floor, 2) + ' dyn ' + (g1.dyn ? 1 : 0) : 'none') + ' solid ' + (rg.solidAt(P.pos.x, P.pos.y + 0.5, P.pos.z, 0.3) ? 'YES' : 'no')); }
+      if (process.env.SPWTR && t > 34.8 && t < 35.6 && Math.round(t / DT) % 3 === 0) ltr.push(`  ${fix(t, 2)} her ${at()} vel ${[P.vel.x, P.vel.y, P.vel.z].map(v => fix(v, 2)).join(',')} lift ${fix(Lf.x, 2)},${fix(Lf.y, 2)},${fix(Lf.z, 2)} ${P.grounded ? 'gr' : 'AIR'} ${P.onDyn ? 'dyn' : '-'}`); for (const s of T) if (Math.abs(P.pos.y - s.y) < 0.1 && !hit.includes(s.y)) hit.push(s.y); if (P.pos.y > S.crest.y - 0.1) up = t;
+      if (process.env.SPWTR && Math.round(t / DT) % 30 === 0) ltr.push(`${fix(t, 1)}s her ${at()} lift ${fix(Lf.x, 1)},${fix(Lf.y, 2)},${fix(Lf.z, 1)}${P.grounded ? ' gr' : ''} onDyn ${P.onDyn ? 1 : 0}`); }
+    if (ltr.length) console.log('    ' + ltr.join('\n    '));
+    let off = 0; if (up >= 0) { const E = rg.SPWF.E, e = rg.spwP(E, E.L - 6, 142, 0); run(3, () => { steerTo(e[0], e[2]); city(); if (on(S.crest.y, 0.15) && Math.abs(P.pos.x) > 70) off = 1; }); }
+    say('the east lift: plaza to the crest, stopping beside every terrace, off onto the road', up >= 0 && stay && off, `${up >= 0 ? 'up at ' + fix(up, 1) + ' s' : 'never up, y ' + fix(P.pos.y)}, stops seen ${hit.join('/')}${stay ? '' : ', FELL OFF'}, ${off ? 'off onto the crest' : 'ends ' + at()}`); }
+  // THE PADS
+  for (const [i, nm, test] of [[0, 'the west pad throws her onto terrace 2', () => on(T[1].y, 0.2)], [1, 'the east pad throws her onto terrace 2', () => on(T[1].y, 0.2)], [2, 'the crest pad throws her from terrace 3 onto the crest', () => on(S.crest.y, 0.2)]]) {
+    const L = S.pads[i]; go(L.from[0], L.from[2], 0, 0, L.from[1]); let got = 0; const r = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; if (test()) got = 1; });
+    say(nm, got && r.clean, `${got ? 'landed' : 'never on it'}, ends ${at()}, up to ${fix(r.top)}${cl(r)}`); }
+  // L5 THE ISLANDS: the crest pad onto the first, then island to island hands off (the surge strip runs her at each kicker), the drop rail home
+  { const I = rg.SPWISLES, L = S.islePad; go(L.from[0], L.from[2], 0, 0, L.from[1]); let got = 0; const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on(I[0].y, 0.2) && Math.hypot(P.pos.x - I[0].x, P.pos.z - I[0].z) < I[0].r) got = 1; });
+    say('L5 the island pad: from the crest onto the first island', got && r.clean, `${got ? 'landed' : 'never on it'}, ends ${at()}, up to ${fix(r.top)}${cl(r)}`);
+    for (let i = 0; i < I.length - 1; i++) { const q = I[i], n = I[i + 1], [ux, uz] = q.dir; go(q.x + ux * q.lane[0], q.z + uz * q.lane[0], Math.atan2(ux, uz), 4, q.y); let got2 = 0, vk = 0, air = 0;
+      const r2 = ride(7, () => { rg.stick.L.x = rg.stick.L.y = 0; if (got2) { P.vel.set(0, 0, 0); return; } if (!P.grounded && !air) { air = 1; vk = P.speed; } if (on(n.y, 0.2) && Math.hypot(P.pos.x - n.x, P.pos.z - n.z) < n.r) got2 = 1; });
+      say(`L5 island ${i + 1} -> ${i + 2}: the surge strip, the kicker, down on the next`, got2 && r2.clean, `${air ? 'off at ' + fix(vk, 1) + ' m/s' : 'NEVER AIRBORNE'}, ${got2 ? 'landed' : 'never on it'}, ends ${at()}${cl(r2)}`); }
+    { const o = grindAll(S.paths.find(q => q.name === 'island drop'), 6, 30, () => on(T[2].y, 0.2));
+      say('L5 the island drop: off the last island down onto the top terrace', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off}, ${o.done ? 'on the terrace' : 'ends ' + at()}`); } }
+  // L6 THE DRAIN: off the west wing's first terrace, down the drain, the surge, round the loop, out onto the plaza
+  { const s = rg.CITY.spots['spillway drain']; go(s[0], s[2], s[3], 3, s[1]); let top = 0, inv = 0, outp = 0; const O = S.drainOut;
+    const r = ride(14, (t) => { if (t < 1.2) fwd(); else { rg.stick.L.x = rg.stick.L.y = 0; } if (P.grind && P.grind.rail.path === S.loop) { top = 1; const up = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq); if (up.y < -0.5) inv = 1; }
+      if (top && P.grounded && !P.grind && P.pos.y < 0.3 && Math.hypot(P.pos.x - O[0], P.pos.z - O[1]) < 20) outp = 1; });
+    say('L6 THE DRAIN: terrace, chute, the surge, the loop (upside down), out on the plaza', top && inv && outp && r.clean, `${fix(r.vmax, 1)} m/s top, ${top ? 'on the loop' : 'NEVER ON THE LOOP'}${inv ? ', inverted' : ''}, ${outp ? 'out' : 'ends ' + at()}${cl(r)}`); }
+  // L7 THE LIGHTHOUSE: the lift to the lantern deck, the helix down to the mole, the causeway back
+  { const Lf = S.lightLift, M = S.mole, dk = M.y + 24; let tw = 0; for (let k = 0; k < 4000; k++) { const [, y] = Lf.fn(S.t + k * 0.05); if (y < M.y + 0.4) { tw = k * 0.05; break; } }
+    run(tw + 0.3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    reset(); place(Lf.x, Lf.y + 0.05, Lf.z, 0, 0); P.vel.set(0, 0, 0); let up = -1, stay = 1;
+    for (let t = 0; t < 30 && up < 0; t += DT) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (!P.grounded) stay = 0; if (P.pos.y > dk - 0.1) up = t; }
+    let off = 0; if (up >= 0) run(2.5, () => { steerTo(M.x, M.z - 5); city(); if (on(dk, 0.15) && Math.hypot(P.pos.x - M.x, P.pos.z - M.z) < 6.6) off = 1; });
+    say('L7 the lighthouse lift: the mole to the lantern deck, off onto it', up >= 0 && stay && off, `${up >= 0 ? 'up at ' + fix(up, 1) + ' s' : 'never up'}${stay ? '' : ', FELL OFF'}, ${off ? 'on the deck' : 'ends ' + at()}`);
+    const H = S.helix.rails[0], o = grindAll(H, 5, 30, () => on(M.y, 0.25) && Math.hypot(P.pos.x - M.x, P.pos.z - M.z) < M.r);
+    say('L7 THE HELIX: two and a half turns down to the mole', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off}, ${o.done ? 'on the mole' : 'ends ' + at()}`);
+    go(M.x, M.z + M.r - 3, 0, 6, M.y); let home = 0; const r = ride(8, () => { steerTo(M.x, S.prom.v1 - 2); if (on(S.prom.y, 0.15) && P.pos.z > S.prom.v0) home = 1; });
+    say('L7 the causeway: the mole back to the promenade', home && r.clean, `${home ? 'home' : 'ends ' + at()}${cl(r)}`); }
+  // L4 THE TERRACE STREET: hands off down the street past the shopfronts, the gap at speed, the funbox rails
+  { const s = rg.CITY.spots['spillway street'], E = rg.SPWF.E; go(s[0], s[2], s[3], 8, s[1]); const far = rg.spwP(E, 80, 44, 0);
+    let done4 = 0; const r = ride(9, () => { if (done4) { P.vel.set(0, 0, 0); return; } steerTo(far[0], far[2]); if (Math.hypot(P.pos.x - far[0], P.pos.z - far[2]) < 4) done4 = 1; }); say('L4 the street: the length of the terrace, hands on, clean', r.clean && on(T[1].y, 0.3) && done4, `ends ${at()}, ${fix(r.vmax, 1)} m/s${cl(r)}`);
+    const G = S.gap, a = rg.spwP(E, 36, 38, 0); go(a[0], a[2], G.T.yaw, 15, T[1].y); let air = 0, land = null; const b = rg.spwP(E, 36 + 9, 38, 0);
+    const r2 = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (land) { P.vel.set(0, 0, 0); return; } if (!P.grounded) air = 1; if (air && P.grounded && !land) land = P.pos.clone(); }); void b;
+    say('L4 the gap: coasting in at 15 m/s, onto the landing', air && land && land.y > T[1].y + 0.3 && !r2.bail, `${land ? 'down at ' + land.x.toFixed(1) + ',' + land.y.toFixed(2) + ',' + land.z.toFixed(1) : 'never down'}${cl(r2)}`); }
+  return ok;
+};
+
 const only = process.argv[2];
 let fail = 0;
 for (const k of Object.keys(CASES)) {
@@ -6039,10 +6144,10 @@ for (const k of Object.keys(CASES)) {
   console.log(`\n== ${k} ==`);
   let ok = false;
   // the zones case needs a page booted in the OTHER world, so a full run hands it to a process of its own
-  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky' || k === 'wpcity' || k === 'wpp') && !only) {
+  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky' || k === 'wpcity' || k === 'wpp' || k === 'spillway') && !only) {
     const { spawnSync } = await import('child_process');
     const r = spawnSync(process.execPath, [process.argv[1], k], { encoding: 'utf8', maxBuffer: 64 << 20 });
-    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky|wpcity|wpp) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
+    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky|wpcity|wpp|spillway) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
   try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.LAND.flipBail = 0; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
