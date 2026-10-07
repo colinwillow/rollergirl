@@ -454,3 +454,16 @@ trains, the ships and the air base. Now it has streets:
   terraces, ledges, a manual pad and a flat bar, plus palms in planters, benches and lamps.
 
 ➤ stops: `downtown` (the north end of the main street), `downtown square`.
+
+## r120 — DOWNTOWN GOES UP (onto the buildings)
+
+From the street-side reference: the jumps at the building bases lead up onto the buildings.
+
+- **Terraces**: the four long blocks on the main street are now a podium with the tower set back above it, leaving a
+  4 m terrace along the street at 3.6 m. Each has a railing you can grind along its edge, and a quarter pipe at one end.
+- **The way up**: a long bank runs along each podium's sidewalk, from the street up onto a platform level with the
+  terrace. Ride up it and carve onto the terrace.
+- **The bridges**: two booster rails cross the main street diagonally, terrace railing to terrace railing, at z -108 and
+  z -196. Grind a terrace railing and push the stick across the street to take one. Hands-off you stay on the railing.
+
+New ➤ stop: `downtown terrace`.

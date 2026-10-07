@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r119</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r120</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r119';
+const BUILD = 'r120';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3581,6 +3581,7 @@ function buildPark() {
   stationRails();    // r110: the corkscrew and the parapet's grind ring
   donutRails();      // r115: its two grind rings and the dunk down to the skyway spire
   orbTowerRails();   // r118: the loop and its brake run (before the wires: one ties the deck to the pyramid)
+  downtownRails();   // r120: the terrace railings and the bridges across the main street
   saucerRails();     // r116: their parapets' grind rings (before the wires, which tie them to the donut and each other)
   wireRails();       // r111: the high wires between districts' decks (after every deck is in the collider)
   garageRails();     // r107: its ramps' lanes, its rail onto the Table
@@ -8570,31 +8571,34 @@ function htTower(T) {
 // middle sits along the face; the kit pieces go in with the park's kit (`downtownKit`, before the collider) and the
 // architecture with the slice (`buildDowntown`). The road is paint on the plaza: it is not in the collider, so nothing the
 // Heights already does (pads, lifts, the air base, the trains) moved.
-const DTN = { on: 1, built: 0, stops: [], x: -205, z: -150, road: 6, walk: 5, ns: [-212, -86], ew: [-256, -150],
+const DTN = { on: 1, built: 0, stops: [], x: -205, z: -150, road: 6, walk: 5, ns: [-212, -86], ew: [-256, -150], ter: { d: 4, h: 3.6 },
+  bridges: [-108, -196],      // r120: rainbow rails across the main street, terrace railing to terrace railing
   blocks: [
-    { k: 'nwn', x0: -225, x1: -216, z0: -121, z1: -90, h: 24, tint: 0xf3dde6, neon: 0xff6fd0, sign: 'kickflip', mural: 'alien' },
-    { k: 'nen', x0: -194, x1: -180, z0: -121, z1: -90, h: 22, tint: 0xdfe6f6, neon: 0x3ff0e0, sign: 'skatejp', mural: 'cosmic' },
+    { k: 'nwn', ter: 1, x0: -225, x1: -216, z0: -121, z1: -90, h: 24, tint: 0xf3dde6, neon: 0xff6fd0, sign: 'kickflip', mural: 'alien' },
+    { k: 'nen', ter: 1, x0: -194, x1: -180, z0: -121, z1: -90, h: 22, tint: 0xdfe6f6, neon: 0x3ff0e0, sign: 'skatejp', mural: 'cosmic' },
     { k: 'nwq', x0: -238, x1: -216, z0: -139, z1: -130.5, h: 18, tint: 0xf4e6d4, neon: 0xffc84a, sign: 'blades' },
     { k: 'neq', x0: -194, x1: -172, z0: -139, z1: -130.5, h: 20, tint: 0xe8dcf6, neon: 0xb98bff, sign: 'monstermart' },
     { k: 'swq', x0: -238, x1: -216, z0: -169.5, z1: -161, h: 16, tint: 0xdcefe8, neon: 0x3ff0e0, sign: 'market' },
     { k: 'seq', x0: -194, x1: -172, z0: -169.5, z1: -161, h: 19, tint: 0xf6dcd8, neon: 0xff6fd0, sign: 'kickflip' },
-    { k: 'sws', x0: -230, x1: -216, z0: -210, z1: -179, h: 26, tint: 0xe2dcf4, neon: 0xffc84a, sign: 'monstermart', mural: 'bunny' },
-    { k: 'ses', x0: -194, x1: -180, z0: -210, z1: -179, h: 23, tint: 0xf2e8d6, neon: 0x3ff0e0, sign: 'skatejp', mural: 'cat' } ],
+    { k: 'sws', ter: 1, x0: -230, x1: -216, z0: -210, z1: -179, h: 26, tint: 0xe2dcf4, neon: 0xffc84a, sign: 'monstermart', mural: 'bunny' },
+    { k: 'ses', ter: 1, x0: -194, x1: -180, z0: -210, z1: -179, h: 23, tint: 0xf2e8d6, neon: 0x3ff0e0, sign: 'skatejp', mural: 'cat' } ],
   // the street faces' modules: [kind, middle along the face (world coordinate), size]
   //   qp      a quarter pipe M backed onto the wall, `size` wide       sb     stairs (4 m) + bank (3 m) up to a 1.2 m terrace
   //   ledge   a 0.5 m ledge `size` long, steel both edges              man    a 0.3 m manual pad `size` long
   //   bar     a flat bar `size` long                                    palm   a planter with a palm      bench  a bench
+  //   up      r120: a bank L along the face from its toe at `along`, rising toward `size` (+1/-1 along), onto a platform level
+  //           with the block's TERRACE -- the way onto the building      tqp    a QP S on the terrace at its `along` end
   fronts: {
-    'nwn x+': [['palm', -119.3], ['qp', -111, 12], ['sb', -99.5], ['palm', -92.3]],
-    'nen x-': [['ledge', -114, 10], ['palm', -106.8], ['qp', -99.5, 10], ['palm', -92.3]],
+    'nwn x+': [['palm', -119.3], ['qp', -111, 12], ['up', -103, 1], ['palm', -90.9], ['tqp', -121, -1]],
+    'nen x-': [['palm', -119.6], ['qp', -112, 10], ['palm', -104.6], ['up', -92, -1], ['tqp', -90, 1]],
     'nwq x+': [['palm', -134.8]], 'neq x-': [['palm', -134.8]],
     'nwq z-': [['palm', -236.2], ['qp', -229, 10], ['man', -220, 6]],
     'neq z-': [['sb', -188.5], ['qp', -178, 8], ['palm', -173.6]],
     'swq z+': [['bar', -232, 8], ['qp', -221.5, 9]],
     'seq z+': [['qp', -184, 12], ['bench', -175.5]],
     'swq x+': [['palm', -165.2]], 'seq x-': [['palm', -165.2]],
-    'sws x+': [['palm', -181], ['ledge', -188, 8], ['qp', -201, 12], ['palm', -208.2]],
-    'ses x-': [['palm', -181], ['qp', -188, 10], ['sb', -201.5], ['palm', -208.2]] } };
+    'sws x+': [['up', -180.5, -1], ['palm', -192.6], ['qp', -201, 12], ['palm', -208.2], ['tqp', -210, -1]],
+    'ses x-': [['palm', -181], ['qp', -188, 10], ['palm', -196.3], ['up', -209, 1], ['tqp', -179, 1]] } };
 // a block's four faces, and which of them meet a street
 function dtFaces(B) {
   const S = DTN, xw = S.x - S.road - S.walk, xe = S.x + S.road + S.walk, zn = S.z + S.road + S.walk, zs = S.z - S.road - S.walk, F = [];
@@ -8620,41 +8624,75 @@ function downtownKit() {
       for (const [kind, c, size] of mods) { let r = null, T;
         if (kind === 'qp') { const [x, z] = dtP(f, c, Lq); r = kitPiece('qp', 'M', T = { x, y: 0, z, yaw: dtYawIn(f) }, { w: size }); }
         else if (kind === 'sb') { const [x, z] = dtP(f, c, Dsb); r = kitPiece('stairBank', 'S', T = { x, y: 0, z, yaw: dtYawIn(f) }, { w: 4, bw: 3, side: 1, land: 2 }); }
+        else if (kind === 'up') { const L = KSZ.L, bl = L.H / Math.tan(25 * D2R), [x, z] = dtP(f, c, 1.75), yaw = f.ax === 'x' ? (size > 0 ? 0 : Math.PI) : (size > 0 ? Math.PI / 2 : -Math.PI / 2);
+          r = kitPiece('bank', 'L', T = { x, y: 0, z, yaw }, { w: 3.5, angle: 25 }); const [px, pz] = dtP(f, c + size * bl, 1.75); kitPiece('platform', 'L', { x: px, y: 0, z: pz, yaw }, { w: 3.5, d: 2.2 });
+          if (r) { r.bl = bl; r.span = [Math.min(c + size * bl, c + size * (bl + 2.2)), Math.max(c + size * bl, c + size * (bl + 2.2))]; } }
+        else if (kind === 'tqp') { const Lt = S.lip + KITW.deck, [x, z] = dtP(f, c - size * (Lt + 0.1), -DTN.ter.d / 2), yaw = f.ax === 'x' ? (size > 0 ? 0 : Math.PI) : (size > 0 ? Math.PI / 2 : -Math.PI / 2);
+          r = kitPiece('qp', 'S', T = { x, y: DTN.ter.h, z, yaw }, { w: DTN.ter.d - 0.8 }); if (r) r.Lt = Lt; }
         else if (kind === 'ledge' || kind === 'man' || kind === 'bar') { const [x, z] = dtP(f, c - size / 2, kind === 'man' ? 2.8 : 2.6);
           r = kind === 'bar' ? kitPiece('rail', 'S', T = { x, y: 0, z, yaw: dtYawAlong(f) }, { h: 0.7, len: size }) : kitPiece('ledge', 'S', T = { x, y: 0, z, yaw: dtYawAlong(f) }, kind === 'man' ? { h: 0.3, len: size, w: 3 } : { h: 0.5, len: size, w: 1.2 }); }
         else continue;
         if (r) { r.label = 'downtown: ' + kind + ' ' + f.k; DTN.pieces.push({ kind, f, c, size, T, r, Lq, Dsb }); } } }
   } finally { Object.assign(KCOL, K); for (const k in Tn) KSZ[k].tint = Tn[k]; }
 }
-// a block: the box, shop glass along the street, windows above, neon, the sign, a mural, a roof crown and plant
-function dtBlock(B) {
-  const h = B.h;
-  slBox('plaster', B.x0, 0, B.z0, B.x1, h, B.z1, { bev: 0.1, tint: B.tint, solid: true, tag: 'downtown block', base: 0, skip: 'y' });
-  for (const f of dtFaces(B)) {
+// a block: the box (or, with `ter`, a podium with the tower set back off its street face -- a TERRACE along the street at
+// `DTN.ter.h`), shop glass along the street, windows above, neon, the sign, a mural, a roof crown and plant
+function dtFacade(B, bx, wy0, street) {
+  for (const f of dtFaces(bx)) {
     const nrm = f.ax === 'x' ? [f.n, 0, 0] : [0, 0, f.n], Q = (al, y, o) => f.ax === 'x' ? [f.at + f.n * (o || 0.04), y, al] : [al, y, f.at + f.n * (o || 0.04)];
-    const r = f.ax === 'x' ? [0, 0, -f.n] : [f.n, 0, 0], len = f.hi - f.lo, mid = (f.lo + f.hi) / 2;
-    // windows: one lit pane per bay per floor, from above the shop level up
+    const r = f.ax === 'x' ? [0, 0, -f.n] : [f.n, 0, 0], len = f.hi - f.lo, mid = (f.lo + f.hi) / 2, h = bx.h;
     const bays = Math.max(1, Math.round((len - 1.6) / 2.6)), bw = (len - 1.6) / bays;
-    for (let yy = 5.4; yy + 2.3 < h - 1.0; yy += 3.4) for (let b = 0; b < bays; b++) { const a0 = f.lo + 0.8 + b * bw + 0.14, a1 = f.lo + 0.8 + (b + 1) * bw - 0.14, v = Math.floor(slr() * 4), uo = (v % 2) * 0.5, vo = Math.floor(v / 2) * 0.5;
+    for (let yy = wy0; yy + 2.3 < h - 1.0; yy += 3.4) for (let b = 0; b < bays; b++) { const a0 = f.lo + 0.8 + b * bw + 0.14, a1 = f.lo + 0.8 + (b + 1) * bw - 0.14, v = Math.floor(slr() * 4), uo = (v % 2) * 0.5, vo = Math.floor(v / 2) * 0.5;
       slQuad('window', Q(a0, yy), Q(a1, yy), Q(a1, yy + 2.3), Q(a0, yy + 2.3), nrm, { uv4: [[uo, vo], [uo + 0.5, vo], [uo + 0.5, vo + 0.5], [uo, vo + 0.5]] }); }
-    if (f.st) {
-      // the shop level: glass in bays with dark mullions, a neon band over it, the sign over that
-      const sb = Math.max(1, Math.round((len - 1) / 4.2)), sw = (len - 1) / sb;
+    const onSt = street ? street(f) : f.st;
+    if (onSt === 'shop' || onSt === 'shoponly') {
+      // the shop level: glass in bays, a neon band over it
+      const top = bx.shopTop || 3.6, sb = Math.max(1, Math.round((len - 1) / 4.2)), sw = (len - 1) / sb;
       for (let b = 0; b < sb; b++) { const a0 = f.lo + 0.5 + b * sw + 0.12, a1 = f.lo + 0.5 + (b + 1) * sw - 0.12;
-        slQuad('window', Q(a0, 0.5), Q(a1, 0.5), Q(a1, 3.6), Q(a0, 3.6), nrm, { uv4: [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]] }); }
-      const n0 = Q(f.lo + 0.3, 3.95, 0.08), n1 = Q(f.hi - 0.3, 4.12, 0.18);
-      slBox('neon', Math.min(n0[0], n1[0]), 3.95, Math.min(n0[2], n1[2]), Math.max(n0[0], n1[0]), 4.12, Math.max(n0[2], n1[2]), { bev: 0, tint: B.neon, skip: '' });
-      if (B.sign && len > 12) { const sw2 = Math.min(len * 0.55, 9); slDecal('sign', B.sign, Q(mid, 4.4 + sw2 * 0.13, 0.1), r, [0, 1, 0], sw2); slGlow(...Q(mid, 4.9, 0.8), sw2 * 1.1, B.neon, 0.45); }
-      // a mural up the long street face, over the windows
-      if (B.mural && len > 25) slDecal('decal', B.mural, Q(mid, h * 0.62, 0.12), r, [0, 1, 0], Math.min(len * 0.45, 12));
+        slQuad('window', Q(a0, 0.5), Q(a1, 0.5), Q(a1, top), Q(a0, top), nrm, { uv4: [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]] }); }
+      const n0 = Q(f.lo + 0.3, top + 0.15, 0.08), n1 = Q(f.hi - 0.3, top + 0.32, 0.18);
+      slBox('neon', Math.min(n0[0], n1[0]), top + 0.15, Math.min(n0[2], n1[2]), Math.max(n0[0], n1[0]), top + 0.32, Math.max(n0[2], n1[2]), { bev: 0, tint: B.neon, skip: '' });
+    }
+    if (onSt === 'shop' || onSt === 'sign') {
+      const sy = onSt === 'sign' ? wy0 - 0.2 : 4.4;
+      if (B.sign && len > 12) { const sw2 = Math.min(len * 0.55, 9); slDecal('sign', B.sign, Q(mid, sy + sw2 * 0.13, 0.1), r, [0, 1, 0], sw2); slGlow(...Q(mid, sy + 0.5, 0.8), sw2 * 1.1, B.neon, 0.45); }
+      if (B.mural && len > 25) slDecal('decal', B.mural, Q(mid, h * 0.64, 0.12), r, [0, 1, 0], Math.min(len * 0.45, 12));
     }
   }
-  // the roof: a crown, a neon edge, a tank and two plant boxes
-  slBox('trim', B.x0 - 0.2, h - 0.5, B.z0 - 0.2, B.x1 + 0.2, h + 0.4, B.z1 + 0.2, { bev: 0.05, tint: 0xf8f2ff, skip: 'y' });
-  slBox('neon', B.x0 - 0.23, h - 0.25, B.z0 - 0.23, B.x1 + 0.23, h - 0.12, B.z1 + 0.23, { bev: 0, tint: B.neon, skip: 'yY' });
-  const cx = (B.x0 + B.x1) / 2, cz = (B.z0 + B.z1) / 2;
-  slGeo('metal', new THREE.CylinderGeometry(1.3, 1.3, 2.4, 12), slMat(cx - (B.x1 - B.x0) * 0.2, h + 1.6, cz), { smooth: true, tint: 0xb9b4c8 });
-  slBox('metal', cx + 0.5, h + 0.4, cz - 1.2, cx + 2.6, h + 1.6, cz + 1.2, { bev: 0.05, tint: 0xcfcadc, skip: 'y' });
+}
+function dtBlock(B) {
+  const h = B.h, T = DTN.ter, crown = bx => {
+    slBox('trim', bx.x0 - 0.2, bx.h - 0.5, bx.z0 - 0.2, bx.x1 + 0.2, bx.h + 0.4, bx.z1 + 0.2, { bev: 0.05, tint: 0xf8f2ff, skip: 'y' });
+    slBox('neon', bx.x0 - 0.23, bx.h - 0.25, bx.z0 - 0.23, bx.x1 + 0.23, bx.h - 0.12, bx.z1 + 0.23, { bev: 0, tint: B.neon, skip: 'yY' });
+    const cx = (bx.x0 + bx.x1) / 2, cz = (bx.z0 + bx.z1) / 2;
+    slGeo('metal', new THREE.CylinderGeometry(1.2, 1.2, 2.4, 12), slMat(cx, bx.h + 1.6, cz - (bx.z1 - bx.z0) * 0.22), { smooth: true, tint: 0xb9b4c8 });
+    slBox('metal', cx - 1.0, bx.h + 0.4, cz + 1.5, cx + 1.0, bx.h + 1.6, cz + 3.5, { bev: 0.05, tint: 0xcfcadc, skip: 'y' }); };
+  if (!B.ter) {
+    slBox('plaster', B.x0, 0, B.z0, B.x1, h, B.z1, { bev: 0.1, tint: B.tint, solid: true, tag: 'downtown block', base: 0, skip: 'y' });
+    dtFacade(B, B, 5.4, f => f.st ? 'shop' : null); crown(B); return; }
+  // THE PODIUM, the full footprint to the terrace, and THE TOWER set back off the street face above it
+  const sf = dtFaces(B).find(f => f.st), up = { ...B };
+  if (sf.ax === 'x') { if (sf.n > 0) up.x1 = B.x1 - T.d; else up.x0 = B.x0 + T.d; } else { if (sf.n > 0) up.z1 = B.z1 - T.d; else up.z0 = B.z0 + T.d; }
+  slBox('plaster', B.x0, 0, B.z0, B.x1, T.h, B.z1, { bev: 0.08, tint: B.tint, top: 'paving', solid: true, tag: 'downtown podium', base: 0, skip: 'y' });
+  slBox('plaster', up.x0, T.h, up.z0, up.x1, h, up.z1, { bev: 0.1, tint: B.tint, solid: true, tag: 'downtown block', base: T.h, skip: 'y' });
+  const pod = { ...B, h: T.h, shopTop: T.h - 0.75 };
+  for (const f of dtFaces(pod)) if (f.st) { const P = { ...pod }; dtFacade(B, { ...P, h: 0.01 }, 99, g => g.k === f.k ? 'shoponly' : null); }    // the podium's shop front only
+  dtFacade(B, up, T.h + 1.6, g => (g.ax === sf.ax && g.n === sf.n) ? 'sign' : null); crown(up);
+  B.up = up; B.sf = sf;
+}
+// r120: AFTER THE COLLIDER -- the terraces' railings as grind rails, and the rainbow bridges across the main street
+function downtownRails() {
+  if (!DTN.built) return;
+  const S = DTN, T = S.ter, V = p => SLV(p[0], p[1], p[2]);
+  S.railPaths = S.railings.map(top => railPath(top.map(V), { name: 'downtown rail' }));
+  S.bridgePaths = [];
+  const xw = S.x - S.road - S.walk - 0.3, xe = S.x + S.road + S.walk + 0.3, y = T.h + 1.0;
+  // DIAGONAL, leaving the west railing and landing on the east one at 45 degrees: a branch square to its rail can only be taken
+  // one way and lands on a T with no straight on (she rode across and dropped off its far end); along them both ways work
+  for (const z of S.bridges) { const pts = [], n = 40, k = 6, A = [xw, z - 4], Bq = [xe, z + 4], c1 = [xw + k * 0.7071, z - 4 + k * 0.7071], c2 = [xe - k * 0.7071, z + 4 - k * 0.7071];
+    for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t, bx = u * u * u * A[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * Bq[0], bz = u * u * u * A[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * Bq[1];
+      pts.push(SLV(bx, y + 1.8 * Math.sin(Math.PI * t), bz)); }
+    const R = railPath(pts, { name: 'downtown bridge', boost: 12, boostK: 3, maxV: 18 }); railDraw(R, { mat: 'boost', posts: false }); gemsAlong(R, 5, 0.9, 4); S.bridgePaths.push(R); }     // (a booster: a slow grind stalls on the arch)
 }
 // THE ARCHITECTURE: blocks, the two streets, crossings, medians, the dressing (with the slice, after `buildHeights`)
 function buildDowntown() {
@@ -8692,13 +8730,24 @@ function buildDowntown() {
       if (kind === 'palm') { slPlanter(x, 0, z, 1.8, 1.8, 0.55); slPalm(x, 0.55, z, 5 + slr() * 2.5, slr() < 0.4 ? 0xff9ad2 : 0xc9a2ff); }
       if (kind === 'bench') slBench(x, 0, z, f.ax === 'x' ? Math.PI / 2 : 0); }
     for (const al of [f.lo + 0.6, f.hi - 0.6]) { const [x, z] = dtP(f, al, wk - 0.5); slLamp(x, 0, z); } }
+  // r120: THE TERRACES' RAILINGS -- along each terrace's street edge (broken where the bank's platform arrives), across its open
+  // end; grindable (`downtownRails`), and the bridges across the street land on them
+  S.railings = [];
+  for (const B of S.blocks) { if (!B.ter || !B.sf) continue; const f = B.sf, T = S.ter, mods = (S.pieces || []).filter(q => q.f.k === f.k), upq = mods.find(q => q.kind === 'up'), tq = mods.find(q => q.kind === 'tqp');
+    const P = (al, out) => { const [x, z] = dtP(f, al, out); return [x, T.h, z]; }, runs = [], g = upq && upq.r.span ? [upq.r.span[0] - 0.4, upq.r.span[1] + 0.4] : null;
+    const a0 = f.lo + 0.3, a1 = f.hi - 0.3;
+    if (g) { if (g[0] - a0 > 2) runs.push([a0, g[0]]); if (a1 - g[1] > 2) runs.push([g[1], a1]); } else runs.push([a0, a1]);
+    for (const [a, b] of runs) { const pts = []; for (let al = a; al <= b - 0.01; al += 1.5) pts.push(P(al, -0.3)); pts.push(P(b, -0.3)); S.railings.push(slRailing(pts, 1.0, { step: 2 })); }
+    const open = tq ? (Math.abs(tq.c - f.lo) < 0.5 ? a1 : a0) : null;
+    if (open != null) S.railings.push(slRailing([P(open, -0.3), P(open, -T.d / 2), P(open, -T.d + 0.3)], 1.0, { step: 2 })); }
   // signs up the towers' street-facing sides, so the canyon reads from the road
   for (const [x, y, z, n, key, w] of [[-236.05, 30, -110, 1, 'kickflip', 10], [-173.95, 26, -110, -1, 'cosmic', 6], [-236.05, 34, -190, 1, 'monstermart', 11], [-173.95, 28, -190, -1, 'skatejp', 10]])
     slDecal('sign', key, [x + n * 0.05, y, z], [0, 0, -n], [0, 1, 0], w);
   S.blocksN = S.blocks.length;
   CITY.spots['downtown'] = [cx + 2.5, 0, nz1 - 6, Math.PI];
   CITY.spots['downtown square'] = [cx + 3, 0, cz + 3, -Math.PI / 2];
-  S.stops = ['downtown', 'downtown square'];
+  CITY.spots['downtown terrace'] = [S.x - S.road - S.walk - S.ter.d / 2, S.ter.h, -110, Math.PI];     // r120: up on the north-west block's terrace, facing its QP
+  S.stops = ['downtown', 'downtown square', 'downtown terrace'];
   BLEND.clear.push([ex0 - 6, nz0 - 6, ex1 + 6, nz1 + 6]);
   S.built = 1;
 }

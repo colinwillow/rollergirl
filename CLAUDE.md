@@ -94,6 +94,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **DOWNTOWN GOES UP: TERRACES, BANKS ONTO THEM, BRIDGES ACROSS (r120, `DTN.ter`, `dtFacade`, kinds `up`/`tqp`,
+  `downtownRails`).** The long blocks (`ter: 1`) are a podium to 3.6 m with the tower set back 4 m off the street face.
+  The terrace is the podium's top. The `up` module is a bank L along the sidewalk onto a platform level with the terrace.
+  The terrace railing has a gap where that platform arrives, so she carves onto the terrace through it.
+  - **A BRIDGE SQUARE TO ITS RAILS CAN BE TAKEN, BUT IT LANDS ON A T WITH NO "STRAIGHT ON"**: she rode across and fell off
+    the far end. The bridges are diagonal cubics now, leaving one railing and landing on the other at 45 deg along them,
+    so the arrival carries straight on. The test holds the stick 70 deg across, because at 45 deg the branch only beats
+    straight-on by about 0.29, and `brMargin` is 0.3 plus 0.05.
+  - **A grind rail that climbs stalls a slow rider**: at 6 m/s she tipped off the arch mid-street. The bridges are boosters (12).
+  - **Railing points are registered by `downtownRails` as `downtown rail`, not through `SLC.railQ`**. The slice's queue
+    names its paths `slice`, which is in `RAILNET.weaveNames`, so `railWeave` could lay connectors across the platform gaps.
+  - **A python edit that puts a `//` comment in the MIDDLE of a line comments out the rest of it**: the first booster
+    edit silently ate `gemsAlong(...); S.bridgePaths.push(R); }` and the brace with it. `check` read "Unexpected end of
+    input". Put trailing comments after the last statement.
+
 - **DOWNTOWN: THE HEIGHTS GETS STREETS, AND THE ROAD IS PAINT (r119, `DTN`, `dtFaces`, `downtownKit`, `buildDowntown`,
   `npm run sim downtown`).** A main street N-S at x -205 (z -212..-86) and a cross street E-W at z -150 (x -256..-150), 6 m
   lanes each side and 5 m sidewalks, lined by eight storefront blocks whose street faces carry kit ramps.

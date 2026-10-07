@@ -4629,11 +4629,40 @@ CASES.downtown = () => {
       for (let i = 0; i < 2.5 / DT && !up; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (P.grounded && Math.abs(P.pos.y - 1.2) < 0.12) up = 1; }
       if (up) good++; else rows.push(`${q.f.k} at ${fix(q.c, 0)}: ends ${at(P.pos)}`); }
     say('every stairs-and-bank: up the bank onto the shop terrace', good === n && n > 0, rows.join('; ') || `${n} of ${n}`); }
-  // A LEDGE: a tap from beside it grinds it
-  { const q = D.pieces.find(q => q.kind === 'ledge'), f = q.f, h = f.ax === 'x' ? 0 : Math.PI / 2, [x, z] = f.ax === 'x' ? [f.at + f.n * (2.6 + 1.5), q.c - q.size / 2 + 1] : [q.c - q.size / 2 + 1, f.at + f.n * (2.6 + 1.5)];
-    reset(); rg.ledgeClear(); place(x, 0.3, z, h, 5); P.pos.y = 0; run(0.1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); P.jump = 1; let on = 0;
-    run(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && /ledge/.test(P.grind.rail.path.name || '')) on = 1; });
-    say('a tap beside a ledge grinds it', on, on ? 'ground it' : `missed, ends ${at(P.pos)}`); }
+  // r120: ONTO THE BUILDINGS -- every bank along a podium carries her up onto its platform, and from there onto the terrace
+  const T0 = D.ter, faceOut = (f) => (f.ax === 'x' ? P.pos.x - f.at : P.pos.z - f.at) * f.n;
+  { const rows = []; let good = 0, n = 0;
+    for (const q of D.pieces.filter(q => q.kind === 'up')) { n++; reset(); const f = q.f, T = q.T, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), yin = f.ax === 'x' ? (f.n > 0 ? -Math.PI / 2 : Math.PI / 2) : (f.n > 0 ? Math.PI : 0);
+      place(T.x - fx * 5, 0.3, T.z - fz * 5, T.yaw, 13); P.pos.y = 0; let plat = 0, ter = 0;
+      for (let i = 0; i < 3 / DT && !plat; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (P.grounded && Math.abs(P.pos.y - T0.h) < 0.12) plat = 1; }
+      if (plat) for (let i = 0; i < 2 / DT && !ter; i++) { rg.cam.az = yin; rg.cam.steerAz = yin; rg.stick.L.x = 0; rg.stick.L.y = -0.7; city(); rg.stepPlayer(DT); if (P.grounded && Math.abs(P.pos.y - T0.h) < 0.12 && faceOut(f) < -0.6) ter = 1; }
+      if (plat && ter) good++; else rows.push(`${f.k}: ${plat ? 'up, never onto the terrace' : 'never up'}, ends ${at(P.pos)}`); }
+    say('every bank along a podium: up onto it, then onto the terrace', good === n && n > 0, rows.join('; ') || `${n} of ${n}`); }
+  // every terrace's quarter pipe: along the terrace into it, up and back, and still on the terrace
+  { const rows = []; let good = 0, n = 0;
+    for (const q of D.pieces.filter(q => q.kind === 'tqp')) { n++; reset(); const f = q.f, T = q.T, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw);
+      place(T.x - fx * 9, T0.h + 0.3, T.z - fz * 9, T.yaw, 7); P.pos.y = T0.h; let top = 0, back = 0, fell = 0;
+      for (let i = 0; i < 3.5 / DT && !back; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); top = Math.max(top, P.pos.y); if (P.pos.y < T0.h - 0.5) fell = 1;
+        if (top > T0.h + 0.8 && P.grounded && Math.abs(P.pos.y - T0.h) < 0.1) back = 1; }
+      if (back && !fell) good++; else rows.push(`${f.k}: up ${fix(top - T0.h, 1)}, ${fell ? 'FELL' : back ? 'back' : 'ends ' + at(P.pos)}`); }
+    say('every terrace QP: up it and back onto the terrace', good === n && n > 0, rows.join('; ') || `${n} of ${n}`); }
+  // a terrace railing: a tap beside it from the terrace grinds it
+  { const R = D.railPaths[0], S0 = R.segs[Math.floor(R.segs.length / 2)], dx = S0.b.x - S0.a.x, dz = S0.b.z - S0.a.z, l = Math.hypot(dx, dz), h = Math.atan2(dx, dz);
+    const B = D.blocks.find(b => b.ter), f = B.sf, [x, z] = rg.DTN && f.ax === 'x' ? [f.at + f.n * -1.6, S0.a.z] : [S0.a.x, f.at + f.n * -1.6];
+    reset(); place(x, T0.h + 0.3, z, h, 4); P.pos.y = T0.h; run(0.1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); P.jump = 1; let on = 0;
+    run(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path.name === 'downtown rail') on = 1; });
+    say('a tap on the terrace grinds its railing', on, on ? 'ground it' : `missed, ends ${at(P.pos)}`); }
+  // THE BRIDGES: grinding a terrace railing past one with the stick pointed across the street takes it, and she comes down on the far
+  // terrace's railing; hands off she carries on along the railing
+  for (const Bp of D.bridgePaths) { const A = Bp.segs[0].a, E = Bp.segs[Bp.segs.length - 1].b;
+    for (const stick of [1, 0]) { const src = D.railPaths.find(R => R.segs.some(g => Math.abs(g.a.x - A.x) < 0.2 && Math.abs(g.a.z - A.z) < 3));
+      const sg = src.segs.find(g => Math.abs(g.a.x - A.x) < 0.2 && g.a.z < A.z - 4 && g.a.z > A.z - 6.5), sd = Math.sign(sg.b.z - sg.a.z) || 1;
+      reset(); place(sg.a.x, sg.a.y + 0.3, sg.a.z, 0, 0); P.grounded = false; rg.enterGrind({ rail: sg, t: 0.5, dir: sd, s: 6, side: 'left' });
+      const h = Math.sign(E.x - A.x) * 70 * Math.PI / 180; let took = 0, far = 0;
+      run(5, () => { if (stick && P.grind) { rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0; city();
+        if (P.grind && P.grind.rail.path === Bp) took = 1; if (took && P.grind && P.grind.rail.path.name === 'downtown rail' && Math.abs(P.pos.x - E.x) < 1) far = 1; });
+      if (stick) say(`the bridge at z ${fix((A.z + E.z) / 2, 0)}: stick across, over the street onto the far railing`, took && far, `${took ? 'took it' : 'NEVER TOOK IT'}${far ? ', onto the far railing' : ', ends ' + at(P.pos)}`);
+      else say(`hands off past the bridge at z ${fix((A.z + E.z) / 2, 0)}: along the railing`, !took, took ? 'TOOK THE BRIDGE' : 'carried on'); } }
   // the stops
   { const bad = []; for (const n of D.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
       run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
