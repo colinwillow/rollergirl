@@ -62,5 +62,13 @@ for (const [slot, [name, file, ns]] of Object.entries(SLOTS)) {
   console.log(slot.padEnd(6), name.padEnd(28), 'mean lin', J.slots[slot].mean.join(' '), ' ',
     (fs.statSync(`${OUT}/${slot}.webp`).size / 1024).toFixed(0) + ' KB +', (fs.statSync(`${OUT}/${slot}_n.webp`).size / 1024).toFixed(0) + ' KB normal');
 }
+// r130: HIS TWO DECAL SHEETS, whole, with their alpha -- a 4 x 4 grid each. Street decals (cracks, potholes, manholes, oil, puddles,
+// patches, paint arrows and stripes, tyre marks) go on the floors; the graffiti (sixteen drippy tags) goes on the walls.
+J.atlas = {};
+for (const [k, name, file] of [['decals', 'WK_M_street_decals', 'toon_city_visual.glb'], ['graffiti', 'WK_M_graffiti', 'toon_city_visual.glb']]) {
+  await sharp(img(file, name)).ensureAlpha().resize(1024, 1024, { kernel: 'lanczos3' }).webp({ quality: 86, alphaQuality: 90 }).toFile(`${OUT}/${k}.webp`);
+  J.atlas[k] = { mat: name, n: 4 };
+  console.log(k.padEnd(9), name.padEnd(28), (fs.statSync(`${OUT}/${k}.webp`).size / 1024).toFixed(0) + ' KB');
+}
 fs.writeFileSync(`${OUT}/wptex.json`, JSON.stringify(J, null, 1) + '\n');
 console.log(`${OUT}/wptex.json`);

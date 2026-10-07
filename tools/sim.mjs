@@ -2499,6 +2499,41 @@ CASES.home = () => {
 // it's doing this weird triangle thing."* That is Z-FIGHTING: two drawn surfaces at the same height,
 // trading pixels as the camera moves. The drawn park is scanned for flat triangles at plaza height
 // whose colour is not the plaza's -- each one is a surface lying ON the floor, which is the fault.
+// ---------------------------------------------------------------- glsl (r130)
+// The detail pass is a string spliced into three's standard shader, and a broken splice is a world drawn in nothing on the
+// phone with nothing to say why. This builds the REAL patched shader the way three would -- the shipped `detailPatch` on a
+// vertex-coloured MeshStandardMaterial, includes resolved, light counts substituted, loops unrolled -- and compiles both
+// stages with `glslangValidator` as GLSL ES 3.00. Skipped (not failed) where the validator is not installed.
+CASES.glsl = async () => {
+  const { spawnSync } = await import('child_process');
+  if (spawnSync('glslangValidator', ['--version']).error) { console.log('  glslangValidator not installed -- skipped (apt-get install glslang-tools)'); return true; }
+  const mat = rg.detailPatch(new THREE.MeshStandardMaterial({ vertexColors: true }));
+  const sh = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+  mat.onBeforeCompile(sh, null);
+  const inc = t => t.replace(/^[ \t]*#include +<([\w\d./]+)>/gm, (m, n) => { if (THREE.ShaderChunk[n] === undefined) throw new Error('no chunk ' + n); return inc(THREE.ShaderChunk[n]); });
+  const nums = t => t.replace(/NUM_DIR_LIGHT_SHADOWS/g, 1).replace(/NUM_DIR_LIGHTS/g, 1).replace(/NUM_SPOT_LIGHT_SHADOWS_WITH_MAPS/g, 0).replace(/NUM_SPOT_LIGHT_SHADOWS/g, 0)
+    .replace(/NUM_SPOT_LIGHT_MAPS/g, 0).replace(/NUM_SPOT_LIGHT_COORDS/g, 0).replace(/NUM_SPOT_LIGHTS/g, 0).replace(/NUM_RECT_AREA_LIGHTS/g, 0)
+    .replace(/NUM_POINT_LIGHT_SHADOWS/g, 0).replace(/NUM_POINT_LIGHTS/g, 0).replace(/NUM_HEMI_LIGHTS/g, 1).replace(/UNION_CLIPPING_PLANES/g, 0).replace(/NUM_CLIPPING_PLANES/g, 0);
+  const unroll = t => t.replace(/#pragma unroll_loop_start\s+for\s*\(\s*int\s+i\s*=\s*(\d+)\s*;\s*i\s*<\s*(\d+)\s*;\s*i\s*\+\+\s*\)\s*{([\s\S]+?)}\s+#pragma unroll_loop_end/g,
+    (m, a, b, body) => { let o = ''; for (let i = +a; i < +b; i++) o += body.replace(/\[\s*i\s*\]/g, '[ ' + i + ' ]').replace(/UNROLLED_LOOP_INDEX/g, i); return o; });
+  const defs = '#define USE_COLOR\n#define USE_FOG\n#define USE_SHADOWMAP\n#define SHADOWMAP_TYPE_PCF_SOFT\n#define STANDARD\n#define SHADER_TYPE MeshStandardMaterial\n#define SHADER_NAME MeshStandardMaterial\n';
+  const tex = '#define texture2D texture\n#define textureCube texture\n#define texture2DProj textureProj\n#define texture2DLodEXT textureLod\n#define textureCubeLodEXT textureLod\n#define texture2DGradEXT textureGrad\n#define textureCubeGradEXT textureGrad\n';
+  const prec = 'precision highp float;\nprecision highp int;\nprecision highp sampler2D;\nprecision highp samplerCube;\nprecision highp sampler2DShadow;\n';
+  const vs = '#version 300 es\n' + prec + defs + tex + '#define attribute in\n#define varying out\nuniform mat4 modelMatrix, modelViewMatrix, projectionMatrix, viewMatrix;\nuniform mat3 normalMatrix;\nuniform vec3 cameraPosition;\nuniform bool isOrthographic;\n' +
+    'in vec3 position;\nin vec3 normal;\nin vec2 uv;\nin vec3 color;\n' + unroll(nums(inc(sh.vertexShader)));
+  const fs_ = '#version 300 es\n' + prec + defs + tex + '#define varying in\nlayout(location = 0) out highp vec4 pc_fragColor;\n#define gl_FragColor pc_fragColor\nuniform mat4 viewMatrix;\nuniform vec3 cameraPosition;\nuniform bool isOrthographic;\n' +
+    'vec4 linearToOutputTexel( vec4 value ) { return value; }\n' + unroll(nums(inc(sh.fragmentShader)));
+  let ok = true;
+  for (const [stage, src] of [['vert', vs], ['frag', fs_]]) {
+    const f = path.join(TMP, 'detail.' + stage); fs.writeFileSync(f, src.replace(/\baverage\b/g, 'average_'));
+    const r = spawnSync('glslangValidator', [f], { encoding: 'utf8' }), good = r.status === 0;     // three's `average()` collides with a glslang built-in, which browsers do not have: renamed below
+    console.log(`  detail pass ${stage.padEnd(4)} ${good ? 'ok' : 'FAIL'}  (${src.split('\n').length} lines${good ? '' : ': ' + f})`);
+    if (!good) { console.log((r.stdout || '') + (r.stderr || '')); ok = false; }
+  }
+  const spliced = sh.fragmentShader.includes('dQ.x') && sh.vertexShader.includes('vDW =');
+  console.log(`  splices landed                    ${spliced ? 'ok' : 'FAIL'}`); return ok && spliced;
+};
+
 CASES.zfight = () => {
   let plaza = null, park = null;
   rg.scene.traverse(o => { if (!o.isMesh || !o.geometry.attributes.color) return;
@@ -3160,12 +3195,21 @@ CASES.wpp = async () => {
   // carry his maps tinted to the generated textures' means
   { const T = rg.WPT.tex, D = rg.detailTex();
     say('his six surfaces in', rg.WPT.n === 6 && !rg.WPT.failed, `${rg.WPT.n} slots`);
-    say('the detail pass uses his three', D.f === T.floor && D.w === T.wall && D.p === T.pave && Math.abs(D.m.x * T.floor.lum - 1) < 1e-6, `m ${D.m.x.toFixed(2)} ${D.m.y.toFixed(2)} ${D.m.z.toFixed(2)}`);
+    say('the detail pass uses his three', D.f === (T.curb || T.floor) && D.w === T.wall && D.p === T.pave && Math.abs(D.m.x * D.f.lum - 1) < 1e-6, `m ${D.m.x.toFixed(2)} ${D.m.y.toFixed(2)} ${D.m.z.toFixed(2)}`);
     const mats = new Set(); rg.scene.traverse(o => { if (o.isMesh && o.material && !Array.isArray(o.material)) mats.add(o.material); });
     const hisM = [...mats].filter(m => Object.values(T).some(h => m.map === h.map));
     const tinted = hisM.filter(m => m.color.r !== 1 || m.color.g !== 1 || m.color.b !== 1);
     say('the slice draws with his maps, tinted', hisM.length >= 5 && tinted.length >= 5 && hisM.every(m => isFinite(m.color.r + m.color.g + m.color.b)),
       `${hisM.length} materials on his maps, ${tinted.length} tinted, e.g. ${tinted.slice(0, 3).map(m => m.color.getHexString()).join(' ')}`); }
+  // r130: his decals -- on the floor they claim to be on, and graffiti standing on its wall's foot
+  { const D = rg.DEC, fm = D.meshes.find(m => m.name === 'decals:floor'), gm = D.meshes.find(m => m.name === 'decals:graffiti');
+    say('floor decals and graffiti laid', D.n > 500 && D.g > 50 && !!fm && !!gm, `${D.n} floor decals of ${D.cand[0]} spots, ${D.g} graffiti of ${D.cand[1]}`);
+    let off = 0, n = 0;
+    if (fm) { const P = fm.geometry.attributes.position; for (let i = 0; i < P.count; i += 6) { n++;
+      const x = P.getX(i), y = P.getY(i), z = P.getZ(i), g = rg.groundAt(x, z, y + 0.3, 0.6); if (!g.hit || Math.abs(g.floor - y) > 0.06) off++; } }
+    say('every floor decal corner on its floor', n > 0 && !off, `${off} of ${n} off it`);
+    let up = 0; if (gm) { const N = gm.geometry.attributes.normal; for (let i = 0; i < N.count; i++) if (Math.abs(N.getY(i)) > 1e-6) up++; }
+    say('graffiti stands on the walls (horizontal normals)', !!gm && !up, `${up} tilted`); }
   return ok;
 };
 

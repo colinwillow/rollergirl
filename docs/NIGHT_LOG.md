@@ -565,3 +565,11 @@ The generated concrete, plaster and paving under every ramp, wall and floor of t
 (stucco on ramps, concrete block on walls, his sidewalk on flat floors), and the slice's ashlar, masonry, dark concrete, paving,
 plaster and wood are his concrete block, brick, curb, sidewalk, stucco and planks, tinted to the old colours. Six textures at
 512 px with derived normal maps, 0.75 MB (`npm run wptex`). Panel: Surfaces 1/0 (reload). Step 4 of 4.
+
+## r130 -- PAINTED GROUND, DECALS, AND THE FRAME RATE BACK
+
+The floors, ramps and walls take his textures' COLOUR now (the district colour is a light tint on it), the flat floors are laid
+as turned, shifted 2.5 m slabs with joints, ramps are his weathered painted curb, and 3600 of his street decals and 320 of his
+graffiti tags are scattered over the world (two draw calls). Render scale 1.5 on phones (was 2), buildings and clutter no longer
+cast shadows, half the hidden windows and half the wall clutter gone, far chunks culled. Panel: Render scale, Draw distance,
+Painted surfaces, District colour, Painted surface brightness, Paving slab size / joint, decals on/off.

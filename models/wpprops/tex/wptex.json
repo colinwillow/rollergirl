@@ -56,5 +56,15 @@
    ],
    "lum": 0.64727
   }
+ },
+ "atlas": {
+  "decals": {
+   "mat": "WK_M_street_decals",
+   "n": 4
+  },
+  "graffiti": {
+   "mat": "WK_M_graffiti",
+   "n": 4
+  }
  }
 }

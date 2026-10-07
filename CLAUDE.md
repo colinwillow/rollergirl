@@ -100,6 +100,37 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **"IT STILL LOOKS THE SAME, AND IT IS SLOWER" (r130, `DETAIL.paint`, `DEC`, `decBuild`, `LOOK.res`, `farCull`, `npm run sim glsl`).**
+  *"The ground is just this gray grid ... the beauty of weirdport is how much of the screen is covered by beautiful painted
+  textures."* r129 put his textures in as LUMINANCE only -- the detail pass's design -- so the pastel vertex colours still WERE
+  the picture and his paint was a faint grain on them. And the phone fell to ~22 fps.
+  - **PAINT MODE**: with his surfaces in, the texture's own COLOUR is the surface and the vertex colour is a HUE on it (`tint`
+    .3, more on ramps and walls). `color_fragment` multiplies `vColor` in AFTER `map_fragment`, so the factor divides it back
+    out (`want / vColor`). Flat floors are laid as `slab` (2.5 m) slabs with `joint` lines (fwidth-antialiased), each slab
+    TURNED a quarter and SHIFTED on the paving texture by its own hash -- which is the anti-tiling, free -- and a touch lighter
+    or darker. Ramps take his weathered painted CURB. All live on the panel; `paint` 0 is r129, and it is 0 by itself when
+    `WPT` failed (the generated textures keep their old look exactly).
+  - **HIS DECAL SHEETS** (`npm run wptex` cuts `decals.webp` and `graffiti.webp`, 4 x 4 each, alpha kept): up to 3600 floor
+    decals (cracks, potholes, manholes, oil, puddles, patches, tyre marks, arrows) on a jittered 5 m grid where the floor is flat
+    under all four TURNED corners and the edge middles, and 320 tags on the faces of tall boxes with open floor in front. One
+    mesh per sheet for the whole world: two draw calls, ~8k triangles, nothing in the collider. `flipY` is false on every
+    `WPT` texture, so `v` grows DOWN the image and a quad's top edge takes the cell's `v0`.
+  - **THE COST, MEASURED**: kit 357k triangles of which 224k windows; props 330k of which ~175k wall clutter; the world without
+    either already ~1.1 M. So: back-face windows nearly gone (`WKB` .08/.04, front .65: 1721 -> 924 windows, -96k), clutter
+    `max` 240 (-85k), kit buildings, pipes and clutter RECEIVE but do not CAST (`WPP.cast`), chunks past `LOOK.cull` x the fog's
+    far plane not drawn (`farCull`, opt-in by `userData.cull`: WPP cells and the slice's chunks), and **`LOOK.res` 1.5 on a phone
+    -- it was 2, which is 1.3 M fragments of the full ground shader a frame and almost certainly the biggest single cost.**
+    `LOOK.res` and `LOOK.cull` are live panel rows.
+  - **`npm run sim glsl` COMPILES THE REAL PATCHED SHADER** (`glslangValidator`, `apt-get install glslang-tools`): the shipped
+    `detailPatch` on a vertex-coloured standard material, includes resolved, light counts substituted, loops unrolled, both
+    stages as GLSL ES 3.00. Skipped, not failed, without the validator. **Revert-tested**: an undeclared identifier in the
+    splice fails it with the line. three's `average()` collides with a glslang built-in browsers do not have, so the harness
+    renames it. **Run it on any change to a shader string.**
+  - **And the mid-line `//` landmine bit again** (r120's): a comment pasted into the middle of `detailTex`'s line ate the
+    declarations after it. Trailing comments go after the last statement.
+  - Not measured: frame rate (no GPU here), and how any of it looks. Telephone poles, wires, signs and bus stops are single
+    merged meshes in his city file (`prop_wk_poles`, `wk_wires`, `prop_wk_signs`) and do not cut out per piece the way the props do.
+
 - **HIS PAINTED SURFACES REPLACE THE GENERATED ONES (r129, `WPT`, `wptLoad`, `wptFor`, `npm run wptex`,
   `models/wpprops/tex/`).** Step four. Six of his weirdport textures, picked out of his raw kit GLBs BY MATERIAL NAME (so a
   repaint under the same name comes through on a re-run), cut to 512 px, each with a normal map derived from its luminance (his
