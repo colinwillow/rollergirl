@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r102</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r103</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r102';
+const BUILD = 'r103';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3521,6 +3521,7 @@ function buildPark() {
   acroKit();         // r92: the Acropolis's kit pieces (its stone is built with the slice, below)
   stackKit();        // r100: THE STACK -- his buildings, a half pipe on every roof, each one higher
   buildUfo();        // r102: the mothership, 120 m up
+  buildWorks();      // r103: the warehouse on the west strip
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
@@ -3535,6 +3536,7 @@ function buildPark() {
   stackRails();      // r100
   skyRailRails();    // r101: before acroRails builds the gem mesh
   ufoRails();        // r102
+  worksRails();      // r103
   acroRails();       // r92
   cityRails();
   railWeave();       // r59: connectors between railings that stop just short of each other
@@ -3570,7 +3572,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -4177,7 +4179,7 @@ const SOLID = { cell: 8, x0: -480, z0: -480, w: 120, h: 120, cells: null, all: [
 function solidAdd(cx, cz, hx, hz, y0, y1, yaw, o) {
   yaw = yaw || 0; o = o || {};
   const b = { cx, cz, hx, hz, y0, y1, c: Math.cos(yaw), s: Math.sin(yaw), yaw, live: true, tag: o.tag || '',
-    on: o.on || null, floor: o.top !== false };
+    on: o.on || null, floor: o.top !== false, brk: o.brk || 0, onBreak: o.onBreak || null };
   if (b.floor) {
     const P = (lx, lz) => [cx + lx * b.c + lz * b.s, y1, cz - lx * b.s + lz * b.c];
     const A = P(-hx, -hz), B = P(-hx, hz), C = P(hx, hz), D = P(hx, -hz);
@@ -4233,6 +4235,9 @@ function solidPush() {
     let nlx = 0, nlz = 0, pen;
     if (ex < ez) { nlx = lx >= 0 ? 1 : -1; pen = ex; } else { nlz = lz >= 0 ? 1 : -1; pen = ez; }
     const nx = nlx * b.c + nlz * b.s, nz = -nlx * b.s + nlz * b.c;
+    // r103: A BREAKABLE SOLID (`brk`, m/s) met faster than that BREAKS instead of stopping her -- a window she busts out of.
+    // Decided before the push, so she carries straight on through the hole it leaves.
+    if (b.brk && -(p.vel.x * nx + p.vel.z * nz) >= b.brk) { b.live = false; if (b.onBreak) b.onBreak(b, -(p.vel.x * nx + p.vel.z * nz)); continue; }
     p.pos.x += nx * pen; p.pos.z += nz * pen;
     const vn = p.vel.x * nx + p.vel.z * nz;
     if (vn < 0) { const k = (1 + SOLID.bounce) * vn; p.vel.x -= nx * k; p.vel.z -= nz * k; }
@@ -5070,6 +5075,7 @@ function stepCity(dt) {
   gemStep(dt);        // r83: above the gate -- an imported level's gems live in a world with no city
   stepHeights(dt);    // r96: the trains, the lifts, the air base, the ships
   stepUfo(dt);        // r102: the tractor beams
+  stepWorks(dt);      // r103: the windows come back
   stepSk8(dt);        // r97: the sk8 sky's lifts and ferry
   if (!CITY.on) return;
   stepHydrants(dt);
@@ -8969,6 +8975,105 @@ function stepUfo(dt) {
     const a = S.S.a0 + HT.t * S.S.w, vx = -S.S.R * S.S.w * Math.sin(a), vz = S.S.R * S.S.w * Math.cos(a);
     p.vel.y += (12 - p.vel.y) * Math.min(1, 4 * dt); p.vel.x += (vx + (S.x - p.pos.x) * 3 - p.vel.x) * Math.min(1, 5 * dt); p.vel.z += (vz + (S.z - p.pos.z) * 3 - p.vel.z) * Math.min(1, 5 * dt);
     if (p.pos.y > S.y - 0.6) { p.beamUp = 0; p.vel.y = 3; p.vel.x = vx; p.vel.z = vz; U.scoutUps = (U.scoutUps || 0) + 1; } }
+}
+// ===== r103: THE WORKS -- *"grinding on rafters, going inside buildings, busting out windows, the warehouses."* A warehouse on
+// the open west strip: in through the big door in its east wall, up a bank to a MEZZANINE along the west wall, a hop onto
+// the RAFTERS (steel beams at 8.5 m, their tops grind rails), and off the end of one -- or off the kicker at the end of the
+// mezzanine -- straight through a WINDOW in the north wall: the glass is a solid that breaks if she meets it fast enough
+// (`brk`, the collider's new hook), so she bursts out over the alley and lands on the ANNEX's roof, which has a quarter pipe
+// and a bank back down to the yard. The panes come back after a while, so the line is there again next time round.
+const WRK = { on: 1, built: 0, x0: -322, x1: -258, z0: -44, z1: -4, H: 13, t: 0.5, win: [5, 10.5], pane: 4, brk: 6, door: [-30, -18, 7],
+  mez: { x0: -321.5, x1: -313.5, z1: -6, y: 5 }, raft: { y: 8.5, z0: -41.5, z1: -5.3, xs: [-316, -309, -302, -295, -288, -281, -274, -267, -262] },
+  annex: { x0: -322, x1: -262, z0: -3, z1: 48, y: 6 }, panes: [], stops: [], back: 25 };
+function buildWorks() {
+  if (!WRK.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 10303;
+  const W = WRK, t = W.t, H = W.H, wall = (x0, y0, z0, x1, y1, z1, o) => slBox('plaster', x0, y0, z0, x1, y1, z1, { top: 'concrete', bev: 0.04, solid: true, tag: 'works wall', tint: 0xe8e0d6, base: y0, ...(o || {}) });
+  // THE HALL: south and west walls solid, the east wall with its door, the north wall a band of windows between solid courses
+  wall(W.x0, 0, W.z0, W.x1, H, W.z0 + t); wall(W.x0, 0, W.z0, W.x0 + t, H, W.z1);
+  wall(W.x1 - t, 0, W.z0, W.x1, H, W.door[0]); wall(W.x1 - t, 0, W.door[1], W.x1, H, W.z1); wall(W.x1 - t, W.door[2], W.door[0], W.x1, H, W.door[1]);
+  wall(W.x0, 0, W.z1 - t, W.x1, W.win[0], W.z1); wall(W.x0, W.win[1], W.z1 - t, W.x1, H, W.z1);
+  slBox('metal', W.x1 - t - 0.05, W.door[2] - 0.6, W.door[0] - 0.3, W.x1 + 0.05, W.door[2], W.door[1] + 0.3, { bev: 0.02, tint: 0xffc93c });
+  // the roof: a slab you can land on from outside, a row of skylight glow under it
+  slBox('concrete', W.x0, H - 0.6, W.z0, W.x1, H, W.z1, { top: 'paving', bev: 0.05, solid: true, tag: 'works roof', tint: 0xd8d4de, base: H - 0.6, skip: '' });
+  for (let x = W.x0 + 6; x < W.x1 - 3; x += 9) { slGlow(x, H - 1.2, (W.z0 + W.z1) / 2, 6, 0xfff2c8, 0.55); slBox('neon', x - 2, H - 0.75, (W.z0 + W.z1) / 2 - 8, x + 2, H - 0.62, (W.z0 + W.z1) / 2 + 8, { bev: 0, tint: 0xfff2c8, skip: 'Y' }); }
+  // THE WINDOWS: one breakable solid per pane, top-less (glass is not a floor), drawn as one instanced mesh so a pane can go
+  const n = Math.round((W.x1 - W.x0) / W.pane), pw = (W.x1 - W.x0) / n, zc = W.z1 - t / 2;
+  for (let i = 0; i < n; i++) { const cx = W.x0 + pw * (i + 0.5);
+    const P = { i, cx, z: zc, broke: 0, t: 0 };
+    P.b = solidAdd(cx, zc, pw / 2, t / 2, W.win[0], W.win[1], 0, { top: false, tag: 'works window', brk: W.brk, onBreak: (b, v) => worksSmash(P, v) });
+    W.panes.push(P);
+    slBox('metal', cx - pw / 2, W.win[0], zc - 0.2, cx - pw / 2 + 0.16, W.win[1], zc + 0.2, { bev: 0, tint: 0x5a6078 }); }
+  slBox('metal', W.x0, W.win[0] - 0.12, zc - 0.25, W.x1, W.win[0], zc + 0.25, { bev: 0, tint: 0x5a6078 });
+  // THE MEZZANINE along the west wall, its posts, a bank up to it from the floor, a kicker at its end aimed at the windows
+  const M = W.mez, s = Math.tan(21 * D2R), a = 1.4, Lt = M.y / s + 2 * a, z0 = W.z0 + 4, mz0 = z0 + Lt;
+  M.z0 = mz0; M.bank = [z0, mz0];
+  slBox('concrete', M.x0, M.y - 0.5, mz0, M.x1, M.y, M.z1, { top: 'paving', bev: 0.04, solid: true, tag: 'works mezzanine', tint: 0xd6d2dc, base: M.y - 0.5, skip: '' });
+  for (let z = mz0 + 2; z < M.z1; z += 6) slBox('metal', M.x1 - 0.5, 0, z - 0.15, M.x1 - 0.2, M.y - 0.5, z + 0.15, { bev: 0, tint: 0x5a6078 });
+  slBox('metal', M.x1 - 0.12, M.y, mz0, M.x1, M.y + 1.0, M.z1 - 4, { bev: 0, tint: 0xffc93c });
+  { const T = { x: (M.x0 + M.x1) / 2, y: 0, z: z0, yaw: 0 }, prof = [];
+    for (let u = 0; u <= Lt + 1e-6; u += 0.5) prof.push({ u: Math.min(u, Lt), y: acSlope(Lt - Math.min(u, Lt), M.y, s, a), c: 0xcfd6e6 });
+    prof.push({ u: Lt, y: 0, c: KCOL.side }); kStrip(T, prof, -(M.x1 - M.x0) / 2, (M.x1 - M.x0) / 2, 0);
+    // (a RISING bank: each box is topped by the surface half a metre BEFORE its low end -- her body is round, and a box
+    // topped at its own edge's height still caught her feet: the probe stopped dead on one)
+    for (let u = 0; u < Lt - 1; u += 1.5) { const h = acSlope(Lt - u + 0.5, M.y, s, a) - 0.04; if (h > 0.4) solidAdd(T.x, z0 + u + 0.75, (M.x1 - M.x0) / 2 - 0.05, 0.75, 0, h - 0.06, 0, { top: false, tag: 'works bank' }); } }
+  const K = { ...KCOL }, Tn = {}; for (const k in KSZ) Tn[k] = KSZ[k].tint;
+  Object.assign(KCOL, PARKD.pal.kcol); for (const k in PARKD.pal.size) if (KSZ[k]) KSZ[k].tint = PARKD.pal.size[k];
+  const p = (kind, size, x, z, yaw, y, o, label) => { const r = kitPiece(kind, size, { x, y, z, yaw }, o || {}); if (r) r.label = 'works: ' + (label || kind); return r; };
+  try {
+    W.kick = p('kicker', 'S', (M.x0 + M.x1) / 2, M.z1 - 4.2, 0, M.y, { w: 4, h: 0.9, angle: 30 }, 'mezzanine kicker');
+    // the hall floor: a quarter pipe L along the south wall (vert airs up among the rafters), a funbox, a ledge, a flat bar
+    p('qp', 'L', -286, W.z0 + t + KITW.deck + KSZ.L.lip, Math.PI, 0, { w: 28 }, 'hall QP L');
+    p('frustum', 'S', -292, -22, Math.PI / 2, 0, { len: 6, w: 4, banks: [1, 1, 0, 0], rails: 1 }, 'hall funbox');
+    p('ledge', 'S', -276, -12, Math.PI / 2, 0, { h: 0.5, len: 10, w: 1.2 }, 'hall ledge');
+    // THE ANNEX's roof: a quarter pipe L on its north edge, a funbox, a bank back down to the yard off its east edge
+    const A = W.annex;
+    p('qp', 'L', (A.x0 + A.x1) / 2, A.z1 - KITW.deck - KSZ.L.lip, 0, A.y, { w: A.x1 - A.x0 - 2 }, 'annex QP L');
+    p('frustum', 'S', -300, 26, 0, A.y, { len: 4, w: 4, banks: [1, 1, 1, 1] }, 'annex pyramid');
+    p('rail', 'S', -280, 18, Math.PI / 2, A.y, { h: 0.6, len: 10 }, 'annex flat bar');
+  } finally { Object.assign(KCOL, K); for (const k in Tn) KSZ[k].tint = Tn[k]; }
+  // the annex itself: a block, walls along its west and east edges (not the south: that is where she lands), its bank down
+  { const A = W.annex; slBox('plaster', A.x0, 0, A.z0, A.x1, A.y, A.z1, { top: 'concrete', bev: 0.05, solid: true, tag: 'works annex', tint: 0xdcd2e8, base: 0, skip: '' });
+    for (let x = A.x0 + 3; x < A.x1 - 2; x += 5) for (const z of [A.z0 - 0.02]) slQuad('window', [x, 1.4, z], [x + 3, 1.4, z], [x + 3, 4.2, z], [x, 4.2, z], [0, 0, -1], { uv4: [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]] });
+    const wl = (x0, z0, x1, z1) => slBox('stone', x0, A.y, z0, x1, A.y + 1.1, z1, { top: 'stone', bev: 0.04, solid: true, tag: 'works annex wall', tint: 0xf1e9f7, base: A.y });
+    wl(A.x0, A.z0, A.x0 + 0.5, A.z1); wl(A.x1 - 0.5, A.z0, A.x1, 14); wl(A.x1 - 0.5, 26, A.x1, A.z1);
+    // the bank off the east edge between z 14 and 26, from the roof down to the yard
+    const sl = Math.tan(20 * D2R), aa = 1.6, L2 = A.y / sl + 2 * aa, T = { x: A.x1, y: 0, z: 20, yaw: Math.PI / 2 }, prof = [];
+    for (let u = 0; u <= L2 + 1e-6; u += 0.5) prof.push({ u: Math.min(u, L2), y: acSlope(Math.min(u, L2), A.y, sl, aa), c: 0xcfd6e6 });
+    kStrip(T, prof, -6, 6, 0);
+    for (let u = 0; u < L2 - 1; u += 1.5) { const h = acSlope(u + 1.5, A.y, sl, aa); if (h > 0.4) solidAdd(A.x1 + u + 0.75, 20, 0.75, 5.95, 0, h - 0.06, 0, { top: false, tag: 'works bank' }); }
+    W.annexBank = [A.x1, A.x1 + L2]; }
+  CITY.spots['the works'] = [W.x1 + 14, 0, (W.door[0] + W.door[1]) / 2, -Math.PI / 2];
+  CITY.spots['works mezzanine'] = [(M.x0 + M.x1) / 2, M.y, mz0 + 2, 0];
+  CITY.spots['works annex'] = [-290, W.annex.y, 8, 0];
+  W.stops = ['the works', 'works mezzanine', 'works annex'];
+  W.built = 1;
+}
+// after the collider: the rafters' rails, the panes' glass
+function worksRails() {
+  if (!WRK.built) return;
+  const W = WRK, R = W.raft;
+  W.rafters = R.xs.map(x => { slBox('metal', x - 0.15, R.y - 0.6, R.z0 - 0.5, x + 0.15, R.y, R.z1 + 0.5, { bev: 0, tint: 0x5a6078 });
+    slBox('metal', x - 0.35, R.y - 0.1, R.z0 - 0.5, x + 0.35, R.y, R.z1 + 0.5, { bev: 0, tint: 0x6a7090 });
+    slBox('metal', x - 0.35, R.y - 0.65, R.z0 - 0.5, x + 0.35, R.y - 0.55, R.z1 + 0.5, { bev: 0, tint: 0x6a7090 });
+    return railPath(railLine(SLV(x, R.y + 0.03, R.z0), SLV(x, R.y + 0.03, R.z1), 2), { name: 'works rafter' }); });
+  const g = new THREE.BoxGeometry(1, 1, 1), m = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.38, roughness: 0.05, metalness: 0.4, depthWrite: false });
+  m.userData = { noHole: true };
+  W.glass = new THREE.InstancedMesh(g, m, W.panes.length); W.glass.frustumCulled = false; scene.add(W.glass);
+  const pw = (W.x1 - W.x0) / W.panes.length; W.paneW = pw;
+  for (const P of W.panes) worksPane(P, 1);
+}
+const _wm = new THREE.Matrix4(), _wq = new THREE.Quaternion(), _wv = new THREE.Vector3(), _ws = new THREE.Vector3();
+function worksPane(P, on) { const W = WRK; _wv.set(P.cx, (W.win[0] + W.win[1]) / 2, P.z); _ws.set(on ? W.paneW - 0.16 : 0, on ? W.win[1] - W.win[0] : 0, on ? 0.06 : 0);
+  _wm.compose(_wv, _wq, _ws); W.glass.setMatrixAt(P.i, _wm); W.glass.instanceMatrix.needsUpdate = true; }
+function worksSmash(P, v) {
+  P.broke = 1; P.t = 0; if (WRK.glass) worksPane(P, 0); WRK.smashes = (WRK.smashes || 0) + 1;
+  try { sparkBurst(24); toast('SMASH!', '#9fe8ff'); trick('WINDOW SMASH', 150); } catch (e) {}
+}
+// the panes come back -- but never on top of her
+function stepWorks(dt) {
+  if (!WRK.built) return;
+  for (const P of WRK.panes) if (P.broke && (P.t += dt) > WRK.back && Math.hypot(player.pos.x - P.cx, player.pos.z - P.z) > 8) { P.broke = 0; P.b.live = true; if (WRK.glass) worksPane(P, 1); }
 }
 function hubDress() {
   if (!HUB.on) return;
@@ -13071,7 +13176,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

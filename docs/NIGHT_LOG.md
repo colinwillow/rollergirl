@@ -98,3 +98,23 @@ riding it down until you step out of it.)
 **THREE SCOUTS**: small saucers circling lower (34, 46 and 28 m) over Orbital, the hub's east side
 and the park, each dragging its own beam. Skate under one and it lifts you onto its back, and it
 carries you round until you jump. Over a roof the roof is in the way — catch them over open street.
+
+---
+
+## r103 — THE WORKS (a warehouse on the open west strip, x -322..-258)
+
+**➤ stops:** `the works` (the yard by the door), `works mezzanine`, `works annex`
+**Sim:** `node tools/sim.mjs works` (9 rows)
+
+A 64 × 40 m hall, 13 m tall, with a roof you can land on. **In through the big door** in its east
+wall. Inside: a quarter pipe L along the south wall (pushed hard it puts you up level with the
+rafters), a funbox, a ledge — and the line:
+
+- **up the bank to the MEZZANINE** along the west wall (5 m);
+- **the RAFTERS**: nine steel beams at 8.5 m, their tops are grind rails. The first runs right over
+  the mezzanine — swipe down and you are up on it;
+- **BUST OUT A WINDOW**: the north wall's upper band is sixteen glass panes. Glass is a solid that
+  **breaks if you hit it at 6 m/s or more** (and is a wall if you are slower). Fly off a rafter's end
+  or the mezzanine's kicker and you go straight through — SMASH, +150 — across the alley onto the
+  **ANNEX** roof (6 m): a quarter pipe L, a pyramid, a flat bar, and a bank back down to the yard.
+- The panes come back 25 s later (never on top of you), so the line is there next time round.

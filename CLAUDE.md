@@ -94,6 +94,20 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE WORKS: RAFTERS AND WINDOWS YOU BUST OUT OF (r103, `WRK`, `buildWorks`, `worksRails`, `stepWorks`, `npm run sim works`).**
+  A warehouse on the west strip: door, bank to a mezzanine, nine rafters at 8.5 m (rails), a band of sixteen breakable panes
+  in the north wall, an annex roof across a 1 m alley.
+  - **`solidAdd(..., { brk, onBreak })` -- A SOLID THAT BREAKS.** In `solidPush`, a box with `brk` met at that speed along its
+    face's normal or faster sets `live = false` and calls `onBreak` BEFORE the push -- so she carries straight on through.
+    Slower, it is a wall like any other. A pane is `top: false`: glass is not a floor.
+  - **A RISING BANK'S FILL BOXES MUST SIT UNDER THE SURFACE HALF A METRE BEFORE THEIR LOW END** -- her body is round (`SOLID.r`
+    0.3), and a box topped at its own edge's height caught her feet and stopped her dead at the toe of the mezzanine's bank.
+    The descending banks (the plunge, the annex) are topped at their low far end and were already right.
+  - **`place()` IN THE SIM ASKS FOR THE HIGHEST FLOOR WITHIN 9 m** -- indoors that is the ROOF. A row starting her on the
+    mezzanine has to set `P.pos.y` after it.
+  - **A LEDGE AT HER FEET BEATS A RAIL OVER HER HEAD (the r91 landmine)**: the mezzanine's own edge won the swipe over a rafter
+    2.7 m to the side, so the first rafter runs straight over the mezzanine, where nothing is nearer.
+
 - **THE MOTHERSHIP AND THE SCOUTS -- TRACTOR BEAMS (r102, `UFO`, `buildUfo`, `ufoRails`, `stepUfo`, `npm run sim ufo`).**
   *"Going on the alien UFOs."* A saucer at 120 m whose top is a dish (a kit bowl XL with `fill: false`, its FLOOR a fan of
   triangles -- a kit bowl is only its walls, and up there is no ground), a rim with a grind ring, a porch out of the rim where

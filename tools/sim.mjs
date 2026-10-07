@@ -1917,12 +1917,13 @@ CASES.steer = () => {
   let ok = true; const D = 180 / Math.PI;
   const go = (phases, latch) => {
     const keep = rg.CAM.steerLatch; rg.CAM.steerLatch = latch;
-    place(-310, 0, -40, 0, 10); rg.cam.az = rg.cam.steerAz = 0; rg.cam.idle = 9; rg.cam.thA = null; rg.stick.L.down = 1;      // r100: the old spot (150,-200) is under THE STACK now
+    place(-200, 0, -285, 0, 10); rg.cam.az = rg.cam.steerAz = 0; rg.cam.idle = 9; rg.cam.thA = null; rg.stick.L.down = 1;      // r103: open ground south of the Heights -- the old spots are under THE STACK and THE WORKS now; this rides ~75 m each way
     let turned = 0, last = P.heading, aim = 0;
     for (const [dur, fx] of phases) { const n = Math.round(dur / DT);
       for (let i = 0; i < n; i++) { const [x, y] = fx(i / n); rg.stick.L.x = x; rg.stick.L.y = y;
         rg.stepPlayer(DT); rg.stepCam(DT); turned += Math.abs(rg.wrapAngle(P.heading - last)); last = P.heading;
         const s = rg.stickWorld(); aim = Math.atan2(s.x, s.z); } }
+    if (process.env.STP) console.log('    ends at', fix(P.pos.x, 1), fix(P.pos.z, 1), 'from', JSON.stringify(phases.map(q => q[0])));
     rg.stick.L.down = 0; rg.stick.L.x = rg.stick.L.y = 0; rg.CAM.steerLatch = keep;
     return { turned: turned * D, off: Math.abs(rg.wrapAngle(Math.atan2(P.vel.x, P.vel.z) - aim)) * D, travel: Math.atan2(P.vel.x, P.vel.z) * D };
   };
@@ -4379,6 +4380,55 @@ CASES.links = () => {
 // (the swipe down) and OFF at each (a tap pops her onto the deck), both lifts from the street, and a train knocking her off.
 // r102: THE MOTHERSHIP -- the beam up from the street onto its porch, the dish ridden, rolled off the porch into the beam and
 // let down 120 m with no bail, the rim ring ground, and a scout saucer's beam lifting her onto its back and carrying her.
+// r103: THE WORKS -- in through the door, up the bank to the mezzanine, off its kicker through a window onto the annex, the
+// rafters caught from the mezzanine and ridden off the end through a window, a pane that is a wall when met slowly, the hall's
+// quarter pipe launching her up among the rafters, the annex's bank back down, and the panes coming back.
+CASES.works = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const W = rg.WRK; if (!W.built || !W.rafters) { console.log('  the works were not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), A = W.annex, M = W.mez;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; };
+  const mend = () => { for (const q of W.panes) { q.broke = 0; q.b.live = true; } };
+  const onAnnex = p => p.x > A.x0 && p.x < A.x1 && p.z > A.z0 && p.z < A.z1 && p.y > A.y - 0.1;
+  const steerZ = (x) => { rg.cam.az = 0; rg.stick.L.y = P.grounded ? -1 : 0; rg.stick.L.x = P.grounded ? -0.3 * (x - P.pos.x) : 0; };
+  say(`${W.panes.length} panes, ${W.rafters.length} rafters, mezzanine at ${M.y}, annex at ${A.y}`, W.panes.length >= 12 && W.rafters.length === W.raft.xs.length, '');
+  { const bad = []; for (const n of W.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Works ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${W.stops.length} stops`); }
+  // in through the door
+  { mend(); reset(); rg.goSpot('the works'); P.vel.set(-6, 0, 0); const r0 = (W.door[0] + W.door[1]) / 2; let inn = 0;
+    run(5, () => { rg.cam.az = -Math.PI / 2; rg.stick.L.y = -0.8; rg.stick.L.x = 0.3 * (r0 - P.pos.z); city(); if (P.pos.x < W.x1 - 6 && P.pos.y < 0.5) inn = 1; });
+    say('in through the big door into the hall', inn, inn ? `in, at ${at(P.pos)}` : `stopped at ${at(P.pos)}`); }
+  // a pane met slowly is a wall; met fast, it goes
+  { mend(); reset(); const q = W.panes[6]; place(q.cx, 7, q.z - 3, 0, 3); P.pos.y = 7; P.grounded = false; P.vel.set(0, 2, 3);
+    run(0.8, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); const slow = P.pos.z < q.z && q.b.live;
+    mend(); reset(); place(q.cx, 7, q.z - 3, 0, 10); P.pos.y = 7; P.grounded = false; P.vel.set(0, 2, 10);
+    run(0.8, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); const fast = P.pos.z > q.z + 1 && !q.b.live;
+    say('a pane is a wall at 3 m/s and smashes at 10', slow && fast, `${slow ? 'stopped at 3' : 'went THROUGH at 3'}, ${fast ? 'smashed at 10' : 'NOT smashed at 10'}`); }
+  // up the bank, along the mezzanine, off its kicker, through a window, onto the annex
+  { mend(); reset(); const xm = (M.x0 + M.x1) / 2, s0 = W.smashes || 0; place(xm, 0.3, W.z0 + 1.2, 0, 11); let mez = 0, land = null;
+    let kk = 0; run(6, () => { if (land) return; steerZ(xm); if (process.env.WT && kk++ % 10 === 0) console.log('   ', at(P.pos), P.grounded ? 'G' : 'a', fix(P.speed, 1)); city(); if (P.grounded && P.pos.y > M.y - 0.1 && P.pos.z > M.z0) mez = 1; if (mez && P.pos.z > W.z1 && P.grounded && !land) land = P.pos.clone(); });
+    say('the bank, the mezzanine, its kicker: smash out onto the annex', mez && land && onAnnex(land) && (W.smashes || 0) > s0, `${mez ? 'on the mezzanine' : 'NEVER UP'}, ${(W.smashes || 0) > s0 ? 'SMASH' : 'no smash'}, ${land ? 'down at ' + at(land) : 'never down'}`); }
+  // the rafters: off the mezzanine with the swipe down, along one, off its end through a window, onto the annex
+  { mend(); reset(); rg.GRIND.intent = 1; rg.ledgeClear(); const xm = (M.x0 + M.x1) / 2, s0 = W.smashes || 0; place(W.raft.xs[0], M.y + 0.3, M.z0 + 3, 0, 8); P.pos.y = M.y;     // place() asks for the highest floor within 9 m: that is the hall's roof
+    run(0.2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60); let raft = null, land = null, kq = 0;
+    run(8, () => { if (land) return; rg.stick.L.x = rg.stick.L.y = 0; if (process.env.WR && kq++ % 6 === 0) console.log('   ', at(P.pos), P.grounded ? 'G' : 'a', P.grind ? 'GR' : '', fix(P.speed, 1)); city(); if (P.grind && W.rafters.includes(P.grind.rail.path)) raft = P.grind.rail.path; if (raft && !P.grind && P.grounded && !land) land = P.pos.clone(); });
+    rg.GRIND.intent = 0; void xm;
+    say('the swipe down onto a rafter, off its end through a window', raft && land && onAnnex(land) && (W.smashes || 0) > s0, `${raft ? 'on a rafter' : 'NEVER ON ONE -- ' + at(P.pos)}, ${(W.smashes || 0) > s0 ? 'SMASH' : 'no smash'}, ${land ? 'down at ' + at(land) : 'never down'}`); }
+  // the hall's quarter pipe sends her up among the rafters
+  { mend(); reset(); place(-278, 0.3, -20, Math.PI, 19); let top = 0;
+    run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); });
+    say('the hall\'s quarter pipe sends her up level with the rafters', top > W.raft.y - 0.5 && P.pos.y < 2 && P.bailT <= 0, `top ${fix(top)} (rafters ${W.raft.y}), ends ${at(P.pos)}`); }
+  // the annex's bank down into the yard
+  { mend(); reset(); place(A.x1 - 6, A.y + 0.3, 20, Math.PI / 2, 6); let down = 0;
+    run(5, () => { rg.cam.az = Math.PI / 2; rg.stick.L.y = 0; rg.stick.L.x = 0; city(); if (P.grounded && P.pos.y < 0.2 && P.pos.x > A.x1 + 2) down = 1; });
+    say('off the annex down its bank into the yard', down && P.bailT <= 0, down ? `in the yard at ${at(P.pos)}` : `ends ${at(P.pos)}`); }
+  // the panes come back -- once she is away
+  { const q = W.panes[3]; q.b.live = false; q.broke = 1; q.t = 0; reset(); place(-240, 0.3, 60, 0, 0); run(W.back + 1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    say('a smashed pane comes back', q.b.live && !q.broke, q.b.live ? 'back' : 'still out'); }
+  mend(); return ok;
+};
 CASES.ufo = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
