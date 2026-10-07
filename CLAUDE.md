@@ -94,6 +94,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **A WIRE CAN START ON ANOTHER RAIL, AND THE AIR TAKES THE DISTRICT'S COLOUR (r113, `WIRE.list[i][2] = { rail, at }`,
+  `wireOnRail`, `ATMO`, `atmoMix`, `stepAtmo`, `npm run sim wires`, `npm run sim atmo`).**
+  - **The peak - plunge 1 wire starts ON the sky rail** at its point nearest `at` (-9, -275): railLink makes a T (the wire's
+    end on the sky rail's middle), so grinding past it the stick takes it and the wire's far end merges back. The shift
+    slides the branch point along the rail; `wireNear` ignores the parent rail at that end.
+  - **An 18-degree branch needs the stick SQUARE out.** `railPick`'s branch must beat straight-on by `brMargin` 0.3 with the
+    straight's `nat` +0.05; at 60 degrees of stick the wire scored 2.22 against 2.25. The pyramid drop (35 degree kick)
+    takes at 75; this one at 90. A shallow branch is a deliberate move, which is fine -- but test it at the angle a player
+    can hold.
+  - **`wireEnd(B, ...)` now walks toward the A END, not A's spot**, which let stack 2 - transit deck (280 m) string; every
+    wire is ridden both ways regardless.
+  - **`AIR` WAS TAKEN** (the air-control tunables), so the atmosphere is `ATMO`. It eases `scene.fog.color`, `hemi.color` and
+    weirdport's `rim` lamp toward `BLEND.d`'s colours at `cam.tgt`, weighted by how much of any district is there; its base
+    is captured on the first frame and RE-captured when the painted sky lands (the fog is sampled off it, so a base taken
+    before that would hold the stand-in's colour for ever). Called from `stepCam` after `stepLights`.
+
 - **THE NORTHWAY: AN slDeck HIGHWAY, AND THE THINGS ALREADY STANDING IN THE SKY DECIDED ITS LINE (r112, `NW`,
   `buildNorthway`, `npm run sim northway`).** 378 m at 28 -> 22 m from the Acropolis sky agora's north edge (x -214) east at
   z ~284 onto the Great Pyramid's top (130, 22, 257); two conveyors (`northway east/west`, 18 m/s); THE INTERCHANGE, a helix

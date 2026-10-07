@@ -4430,6 +4430,27 @@ CASES.blend = () => {
     say('every seam spot rolls through: over the funbox, off the kicker', !bad.length, bad.join('; ') || `${B.spotList.length} spots, both lanes`); }
   return ok;
 };
+// r113: THE AIR -- standing in a district for a while, the fog, the sky light and the rim lamp come round to its colour;
+// back at the hub they go back; with it off they are the plain sky's.
+CASES.atmo = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const A = rg.ATMO, B = rg.BLEND; if (!A || !rg.scene.fog) { console.log('  no air'); return false; }
+  const hex = c => '#' + c.getHexString(), dist = (a, b) => Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
+  const settle = (x, z, sec = 8) => { const t = { x, y: 2, z }; for (let i = 0; i < sec * 30; i++) rg.stepAtmo(1 / 30, t); };
+  settle(0, 8); const base = A.base.fog.clone();
+  const rows = []; let worse = 0;
+  for (const key of ['acro', 'stack', 'pyramids', 'orbital', 'works']) { const q = B.d.find(d => d.key === key); if (!q) continue; settle(q.x, q.z);
+    const c = new THREE.Color(q.col), f = rg.scene.fog.color.clone(); if (dist(f, c) >= dist(base, c) - 0.01) worse++; rows.push(`${key} ${hex(f)}`); }
+  say('in each district the fog comes round toward its colour', !worse && rows.length === 5, rows.join(', '));
+  { const q = B.d.find(d => d.key === 'stack'); settle(q.x, q.z); const r0 = rg.rimLight.color.clone(); settle(-215, 150); const r1 = rg.rimLight.color.clone();
+    say('the rim lamp takes the district\'s hue', dist(r0, r1) > 0.05, `stack ${hex(r0)}, acropolis ${hex(r1)}`); }
+  { A.on = 0; settle(160, 250, 1); const off = rg.scene.fog.color.clone(); A.on = 1; settle(0, 8);
+    say('switched off, the fog is the plain sky\'s', dist(off, A.base.fog) < 1e-6, `${hex(off)} against ${hex(A.base.fog)}`); }
+  { const t0 = rg.scene.fog.color.clone(); const q = B.d.find(d => d.key === 'pyramids'); rg.stepAtmo(1 / 60, { x: q.x, y: 2, z: q.z }); const t1 = rg.scene.fog.color.clone();
+    say('it eases: one frame moves it a little, not all the way', dist(t0, t1) > 0 && dist(t0, t1) < 0.02, `one frame moved it ${dist(t0, t1).toFixed(4)}`); }
+  return ok;
+};
 // r112: THE NORTHWAY -- its deck clear and continuous, both ways end to end (the sky agora to the Great Pyramid's top and
 // back), the express lanes, UP the interchange from the street onto the highway and DOWN it again, the stops, a parapet grind.
 CASES.northway = () => {
@@ -4497,16 +4518,34 @@ CASES.wires = () => {
   const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
   console.log(`  strung: ${W.made.map(m => `${m.a} - ${m.b} ${fix(m.L, 0)} m`).join('; ')}${W.skipped.length ? '\n  left out: ' + W.skipped.join('; ') : ''}`);
   say(`${W.made.length} wires strung between districts' decks`, W.made.length >= 3, `${W.skipped.length} left out (each one says why)`);
-  { const bad = []; for (const m of W.made) for (const e of [m.ea, m.eb]) { const g = rg.groundAt(e.x, e.z, e.y, 0); if (!g.hit || Math.abs(e.y - 0.95 - g.floor) > 0.05) bad.push(`${m.a} - ${m.b} at ${fix(e.x, 0)},${fix(e.z, 0)}`); }
+  { const bad = []; for (const m of W.made) for (const e of (m.rail ? [m.eb] : [m.ea, m.eb])) { const g = rg.groundAt(e.x, e.z, e.y, 0); if (!g.hit || Math.abs(e.y - 0.95 - g.floor) > 0.05) bad.push(`${m.a} - ${m.b} at ${fix(e.x, 0)},${fix(e.z, 0)}`); }
     say('every wire ends over a deck, 0.95 m up', !bad.length, bad.join('; ') || `${W.made.length * 2} ends`); }
-  for (const m of W.made) for (const [e, f, nm] of [[m.ea, m.eb, m.b], [m.eb, m.ea, m.a]]) {
+  for (const m of W.made) for (const [e, f, nm] of (m.rail ? [[m.eb, m.ea, m.a]] : [[m.ea, m.eb, m.b], [m.eb, m.ea, m.a]])) {
     reset(); const h = Math.atan2(f.x - e.x, f.z - e.z); place(e.x - Math.sin(h) * 1.5, e.y - 0.95 + 0.3, e.z - Math.cos(h) * 1.5, h, 3); P.pos.y = e.y - 0.95;
     rg.GRIND.intent = 1; rg.ledgeClear(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
-    let on = 0, land = null; const r = ride(40, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === m.path) on = 1;
+    let on = 0, land = null, merged = 0; const r = ride(40, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === m.path) on = 1;
+      if (on && m.rail && P.grind && P.grind.rail.path.name === m.rail && !land) { merged = 1; land = P.pos.clone(); }
       if (on && !P.grind && P.grounded && !land) land = P.pos.clone(); }, () => land || (on && !P.grind && P.pos.y < Math.min(e.y, f.y) - 8));
-    const there = land && Math.hypot(land.x - f.x, land.z - f.z) < 14 && Math.abs(land.y - (f.y - 0.95)) < 0.3;
+    const there = land && (f === m.ea && m.rail ? merged : Math.hypot(land.x - f.x, land.z - f.z) < 14 && Math.abs(land.y - (f.y - 0.95)) < 0.3);
     if (process.env.WSTAY && land) { run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); console.log(`      4 s later: ${at(P.pos)}`); }
     say(`along the wire to ${nm}`, on && there && r.clean, `${on ? 'on it' : 'NEVER ON IT'}, ${land ? 'down at ' + at(land) + (there ? '' : ' (NOT the deck)') : 'never down -- ends ' + at(P.pos)}, fastest ${fix(r.vmax, 1)}${cl(r)}`); }
+  // r113: a wire off a rail -- grinding that rail toward the branch point, the stick toward the wire takes it; hands off, not
+  for (const m of W.made.filter(q => q.rail)) for (const stick of [true, false]) {
+    reset(); const K = rg.RAILS.filter(q => q.path && q.path.name === m.rail), J = m.ea, wx = m.eb.x - J.x, wz = m.eb.z - J.z, wl = Math.hypot(wx, wz);
+    // a segment ~30 m back from J, ridden so that she arrives travelling the way the wire leaves
+    let q0 = null, bd = 1e9; for (const q of K) { const d = Math.abs(Math.hypot(q.a.x - J.x, q.a.z - J.z) - 30), ahead = ((J.x - q.a.x) * wx + (J.z - q.a.z) * wz) / wl; if (ahead > 20 && d < bd) { bd = d; q0 = q; } }
+    if (!q0) { say(`off the ${m.rail} onto the ${m.a} - ${m.b} wire`, false, 'no rail behind the branch'); continue; }
+    const fw = (q0.b.x - q0.a.x) * wx + (q0.b.z - q0.a.z) * wz > 0, s0 = fw ? q0.a : q0.b, s1 = fw ? q0.b : q0.a, h = Math.atan2(s1.x - s0.x, s1.z - s0.z);
+    rg.HT.trains.filter(tr => tr.path === q0.path).forEach((tr, i) => tr.s = tr.path.len * (0.25 + 0.5 * i));
+    place(s0.x, s0.y + 0.4, s0.z, h, 16); P.pos.set(s0.x, s0.y + 0.4, s0.z); P.grounded = false; P.vel.y = -1;
+    const side = Math.sign(Math.sin(h) * wz - Math.cos(h) * wx) || 1;     // the wire leaves to her right (+1) or left
+    let took = 0, land = null, past = 0;
+    const r = ride(30, () => { if (stick && P.grind) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - side * Math.PI / 2; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;     // square out to its side: the branch is only ~18 deg off the rail
+      if (P.grind && P.grind.rail.path === m.path) took = 1; if (!took && P.grind && P.grind.rail.path === q0.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) > 25 && ((P.pos.x - J.x) * wx + (P.pos.z - J.z) * wz) > 0) past = 1;
+      if (took && !P.grind && P.grounded && !land) land = P.pos.clone(); }, () => land || past);
+    const there = land && Math.hypot(land.x - m.eb.x, land.z - m.eb.z) < 14;
+    if (stick) say(`off the ${m.rail}, stick out: onto the wire to ${m.b}`, took && there && r.clean, `${took ? 'on the wire' : 'NEVER TOOK IT'}, ${land ? 'down at ' + at(land) : 'never down -- ends ' + at(P.pos)}${cl(r)}`);
+    else say(`hands off, she carries on along the ${m.rail}`, !took && past, took ? 'TOOK THE WIRE' : past ? 'carried on' : `ends ${at(P.pos)}`); }
   return ok;
 };
 // r110: THE STATION -- the deck at 210 m: the corkscrew joined to the sky rail, its line clear of the mothership and everything

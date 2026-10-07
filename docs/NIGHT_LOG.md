@@ -322,3 +322,24 @@ at (0, 297), right where the deck would have been.
 
 **Small knock-ons:** the seam dressing keeps off the highway (4 seam spots now, was 6). The highway's railings stop
 short of the pyramid's top so a swipe there still finds the hip rail.
+
+---
+
+## r113 — THE PEAK BRANCH, and THE AIR
+
+**Sim:** `node tools/sim.mjs wires` (now 14 rows), `node tools/sim.mjs atmo` (4 rows)
+
+**The best high wire is back, as a branch off the sky rail.** The Orbital peak to the Stack's 60 m roof (221 m, dead
+level) was left out of r111 because its end sat beside the sky rail's peak station. Now it **starts on the sky rail
+itself**, just east of the station. Grinding the sky rail east past it, hold the stick out to the right (square out;
+the branch is only about 18° off the rail) and you're on the wire to the Stack. Hands off, you carry on along the sky
+rail. Coming back from the Stack, the wire drops you onto the sky rail.
+
+**One more wire went up**: the Stack's roof 2 (22 m) to the Shores transit deck (24 m), 280 m north over the Shores
+plateau. That makes five: peak–Stack, Launch–Nimbus, Acropolis sky agora–roofline, Garage–Shores spire, and
+Stack–Shores transit.
+
+**THE AIR changes with the district.** The fog, the sky light and the coloured rim lamp all ease toward the colour of
+whichever districts you're among, from the same table the ground tint uses: warm stone toward the Acropolis, rose over
+the Stack, gold out by the pyramids, steel by the Works. Out in a seam it's a mix. The rim lamp (the coloured edge on
+you) takes the local hue most strongly, which is the clearest cue that you've crossed into somewhere else.

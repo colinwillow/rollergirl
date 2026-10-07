@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r112</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r113</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r112';
+const BUILD = 'r113';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -899,6 +899,32 @@ function stepLights(tgt, az) {
   fill.target.position.copy(tgt); fill.target.updateMatrixWorld();
 }
 
+// r113: THE ATMO. The districts' colours (`BLEND.d`, the same table the ground tint reads) tint the FOG and the sky light
+// round her, eased as she moves, so crossing from one district to the next is a change in the air and not a line on the
+// ground: warm stone haze toward the Acropolis, rose over the Stack, mint toward the park, steel by the Works. Weighted by
+// how much of any district she is in (the seams are a mix, open ground far from all of them is the plain sky). The
+// weirdport look's coloured rim lamp takes the local district's colour too, saturated, which is the strongest cue of all.
+const ATMO = { on: 1, fog: 0.26, hemi: 0.2, rim: 0.55, ease: 0.9,
+  base: { fog: new THREE.Color(), hemi: new THREE.Color(), rim: new THREE.Color(), set: 0 }, mix: new THREE.Color(), w: 0 };
+const _atC = new THREE.Color(), _atT = new THREE.Color(), _atH = {};
+function atmoMix(x, z) {     // the districts' colours mixed by their weights at (x, z) -> ATMO.mix, and how strong the mix is (0..1)
+  const w = blendW(x, z), s = w.reduce((a, b) => a + b, 0); ATMO.mix.setRGB(0, 0, 0);
+  if (s < 1e-4) { ATMO.w = 0; return ATMO.w; }
+  w.forEach((v, i) => { _atC.set(BLEND.d[i].col); ATMO.mix.r += _atC.r * v / s; ATMO.mix.g += _atC.g * v / s; ATMO.mix.b += _atC.b * v / s; });
+  ATMO.w = Math.min(1, s); return ATMO.w;
+}
+function stepAtmo(dt, tgt) {
+  const A = ATMO, B = A.base;
+  if (!B.set && scene.fog) { B.fog.copy(scene.fog.color); B.hemi.copy(hemi.color); B.rim.copy(rim.color); B.set = 1; }
+  if (!scene.fog || !B.set) return;
+  if (!A.on || WORLD.zones || !BLEND.on) { scene.fog.color.copy(B.fog); hemi.color.copy(B.hemi); rim.color.copy(B.rim); return; }
+  const k = 1 - Math.exp(-dt / A.ease), w = atmoMix(tgt.x, tgt.z);
+  _atT.copy(B.fog).lerp(A.mix, A.fog * w); scene.fog.color.lerp(_atT, k);
+  _atT.copy(B.hemi).lerp(A.mix, A.hemi * w); hemi.color.lerp(_atT, k);
+  _atC.copy(A.mix); _atC.getHSL(_atH); _atC.setHSL(_atH.h, Math.min(1, _atH.s * 2.2 + 0.25), 0.62);     // the rim: the district's hue, saturated
+  _atT.copy(B.rim).lerp(_atC, A.rim * w); rim.color.lerp(_atT, k);
+}
+
 // A gradient dome rather than a flat clear colour -- it costs one draw call and it is the
 // difference between "a 3D scene" and "outside".
 const sky = new THREE.Mesh(
@@ -938,7 +964,7 @@ function loadSky() {
       scene.background = bg; sky.visible = false; LOOK.loaded = 1;
       // THE FOG IS THE SKY'S HORIZON, MEASURED (weirdport's rule): the mean of a band either side of
       // the centre row, averaged in LINEAR -- an sRGB mean lands a stop light and loses the colour.
-      if (WEIRD && scene.fog) { const f = skyBand(tex.image); if (f) scene.fog.color.setRGB(f[0], f[1], f[2], THREE.LinearSRGBColorSpace); }
+      if (WEIRD && scene.fog) { const f = skyBand(tex.image); if (f) { scene.fog.color.setRGB(f[0], f[1], f[2], THREE.LinearSRGBColorSpace); ATMO.base.fog.copy(scene.fog.color); } }     // (the air's tint is measured from this)
     }, undefined, e => { LOOK.failed = 1; console.warn('[sky] HDRI did not load', e); });
   } catch (e) { LOOK.failed = 1; }
 }
@@ -9376,7 +9402,7 @@ function stationRails() {
 // whole wire, sag and all, has to clear every solid and every floor, tried at a few side-shifts; a wire that cannot is
 // logged and left out rather than run through something.
 const WIRE = { on: 1, built: 0, clear: 5, inset: 6, sag: 0.025, sagMax: 5, boost: 16, boostK: 2.5, maxV: 22, shifts: [0, 2, -2, 4, -4, 6, -6],
-  list: [['peak', 'plunge 1'], ['sky', 'plunge 2'], ['garage roof', 'spire'], ['launch deck', 'nimbus top'], ['skyway spire', 'transit deck'], ['acro sky', 'roof line'],
+  list: [['peak', 'plunge 1', { rail: 'sky rail', at: [-9, -275] }], ['sky', 'plunge 2'], ['garage roof', 'spire'], ['launch deck', 'nimbus top'], ['skyway spire', 'transit deck'], ['acro sky', 'roof line'],
     ['great pyramid', 'transit deck'], ['rooftop park', 'stack 1'], ['stack 2', 'transit deck'], ['stack 4', 'nimbus top']],
   paths: [], made: [], skipped: [] };
 function wireEnd(A, B, sh) {     // from deck A toward B, shifted `sh` sideways: the last clean point on A's deck, and how far that runs
@@ -9389,20 +9415,30 @@ function wireEnd(A, B, sh) {     // from deck A toward B, shifted `sh` sideways:
   if (last < 2.5) return null;
   const s0 = Math.max(0, last - WIRE.inset); return { x: ox + ux * s0, z: oz + uz * s0, y: y + 0.95, run: last - s0 };
 }
-function wireNear(e) {     // the name of a rail within `WIRE.clear` of a wire end (an end is where she swipes on), or null
-  for (const R of RAILS) { const dx = R.b.x - R.a.x, dy = R.b.y - R.a.y, dz = R.b.z - R.a.z, l2 = dx * dx + dy * dy + dz * dz || 1e-9;
+function wireNear(e, skip) {     // the name of a rail within `WIRE.clear` of a wire end (an end is where she swipes on), or null
+  for (const R of RAILS) { if (skip && R.path && R.path.name === skip) continue; const dx = R.b.x - R.a.x, dy = R.b.y - R.a.y, dz = R.b.z - R.a.z, l2 = dx * dx + dy * dy + dz * dz || 1e-9;
     const t = Math.max(0, Math.min(1, ((e.x - R.a.x) * dx + (e.y - R.a.y) * dy + (e.z - R.a.z) * dz) / l2));
     if (Math.hypot(R.a.x + dx * t - e.x, R.a.y + dy * t - e.y, R.a.z + dz * t - e.z) < WIRE.clear) return R.path ? R.path.name : 'rail'; }
   return null;
 }
+// r113: a wire whose A end is ON another rail (`{ rail, at }`) leaves it as a branch -- the nearest point of that rail to `at`
+function wireOnRail(name, x, z) {
+  let best = null, bd = 1e9;
+  for (const R of RAILS) { if (!R.path || R.path.name !== name) continue; const dx = R.b.x - R.a.x, dz = R.b.z - R.a.z, l2 = dx * dx + dz * dz || 1e-9;
+    const t = Math.max(0, Math.min(1, ((x - R.a.x) * dx + (z - R.a.z) * dz) / l2)), px = R.a.x + dx * t, pz = R.a.z + dz * t, d = Math.hypot(px - x, pz - z);
+    if (d < bd) { bd = d; best = { x: px, y: R.a.y + (R.b.y - R.a.y) * t, z: pz, run: 0 }; } }
+  return best;
+}
 function wireRails() {
   if (!WIRE.on || WORLD.zones || !PARKD.on) return;
   const W = WIRE;
-  for (const [na, nb] of W.list) {
+  for (const [na, nb, opt] of W.list) {
     const A = CITY.spots[na], B = CITY.spots[nb]; if (!A || !B) { W.skipped.push(`${na} / ${nb}: no spot`); continue; }
     let ok = null, why = '';
     for (const sh of W.shifts) {
-      const a = wireEnd(A, B, sh), b = wireEnd(B, A, -sh); if (!a || !b) { why = why || `shift ${sh}: no deck run at ${!a ? na : nb}`; continue; }
+      // off a rail, the shift slides the branch point along it instead of sideways across a deck
+      const a = opt && opt.rail ? wireOnRail(opt.rail, opt.at[0] + sh, opt.at[1]) : wireEnd(A, B, sh), b = wireEnd(B, a ? [a.x, a.y, a.z] : A, opt && opt.rail ? 0 : -sh);
+      if (!a || !b) { why = why || `shift ${sh}: no deck run at ${!a ? na : nb}`; continue; }
       const L = Math.hypot(b.x - a.x, b.z - a.z), sag = Math.min(W.sagMax, W.sag * L), n = Math.max(8, Math.ceil(L / 2)), pts = [];
       for (let i = 0; i <= n; i++) { const f = i / n; pts.push(SLV(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f - sag * 4 * f * (1 - f), a.z + (b.z - a.z) * f)); }
       // clear: nothing solid round the bar or over it, no floor up at it -- except the deck under each end
@@ -9412,11 +9448,11 @@ function wireRails() {
         if (!nearEnd) { const g = groundAt(q.x, q.z, q.y + 2.2, 0); if (g.hit && g.floor > q.y - 0.4) { bad = 1; why = why || `shift ${sh}: a floor at ${Math.round(f * L)} m`; } } }
       // and no other rail within reach of either end: a swipe there must find THIS rail, not the one beside it (the sky rail
       // crosses the Orbital peak's island, and the station's swipe-on grabbed the wire instead)
-      if (!bad) for (const e of [a, b]) { const near = wireNear(e); if (near) { bad = 1; why = why || `shift ${sh}: the ${near} is ${W.clear} m from an end`; } }
+      if (!bad) for (const e of [a, b]) { const near = wireNear(e, e === a && opt && opt.rail); if (near) { bad = 1; why = why || `shift ${sh}: the ${near} is ${W.clear} m from an end`; } }
       if (!bad) { ok = { pts, a, b, L, sh }; break; } }
     if (!ok) { W.skipped.push(`${na} / ${nb} (${why})`); continue; }
     const P = railPath(ok.pts, { name: `wire ${na} - ${nb}`, boost: W.boost, boostK: W.boostK, maxV: W.maxV }); railDraw(P, { mat: 'boost', postMax: 3 }); gemsAlong(P, Math.max(6, Math.round(ok.L / 16)), 0.9, 6);
-    W.paths.push(P); W.made.push({ a: na, b: nb, L: ok.L, sh: ok.sh, path: P, ea: ok.a, eb: ok.b });
+    W.paths.push(P); W.made.push({ a: na, b: nb, L: ok.L, sh: ok.sh, path: P, ea: ok.a, eb: ok.b, rail: opt && opt.rail });
   }
   W.built = W.made.length > 0 ? 1 : 0;
   console.log(`[high wires] ${W.made.length} strung (${W.made.map(m => `${m.a} - ${m.b} ${Math.round(m.L)} m`).join(', ')})${W.skipped.length ? ', LEFT OUT: ' + W.skipped.join('; ') : ''}`);
@@ -13381,6 +13417,7 @@ function stepCam(dt) {
   sky.position.copy(camera.position);
   sun.position.copy(p.pos).addScaledVector(LIGHT.dir, 60); sun.target.position.copy(p.pos);
   stepLights(cam.tgt, cam.az);
+  stepAtmo(dt, cam.tgt);     // r113: the air takes the district's colour
 }
 
 // ---------- HUD ----------
@@ -13900,7 +13937,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { SK, AIR, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
