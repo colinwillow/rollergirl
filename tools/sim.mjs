@@ -5178,7 +5178,7 @@ CASES.tram = () => {
     const r2 = on ? ride(14, () => { rg.stick.L.x = rg.stick.L.y = 0; }) : r; const still = on && onPod(), moved = on ? Math.hypot(P.pos.x - on.x, P.pos.z - on.z) : 0;
     say('boarding at the Orbital stop from the side, then carried off', on && still && moved > 25 && r.clean && r2.clean, on ? `on at ${at(on)}, carried ${fix(moved, 1)} m, ${still ? 'still on the roof' : 'OFF at ' + at(P.pos)}${cl(r2)}` : `never on -- ends ${at(P.pos)}${cl(r)}`); }
   // board at the east end, rolling straight down the platform onto the head pod
-  { reset(); const tA = when(T.sA); rg.HT.t = tA + 0.5; city(); rg.goSpot('tram shores'); P.vel.set(0, 0, 0); place(P.pos.x, P.pos.y + 0.1, P.pos.z, Math.PI, 2.5); let on = null;
+  { reset(); const tA = when(T.sA); rg.HT.t = tA + 0.5; city(); rg.goSpot('tram shores'); P.vel.set(0, 0, 0); place(P.pos.x, P.pos.y + 0.1, P.pos.z, Math.PI, 3.5); let on = null;     // r139: 3.5, over SK.creepV, or the rolling stop (r131) trickles her into the gap
     const r = ride(4, null, () => { if (onPod(0.6)) { on = P.pos.clone(); P.vel.set(0, 0, 0); return true; } });     // stopped HERE: `run` steps on past a stop
     const r2 = on ? ride(14, () => { rg.stick.L.x = rg.stick.L.y = 0; }) : r; const still = on && onPod(), moved = on ? Math.hypot(P.pos.x - on.x, P.pos.z - on.z) : 0;
     say('boarding at the Shores end along the line, then carried off', on && still && moved > 25 && r.clean && r2.clean, on ? `on at ${at(on)}, carried ${fix(moved, 1)} m, ${still ? 'still on the roof' : 'OFF at ' + at(P.pos)}${cl(r2)}` : `never on -- ends ${at(P.pos)}${cl(r)}`); }

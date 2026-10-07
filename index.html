@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r138</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r139</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r138';
+const BUILD = 'r139';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3632,6 +3632,11 @@ const SPWF = (() => { const a = 22 * D2R, c = Math.cos(a), s = Math.sin(a);
 const spwP = (F, u, v, y) => [F.x0 + F.ux * u + F.nx * v, y, F.z0 + F.uz * u + F.nz * v];
 const spwU = (F, v) => [F.m0 ? SPW.mit * v : 0, F.L - (F.m1 ? SPW.mit * v : 0)];
 const spwYaw = F => Math.atan2(F.ux, F.uz);
+// r139: value noise over the ground (0..1, smooth at `sc` metres) and a colour mix, for tone that drifts instead of repeating
+function spwNoise(x, z, sc) { const X = x / sc, Z = z / sc, i = Math.floor(X), j = Math.floor(Z), fx = X - i, fz = Z - j, u = fx * fx * (3 - 2 * fx), w = fz * fz * (3 - 2 * fz);
+  const h = (a, b) => slHash(a, b, 139); return (h(i, j) * (1 - u) + h(i + 1, j) * u) * (1 - w) + (h(i, j + 1) * (1 - u) + h(i + 1, j + 1) * u) * w; }
+function spwMix(a, b, t) { const r = ((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * t, g = ((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * t, bl = (a & 255) + ((b & 255) - (a & 255)) * t;
+  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl); }
 // a solid box in a facet's frame: u0..u1 along it, v0..v1 across it (hx is across, hz along: the kit's own convention)
 function spwBox(F, u0, u1, v0, v1, y0, y1, tag, top) { const c = spwP(F, (u0 + u1) / 2, (v0 + v1) / 2, 0);
   solidAdd(c[0], c[2], (v1 - v0) / 2, (u1 - u0) / 2, y0, y1, spwYaw(F), { top: !!top, tag }); }
@@ -3639,7 +3644,12 @@ function spwBox(F, u0, u1, v0, v1, y0, y1, tag, top) { const c = spwP(F, (u0 + u
 function spwStrip(F, v0, v1, y, k, tint, cut) {
   const [a0, a1] = spwU(F, v0), [b0, b1] = spwU(F, v1), parts = [];
   if (cut && F.key === 'C') { const c = SPW.chute.cut; parts.push([a0, 70 - c, b0, 70 - c]); parts.push([70 + c, a1, 70 + c, b1]); } else parts.push([a0, a1, b0, b1]);
-  for (const [p0, p1, q0, q1] of parts) slQuad(k, spwP(F, p0, v0, y), spwP(F, p1, v0, y), spwP(F, q1, v1, y), spwP(F, q0, v1, y), [0, 1, 0], { solid: true, tint, base: y });
+  for (const [p0, p1, q0, q1] of parts) {
+    // r139: a tint FUNCTION splits the strip into 12 m pieces, each toned by where it lies, so a terrace is not a set of stripes
+    const n = typeof tint === 'function' ? Math.max(1, Math.round((p1 - p0) / 12)) : 1;
+    for (let i = 0; i < n; i++) { const a = p0 + (p1 - p0) * i / n, b = p0 + (p1 - p0) * (i + 1) / n, c = q0 + (q1 - q0) * i / n, d = q0 + (q1 - q0) * (i + 1) / n;
+      const m = spwP(F, (a + d) / 2, (v0 + v1) / 2, y), tn = typeof tint === 'function' ? tint(m[0], m[2]) : tint;
+      slQuad(k, spwP(F, a, v0, y), spwP(F, b, v0, y), spwP(F, d, v1, y), spwP(F, c, v1, y), [0, 1, 0], { solid: true, tint: tn, base: y }); } }
 }
 // the body under a strip: solid from the ground to y, walls all round (its top is NOT a floor -- the strip's triangles are)
 function spwBody(F, v0, v1, y0, y1, tag, cut) {
@@ -3705,7 +3715,7 @@ function spwDam() {
   const k = SPW.col, T = SPW.tiers, Fc = SPW.face, Cr = SPW.crest;
   for (const F of [SPWF.C, SPWF.E, SPWF.W]) {
     // the terraces: 8.5 m strips, drawn and floored; one body each from the ground up (walls on every side)
-    T.forEach((t, i) => { const yb = i ? T[i - 1].y : 0; for (let v = t.v0; v < t.v1 - 0.01; v += 8.5) spwStrip(F, v, Math.min(t.v1, v + 8.5), t.y, 'paving', ((v / 8.5) & 1) ? k.paving : k.paving2, 1);
+    T.forEach((t, i) => { const yb = i ? T[i - 1].y : 0; for (let v = t.v0; v < t.v1 - 0.01; v += 8.5) spwStrip(F, v, Math.min(t.v1, v + 8.5), t.y, 'paving', (x, z) => spwMix(k.paving2, k.paving, clamp(spwNoise(x, z, 22) * 0.9 + slHash(x | 0, z | 0, 7) * 0.2, 0, 1)), 1);
       spwBody(F, t.v0, t.v1, 0, t.y, 'spillway tier ' + (i + 1), 1); spwRiser(F, t.v0, yb, t.y, i & 1 ? k.conc : k.conc2, 1);
       // THE CANYON RAILS: a parapet along each terrace's edge over the chute, so the chute is a thing you look down into
       // and not a 30 m hole in the floor -- and its top is a rail the length of the terrace
@@ -3730,7 +3740,9 @@ function spwDam() {
     { const n = Math.ceil((Fc.v1 - Fc.v0) / 2), s = (Fc.y1 - Fc.y0) / (Fc.v1 - Fc.v0);
       for (let i = 0; i < n; i++) { const v0 = Fc.v0 + (Fc.v1 - Fc.v0) * i / n, v1 = Fc.v0 + (Fc.v1 - Fc.v0) * (i + 1) / n, y0 = Fc.y0 + (v0 - Fc.v0) * s, y1 = Fc.y0 + (v1 - Fc.v0) * s;
         const [a0, a1] = spwU(F, v0), [b0, b1] = spwU(F, v1), parts = F.key === 'C' ? [[a0, 70 - SPW.chute.cut, b0, 70 - SPW.chute.cut], [70 + SPW.chute.cut, a1, 70 + SPW.chute.cut, b1]] : [[a0, a1, b0, b1]];
-        for (const [p0, p1, q0, q1] of parts) slQuad('concrete', spwP(F, p0, v0, y0), spwP(F, p1, v0, y0), spwP(F, q1, v1, y1), spwP(F, q0, v1, y1), [0, 1, 0], { solid: true, tint: (i & 1) ? k.conc : k.conc2, base: y0 - 20 });
+        for (const [p0, p1, q0, q1] of parts) { const nn = Math.max(1, Math.round((p1 - p0) / 12));      // r139: toned in 12 m pieces, not banded
+          for (let j = 0; j < nn; j++) { const a = p0 + (p1 - p0) * j / nn, b = p0 + (p1 - p0) * (j + 1) / nn, c = q0 + (q1 - q0) * j / nn, d = q0 + (q1 - q0) * (j + 1) / nn, m = spwP(F, (a + b) / 2, v0, 0);
+            slQuad('concrete', spwP(F, a, v0, y0), spwP(F, b, v0, y0), spwP(F, d, v1, y1), spwP(F, c, v1, y1), [0, 1, 0], { solid: true, tint: spwMix(k.conc2, k.conc, clamp(spwNoise(m[0], m[2] + y0, 18) + (i & 1) * 0.08, 0, 1)), base: y0 - 20 }); } }
         spwBody(F, v0, v1, 0, y0 - 0.6, 'spillway face', 1); } }
     // THE CREST ROAD, and the drop behind it to the water (drawn)
     for (let v = Cr.v0; v < Cr.v1 - 0.01; v += 8) spwStrip(F, v, Math.min(Cr.v1, v + 8), Cr.y, 'concrete', k.road, 1);
@@ -3762,7 +3774,9 @@ function spwPlaza() {
     if (Math.abs(x + 2) < c && z + 2 > SPW.chute.end && z + 2 < 0) continue;
     if ((SPW.foot || []).some(([ax, az, bx, bz, hw]) => { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = clamp(((x + 2 - ax) * dx + (z + 2 - az) * dz) / l2, 0, 1); return Math.hypot(x + 2 - ax - dx * t, z + 2 - az - dz * t) < hw; })) continue;
     const cs = [[x, z], [x + 4, z], [x + 4, z + 4], [x, z + 4]].filter(([a, b]) => b <= bnd(a) + 1e-6); if (cs.length < 3) continue;
-    const t = ((Math.floor(x / 8) + Math.floor(z / 8)) & 1) ? k.paving : k.paving2, P = cs.map(([a, b]) => [a, 0, b]);
+    // r139: NOT A CHECKERBOARD. Alternating 8 m squares read from above as a board game laid on the ground; the tone now
+    // drifts in broad soft patches (value noise at 26 m) with a little per-cell jitter, which reads as weathered concrete
+    const nz = spwNoise(x + 2, z + 2, 26), jt = slHash(x | 0, z | 0, 31) * 0.25, t = spwMix(k.paving2, k.paving, clamp(nz * 0.85 + jt, 0, 1)), P = cs.map(([a, b]) => [a, 0, b]);
     slQuad('paving', P[0], P[1], P[2], P[3] || P[2], [0, 1, 0], { solid: true, tint: t, base: 0 }); }
   // the plaza's edges into the sea (drawn), and the yard's solid under its outer edges so nothing rides in under it
   for (const [a, b, n] of [[[-X, SPW.plaza.v0], [X, SPW.plaza.v0], [0, 0, -1]], [[X, SPW.plaza.v0], [X, bnd(X)], [1, 0, 0]], [[-X, bnd(-X)], [-X, SPW.plaza.v0], [-1, 0, 0]]])
@@ -4091,6 +4105,135 @@ function spwArt() {
   for (const [x, z] of [[-150, -45], [150, 25], [-30, -30], [30, -46]]) { slPlanter(x, 0, z, 3, 3, 0.6); slPalm(x, 0.6, z, 5.2, x * z > 0 ? 0xff9ad2 : 0xc9a2ff); }
   void k;
 }
+// r139: THE DRESSING -- *"making it look good ... a lot of assets scattered, things that make it feel like not just a block
+// world."* Every big plain surface here was ONE quad: a 12 m riser, a 35 deg face, a 6 m chute floor. Nothing in this pass is
+// ridden or collided except the gate piers and the planters (both placed clear of every line by `spwClear`); the risers stay
+// one plane to the collider, so a wall ride along one is untouched and the detail stands proud of it by less than her radius.
+//   RISERS   pilasters every 12 m, a plinth and a cornice band, a lit inspection gallery (a row of windows) in most bays,
+//            outlet pipes with a weep stain under each, ivy off the lip, the level's stencilled plate (L1 12 M ...)
+//   FACE     drainage grooves down it, SPILLWAY painted across both wings
+//   CHUTE    WATER: a sheet running down the floor (additive streaks scrolling downstream, faded in and out at its ends), and
+//            a SLUICE GATE over each governed stretch -- piers either side, a beam across, the leaf hoisted above it, a hoist house
+//   PLAZA    hazard stripes round the tailrace, DANGER boards on its corners, planters with trees on the open outer ground
+const SPWD = { on: 1, water: 1, flow: 2.2, gates: 1, ivy: 1.1 };
+// is (x, z) clear of every LINE in this world by `r`? rails, lanes, pads, lifts, kit pieces, spots, solids, the chute
+function spwClear(x, z, r, y) {
+  const near = (ax, az, bx, bz) => { const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1); return Math.hypot(x - ax - dx * t, z - az - dz * t); };
+  for (const R of SPW.rails) { const P = R.pts; for (let i = 0; i < P.length - 1; i++) if ((y === undefined || Math.abs(P[i][1] - y) < 9) && near(P[i][0], P[i][2], P[i + 1][0], P[i + 1][2]) < r + 1.6) return false; }
+  for (const L of ORB.lanes) { const P = L.pts; for (let i = 0; i < P.length - 1; i++) if (near(P[i].x, P[i].z, P[i + 1].x, P[i + 1].z) < L.hw + r + 1) return false; }
+  for (const L of ORB.launch) if (Math.hypot(x - L.x, z - L.z) < r + 7) return false;
+  for (const D of DYN.list) if (Math.hypot(x - D.x, z - D.z) < r + 8) return false;
+  for (const p of KITW.pieces) { const b = p.bb; if (b && x > b[0] - r - 2.5 && x < b[3] + r + 2.5 && z > b[2] - r - 2.5 && z < b[5] + r + 2.5 && (y === undefined || (y > b[1] - 3 && y < b[4] + 3))) return false; }
+  for (const k in CITY.spots) if (/^spillway/.test(k)) { const q = CITY.spots[k]; if (Math.hypot(x - q[0], z - q[2]) < r + 6) return false; }
+  for (const b of SOLID.all) { if (y !== undefined && (y + 2 < b.y0 || y - 0.5 > b.y1)) continue; const dx = x - b.cx, dz = z - b.cz, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c; if (Math.abs(lx) < b.hx + r + 1.2 && Math.abs(lz) < b.hz + r + 1.2) return false; }
+  if (Math.abs(x) < SPW.chute.cut + r + 3 && z > SPW.chute.end - 6) return false;
+  if ((SPW.foot || []).some(([ax, az, bx, bz, hw]) => near(ax, az, bx, bz) < hw + r + 2)) return false;
+  return true;
+}
+// a slab standing proud of a riser (at facet depth v, `d` in front of it), drawn only: front, sides, top
+function spwSlab(F, k, u0, u1, v, d, y0, y1, tint) {
+  const n = [-F.nx, 0, -F.nz], su = [F.ux, 0, F.uz], o = { tint, base: y0 };
+  slQuad(k, spwP(F, u0, v - d, y0), spwP(F, u1, v - d, y0), spwP(F, u1, v - d, y1), spwP(F, u0, v - d, y1), n, o);
+  slQuad(k, spwP(F, u0, v, y0), spwP(F, u0, v - d, y0), spwP(F, u0, v - d, y1), spwP(F, u0, v, y1), [-su[0], 0, -su[2]], o);
+  slQuad(k, spwP(F, u1, v - d, y0), spwP(F, u1, v, y0), spwP(F, u1, v, y1), spwP(F, u1, v - d, y1), su, o);
+  slQuad(k, spwP(F, u0, v, y1), spwP(F, u1, v, y1), spwP(F, u1, v - d, y1), spwP(F, u0, v - d, y1), [0, 1, 0], o);
+}
+function spwDress() {
+  if (!SPWD.on) return;
+  const k = SPW.col, T = SPW.tiers, c = SPW.chute.cut, Fc = SPW.face;
+  // ---- THE RISERS
+  for (const F of [SPWF.C, SPWF.E, SPWF.W]) T.forEach((t, i) => {
+    const v = t.v0, yb = i ? T[i - 1].y : 0, y1 = t.y, [ua, ub] = spwU(F, v), H = y1 - yb, rr = [-F.ux, 0, -F.uz];
+    const parts = F.key === 'C' ? [[ua, 70 - c - 0.6], [70 + c + 0.6, ub]] : [[ua, ub]];
+    for (const [p0, p1] of parts) {
+      spwSlab(F, 'stone', p0, p1, v, 0.16, yb, yb + 0.7, k.conc2);                                   // plinth
+      spwSlab(F, 'stone', p0, p1, v, 0.24, y1 - 1.35, y1 - 0.8, k.trim);                             // cornice, under the neon line
+      const nb = Math.max(1, Math.round((p1 - p0) / 12)), bw = (p1 - p0) / nb;
+      for (let b = 0; b < nb; b++) { const u0 = p0 + b * bw, u1 = u0 + bw, um = (u0 + u1) / 2, hb = slHash(Math.round(um * 10), i * 7 + F.key.charCodeAt(0), 5);
+        if (b) spwSlab(F, 'stone', u0 - 0.5, u0 + 0.5, v, 0.2, yb + 0.7, y1 - 1.35, k.trim);       // pilaster
+        // the gallery: three lit windows across the bay, framed, in most bays
+        if (hb < 0.7) { const wy = yb + H * 0.5, ww = 1.3, wh = 1.05;
+          for (const f of [-0.28, 0, 0.28]) { const uc = um + f * bw, uo = (Math.floor(slHash(Math.round(uc * 10), i, 9) * 4) % 2) * 0.5, vo = Math.floor(slHash(Math.round(uc * 10), i, 10) * 2) * 0.5;
+            slQuad('window', spwP(F, uc + ww / 2, v - 0.03, wy), spwP(F, uc - ww / 2, v - 0.03, wy), spwP(F, uc - ww / 2, v - 0.03, wy + wh), spwP(F, uc + ww / 2, v - 0.03, wy + wh), [-F.nx, 0, -F.nz], { uv4: [[uo, vo], [uo + 0.5, vo], [uo + 0.5, vo + 0.5], [uo, vo + 0.5]] });
+            spwSlab(F, 'stone', uc - ww / 2 - 0.12, uc + ww / 2 + 0.12, v, 0.14, wy - 0.16, wy, k.trim);        // sill
+            spwSlab(F, 'stone', uc - ww / 2 - 0.12, uc + ww / 2 + 0.12, v, 0.1, wy + wh, wy + wh + 0.14, k.trim); } }   // lintel
+        // an outlet: a pipe mouth low in the bay with a weep stain down the wall under it
+        if (hb > 0.55) { const uc = um + (hb - 0.75) * bw * 0.6, py = yb + Math.min(3.2, H * 0.3), p = spwP(F, uc, v - 0.35, py);
+          slGeo('metal', new THREE.CylinderGeometry(0.34, 0.34, 0.7, 12, 1, true).rotateX(Math.PI / 2), slMat(p[0], p[1], p[2], Math.atan2(-F.nx, -F.nz)), { smooth: true, tint: 0x6a6f7c });
+          slQuad('dark', spwP(F, uc + 0.45, v - 0.02, yb + 0.7), spwP(F, uc - 0.45, v - 0.02, yb + 0.7), spwP(F, uc - 0.3, v - 0.02, py - 0.2), spwP(F, uc + 0.3, v - 0.02, py - 0.2), [-F.nx, 0, -F.nz], { tint: 0x5c5560, base: yb }); }
+        // ivy off the lip, in some bays
+        if (SPWD.ivy && slHash(Math.round(um * 10), i, 11) < 0.45) { const a = spwP(F, u0 + 1, v - 0.05, 0), q = spwP(F, u1 - 1, v - 0.05, 0); slIvy(a[0], a[2], q[0], q[2], y1 - 0.2, -F.nx, -F.nz, SPWD.ivy, 1.2, Math.min(H * 0.5, 6.5)); } }
+    }
+    // the level's plate on the centre facet, either side of the chute, over the plinth
+    if (F.key === 'C') for (const u of [48, 92]) { const p = spwP(F, u, v - 0.06, yb + 3.4); slDecal('decal', 'dam' + (i + 1), p, rr, [0, 1, 0], 3.6); }
+  });
+  // ---- THE FACE: drainage grooves down it, and its name painted across each wing
+  { const a = Math.atan((Fc.y1 - Fc.y0) / (Fc.v1 - Fc.v0)), ca = Math.cos(a), sa = Math.sin(a), fy = v => Fc.y0 + (v - Fc.v0) * (Fc.y1 - Fc.y0) / (Fc.v1 - Fc.v0);
+    for (const F of [SPWF.C, SPWF.E, SPWF.W]) { const nf = [-F.nx * sa, ca, -F.nz * sa], off = (p, d) => [p[0] + nf[0] * d, p[1] + nf[1] * d, p[2] + nf[2] * d];
+      const [ua, ub] = spwU(F, Fc.v0 + 2);
+      for (let u = ua + 7; u < ub - 4; u += 14) { if (F.key === 'C' && Math.abs(u - 70) < c + 3) continue;
+        const v0 = Fc.v0 + 1, v1 = Fc.v1 - 1;
+        // a groove in the concrete's own grain, a shade down, with a lit lip on one side: relief, not a painted black line
+        const st = (ua2, ub2, d, mat, tint) => slQuad(mat, off(spwP(F, ua2, v0, fy(v0)), d), off(spwP(F, ub2, v0, fy(v0)), d), off(spwP(F, ub2, v1, fy(v1)), d), off(spwP(F, ua2, v1, fy(v1)), d), nf, { tint });
+        st(u - 0.35, u + 0.35, 0.03, 'concrete', 0x8c8590); st(u + 0.35, u + 0.5, 0.035, 'concrete', 0xe6dee6); }
+      if (F.key !== 'C') { const um = F.L / 2, vm = (Fc.v0 + Fc.v1) / 2, p = off(spwP(F, um, vm, fy(vm)), 0.05), up = [F.nx * ca, sa, F.nz * ca];
+        slDecal('decal', 'spillway', p, [-F.ux, 0, -F.uz], up, Math.min(56, F.L * 0.7)); } } }
+  // ---- THE SLUICE GATES over the chute
+  if (SPWD.gates) for (const [g0] of SPW.gates) {
+    const z = g0 - 1.5, yc = spwChuteYs(z), t = T.find(q => z >= q.v0 && z < q.v1), base = z < 0 ? 0 : t ? t.y : z < Fc.v1 ? Fc.y0 + (z - Fc.v0) * (Fc.y1 - Fc.y0) / (Fc.v1 - Fc.v0) - 0.6 : SPW.crest.y;
+    const yb = Math.max(yc + 8, base + 3.6), px = c + 1.7, wA = SPW.chute.hw + SPW.chute.r * Math.sin(SPW.chute.sweep * D2R);
+    if (!spwClear(px, z, 0.7, base) || !spwClear(-px, z, 0.7, base)) { console.warn('[spillway] gate at ' + g0 + ' left out: a line passes its piers'); continue; }
+    for (const sg of [-1, 1]) { const x = sg * px; slBox('stone', x - 0.65, base, z - 0.65, x + 0.65, yb + 1.2, z + 0.65, { bev: 0.06, tint: k.trim, base });
+      solidAdd(x, z, 0.65, 0.65, base, yb + 1.2, 0, { top: true, tag: 'sluice pier' }); }
+    slBox('metal', -px - 0.7, yb, z - 0.75, px + 0.7, yb + 1.2, z + 0.75, { bev: 0.05, tint: 0x3d4250 });
+    for (let x = -px; x < px - 0.1; x += 1.2) slQuad('paint', [x, yb + 0.2, z - 0.77], [x + 0.6, yb + 0.2, z - 0.77], [x + 0.9, yb + 1.0, z - 0.77], [x + 0.3, yb + 1.0, z - 0.77], [0, 0, -1], { tint: 0xffc93c });
+    // the leaf, hoisted: a steel panel the chute's width standing on the beam between two guides, ribbed
+    slBox('metal', -wA, yb + 1.2, z - 0.18, wA, yb + 4.6, z + 0.18, { bev: 0.03, tint: 0x5d6578 });
+    for (let y = yb + 1.8; y < yb + 4.5; y += 0.9) slBox('metal', -wA + 0.1, y, z - 0.26, wA - 0.1, y + 0.12, z + 0.26, { bev: 0.02, tint: 0x4a5161 });
+    for (const sg of [-1, 1]) slBox('metal', sg * (wA + 0.3) - 0.25, yb + 1.2, z - 0.4, sg * (wA + 0.3) + 0.25, yb + 5.2, z + 0.4, { bev: 0.03, tint: 0x30343f });
+    // the hoist house on top, with a lit window each way and a beacon
+    slBox('plaster', -2.8, yb + 5.2, z - 1.6, 2.8, yb + 7.6, z + 1.6, { bev: 0.06, tint: 0xe9e1d8, base: yb + 5.2 });
+    slBox('dark', -3.1, yb + 7.6, z - 1.9, 3.1, yb + 7.9, z + 1.9, { bev: 0.04, tint: 0x4a4550 });
+    for (const sz of [-1, 1]) slQuad('window', [-1.6, yb + 5.9, z + sz * 1.62], [1.6, yb + 5.9, z + sz * 1.62], [1.6, yb + 7.0, z + sz * 1.62], [-1.6, yb + 7.0, z + sz * 1.62], [0, 0, sz], { uv4: [[0, 0], [0.5, 0], [0.5, 0.5], [0, 0.5]] });
+    slGeo('lampglass', new THREE.SphereGeometry(0.22, 10, 8), slMat(0, yb + 8.15, z), { smooth: true }); slGlow(0, yb + 8.15, z, 3.2, 0xff7a3a, 0.9);
+  }
+  // ---- WATER down the chute: one ribbon on the floor, streaks scrolling downstream
+  if (SPWD.water && SPW.chuteC) {
+    const C = SPW.chuteC.filter(q => q[2] <= 147 && q[2] >= -9), hw = SPW.chute.hw - 0.15, P = [], U = [], Co = [], I = []; let acc = 0;
+    C.forEach((q, j) => { if (j) acc += Math.hypot(q[1] - C[j - 1][1], q[2] - C[j - 1][2]);
+      const f = clamp(Math.min(acc / 8, (C.length - 1 - j) * 1.5 / 10), 0, 1);
+      for (const sg of [-1, 1]) { P.push(q[0] + sg * hw, q[1] + 0.035, q[2]); U.push(sg < 0 ? 0 : 1, acc / 7); Co.push(f, f, f); } });
+    for (let j = 0; j < C.length - 1; j++) { const a = j * 2; I.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    const N = 64, M = 256, d = new Uint8Array(N * M * 4);
+    for (let x = 0; x < N; x++) { const ph = slHash(x, 3, 71), ph2 = slHash(x, 4, 71), wv = 0.35 + slHash(x, 5, 71) * 0.65, cyc = 2 + Math.floor(slHash(x, 6, 71) * 3);
+      for (let y = 0; y < M; y++) { const s1 = Math.pow(0.5 + 0.5 * Math.sin((y / M * cyc + ph) * 6.2832), 10), s2 = Math.pow(0.5 + 0.5 * Math.sin((y / M * (cyc + 3) + ph2) * 6.2832), 22);
+        const e = Math.min(1, Math.min(x, N - 1 - x) / 5), v2 = clamp(0.16 + (s1 * 0.75 + s2 * 0.5) * wv, 0, 1) * (0.55 + 0.45 * e) + (1 - e) * 0.22, i2 = (y * N + x) * 4;
+        d[i2] = 150 * v2 + 60 * v2 * v2; d[i2 + 1] = 225 * v2; d[i2 + 2] = 255 * v2; d[i2 + 3] = 255; } }
+    const tex = new THREE.DataTexture(d, N, M, THREE.RGBAFormat); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.colorSpace = THREE.SRGBColorSpace; tex.needsUpdate = true;
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(Co, 3)); g.setIndex(I); g.computeBoundingSphere();
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    m.name = 'spillway water'; m.renderOrder = 3; m.material.userData.oneSide = 1; m.userData.noHole = 1; scene.add(m); SLC.meshes.push(m); SPW.water = m;
+    SLC.anim.push(dt => { tex.offset.y -= dt * SPWD.flow; if (tex.offset.y < -1000) tex.offset.y += 1000; }); }
+  // ---- THE PLAZA: hazard stripes round the tailrace, DANGER boards, planters with trees on the open outer ground
+  { const Tl = SPW.tail, w = 0.7;
+    for (const [ax, az, bx, bz, nx, nz] of [[Tl.x0, Tl.v0, Tl.x1, Tl.v0, 0, -1], [Tl.x0, Tl.v1, Tl.x1, Tl.v1, 0, 1], [Tl.x0, Tl.v0, Tl.x0, Tl.v1, -1, 0], [Tl.x1, Tl.v0, Tl.x1, Tl.v1, 1, 0]]) {
+      const L = Math.hypot(bx - ax, bz - az), n = Math.floor(L / 0.9), ux = (bx - ax) / L, uz = (bz - az) / L;
+      for (let j = 0; j < n; j++) { const s0 = j * L / n, s1 = (j + 1) * L / n, col = j & 1 ? 0x24222c : 0xffc93c, Pt = (s, dn) => [ax + ux * s + nx * dn, 0.012, az + uz * s + nz * dn];
+        slQuad('paint', Pt(s0, 0.05), Pt(s1, 0.05), Pt(s1 + 0.35, 0.05 + w), Pt(s0 + 0.35, 0.05 + w), [0, 1, 0], { tint: col }); } }
+    for (const [x, z, yaw] of [[Tl.x0 - 2.2, Tl.v0 - 2.2, 0], [Tl.x1 + 2.2, Tl.v0 - 2.2, 0]]) { if (!spwClear(x, z, 0.6, 0)) continue;
+      for (const dx of [-0.7, 0.7]) slGeo('metal', new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6, 1, true), slMat(x + dx, 1.3, z), { smooth: true });
+      slBox('metal', x - 0.95, 1.35, z - 0.04, x + 0.95, 2.6, z + 0.04, { bev: 0.01, tint: 0x30343f });
+      slDecal('decal', 'danger', [x, 1.98, z - 0.05], [-1, 0, 0], [0, 1, 0], 1.8); slDecal('decal', 'danger', [x, 1.98, z + 0.05], [1, 0, 0], [0, 1, 0], 1.8);
+      solidAdd(x, z, 0.95, 0.12, 0, 2.6, yaw, { top: false, tag: 'spillway sign' }); }
+    // planters: on a jittered grid over the outer plaza, each only where `spwClear` says no line passes
+    const bnd = x => Math.abs(x) <= 70 ? 0 : (Math.abs(x) - 70) * Math.tan(22 * D2R); let np = 0;
+    for (let x = -156; x <= 156; x += 15) for (let z = -76; z <= -10; z += 15) { const jx = x + (slHash(x, z, 41) - 0.5) * 7, jz = z + (slHash(x, z, 42) - 0.5) * 7;
+      if (Math.abs(jx) < 48 || jz > bnd(jx) - 9 || jz < SPW.prom.v1 + 4) continue;
+      if (!spwClear(jx, jz, 2.4, 0)) continue;
+      const pw = 2.6 + slHash(x, z, 43) * 1.2; slPlanter(jx, 0, jz, pw, pw, 0.55); slTree(jx, 0.55, jz, 5 + slHash(x, z, 44) * 2.5); np++;
+      if (slHash(x, z, 45) < 0.5 && spwClear(jx + pw / 2 + 1.4, jz, 1.1, 0)) slBench(jx + pw / 2 + 1.2, 0, jz, Math.PI / 2); }
+    SPW.planters = np; }
+}
 function spillwayWorld() {
   CITY.on = 0; SLC.built = 1; SLC.canal = { x0: -480, x1: 454, z0: -480, z1: 480 }; SLC.WY = SPW.sea; SLC.railQ = []; SLC.railC = [];
   if (SPW.g > 0) SK.g = SPW.g;
@@ -4098,7 +4241,7 @@ function spillwayWorld() {
   const KC = { ...KCOL }, Tn = {}; for (const q in KSZ) Tn[q] = KSZ[q].tint;
   Object.assign(KCOL, PARKD.pal.kcol); for (const q in PARKD.pal.size) if (KSZ[q]) KSZ[q].tint = PARKD.pal.size[q];
   try {
-    spwDam(); spwDrain(); spwPlaza(); spwChute(); spwYard(); spwStairs(); spwRails(); spwLaunch(); spwIslands(); spwLighthouse(); spwStreet(); spwWestPark(); spwArt();
+    spwDam(); spwDrain(); spwPlaza(); spwChute(); spwYard(); spwStairs(); spwRails(); spwLaunch(); spwIslands(); spwLighthouse(); spwStreet(); spwWestPark(); spwArt(); spwDress();
     // stops
     const T = SPW.tiers, St = SPW.stair, H = SPW.hall;
     SPAWN.set(0, SPW.crest.y, 148); SPAWN.h = Math.PI;
@@ -5871,7 +6014,11 @@ function decBuild() {
       const cx = q.x, cy = flat ? q.y + 0.012 + (k % 7) * 0.0006 : q.y + hs, cz = q.z;
       const c = (sa, sb) => [cx + (ax * sa + bx * sb) * hs, cy + by * sb * hs, cz + (az * sa + bz * sb) * hs];
       const p00 = c(-1, -1), p10 = c(1, -1), p11 = c(1, 1), p01 = c(-1, 1);      // v grows DOWN the image (flipY false), so the top edge takes v0
-      for (const [p, u, v] of [[p00, u0, v1], [p10, u1, v1], [p11, u1, v0], [p00, u0, v1], [p11, u1, v0], [p01, u0, v0]]) { P.push(...p); N.push(nx, ny, nz); U.push(u, v); } });
+      // r139: WOUND SO THE FACE LOOKS ALONG N. a x b points DOWN on a floor and INTO a wall, so p00-p10-p11 was a back face from
+      // where anybody stands -- and a DoubleSide material flips the normal of a back face, which lit every decal in the game
+      // from underneath: his crack, manhole and graffiti sheets all came out as black silhouettes (the hemisphere's dark
+      // purple ground colour and nothing else). The UVs ride with the corners, so the image is unchanged.
+      for (const [p, u, v] of [[p00, u0, v1], [p11, u1, v0], [p10, u1, v1], [p00, u0, v1], [p01, u0, v0], [p11, u1, v0]]) { P.push(...p); N.push(nx, ny, nz); U.push(u, v); } });
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.computeBoundingSphere(); return g; };
   const add = (g, t, nm) => { const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.5, roughness: 0.92, metalness: 0, side: THREE.DoubleSide,
@@ -6886,6 +7033,16 @@ const SIGNS = [
   ['smile', 128, 128, (g, w, h) => { g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2); g.fillStyle = '#ffd23f'; g.fill(); g.lineWidth = 7; g.strokeStyle = '#3a2a00'; g.stroke();
     g.fillStyle = '#3a2a00'; g.beginPath(); g.arc(46, 52, 7, 0, 7); g.arc(82, 52, 7, 0, 7); g.fill(); g.beginPath(); g.arc(64, 70, 28, 0.2, Math.PI - 0.2); g.stroke(); }],
   ['tag', 512, 192, (g, w, h) => aGraf(g, ['ORBITAL'], w / 2, h / 2, 120, '#7ff0c8', '#2a1a5a', -0.05)],
+  // r139: THE SPILLWAY'S OWN PAINT -- the name across each wing's face, a stencilled level plate per terrace, a danger board
+  ['spillway', 1024, 256, (g, w, h) => aGraf(g, ['SPILLWAY'], w / 2, h / 2 + 6, 168, '#ffd23f', '#2a1a5a', -0.03)],
+  ...[1, 2, 3].map(i => ['dam' + i, 320, 128, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 10, 'rgba(20,24,40,0.82)', '#ffd23f', 6);
+    g.save(); g.font = AF(64); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffd23f'; g.fillText('L' + i, 74, h / 2 + 2);
+    g.font = AF(40); g.fillStyle = '#f2ecdf'; g.fillText((i * 12) + ' M', 214, h / 2 + 2);
+    g.fillStyle = '#ffd23f'; g.fillRect(138, 26, 6, h - 52); g.restore(); }]),
+  ['danger', 384, 256, (g, w, h) => { aPanel(g, 4, 4, w - 8, h - 8, 16, '#ffd23f', '#14141c', 10);
+    g.fillStyle = '#d8283c'; g.fillRect(18, 22, w - 36, 74); g.save(); g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = AF(58); g.fillStyle = '#ffffff'; g.fillText('DANGER', w / 2, 60); g.font = AF(34); g.fillStyle = '#14141c';
+    g.fillText('SPILLWAY', w / 2, 138); g.fillText('NO SWIMMING', w / 2, 190); g.restore(); }],
 ];
 let ATLAS = null;
 function orbAtlas() {
@@ -9887,7 +10044,7 @@ function buildLinks() {
     const d = slDeck({ pts, w: 4.0, wallH: 0.9, rail: true, led: 0x3ff0e0, thick: 0.6, side: 'masonry', wallL: wallUp, wallR: wallUp,
       piers: { base: 0, every: 7, start: 12, size: 1.3 }, lamps: [0.45, 0.8], tags: [[0.5, 1, 'push', 1.2], [0.62, -1, 'alien', 0.9]] });
     LINKS.decks.push({ name: 'north causeway', ...d }); }
-  { const [ax, az] = LINKS.south.a, [bx, bz] = LINKS.south.b, pts = [[ax, 8.0, az + 3], [ax, 8.0, az], [154, 7.6, -103], [144, 6.4, -111], [134, 4.9, -119], [128, 4.0, -123.5], [bx, 4.0, bz]];
+  { const [ax, az] = LINKS.south.a, [bx, bz] = LINKS.south.b, pts = [[ax, 8.0, az + 3], [ax, 8.0, az], [157.6, 8.0, -99.8], [154, 7.6, -103], [144, 6.4, -111], [134, 4.9, -119], [128, 4.0, -123.5], [bx, 4.0, bz]];
     const d = slDeck({ pts, w: 4.0, wallH: 0.9, rail: true, led: 0xff6fd0, thick: 0.6, side: 'masonry',
       piers: { base: 0, every: 7, start: 6, size: 1.3 }, lamps: [0.5], tags: [[0.4, 1, 'cat', 1.0], [0.6, -1, 'saturn', 0.9]] });
     LINKS.decks.push({ name: 'south causeway', ...d }); }

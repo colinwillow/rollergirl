@@ -90,6 +90,14 @@ penstock). *"No dead edges"*: riding off a terrace is a thing you do down a line
 A line of light runs along every riser's top edge under the lip. His buildings stand against the risers of every terrace on
 both wings and the centre, where no line runs.
 
+**THE DRESSING PASS (r139, `spwDress`, `SPWD`).** No new lines, so it stops reading as blocks: every terrace riser has
+a stone plinth, a cornice, pilasters every bay, gallery windows with sills, outlet pipes with weep stains, ivy, and level
+plates (`L1 12 M` ...); the face has drainage grooves and SPILLWAY painted across both wings; the four sluice gates over the
+chute are gantries (piers, beam, hoisted leaf, a hoist house with a beacon); the chute carries a scrolling sheet of water;
+the tailrace has hazard stripes and DANGER boards; the plaza is planted (trees, planters, benches) and the paving and
+terraces are toned by a broad noise rather than a checker. Everything solid goes through `spwClear`, which keeps it off
+every rail, lane, pad, lift, kit piece, ➤ stop and the chute corridor. *Harness: all 37 rows unchanged.*
+
 **THE WIRE (r137).** A booster rail (16 m/s) off the lantern deck's rim, over the harbour, 150 m without touching the
 ground, onto the turbine hall's roof where it joins the roof's own rail. A swipe from the deck takes it. *Harness: deck to
 roof, 8.5 s, on the roof.* The scene is 163 meshes and 67k triangles before his art.

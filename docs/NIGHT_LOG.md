@@ -606,3 +606,11 @@ Painted surfaces, District colour, Painted surface brightness, Paving slab size 
 - A held brake holds her stopped instead of turning into a push the other way; press again to turn round.
 - Thumb off while rolling shows a held frame of `blade_medium` instead of the standing idle.
 - `npm run sim rest`, revert-tested. ➤ stop: anywhere flat, and any lift.
+
+## r139 -- the Spillway dressed, and the black decals
+- Spillway risers: plinth, cornice, pilasters, gallery windows, outlet pipes and stains, ivy, level plates. Face grooves and
+  SPILLWAY on both wings. Sluice-gate gantries over the chute, a running water sheet down it, tailrace stripes and DANGER
+  boards, a planted plaza, noise-toned paving instead of the checker. ➤ stop: spillway plaza, spillway terrace 1.
+- Every world: the r130 floor decals and graffiti were wound backwards and drew BLACK (DoubleSide lit them from behind).
+- The south causeway met the plateau 0.2 m low (`links`) and the tram row's 2.5 m/s start crept into the gap (r131's stop).
+

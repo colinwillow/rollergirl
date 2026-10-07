@@ -100,6 +100,14 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE DECALS WERE BLACK IN EVERY WORLD FROM r130 TO r138, AND ONLY A RENDER COULD SAY SO (r139, `decBuild`).** The quads were
+  wound so their face looked AWAY from the normal they carried; on a DoubleSide material three flips the normal for a back face,
+  so every crack, manhole and tag was lit from underneath -- black blots. Wound to look along `n` now. No harness here renders.
+  **SPILLWAY DRESSING (`spwDress`, `SPWD`, `spwClear`)**: risers, face, sluice gantries (solids, tag `sluice pier`), chute water,
+  tailrace signs (solids), plaza planters (solids). **Anything solid added to the Spillway goes through `spwClear`** -- it keeps
+  off every rail, lane, pad, lift, kit piece, ➤ stop and the chute; a gate that fails it is left out with a console warning.
+  Two r131 harness regressions fixed with it: the south causeway's deck now meets the plateau flush (`links` read INSIDE 0.19),
+  and the tram's Shores-end row starts at 3.5 m/s (at 2.5 the rolling stop crept her into the gap).
 - **r131's ROLLING STOP DRAINED EVERY HANDS-OFF RIDE IN THE GAME, AND THE FULL SUITE IS WHAT SAID SO (r138, `SK.creepV`).**
   The creep -- a linear 1 m/s^2 with the thumb off on the flat -- was applied at ANY speed, so every tuned run-up lost a
   metre a second: 23 rows of `npm run sim kit` red (roll-ins stopped on their decks, QPs short of their copings, gaps never
