@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r108</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r109</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r108';
+const BUILD = 'r109';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3530,6 +3530,7 @@ function buildPark() {
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
   buildSlice();      // r52: the slice -- one street of the painting built to a look, west through the west gate
+  buildTram();       // r109: the Crosstown tram round the hub's south side, and its express lanes
   buildBlend();      // r108: the seams between districts dressed by their mixed cultures, and skate spots in them
   triBuild();
   solidBuild();
@@ -3580,7 +3581,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -7597,7 +7598,7 @@ const DETAIL_U = new THREE.Vector4(DETAIL.k, DETAIL.nrm, 1 / DETAIL.floorT, 1 / 
 // across the map."* Every district has an influence: a centre, a reach, a ground colour and a culture. The ground's colour
 // drifts between them in the shader (`detailPatch`, ground-level up-facing fragments only, a normalised gaussian blend so
 // there is never a line), and `buildBlend` dresses the open ground between them with props mixed by the same weights.
-const BLEND = { on: 1, k: 0.34, cell: 12, p: 0.5, keep: 26, spots: 9, spotGap: 120,
+const BLEND = { on: 1, k: 0.34, cell: 12, p: 0.62, keep: 26, spots: 9, spotGap: 120,
   clear: [[-300, -82, -125, -8]],     // kept bare: the run `npm run sim steer` measures the steering frame along (r106)
   d: [{ key: 'hub', x: 0, z: 8, r: 70, col: 0xe6dcff, cult: 'neon' }, { key: 'park', x: -10, z: 175, r: 95, col: 0xc6f2e6, cult: 'neon' },
       { key: 'acro', x: -205, z: 150, r: 100, col: 0xf6e2bc, cult: 'greek' }, { key: 'slice', x: -160, z: 0, r: 70, col: 0xf8cca8, cult: 'canal' },
@@ -8596,11 +8597,12 @@ function heightsRails() {
 }
 const _htm = new THREE.Matrix4(), _htq = new THREE.Quaternion(), _htv = new THREE.Vector3(), _htone = new THREE.Vector3(1, 1, 1), _hta = new THREE.Vector3(), _htb = new THREE.Vector3();
 function stepDyn(t) {
-  const p = player;
+  const p = player; let carried = 0;
   for (const D of DYN.list) {
     const [x, y, z] = D.fn(t), dx = x - D.x, dy = y - D.y, dz = z - D.z;
-    // CARRY: standing on it (on the ground, not on a rail, inside it, at its height), she goes where it goes
-    if (p.grounded && !p.grind && dynIn(D, p.pos.x, p.pos.z, 0.05) && Math.abs(p.pos.y - D.y) < 0.2) { p.pos.x += dx; p.pos.y += dy; p.pos.z += dz; p.onDyn = D; }
+    // CARRY: standing on it (on the ground, not on a rail, inside it, at its height), she goes where it goes -- ONCE a frame
+    // (r109: a tram car's roof is six overlapping discs, and each one she is inside would otherwise carry her again)
+    if (!carried && p.grounded && !p.grind && dynIn(D, p.pos.x, p.pos.z, 0.05) && Math.abs(p.pos.y - D.y) < 0.2) { p.pos.x += dx; p.pos.y += dy; p.pos.z += dz; p.onDyn = D; carried = 1; }
     D.x = x; D.y = y; D.z = z;
     if (D.mesh) { D.mesh.g.position.set(x, y, z); for (const f of D.mesh.fans) f.rotation.y += 0.6; }
   }
@@ -8609,6 +8611,7 @@ function stepHeights(dt) {
   if (!HT.built || !HT.trains.length) return;
   HT.t += dt;
   if (DYN.list.length) stepDyn(HT.t);
+  stepTram(HT.t, dt);     // r109: the pods turned to the line, and the knock
   const p = player;
   for (const tr of HT.trains) {
     const P = tr.path, Ln = P.len; tr.s = (tr.s + tr.v * dt) % Ln;
@@ -9423,6 +9426,141 @@ function garageRails() {
     SLV((G.x0 + T.x) / 2, (y + T.h) / 2 + 2, (G.z1 + T.z) / 2 - 2), SLV(T.x + T.t + 4, T.h + 2.2, T.z - 4), SLV(T.x + T.t - 1.5, T.h + 0.95, T.z - 1.5)], false, 'centripetal');
   const n = Math.ceil(C.getLength() / 1.5);
   G.rail = railPath(C.getSpacedPoints(n), { name: 'garage rail', maxV: 22 }); railDraw(G.rail, { mat: 'orange', postMax: 14 }); gemsAlong(G.rail, 8, 0.9, 6);
+}
+// r109: THE CROSSTOWN. A tram line round the hub's south side, at grade in the belt between the hub's outer bank and the
+// districts, joining three of them: the Shores gate (east), the Orbital gate (south) and the foot of the Mothership's beam
+// (west). Three long cars, each one's roof a row of six overlapping discs (a MOVING FLOOR each, `DYN` is round or an
+// axis-aligned box and a car turns), so she can roll off a platform onto the roof and be carried; it runs out and back with a dwell at each platform. Beside it, two EXPRESS LANES (conveyors) run the
+// same route, one each way, so the boulevard is quick on foot as well. A moving tram knocks a skater off the track.
+// The belt was mapped first (the Orbital gate's ramps at z -106 and the lagoon at x 113 are the two edges that decide it).
+const TRAM = { on: 1, built: 0, cars: 3, carL: 7, r: 1.4, gap: 0.6, discs: 6, roof: 2.4, v: 13, acc: 2.2, dwell: 7, knockV: 6, corner: 9,
+  pts: [[101, -21.25], [101, -92.5], [92, -92.5, 'arc'], [-132, -101.5], [-132, -92.5, 'arc'], [-141, -58.25]],
+  midX: -15, inner: { off: 6, hw: 1.9, v: 16, acc: 9, gov: 3 }, outer: { off: 9.4, hw: 1.4, v: 16, acc: 9, gov: 3 },
+  gapX: [-39, 9], stops: [], P: [], S: [], L: 0, list: [], knocks: 0 };
+// the centreline (and any offset of it, outward = to the track's right going out) as points with their arc length
+function tramLine(off) {
+  const T = TRAM, out = [], r = T.corner, push = (x, z) => out.push([x, z]);
+  // legs: east (101, z falling), corner about (92, -92.5), south (z -101.5, x falling), corner about (-132, -92.5), west
+  const E = 101 + off, S = -101.5 - off, W = -141 - off;
+  for (let z = -21.25; z > -92.5; z -= 3) push(E, z);
+  for (let i = 0; i <= 8; i++) { const a = -Math.PI / 2 * i / 8; push(92 + (r + off) * Math.cos(a), -92.5 + (r + off) * Math.sin(a)); }
+  for (let x = 92 - 3; x > -132; x -= 3) push(x, S);
+  for (let i = 0; i <= 8; i++) { const a = -Math.PI / 2 - Math.PI / 2 * i / 8; push(-132 + (r + off) * Math.cos(a), -92.5 + (r + off) * Math.sin(a)); }
+  for (let z = -92.5 + 3; z < -58.25; z += 3) push(W, z); push(W, -58.25);
+  const s = [0]; for (let i = 1; i < out.length; i++) s.push(s[i - 1] + Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1]));
+  return { P: out, S: s, L: s[s.length - 1] };
+}
+const _trm = { x: 0, z: 0, hx: 0, hz: 1 };
+function tramAt(s) {
+  const T = TRAM, P = T.P, S = T.S; s = Math.min(T.L, Math.max(0, s));
+  let lo = 0, hi = S.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (S[m] <= s) lo = m; else hi = m; }
+  const u = (s - S[lo]) / Math.max(1e-6, S[hi] - S[lo]), a = P[lo], b = P[hi], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  _trm.x = a[0] + (b[0] - a[0]) * u; _trm.z = a[1] + (b[1] - a[1]) * u; _trm.hx = (b[0] - a[0]) / l; _trm.hz = (b[1] - a[1]) / l; return _trm;
+}
+// the timetable: out and back, a dwell at each platform, a trapezoid of speed on every run -- its position AND speed at t
+function tramLegT(d) { const T = TRAM, v = T.v, a = T.acc; return d >= v * v / a ? 2 * v / a + (d - v * v / a) / v : 2 * Math.sqrt(d / a); }
+function tramRun(d, tau) {
+  const T = TRAM, v = T.v, a = T.acc;
+  if (d >= v * v / a) { const ta = v / a, da = v * v / (2 * a), Tt = 2 * ta + (d - 2 * da) / v;
+    if (tau < ta) return [a * tau * tau / 2, a * tau]; if (tau < Tt - ta) return [da + v * (tau - ta), v]; const r = Tt - tau; return [d - a * r * r / 2, a * r]; }
+  const ta = Math.sqrt(d / a); if (tau < ta) return [a * tau * tau / 2, a * tau]; const r = 2 * ta - tau; return [d - a * r * r / 2, a * r];
+}
+let _tramT = NaN, _tramS = 0, _tramV = 0;
+function tramS(t) {
+  if (t === _tramT) return _tramS;
+  const T = TRAM, legs = T.legs; let tt = ((t % T.cycle) + T.cycle) % T.cycle; _tramT = t;
+  for (const [s0, s1] of legs) { const d = Math.abs(s1 - s0), sg = Math.sign(s1 - s0), Tl = tramLegT(d);
+    if (tt < T.dwell) { _tramV = 0; return (_tramS = s0); } tt -= T.dwell;
+    if (tt < Tl) { const [q, v] = tramRun(d, tt); _tramV = v * sg; return (_tramS = s0 + sg * q); } tt -= Tl; }
+  _tramV = 0; return (_tramS = legs[0][0]);
+}
+function tramCar(h) {     // a car: a stadium in plan (the discs' outline), a lit window band, a pink neon trim, a dark skirt; origin on the ROOF
+  const T = TRAM, g = new THREE.Group(), r = T.r, H = T.roof, hl = T.carL / 2 - r;
+  const shape = k => { const S = new THREE.Shape(); S.absarc(0, hl, r * k, 0, Math.PI, false); S.absarc(0, -hl, r * k, Math.PI, Math.PI * 2, false); S.closePath(); return S; };
+  const ext = (k, y0, y1, mat) => { const geo = new THREE.ExtrudeGeometry(shape(k), { depth: y1 - y0, bevelEnabled: false, curveSegments: 10 }); geo.rotateX(-Math.PI / 2); geo.translate(0, y0, 0);
+    const m = new THREE.Mesh(geo, mat); g.add(m); return m; };     // the shape is in x/y; turned flat its y runs along -z, which is either way along the car
+  ext(1, -H + 0.4, -0.25, new THREE.MeshStandardMaterial({ color: 0xf4eefc, roughness: 0.45, metalness: 0.25 }));
+  ext(0.985, -0.25, 0, new THREE.MeshStandardMaterial({ color: 0xdad0ee, roughness: 0.6 }));
+  ext(1.015, -1.5, -0.8, new THREE.MeshStandardMaterial({ color: 0x24305a, roughness: 0.15, metalness: 0.4, emissive: 0x3a66ff, emissiveIntensity: 0.35 }));
+  ext(1.025, -0.34, -0.26, new THREE.MeshBasicMaterial({ color: 0xff5fd1 }));
+  ext(0.9, -H, -H + 0.4, new THREE.MeshStandardMaterial({ color: 0x2c2f44, roughness: 0.8 }));
+  if (h) for (const sg of h) { const l = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.22, 0.1), new THREE.MeshBasicMaterial({ color: 0xfff2c0 })); l.position.set(0, -1.85, sg * (hl + r + 0.03)); g.add(l); }
+  g.traverse(o => { if (o.material) o.material.userData = { noHole: true }; }); scene.add(g); return g;
+}
+function buildTram() {
+  if (!TRAM.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 10909;
+  const T = TRAM, C = tramLine(0); T.P = C.P; T.S = C.S; T.L = C.L;
+  const sp = T.carL + T.gap, half = (T.cars * T.carL + (T.cars - 1) * T.gap) / 2;
+  // the three stops, as the train's CENTRE along the line: the end pods 0.25 m off the end platforms, the middle centred
+  const sA = 0.25 + half, sB = T.L - 0.25 - half;
+  let sM = 0, best = 1e9; for (let s = sA; s < sB; s += 0.25) { const q = tramAt(s); const d = Math.abs(q.z + 101.5) < 0.01 ? Math.abs(q.x - T.midX) : 1e9; if (d < best) { best = d; sM = s; } }
+  T.sA = sA; T.sM = sM; T.sB = sB; T.half = half; T.sp = sp;
+  T.legs = [[sA, sM], [sM, sB], [sB, sM], [sM, sA]]; T.cycle = T.legs.reduce((a, [s0, s1]) => a + T.dwell + tramLegT(Math.abs(s1 - s0)), 0);
+  // THE BED and THE EXPRESS LANES: ribbons 4 cm proud (a kerb she rolls over), the lanes as conveyors with chevrons
+  const V3 = (L, y) => L.P.map(([x, z]) => SLV(x, y, z));
+  obRibbon(V3(C, 0.04), T.r + 1.1, { col: 0x4a4e66, edge: 0xffc23a, side: 0x3a3d52, thick: 0.04, name: 'tram bed' });
+  const cut = (L, rev) => {     // a lane in two pieces, either side of the Orbital gate's ramps and the middle platform
+    const P = [[L.P[0][0], -12], ...L.P, [L.P[L.P.length - 1][0], -48]], A = [], B = [];     // run on past both platforms
+    for (const [x, z] of P) { if (Math.abs(z + 101.5) < 12 && x > T.gapX[0] && x < T.gapX[1]) continue; (x >= T.gapX[1] ? A : B).push([x, z]); }
+    const out = [A, B].filter(q => q.length > 1); return rev ? out.reverse().map(q => q.slice().reverse()) : out; };
+  const lane = (o, rev, nm) => { for (const seg of cut(tramLine(o.off), rev)) obRibbon(seg.map(([x, z]) => SLV(x, 0.04, z)), o.hw, { col: 0x5a4e78, edge: 0x3ff0e0, side: 0x3a3d52, thick: 0.04, lane: { v: o.v, acc: o.acc, gov: o.gov, every: 6 }, name: nm }); };
+  lane(T.inner, false, 'crosstown express west'); lane(T.outer, true, 'crosstown express east');
+  // THE PLATFORMS, deck at the roof: the two ends across the line (she rolls on along it), the middle beside it
+  const K2 = { ...KCOL }; Object.assign(KCOL, PARKD.pal.kcol);
+  try {
+    const plat = (x0, z0, x1, z1, tint) => { solidAdd((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0, T.roof, 0, { tag: 'tram platform' });
+      slBox('concrete', x0, 0, z0, x1, T.roof, z1, { tint }); slBox('neon', x0, T.roof - 0.08, z0 - 0.02, x1, T.roof + 0.01, z0 + 0.1, { tint: 0xffc23a, bev: 0 }); slBox('neon', x0, T.roof - 0.08, z1 - 0.1, x1, T.roof + 0.01, z1 + 0.02, { tint: 0xffc23a, bev: 0 }); };
+    const e0 = { ...tramAt(0) }, e1 = { ...tramAt(T.L) }, Lb = KSZ.M.H / Math.tan(25 * D2R);
+    // both ends lie NORTH of the line's end (it runs south out of the east one and north into the west one), each with a
+    // bank down to the north; the end pod stops 0.25 m short of the platform's edge
+    plat(e0.x - 2, e0.z - 0.01, e0.x + 2, e0.z + 8, 0xe6dcff);
+    kitPiece('bank', 'M', { x: e0.x, y: 0, z: e0.z + 8 + Lb, yaw: Math.PI }, { w: 4 });
+    plat(e1.x - 2, e1.z - 0.01, e1.x + 2, e1.z + 8, 0xd8f2e6);
+    kitPiece('bank', 'M', { x: e1.x, y: 0, z: e1.z + 8 + Lb, yaw: Math.PI }, { w: 4 });
+    const zm = -101.5 - T.r - 0.25;
+    plat(T.midX - 8, zm - 2.85, T.midX + 8, zm + 0.01, 0xf2e2ff);
+    kitPiece('bank', 'M', { x: T.midX, y: 0, z: zm - 2.85 - Lb, yaw: 0 }, { w: 12 });
+  } finally { Object.assign(KCOL, K2); }
+  // THE CATENARY: a post on the hub side every 24 m, an arm over the line and the wire -- picture, and a thin solid post
+  for (let s = 12; s < T.L - 12; s += 24) { const q = tramAt(s), nx = q.hz, nz = -q.hx;     // the line's left (the hub side, going out)
+    const px = q.x + nx * (T.r + 1.3), pz = q.z + nz * (T.r + 1.3);
+    if (Math.hypot(px - e0x(), pz - e0z()) < 4) continue;
+    solidAdd(px, pz, 0.14, 0.14, 0, 5.6, 0, { tag: 'tram post', top: false });
+    slBox('metal', px - 0.12, 0, pz - 0.12, px + 0.12, 5.7, pz + 0.12, { bev: 0.02 });
+    slTube('metal', [[px, 5.5, pz], [q.x, 5.45, q.z]], 0.05); }
+  slTube('metal', T.P.filter((_, i) => i % 2 === 0).map(([x, z]) => [x, 5.3, z]), 0.025);
+  // THE TRAIN: three cars of six discs each and a coupler disc between cars, every disc a moving floor at the roof. The discs
+  // overlap by most of their width, so a car's side is straight to 9 cm and she can roll onto it from a platform anywhere
+  T.carM = [];
+  for (let c = 0; c < T.cars; c++) { const oc = (c - (T.cars - 1) / 2) * sp, hl = T.carL / 2 - T.r;
+    T.carM.push({ off: oc, g: tramCar(c === 0 ? [-1] : c === T.cars - 1 ? [1] : null) });
+    const add = (off, cr, car) => { const fn = (t) => { const q = tramAt(tramS(t) + off); return [q.x, T.roof, q.z]; }; const [x, y, z] = fn(0);
+      const p = { x, y, z, cr, kind: 'tram', fn, off, car }; DYN.list.push(p); T.list.push(p); };
+    for (let i = 0; i < T.discs; i++) add(oc - hl + 2 * hl * i / (T.discs - 1), T.r, 1);
+    if (c < T.cars - 1) add(oc + sp / 2, 0.8, 0); }
+  // keep the seam dressing off it
+  BLEND.clear.push([96, -114, 115, -6], [-155, -116, 115, -95], [-155, -116, -134, -42]);
+  CITY.spots['tram shores'] = [e0x(), T.roof, e0z() + 5, Math.PI];
+  CITY.spots['tram orbital'] = [T.midX, T.roof, -101.5 - T.r - 1.8, 0];
+  CITY.spots['tram mothership'] = [tramAt(T.L).x, T.roof, tramAt(T.L).z + 5, Math.PI];
+  T.stops = ['tram shores', 'tram orbital', 'tram mothership'];
+  T.built = 1;
+  function e0x() { return T.P[0][0]; } function e0z() { return T.P[0][1]; }
+}
+// every frame, after `stepDyn`: turn the pods to the line, and a MOVING tram knocks a skater on the ground off the track
+const _trH = new THREE.Vector3();
+function stepTram(t, dt) {
+  const T = TRAM; if (!T.built) return;
+  const s = tramS(t), v = _tramV, p = player;
+  for (const M of T.carM) { const q = tramAt(s + M.off); M.g.position.set(q.x, T.roof, q.z); M.g.rotation.y = Math.atan2(q.hx, q.hz); }
+  T.cool = Math.max(0, (T.cool || 0) - dt);
+  if (Math.abs(v) < 0.5 || T.cool > 0 || p.grind || p.pos.y > T.roof - 0.9) return;
+  for (const D of T.list) { if (!D.car) continue; const dx = p.pos.x - D.x, dz = p.pos.z - D.z, d = Math.hypot(dx, dz); if (d > D.cr + 0.35) continue;
+    const q = tramAt(s + D.off), sg = Math.sign(v), side = Math.sign(dx * q.hz - dz * q.hx) || 1;
+    if (p.grounded) leaveGround(0, false);
+    p.vel.x = q.hx * sg * (Math.abs(v) + T.knockV) + q.hz * side * 4; p.vel.z = q.hz * sg * (Math.abs(v) + T.knockV) - q.hx * side * 4; p.vel.y = 6;
+    T.knocks++; T.cool = 1.2; CITY.goMsg = 'TRAM!'; CITY.goAt = performance.now(); sparkBurst(16); toast('TRAM!', '#ffc23a'); return; }
 }
 // r108: THE SEAMS DRESSED. Every 12 m cell of open ground BETWEEN districts (no district's weight over `core`) may take a
 // small cluster of props, its culture drawn at random by the districts' own weights -- so walking from the Acropolis toward
@@ -13582,7 +13720,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

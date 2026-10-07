@@ -222,3 +222,24 @@ how far its culture reaches, its colour, its culture):
 
 Nothing is placed on a ➤ stop, a launch pad, a conveyor, the water, or the steer test's run, and every spot is ridden
 through both lanes in the sim.
+
+---
+
+## r109 — THE CROSSTOWN (the tram round the hub's south side)
+
+**➤ stops:** `tram shores`, `tram orbital`, `tram mothership` (the three platforms)
+**Sim:** `node tools/sim.mjs tram` (10 rows)
+
+A tram line at street level in the belt between the hub and the districts, about 360 m long. It runs from **just outside
+the hub's east gate** (Neon Shores' causeway), south past the **Orbital gate**, and west and north to the foot of the
+**Mothership's beam**. Three cars run out and back with a 7 s stop at each platform, a 103 s round trip.
+
+- **RIDE ON THE ROOF.** Every platform is at roof height (2.4 m), with a bank up to it. Roll off the platform onto the
+  cars and you're carried: on at the Orbital stop, off 75 m down the line. The end platforms sit across the line, so
+  you roll straight down the platform onto the front car; at the Orbital stop you roll on from the side.
+- **TWO EXPRESS LANES** run beside it the whole way, one each direction (the neon chevrons). Stand on one and it takes
+  you up to 16 m/s. They break for 48 m where the Orbital gate's ramps come down.
+- **IT KNOCKS YOU OFF.** Stand on the track when it comes: TRAM!
+
+The belt was mapped before anything was placed: the hub's outer bank on one side, the lagoon at x 112 and the Orbital
+ramps at z −106 on the other. Nothing else in the world stands on the line or the lanes (tested).

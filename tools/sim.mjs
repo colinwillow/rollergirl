@@ -93,6 +93,17 @@ function run(sec, fn) {
   const n = Math.round(sec / DT);
   for (let i = 0; i < n; i++) { if (fn) fn(i * DT, i); rg.stepPlayer(DT); }
 }
+// r109: A QUIET MOMENT at (x, z) (`quietAt`): the clock set to a time when neither the Crosstown tram nor a scout saucer will come within
+// reach of that spot for the next `sec` seconds. Both run off `HT.t`, so a row that skates across their paths otherwise passes
+// or fails by whatever time the cases before it left on the clock (the scout row's lesson, r107).
+function quietAt(x, z, sec = 6, near = 26) {
+  const T = rg.TRAM, U = rg.UFO, clear = t => { for (let u = 0; u <= sec; u += 0.25) {
+      if (T.built) { const s = rg.tramS(t + u); for (const k of [-1, 0, 1]) { const q = rg.tramAt(s + k * T.half); if (Math.hypot(q.x - x, q.z - z) < near) return false; } }
+      for (const S of U.list || []) { const a = S.S.a0 + (t + u) * S.S.w; if (Math.hypot(S.S.cx + S.S.R * Math.cos(a) - x, S.S.cz + S.S.R * Math.sin(a) - z) < near) return false; } }
+    return true; };
+  for (let t = 0; t < 4000; t += 0.5) if (clear(t)) { rg.HT.t = t; return t; }
+  return -1;
+}
 const fix = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d);
 // HIS SKELETON, REBUILT FROM THE GLB'S OWN NODES -- a skeleton needs no mesh, so draco never comes
 // into it. Used wherever a case needs the real rig: mirroring, and the clip prep the game does.
@@ -2764,7 +2775,7 @@ CASES.orbital = () => {
   { place(0, 0, -50, Math.PI, 12); let low = 9, at = null; run(5, () => { fwd(Math.PI); city(); low = Math.min(low, P.pos.y); if (!at && P.pos.z < -99) at = P.pos.clone(); });
     say('out of the park through the south gate', !!at && Math.abs(at.y) < 0.3 && low > -0.5, at ? `out at z ${fix(at.z, 1)} y ${fix(at.y)}, lowest ${fix(low)}` : `stuck at z ${fix(P.pos.z, 1)}`); }
   // 2. UP THE GRAND STAIRS onto the north quay
-  { place(0, 0, -97, Math.PI, 9); let at = null; run(4, () => { fwd(Math.PI); city(); if (!at && P.pos.z < -124 && P.grounded) at = P.pos.clone(); });
+  { quietAt(0, -108); city(); place(0, 0, -97, Math.PI, 9); let at = null; run(4, () => { fwd(Math.PI); city(); if (!at && P.pos.z < -124 && P.grounded) at = P.pos.clone(); });
     say('up the grand stairs onto the quay', !!at && Math.abs(at.y - O.nq.y) < 0.15, at ? `on the quay at z ${fix(at.z, 1)} y ${fix(at.y)}` : `got to z ${fix(P.pos.z, 1)} y ${fix(P.pos.y)}`); }
   // 3. OVER THE MIDDLE BRIDGE
   { const s0 = O.splashes; place(0, 4, -128, Math.PI, 10); let top = 0, at = null; run(3, () => { fwd(Math.PI); city(); top = Math.max(top, P.pos.y); if (!at && P.pos.z < -156 && P.grounded) at = P.pos.clone(); });
@@ -4416,6 +4427,63 @@ CASES.blend = () => {
         const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); });
       const past = (P.pos.x - S.x) * fx + (P.pos.z - S.z) * fz; if (r.bail || r.deep > 0.12 || past < 2) bad.push(`${S.key}@${fix(S.x, 0)},${fix(S.z, 0)} ${lane ? 'kicker' : 'funbox'}: ${r.bail ? 'BAIL ' : ''}${r.deep > 0.12 ? 'INSIDE ' + fix(r.deep) + ' ' : ''}past ${fix(past, 1)}`); }
     say('every seam spot rolls through: over the funbox, off the kicker', !bad.length, bad.join('; ') || `${B.spotList.length} spots, both lanes`); }
+  return ok;
+};
+// r109: THE CROSSTOWN -- the line clear of everything, the three platforms, boarding at the middle (from the side) and at
+// the east end (along it) and being carried off, a moving tram knocking a skater off the track, both express lanes.
+CASES.tram = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const T = rg.TRAM; if (!T.built) { console.log('  the tram was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT);
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; rg.GRIND.intent = 0; T.cool = 0; };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0 }; let kq = 0, done = 0; run(sec, (t, i) => { if (done) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (process.env.TT && kq++ % (+process.env.TT) === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', P.onLane || '', fix(P.speed, 1), 'v', fix(P.vel.x, 2), fix(P.vel.y, 2), fix(P.vel.z, 2), 'tram s', fix(rg.tramS(rg.HT.t), 1), P.onDyn ? P.onDyn.kind : '');
+      if (P.bailT > 0) r.bail = 1; const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); if (stop && stop()) done = 1; }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const onPod = (m = 0) => T.list.some(D => Math.hypot(P.pos.x - D.x, P.pos.z - D.z) < D.cr + 0.05 - m) && Math.abs(P.pos.y - T.roof) < 0.25 && P.grounded;
+  const when = s => { for (let t = 0; t < T.cycle; t += 0.05) if (Math.abs(rg.tramS(t) - s) < 1e-6) return t; return -1; };     // the first moment of a dwell
+  say(`${T.cars} cars (${T.list.length} floor discs) on ${fix(T.L, 0)} m of line, a ${fix(T.cycle, 0)} s round trip`, T.list.length === T.cars * (T.discs + 1) - 1 && T.carM.length === T.cars && T.L > 300 && T.legs.length === 4,
+    `stops at s ${fix(T.sA, 1)} / ${fix(T.sM, 1)} / ${fix(T.sB, 1)}`);
+  // the bed and the lanes: nothing solid on them, no raised floor, none of it in the lagoon, clear of the Mothership's beam
+  { const bad = new Map(), U = rg.UFO, lanes = rg.ORB.lanes.filter(l => /crosstown/.test(l.name)); let wet = 0, nb = 1e9;
+    for (let s = 0; s < T.L; s += 2) { const q = rg.tramAt(s); for (const w of [-2.2, 0, 2.2]) { const x = q.x + q.hz * w, z = q.z - q.hx * w;
+      for (const y of [0.5, 2]) { const b = rg.solidAt(x, y, z, 0); if (b && !/^tram/.test(b.tag)) bad.set(b.tag, 1); } const g = rg.groundAt(x, z, 1.5, 0); if (g.floor > 0.1) bad.set(`raised ${fix(g.floor)} @${fix(x, 0)},${fix(z, 0)}`, 1); } }
+    for (const l of lanes) for (const q of l.pts) for (const [ax, az] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const x = q.x + ax * l.hw, z = q.z + az * l.hw;
+      if (rg.inWater(x, 0.05, z)) wet++; nb = Math.min(nb, Math.hypot(x - U.bx, z - U.bz)); for (const y of [0.5, 2]) { const b = rg.solidAt(x, y, z, 0); if (b && !/^tram/.test(b.tag)) bad.set('lane: ' + b.tag, 1); } }
+    say('the line and both express lanes clear: no solid, no water, off the beam', !bad.size && !wet && nb > U.beamR + 3 && lanes.length === 4, `${[...bad.keys()].slice(0, 4).join('; ') || 'clear'}, ${wet} wet, beam ${fix(nb, 1)} m away`); }
+  { const bad = []; for (const n of T.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15 || Math.abs(y0 - T.roof) > 0.05) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every tram ➤ stop is a platform at the roof\'s height', !bad.length, bad.join('; ') || `${T.stops.length} stops`); }
+  // dwelling at each stop the end pods sit 0.25 m off the end platforms and the side of the train 0.25 m off the middle one
+  { const tA = when(T.sA), tM = when(T.sM), tB = when(T.sB), pods = () => T.list.filter(D => D.car), top = () => Math.max(...pods().map(D => D.z + D.cr));
+    rg.HT.t = tA + 1; city(); const gA = T.P[0][1] - top();
+    rg.HT.t = tB + 1; city(); const gB = T.P[T.P.length - 1][1] - top();
+    rg.HT.t = tM + 1; city(); const mx = pods().map(D => D.x), mid = (Math.min(...mx) + Math.max(...mx)) / 2, dm = Math.max(...pods().map(D => Math.abs(D.z + 101.5)));
+    say('at each stop the train sits beside its platform', tA >= 0 && tM > tA && tB > tM && Math.abs(gA - 0.25) < 0.05 && Math.abs(gB - 0.25) < 0.05 && Math.abs(mid - T.midX) < 0.5 && dm < 0.01,
+      `dwells from ${fix(tA, 1)} / ${fix(tM, 1)} / ${fix(tB, 1)} s; end gaps ${fix(gA, 2)} / ${fix(gB, 2)} m; middle centred on x ${fix(mid, 1)}`); }
+  // board at the middle: roll off the platform onto the roof, stop, and be carried away when it leaves
+  { reset(); const tM = when(T.sM); rg.HT.t = tM + 0.5; city(); place(T.midX + 1, T.roof + 0.1, -105.2, 0, 2.5); let on = null;
+    let r = ride(4, null, () => { if (onPod(0.6)) { on = P.pos.clone(); P.vel.set(0, 0, 0); return true; } });     // stopped HERE: `run` steps on past a stop
+    const r2 = on ? ride(14, () => { rg.stick.L.x = rg.stick.L.y = 0; }) : r; const still = on && onPod(), moved = on ? Math.hypot(P.pos.x - on.x, P.pos.z - on.z) : 0;
+    say('boarding at the Orbital stop from the side, then carried off', on && still && moved > 25 && r.clean && r2.clean, on ? `on at ${at(on)}, carried ${fix(moved, 1)} m, ${still ? 'still on the roof' : 'OFF at ' + at(P.pos)}${cl(r2)}` : `never on -- ends ${at(P.pos)}${cl(r)}`); }
+  // board at the east end, rolling straight down the platform onto the head pod
+  { reset(); const tA = when(T.sA); rg.HT.t = tA + 0.5; city(); rg.goSpot('tram shores'); P.vel.set(0, 0, 0); place(P.pos.x, P.pos.y + 0.1, P.pos.z, Math.PI, 2.5); let on = null;
+    const r = ride(4, null, () => { if (onPod(0.6)) { on = P.pos.clone(); P.vel.set(0, 0, 0); return true; } });     // stopped HERE: `run` steps on past a stop
+    const r2 = on ? ride(14, () => { rg.stick.L.x = rg.stick.L.y = 0; }) : r; const still = on && onPod(), moved = on ? Math.hypot(P.pos.x - on.x, P.pos.z - on.z) : 0;
+    say('boarding at the Shores end along the line, then carried off', on && still && moved > 25 && r.clean && r2.clean, on ? `on at ${at(on)}, carried ${fix(moved, 1)} m, ${still ? 'still on the roof' : 'OFF at ' + at(P.pos)}${cl(r2)}` : `never on -- ends ${at(P.pos)}${cl(r)}`); }
+  // standing on the track ahead of a moving tram: knocked off it
+  { reset(); let t0 = -1; for (let t = 0; t < T.cycle; t += 0.1) { const s0 = rg.tramS(t), q = rg.tramAt(s0); if (Math.abs(q.z + 101.5) < 0.01 && q.x < 60 && q.x > 20 && rg.tramS(t + 0.1) < s0 - 1) { t0 = t; break; } }     // heading west, at speed
+    rg.HT.t = t0; city(); const s = rg.tramS(rg.HT.t), q = { ...rg.tramAt(s - T.half - 14) }; place(q.x, 0.2, q.z, Math.atan2(q.hx, q.hz), 0); const k0 = T.knocks; let air = 0;
+    const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!P.grounded) air = 1; });
+    say('standing on the track ahead of the tram: TRAM!, knocked off it', T.knocks > k0 && air && r.clean, `${T.knocks - k0} knock${T.knocks - k0 === 1 ? '' : 's'}, ends ${at(P.pos)}${cl(r)}`); }
+  // the express lanes carry her both ways
+  for (const [nm, x, z, h] of [['crosstown express west', 101 + T.inner.off, -24, Math.PI], ['crosstown express east', 101 + T.outer.off, -80, 0]]) {
+    reset(); place(x, 0.2, z, h, 2); let hi = 0, onl = 0; const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; hi = Math.max(hi, P.speed); if (P.onLane === nm) onl = 1; });
+    say(`hands off on the ${nm}: carried up to speed`, onl && hi > 13 && r.clean, `peak ${fix(hi, 1)} m/s, ends ${at(P.pos)}${cl(r)}`); }
+  // up the bank onto the middle platform
+  { reset(); place(T.midX, 0.2, -115, 0, 10); let up = null; const r = ride(4, null, () => { if (P.grounded && Math.abs(P.pos.y - T.roof) < 0.1 && P.pos.z > -106.1) { up = P.pos.clone(); return true; } });
+    say('up the bank onto the Orbital platform', up && r.clean, up ? `on it at ${at(up)}` : `ends ${at(P.pos)}${cl(r)}`); }
   return ok;
 };
 CASES.garage = () => {

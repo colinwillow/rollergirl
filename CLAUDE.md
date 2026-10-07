@@ -94,6 +94,26 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE CROSSTOWN: A TRAM IS A ROW OF MOVING-FLOOR DISCS, AND THE CARRY IS ONCE A FRAME (r109, `TRAM`, `tramLine`, `tramAt`,
+  `tramS`, `buildTram`, `stepTram`, `npm run sim tram`).** 358 m of line at grade round the hub's south side (Shores gate ->
+  Orbital gate -> the Mothership beam's foot), three cars out and back, two express lanes (`crosstown express west/east`).
+  - **A ROUND POD AGAINST A STRAIGHT PLATFORM IS A 0.8 m GAP**, and she fell through it rolling on at 2.5 m/s. A car's roof is
+    six overlapping discs (`T.discs`, cr = half width), so its side is straight to 9 cm; a 0.8 m coupler disc bridges cars.
+    `DYN` is round or an axis-aligned box, and a car turns, so discs are the shape that works at the corners.
+  - **`stepDyn` CARRIED HER ONCE PER DISC SHE WAS INSIDE.** No DYN overlapped before; three overlapping discs carried her 3x.
+    It carries once a frame now (measured: 78.6 m -> 75.1 m over the same ride).
+  - **`tramAt` RETURNS ONE SHARED OBJECT** (`groundAt`'s landmine): `e0 = tramAt(0), e1 = tramAt(L)` built both end
+    platforms at the west end. Copy it.
+  - **`tramS(t)` caches by `t` and leaves the speed in `_tramV`**: the knock reads it, so call `tramS` for THIS frame's `t`
+    first (the DYN fns do, in `stepDyn`, before `stepTram`).
+  - **THE BELT IS NARROW AND MEASURED:** the hub's outer bank at |x|, |z| ~ 96, the lagoon from x 112 (`SH.lagoon.x0`; the
+    outer lane is 9.4 off with hw 1.4 to stay 0.2 m out of it), the Orbital gate's ramps from z -106 at x -36..-24 and
+    -6..6 (the lanes break across x -39..9, `gapX`). The Mothership's beam foot is ~20 m from the line.
+  - **`quietAt(x, z)` in the sim** sets `HT.t` to a moment with no tram and no scout saucer near a spot. A row that skates
+    across their paths otherwise depends on the clock the earlier cases left: `orbital`'s grand-stairs row failed ALONE
+    at r108 (a scout's beam lifted her 19 m) and passed in the full run.
+  - The harness's stop condition does not stop her (`run` steps on): the boarding rows zero her velocity inside it.
+
 - **THE BLEND: ONE TABLE OF DISTRICT CENTRES DRIVES THE GROUND TINT AND THE SEAM DRESSING (r108, `BLEND`, `blendW`,
   `blendSet`, `buildBlend`, `seamSpot`, `npm run sim blend`).** *"Blur the gradient between them so you're always in one
   giant place -- the culture changes as you move across the map."* `BLEND.d` is 14 districts `{x, z, r, col, cult}`.
