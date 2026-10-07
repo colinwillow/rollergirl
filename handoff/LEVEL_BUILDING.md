@@ -168,7 +168,7 @@ On export the game **rebuilds each piece from its name**:
 
 | group | pieces |
 |---|---|
-| transitions | quarter pipes, inside and outside corners, half pipes, pools, bowls, free-form and square bowls |
+| transitions | quarter pipes, inside and outside corners, half pipes, pools, bowls, free-form and square bowls, **in-ground bowls** (`fn_bowlIn_<size>`, r123) |
 | pipes | snap-together pipes, elbows at any angle, tees, ends, size adapters |
 | slopes and decks | banks onto decks, platforms, roll-ins (big drops for speed), spines |
 | jumps | kickers, launch ramps, table tops, gaps, funboxes, pyramids and hips (`frustum`) |
@@ -176,6 +176,13 @@ On export the game **rebuilds each piece from its name**:
 | rails | straight, down, kinked, curved, S, rainbow, ring, helix, Y |
 | obstacles | ledges, stairs with handrails, stairs with a bank, kerb terraces, rollers, berms, a bridge |
 | shaped pieces | **shapes drawn as a line**: `wall` (a quarter pipe swept along any path, open or closed: a clover pool, a kidney bowl, a snake run, a curved ledge, an S-spine), `deck` (a platform of any outline), `walk` (a ribbon with a height at every point: an elevated walkway), `terrain` (a noise-deformed plane: little ups and downs), planted islands |
+
+**In-ground bowls (r123).** `fn_bowl_<size>` is built UP: its coping sits at the size's height over the floor, and since r123
+it has an outer shell (four walls and solids at its square), so from outside it is a block and not a see-through ring.
+`fn_bowlIn_<size>` is the same bowl SUNK: its rim and deck are at the node's height, its floor the size's height BELOW it, and
+the piece draws and collides that floor itself. **The floor round it must have a hole** the size of its square (half-side
+`rc + lip + 1.5` m, `info` on the export says which), or the bowl is under a lid -- the same rule as a sunk `wall` pool.
+SK8 Sky's annex has one (an XL, rc 9.26, a 32 m square hole) to look at.
 
 **Path options must be in the piece's own [u, w] frame.**
 - Use `piece_local(points, loc, yaw)` to convert Blender points.

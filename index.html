@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r122</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r123</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r122';
+const BUILD = 'r123';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -1663,9 +1663,29 @@ const KIT_KINDS = {
   },
   // ROUND BOWL: four inside corners on one centre
   bowl(T, S, o) {
-    const rc = o.rc || 4; KIT_KINDS.qpIn(T, S, { rc, a0: 0, a1: Math.PI * 2, fill: o.fill });
-    const R = rc + S.lip + KITW.deck; return { len: 2 * R, wid: 2 * R, h: S.H };
+    const rc = o.rc || 4, R = rc + S.lip + KITW.deck, sk = !!o.sink, B = sk ? { ...T, y: T.y - S.H } : T;
+    KIT_KINDS.qpIn(B, S, { rc, a0: 0, a1: Math.PI * 2, fill: o.fill });
+    // r123: SUNK (`sink`, the in-ground bowl) -- its rim at T.y and its own FLOOR, the flat inside the toe: a bowl standing
+    // on the ground uses the ground as its floor, and sunk there is no ground down there. The HOLE in the ground round it
+    // is the caller's to leave (`hole`: a square of half side R, the deck's own outline, centred on the origin)
+    if (sk) { const n = 48, C = kP(B, 0, 0, 0);
+      for (let i = 0; i < n; i++) { const a = 2 * Math.PI * i / n, b = 2 * Math.PI * (i + 1) / n;
+        kTri(C, kP(B, rc * Math.cos(a), 0, rc * Math.sin(a)), kP(B, rc * Math.cos(b), 0, rc * Math.sin(b)), KCOL.floorA); } }
+    // r123: THE OUTER SHELL. *"You can see through it until you're inside it."* Standing on the ground a bowl was its
+    // inside and nothing else: from outside, the transition's back is culled (you saw the far wall through the near one)
+    // and a rider could roll in UNDER the deck. Four walls down the square's sides, drawn facing out, and a 0.5 m solid
+    // inside each -- under the deck, clear of the coping (the deck is `KITW.deck` wide even at a side's middle).
+    else if (o.fill !== false && o.shell !== false) {
+      for (const [du, dw] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const tu = -dw, tw = du, a = kP(T, du * R + tu * R, 0, dw * R + tw * R), b = kP(T, du * R - tu * R, 0, dw * R - tw * R);
+        const o4 = kP(T, du, 0, dw), out = [o4[0] - T.x, o4[2] - T.z];
+        kWall([a[0], T.y, a[2]], [b[0], T.y, b[2]], [b[0], T.y + S.H, b[2]], [a[0], T.y + S.H, a[2]], out, KCOL.side);
+        const P = kP(T, du * (R - 0.25), 0, dw * (R - 0.25));
+        solidAdd(P[0], P[2], du ? R : 0.25, du ? 0.25 : R, T.y, T.y + S.H, T.yaw, { tag: 'kit bowl shell' }); } }
+    return { len: 2 * R, wid: 2 * R, h: S.H, hole: sk ? R : 0 };
   },
+  // r123: THE IN-GROUND BOWL -- `bowl` sunk: the rim at the piece's origin height, the floor H below it
+  bowlIn(T, S, o) { return KIT_KINDS.bowl(T, S, { ...o, sink: 1 }); },
   // L: a pipe turning 90 degrees. Outer wall a concave corner, inner wall a convex one, on the same centre, so the flat
   // keeps its width round the bend; straights carry both legs on.
   pipeL(T, S, o) {
@@ -3109,6 +3129,9 @@ async function skyArtLoad() {
 //   THE PADS      four floating mini parks: three by bridges off the tower's deck and 32 m pads, one by a booster, a ferry
 //   THE ISLES     (r98) his two sky islands, T and H, thrown to from the pads, railed back down; his skyline round the sea
 const S3 = { on: 1, h: 96, c: 28, built: 0, go: [], rails: [], pads: [], lifts: [], t: 0,
+  // r123: *"Like Rocket League ... very light gravity, jump and float a little bit."* This world's own gravity (the main world's is
+  // `SK.g` 20): every jump, the loop and the wall ride read `SK.g` live, so this one number is the whole floatiness
+  g: 15,
   tower: { h: 10, top: 74, deck: 50, dr: 16.3 },
   // r98: the art's own decks, measured (see `s3Tower`): pads [x0, x1, z0, z1, top, name], solid blocks [x0, x1, z0, z1, top]
   core: { arcs: [[27.2, 145.3], [-167.7, -19.8]], ar: 15.52, ay: 51.0,
@@ -3166,11 +3189,14 @@ function s3Base() {
   for (let i = 0; i < 8; i++) { const a = P[i], b = P[(i + 1) % 8], len = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len;
     for (let s = 0; s < len - 0.1; s += 4) { const s1 = Math.min(len, s + 4), mx = a[0] + ux * (s + s1) / 2, mz = a[1] + uz * (s + s1) / 2;
       if (mx > 90 && Math.abs(mz - S3.dropZ) < 15) continue;
+      if (mz < -90 && Math.abs(mx - S3A.x) < S3A.cw + 1.5) continue;      // r123: the annex causeway
       s3Wall([a[0] + ux * s, a[1] + uz * s], [a[0] + ux * s1, a[1] + uz * s1], 0, 0.5, 0.35, k.trim);
       solidAdd(mx, mz, (s1 - s) / 2, 0.35, 0, 0.5, Math.atan2(-uz, ux), { top: true, tag: 'sky parapet' }); } }
   // the rim rail: from the quarter pipe's north side round to its south side
-  { const W = [[96 - 0.35, S3.dropZ + 15], ...[3, 4, 5, 6, 7, 0, 1].map(i => P[i]), [96 - 0.35, -68], [96 - 0.35, S3.dropZ - 15]];
-    S3.rails.push({ pts: acPoly(W, 1.5, 1.2).map(([x, z]) => [x, 0.55, z]), name: 'sky rim', bare: 1 }); }
+  // (r123: in two runs now, broken where the annex causeway leaves the south edge)
+  { const g = S3A.cw + 1.5, W = [[96 - 0.35, S3.dropZ + 15], ...[3, 4, 5, 6, 7, 0].map(i => P[i]), [S3A.x - g, P[0][1]]], W2 = [[S3A.x + g, P[1][1]], P[1], [96 - 0.35, -68], [96 - 0.35, S3.dropZ - 15]];
+    S3.rails.push({ pts: acPoly(W, 1.5, 1.2).map(([x, z]) => [x, 0.55, z]), name: 'sky rim', bare: 1 });
+    S3.rails.push({ pts: acPoly(W2, 1.5, 1.2).map(([x, z]) => [x, 0.55, z]), name: 'sky rim', bare: 1 }); }
 }
 // r98: THE TOWER IS HIS ART NOW (`SK8_TOWER.glb`, turned a quarter, `S3.art`), and the riding is put where the art's own decks
 // are -- MEASURED off the file, not eyeballed (the flat up-facing patches, and a circle fitted to each deck rail):
@@ -3219,7 +3245,9 @@ function s3Drop() {
       slQuad('stone', [wa[0], y0 + 0.6, wa[2] - sg * 0.35], [wb[0], y1 + 0.6, wb[2] - sg * 0.35], [wb[0], y1 + 0.6, wb[2] + sg * 0.35], [wa[0], y0 + 0.6, wa[2] + sg * 0.35], [0, 1, 0], { tint: k.trim });
       const m = acP(F, (u0 + u1) / 2, sg * (w + 0.35), 0); solidAdd(m[0], m[2], (u1 - u0) / 2 + 0.02, 0.35, 0, Math.min(y0, y1) + 0.55, 0, { top: false, tag: 'sky drop wall' }); }
     // under it: stepped solid so nothing rides in underneath from the side
-    if (y1 > 1) { const m = acP(F, (u0 + u1) / 2, 0, 0); solidAdd(m[0], m[2], (u1 - u0) / 2 + 0.02, w, 0, Math.min(y0, y1) - 0.05, 0, { top: false, tag: 'sky drop body' }); } }
+    // r123: HALF A METRE UNDER THE SURFACE, NOT FIVE CENTIMETRES -- the r103 landmine. Going UP, each box's low end met her
+    // round body (`SOLID.r`) above the surface just short of it, and she stopped dead: the drop could not be pushed up at all.
+    if (y1 > 1.2) { const m = acP(F, (u0 + u1) / 2, 0, 0); solidAdd(m[0], m[2], (u1 - u0) / 2 + 0.02, w, 0, Math.min(y0, y1) - 0.6, 0, { top: false, tag: 'sky drop body' }); } }
   for (const sg of [-1, 1]) { const pts = []; for (let u = 0.6; u <= Lt; u += 1.2) { const p = acP(F, u, sg * (w + 0.35), acSlope(u, y, s, a) + 0.6 + 0.05); pts.push(p); }
     S3.rails.push({ pts, name: 'sky drop rail', bare: 1 }); }
   S3.drop = { Lt, toe: F.x + Lt };
@@ -3326,7 +3354,7 @@ function s3Art() {
   // and six clusters of his buildings and lighthouse towers on rock islets in the sea
   skyArt('SKY_ISLAND_10', -250, -20, -170, 0.6, { far: 1 });
   skyArt('GARDEN_NORTH', -30, 15, 255, 0.4, { far: 1 });
-  for (const [f, x, y, z, yaw] of [['SKY_ISLAND_01', -195, 30, 70, 0.2], ['SKY_ISLAND_08', 60, 42, 235, 1.1], ['SKY_ISLAND_09', 215, 22, 55, 2.3], ['SKY_ISLAND_01', -60, 18, -235, 2.9], ['SKY_ISLAND_08', 175, 58, -195, 0.8], ['SKY_ISLAND_09', -215, 50, 210, 1.7]])
+  for (const [f, x, y, z, yaw] of [['SKY_ISLAND_01', -195, 30, 70, 0.2], ['SKY_ISLAND_08', 60, 42, 235, 1.1], ['SKY_ISLAND_09', 215, 22, 55, 2.3], ['SKY_ISLAND_01', -175, 22, -300, 2.9], ['SKY_ISLAND_08', 175, 58, -195, 0.8], ['SKY_ISLAND_09', -215, 50, 210, 1.7]])
     skyArt(f, x, y, z, yaw, { far: 1 });
   for (const [cx, cz, tw, bs] of [[-320, 120, 'TOWER_A', ['BUILDING_09', 'BUILDING_04', 'BUILDING_12']], [-300, -110, 'TOWER_D', ['BUILDING_03', 'BUILDING_06', 'BUILDING_15']],
       [60, -330, 'TOWER_E', ['BUILDING_10', 'BUILDING_14', 'BUILDING_09']], [330, 40, 'TOWER_G', ['BUILDING_04', 'BUILDING_15', 'BUILDING_06']],
@@ -3340,8 +3368,71 @@ function s3Art() {
   for (const [f, x, y, z, yaw] of [['WATERFALL_BIGSOUTHFALL', -99, -0.4, -35, 0], ['WATERFALL_HALOFALL', -40, -0.4, 99, 1.57], ['WATERFALL_CRYSTALFALL', 40, -0.4, -99, 1.57],
       ['WATERFALL_PLAZAFALL', -84, -0.4, -84, 0.78], ['WATERFALL_S', 84, -0.4, 84, 0.78], ['WATERFALL_HALOSOUTHFALL', 99, -0.4, -45, 0]]) skyArt(f, x, y, z, yaw);
 }
+// r123: THE ANNEX -- a second, smaller octagon south of the base, out along a causeway, and the things SK8 Sky had nowhere to
+// put: a bowl SUNK into the floor (`bowlIn`, the kit's first -- every bowl before it was built UP), THE LOOP (a surface you ride
+// right round, off a boost strip), and THE WALLS (two long blocks to wall-ride along, their roofs floors, rails on their edges).
+// *"Skate on the walls ... skate around loops for 360 degree loops"* -- this is where both are taught. Lower gravity (`S3.g`)
+// is what makes the loop and the walls reachable without a ramp the height of a building.
+const S3A = { x: -44, z: -240, h: 52, c: 16, cw: 5, bowl: { x: -64, z: -252, R: 16 }, loop: { x: -12, z: -222, r: 5, lat: 3.6, lane: [-194, -213], v: 25 },
+  walls: [{ x0: -6, x1: -2, z0: -270, z1: -236, y: 4.4 }, { x0: -28, x1: -24, z0: -266, z1: -240, y: 3.6 }] };
+function s3Annex() {
+  const A = S3A, H = A.h, C = A.c, k = S3.col, inA = (x, z) => { const dx = Math.abs(x - A.x), dz = Math.abs(z - A.z); return dx <= H + 1e-6 && dz <= H + 1e-6 && dx + dz <= 2 * H - C + 1e-6; };
+  const B = A.bowl, inHole = (x, z) => x > B.x - B.R + 1e-6 && x < B.x + B.R - 1e-6 && z > B.z - B.R + 1e-6 && z < B.z + B.R - 1e-6;
+  // THE FLOOR, 4 m cells (the octagon's corners land on cell corners: half 52, chamfer 16), with a square hole for the bowl
+  for (let x = A.x - H; x < A.x + H; x += 4) for (let z = A.z - H; z < A.z + H; z += 4) {
+    if (inHole(x + 2, z + 2)) continue;
+    const cs = [[x, z], [x + 4, z], [x + 4, z + 4], [x, z + 4]].filter(([a, b]) => inA(a, b)); if (cs.length < 3) continue;
+    const t = ((Math.floor(x / 8) + Math.floor(z / 8)) & 1) ? 0xfbe6f0 : 0xf3e0f2, P = cs.map(([a, b]) => [a, 0, b]);
+    if (P.length === 4) slQuad('paving', P[0], P[1], P[2], P[3], [0, 1, 0], { solid: true, tint: t, base: 0 }); else slTri('paving', P[0], P[2], P[1], { solid: true, tint: t, base: 0 }); }
+  // the rim band and rock under it, the base's own shape
+  const oc = (h, c) => s3Oct(h, c).map(([a, b]) => [a + A.x, b + A.z]);
+  const prism = (h0, c0, y0, h1, c1, y1, key, tint) => { const P0 = oc(h0, c0), P1 = oc(h1, c1);
+    for (let i = 0; i < 8; i++) { const j = (i + 1) % 8, n = [(P0[i][1] - P0[j][1]), 0, -(P0[i][0] - P0[j][0])];
+      slQuad(key, [P0[i][0], y0, P0[i][1]], [P0[j][0], y0, P0[j][1]], [P1[j][0], y1, P1[j][1]], [P1[i][0], y1, P1[i][1]], n.map(v => -v), { tint: typeof tint === 'function' ? tint(i) : tint }); } return P1; };
+  prism(H + 0.3, C, 0.05, H + 0.3, C, -0.55, 'stone', k.trim); prism(H, C, -0.55, H, C, -6, 'stone', k.cream);
+  { let hh = H, cc = C, y = -6; for (const [dh, dy] of [[8, 8], [12, 9], [14, 10], [10, 10]]) { const P1 = prism(hh, cc, y, hh - dh, Math.max(3, cc - dh * 0.4), y - dy, 'stone', i => (i & 1) ? k.rock : k.rock2); hh -= dh; cc = Math.max(3, cc - dh * 0.4); y -= dy;
+      if (hh < 14) { for (let i = 1; i < 7; i++) slTri('stone', [P1[0][0], y, P1[0][1]], [P1[i][0], y, P1[i][1]], [P1[i + 1][0], y, P1[i + 1][1]], { tint: k.rock2 }); break; } } }
+  // THE PARAPET with its rail, broken where the causeway arrives (north, on x = A.x)
+  const P = oc(H - 0.35, C), runs = [];
+  for (let i = 0; i < 8; i++) { const a = P[i], b = P[(i + 1) % 8], len = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len; let run = [];
+    for (let s = 0; s < len - 0.1; s += 4) { const s1 = Math.min(len, s + 4), mx = a[0] + ux * (s + s1) / 2, mz = a[1] + uz * (s + s1) / 2;
+      if (mz > A.z + H - 2 && Math.abs(mx - A.x) < A.cw + 1.5) { if (run.length) runs.push(run); run = []; continue; }
+      s3Wall([a[0] + ux * s, a[1] + uz * s], [a[0] + ux * s1, a[1] + uz * s1], 0, 0.5, 0.35, k.trim);
+      solidAdd(mx, mz, (s1 - s) / 2, 0.35, 0, 0.5, Math.atan2(-uz, ux), { top: true, tag: 'annex parapet' });
+      if (!run.length) run.push([a[0] + ux * s, 0.55, a[1] + uz * s]); run.push([a[0] + ux * s1, 0.55, a[1] + uz * s1]); }
+    if (run.length) runs.push(run); }
+  for (const r of runs) if (r.length > 1) S3.rails.push({ pts: r, name: 'annex rim', bare: 1 });
+  // THE CAUSEWAY from the base's south edge (its parapet is broken to meet it, `s3Base`)
+  S3.annexDeck = s3Bridge([A.x, -S3.h + 0.2], [A.x, A.z + H - 0.2], 0, 0, 2 * A.cw);
+  // THE SUNK BOWL: an XL bowl whose rim is the floor, its floor 4.8 m down, a coping you can grind (the kit's `bowlIn`)
+  { const S = KSZ.XL; kitPiece('bowlIn', 'XL', { x: B.x, y: 0, z: B.z, yaw: 0 }, { rc: B.R - S.lip - KITW.deck });
+    const pts = []; const rc = B.R - S.lip - KITW.deck; for (let i = 0; i < 64; i++) { const a = 2 * Math.PI * i / 64; pts.push([B.x + rc * Math.cos(a), 0.05, B.z + rc * Math.sin(a)]); }
+    S3.rails.push({ pts, name: 'annex bowl coping', bare: 1, closed: 1 });
+    CITY.spots['sk8 sunk bowl'] = [B.x + B.R + 3, 0, B.z, -Math.PI / 2]; }
+  // THE LOOP, off a boost strip on its run-in (the Rocket League pad, painted on the floor)
+  { const L = A.loop, yaw = Math.PI, lp = surfLoop(L.x, 0.02, L.z, yaw, { r: L.r, lat: L.lat, rin: 8, rout: 12, name: 'annex loop' });
+    surfDraw(lp, { tint: 0xf8e4f2, neon: k.neonP }); gemsAlong(lp, 3.2, 0.9, 10); S3.loop = lp;
+    const z0 = L.lane[0], z1 = L.lane[1];
+    ORB.lanes.push({ pts: [SLV(L.x, 0.02, z0), SLV(L.x, 0.02, z1)], hw: 1.7, v: L.v, acc: 36, name: 'annex boost' });
+    for (let z = z0; z > z1 + 1; z -= 2.6) slQuad('neon', [L.x - 1.4, 0.015, z], [L.x, 0.015, z - 1.2], [L.x + 1.4, 0.015, z], [L.x, 0.015, z - 0.5], [0, 1, 0], { tint: k.neonC });
+    CITY.spots['sk8 loop'] = [L.x, 0, z0 + 4, Math.PI]; }
+  // THE WALLS: long blocks 4-5.5 m tall with an alley between, a wall to ride on each side, roofs you come over onto
+  for (const W of A.walls) { slBox('stone', W.x0, 0, W.z0, W.x1, W.y, W.z1, { top: 'paving', bev: 0.06, solid: true, tag: 'annex wall', tint: k.lav, base: 0 });
+    slBox('neon', W.x0 - 0.02, W.y - 0.5, W.z0 - 0.02, W.x1 + 0.02, W.y - 0.38, W.z1 + 0.02, { bev: 0, tint: k.neonC, skip: 'yY' });
+    for (const x of [W.x0 + 0.15, W.x1 - 0.15]) S3.rails.push({ pts: [[x, W.y + 0.05, W.z0 + 0.6], [x, W.y + 0.05, W.z1 - 0.6]], name: 'annex wall edge', bare: 1 }); }
+  CITY.spots['sk8 walls'] = [-15, 0, -232, Math.PI];
+  // and the kit: a QP XL along the south edge, a volcano, a flat rail, a pyramid between the bowl and the walls
+  { const S = KSZ.XL, Pc = (kind, size, x, z, yaw, o) => kitPiece(kind, size, { x, y: 0, z, yaw }, o || {});
+    Pc('qp', 'XL', -44, A.z - H + 0.7 + S.lip + KITW.deck, Math.PI, { w: 22 });
+    Pc('volcano', 'M', -72, -210, 0, { top: 1.6 });
+    Pc('rail', 'M', -38, -246, 0, { h: 0.8, len: 16 });
+    Pc('frustum', 'M', -42, -214, 0, {}); }
+  CITY.spots['sk8 annex'] = [A.x, 0, A.z + H - 6, Math.PI];
+  S3.go.push('sk8 annex', 'sk8 loop', 'sk8 walls', 'sk8 sunk bowl');
+}
 function sk8World() {
   CITY.on = 0; SLC.built = 1; SLC.canal = { x0: -480, x1: 454, z0: -480, z1: 480 }; SLC.WY = -45; SLC.railQ = []; SLC.railC = [];
+  if (S3.g > 0) SK.g = S3.g;      // r123: this world's lighter gravity, before anything is solved against it
   _slseed = 3131; const k = S3.col;
   const KC = { ...KCOL }, Tn = {}; for (const q in KSZ) Tn[q] = KSZ[q].tint;
   Object.assign(KCOL, PARKD.pal.kcol); for (const q in PARKD.pal.size) if (KSZ[q]) KSZ[q].tint = PARKD.pal.size[q];
@@ -3399,7 +3490,7 @@ function sk8World() {
       for (let i = 1; i < pts.length; i++) { L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sl.push(L); }
       const top = NE.y + 0.95, flat = 7.5;
       S3.rails.push({ pts: pts.map(([x, z], i) => [x, sl[i] < flat ? top : sl[i] > L - 5 ? 1.0 : top + (1.0 - top) * (sl[i] - flat) / (L - 5 - flat), z]), name: 'sky long rail', tube: 1, maxV: 18, gems: 12 }); }
-    s3Art();
+    s3Art(); s3Annex();
     // the tower plaza's corners: palms in planters, lamps on the avenues' edges (clear of the drop, the lifts, the banks)
     for (const [x, z] of [[26, 26], [-26, 26], [26, -26], [-26, -26]]) { slPlanter(x, 0, z, 3, 3, 0.6); slPalm(x, 0.6, z, 5.2, x * z > 0 ? 0xff9ad2 : 0xc9a2ff); }
     for (const [x, z] of [[9, 28], [-9, 28], [-28, 9], [-28, -9], [9, -28], [-9, -28], [28, 12], [28, -12]]) slLamp(x, 0, z);
@@ -3469,7 +3560,7 @@ function dynRect(hx, hz, col, neon) {
   g.traverse(o => { if (o.material) o.material.userData = { noHole: true }; });
   scene.add(g); return { g, fans };
 }
-function stepSk8(dt) { if (!S3.built) return; S3.t += dt; stepDyn(S3.t); }
+function stepSk8(dt) { if (!S3.built) return; S3.t += dt; if (S3.g > 0) SK.g = S3.g; stepDyn(S3.t); }
 // THE KIT WORLD (`WORLD.zones` 2): the floor, every piece, and nothing else
 function kitWorld() {
   CITY.on = 0;
@@ -3646,19 +3737,77 @@ const samePath = (A, B) => !!A && !!B && A.path === B.path;
 function railPath(pts, o) {
   o = o || {};
   const P = { segs: [], boost: o.boost || 0, boostK: o.boostK || 0, hang: o.hang || 0, maxV: o.maxV || 0,
-    drag: o.drag, slope: o.slope, ups: o.ups || null, name: o.name || '', catchR: o.catchR || 0, catchBelow: o.catchBelow || 0, joins: o.joins || 0 };
+    drag: o.drag, slope: o.slope, ups: o.ups || null, name: o.name || '', catchR: o.catchR || 0, catchBelow: o.catchBelow || 0, joins: o.joins || 0,
+    surf: o.surf || 0, surfHW: o.surfHW || SURF.hw };
+  if (P.surf) { if (P.drag == null) P.drag = SURF.drag; if (P.slope == null) P.slope = 1; }
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i].clone(), b = pts[i + 1].clone(), d = b.clone().sub(a), len = d.length();
     if (len < 1e-3) continue;
     d.divideScalar(len);
     const hx = b.x - a.x, hz = b.z - a.z, hl0 = Math.hypot(hx, hz), hl = Math.max(hl0, 1e-3);
     const R = { a, b, d, len, hx: hl0 > 1e-6 ? hx / hl : 1, hz: hl0 > 1e-6 ? hz / hl : 0, hl, path: P,
-      prev: null, next: null, flat: hl0 > 0.5 * len, mx: (a.x + b.x) / 2, mz: (a.z + b.z) / 2, rr: len / 2 + 1.5,
+      prev: null, next: null, flat: !P.surf && hl0 > 0.5 * len, mx: (a.x + b.x) / 2, mz: (a.z + b.z) / 2, rr: len / 2 + 1.5,
       ua: P.ups ? P.ups[i].clone().normalize() : null, ub: P.ups ? P.ups[i + 1].clone().normalize() : null };
     if (P.segs.length) { R.prev = P.segs[P.segs.length - 1]; R.prev.next = R; }
     P.segs.push(R); RAILS.push(R);
   }
+  // r123: a SURFACE's curvature toward its own up, per segment -- what the wheels need pressing into it to stay on
+  if (P.surf) for (let i = 0; i < P.segs.length; i++) { const S = P.segs[i], A = P.segs[i - 1] || S, B = P.segs[i + 1] || S;
+    const u = S.ua.clone().add(S.ub).normalize(), ds = A.len / 2 + S.len + B.len / 2;
+    S.kn = (A === S || B === S) ? 0 : B.d.clone().sub(A.d).dot(u) / ds; }
   PATHS.push(P);
+  return P;
+}
+// ---- r123: SURFACES YOU RIDE ROUND A LOOP. *"Skate on the walls, and also skate around loops, 360 degree loops."* The collider
+// answers "how high is the floor here", so a surface that turns over cannot be in it -- the loop has always been a RAIL for that
+// reason (r45). A SURF path is the same rail machinery with three differences: it is never CAUGHT (no tap, no swipe, no air
+// catch -- `flat` is false on every segment), she rolls ONTO it off the ground at its end (`surfCatch`), and it keeps her only
+// while it can: the wheels need `v^2 k + g u.y >= 0` pressing them into it (`k` its curvature toward its own up), so too slow
+// over the top she FALLS OFF, and too slow on the way up she ROLLS BACK down it. She rides it, not grinds it: her skating
+// pose, at the lateral offset she rolled on at, on a ribbon drawn wide enough to read as a road.
+const SURF = { catchV: 4, hw: 1.6, dy: 0.55, drag: 0.03, fallAt: 0.5 };
+function surfCatch() {
+  const p = player; if (!p.grounded || p.grind || p.wall) return false;
+  for (const P of PATHS) { if (!P.surf || !P.segs.length) continue;
+    for (const at of ['a', 'b']) { const R0 = at === 'a' ? P.segs[0] : P.segs[P.segs.length - 1], dir = at === 'a' ? 1 : -1, q = at === 'a' ? R0.a : R0.b;
+      if (Math.abs(p.pos.y - q.y) > SURF.dy || Math.abs(p.pos.x - q.x) > P.surfHW + 2 || Math.abs(p.pos.z - q.z) > P.surfHW + 2) continue;
+      const ux = R0.hx * dir, uz = R0.hz * dir, dx = p.pos.x - q.x, dz = p.pos.z - q.z, along = dx * ux + dz * uz, lat = dx * -uz + dz * ux;
+      if (along < -0.25 || along > 1.4 || Math.abs(lat) > P.surfHW) continue;
+      const v = p.vel.x * ux + p.vel.z * uz; if (v < SURF.catchV) continue;
+      if (p.grindCool > 0 && samePath(p.grindLast, R0)) continue;
+      const W = railWalk(R0, at === 'a' ? 0 : 1, dir * Math.max(0, along));
+      enterGrind({ rail: W.R, t: W.t, dir, s: Math.hypot(p.vel.x, p.vel.z), side: 'left' });
+      const S = _v2.crossVectors(W.R.ua, W.R.d).normalize(); p.grind.lat = (p.pos.x - W.q.x) * S.x + (p.pos.z - W.q.z) * S.z;
+      return true; } }
+  return false;
+}
+// the ribbon: a riding face toward each point's up, an underside, a neon strip down each edge
+function surfDraw(P, o) {
+  o = o || {}; const hw = P.surfHW, pts = [P.segs[0].a, ...P.segs.map(s => s.b)], ups = [P.segs[0].ua, ...P.segs.map(s => s.ub)];
+  const E = pts.map((q, i) => { const f = (pts[Math.min(pts.length - 1, i + 1)].clone().sub(pts[Math.max(0, i - 1)])).normalize(), u = ups[i], sd = new THREE.Vector3().crossVectors(u, f).normalize();
+    return { q, u, sd }; });
+  const at = (e, w, h) => [e.q.x + e.sd.x * w + e.u.x * h, e.q.y + e.sd.y * w + e.u.y * h, e.q.z + e.sd.z * w + e.u.z * h];
+  for (let i = 0; i < E.length - 1; i++) { const A = E[i], B = E[i + 1], n = [A.u.x + B.u.x, A.u.y + B.u.y, A.u.z + B.u.z];
+    slQuad('concrete', at(A, -hw, -0.01), at(B, -hw, -0.01), at(B, hw, -0.01), at(A, hw, -0.01), n, { tint: o.tint || 0xf4e8f6 });
+    slQuad('stone', at(A, -hw - 0.1, -0.22), at(A, hw + 0.1, -0.22), at(B, hw + 0.1, -0.22), at(B, -hw - 0.1, -0.22), n.map(v => -v), { tint: o.under || 0xc9b8e6 });
+    for (const sg of [-1, 1]) { const w0 = sg * (hw + 0.05), w1 = sg * (hw - 0.12);
+      slQuad('neon', at(A, w1, 0.0), at(B, w1, 0.0), at(B, w0, 0.0), at(A, w0, 0.0), n, { tint: o.neon || 0x3ff0e0 });
+      slQuad('stone', at(A, sg * (hw + 0.1), -0.22), at(B, sg * (hw + 0.1), -0.22), at(B, sg * (hw + 0.1), 0.0), at(A, sg * (hw + 0.1), 0.0), [A.sd.x * sg, A.sd.y * sg, A.sd.z * sg], { tint: o.under || 0xc9b8e6 }); } }
+}
+// a 360 loop off the ground: `rin` m of run-in along its heading, the loop (radius `r`), drifting `lat` m sideways so it can
+// come down beside where it went up, and `rout` m of run-out. Ups point at the loop's centre, straight up on the flats.
+function surfLoop(x, y, z, yaw, o) {
+  o = o || {}; const R = o.r || 5, lat = o.lat != null ? o.lat : 3.6, rin = o.rin || 8, rout = o.rout || 10;
+  const f = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)), sd = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw)) .multiplyScalar(o.side || 1), O = new THREE.Vector3(x, y, z);
+  const pts = [], ups = [];
+  for (let s = -rin; s < -1e-6; s += 0.6) { pts.push(O.clone().addScaledVector(f, s)); ups.push(UP.clone()); }
+  const N = Math.ceil(2 * Math.PI * R / 0.45);
+  for (let i = 0; i <= N; i++) { const th = 2 * Math.PI * i / N, w = lat * (1 - Math.cos(Math.PI * i / N)) / 2;
+    pts.push(O.clone().addScaledVector(f, R * Math.sin(th)).addScaledVector(UP, R * (1 - Math.cos(th))).addScaledVector(sd, w));
+    ups.push(f.clone().multiplyScalar(-Math.sin(th)).addScaledVector(UP, Math.cos(th))); }
+  for (let s = 0.6; s <= rout + 1e-6; s += 0.6) { pts.push(O.clone().addScaledVector(sd, lat).addScaledVector(f, s)); ups.push(UP.clone()); }
+  const P = railPath(pts, { name: o.name || 'surf loop', surf: 1, ups, surfHW: o.hw });
+  P.loop = { x, y, z, yaw, r: R, lat };
   return P;
 }
 // a straight run cut into `step`-metre pieces, so a tap near ANY part of it finds a near point
@@ -3790,6 +3939,7 @@ function enterGrind(c) {
     setStance(fx * c.rail.d.x * c.dir + fz * c.rail.d.z * c.dir >= 0 ? 1 : -1, 'rail');
   }
   p.grounded = true; p.n.set(0, 1, 0); p.flip = null; p.drift = 0; p.landHard = 2; p.grindWant = 0;
+  if (c.rail.path.surf) return;      // r123: rolling onto a loop is riding, not a grind
   trick(c.rail.path.boost ? 'BOOSTER' : c.rail.path.ledge ? 'LEDGE' : 'GRIND', SCORE.grind);     // r62
   sparkBurst(14);
 }
@@ -3800,6 +3950,7 @@ function stepGrind(dt) {
   let R = G.rail; const P = R.path;
   let ux = R.d.x * G.dir, uy = R.d.y * G.dir, uz = R.d.z * G.dir;
   G.s += -SK.g * uy * (P.slope != null ? P.slope : GRIND.slope) * dt;
+  if (P.surf && G.s < 0) { G.dir = -G.dir; G.s = -G.s; }      // r123: too slow up a loop, she rolls back DOWN it
   G.s = decay(G.s, P.drag != null ? P.drag : GRIND.drag, dt);
   // r45: A BOOSTER pulls her speed to its own whatever the slope -- what gets her up a 30 m spiral
   if (P.boost) G.s += (P.boost * RAILX.boostV - G.s) * (1 - Math.exp(-(P.boostK || RAILX.boostK) * dt));
@@ -3832,7 +3983,9 @@ function stepGrind(dt) {
   p.pos.copy(R.a).lerp(R.b, G.t);
   p.vel.set(ux * G.s, uy * G.s, uz * G.s);
   // the heading follows the rail where it has a horizontal direction; straight up a loop it keeps the last
-  if (Math.hypot(ux, uz) > 0.3) p.heading = Math.atan2(ux, uz) + (p.stance < 0 ? Math.PI : 0);
+  // (r123: on a loop, only while she is the right way up -- over the top her travel points back the way she came, and a heading
+  // that flipped there would swing the camera round and back again for nothing)
+  if (Math.hypot(ux, uz) > 0.3 && !(R.path.surf && R.ua.y + R.ub.y < 1.4)) p.heading = Math.atan2(ux, uz) + (p.stance < 0 ? Math.PI : 0);
   if (R.ua) {
     // r45: ON A LOOP OR A TWIST HER BODY IS BUILT FROM THE RAIL: forward along it, up from the path
     const f = _v.set(ux, uy, uz).multiplyScalar(p.stance < 0 ? -1 : 1);
@@ -3840,8 +3993,19 @@ function stepGrind(dt) {
     const x = _v3.crossVectors(u, f).normalize();
     p.bq.setFromRotationMatrix(_m4.makeBasis(x, u, f));
   } else p.bq.setFromAxisAngle(UP, p.heading);
+  if (R.path.surf) {
+    // r123: RIDDEN, NOT GROUND -- at the offset she rolled on at, and only while the wheels are pressed into it
+    const u = _vs1.copy(R.ua).lerp(R.ub, G.t).normalize(), S = _vs2.crossVectors(u, R.d).normalize();
+    p.pos.addScaledVector(S, G.lat || 0); p.thumbGo = false;
+    const N = G.s * G.s * (R.kn || 0) + SK.g * u.y;
+    if (N < 0 && u.y < SURF.fallAt) { p.pos.addScaledVector(u, 0.05); grindLeave(false); return; }      // too slow over the top: off
+    if (end) { const done = G.dir > 0 && G.t >= 1 && R.path.loop; grindLeave(false); if (done) { R.path.done = (R.path.done || 0) + 1; trick('LOOP', SCORE.loop || 150); } return; }
+    if (G.s < GRIND.stall && u.y > 0.95) grindLeave(false);
+    return;
+  }
   if (end || G.s < GRIND.stall) grindLeave(false);
 }
+const _vs1 = new THREE.Vector3(), _vs2 = new THREE.Vector3();
 // ---- r59: THE RAIL NETWORK. *"It would be really cool if the railings that you grind attached to each other, so
 // they looped around -- you just continue grinding down the stairs and then it went along the railing along the
 // water ... make the grind rail system way more complex."* Three layers on top of the paths, all built once after
@@ -4269,6 +4433,72 @@ function solidAt(x, y, z, m, pred) {
   }
   return null;
 }
+// r123: THE WALL RIDE. *"I want to be able to skate and gain enough speed, kind of like Rocket League, where you can actually
+// skate on the walls."* A tall solid face met at speed (`v`, with at least `into` of it INTO the face) is ridden instead of
+// bounced off: the speed she had into it turns UPWARD (`climbK`), the way a curved transition would turn it, and what she
+// had along it she keeps. On the face she is held to its plane under a lighter gravity (`grav` of `SK.g`) and comes off:
+//   over the TOP     with her climb left -- and a box whose top is a floor is a roof she lands on (the way UP a building)
+//   down the BOTTOM  back onto the ground, her fall turned outward along it (a transition, the other way)
+//   off the END      round a corner, into the air
+//   too SLOW         (`min`), or the left stick pushed away from the wall, or a TAP (a wall plant: `pop` out, `popUp` up)
+// Only faces at least `minH` tall above her and `minW` long (a lamp post is not a wall), and only in SK8 Sky unless `all`.
+const WALL = { on: 1, all: 0, v: 8.5, into: 2.2, minH: 2.2, minW: 2.5, climbK: 0.9, grav: 0.45, drag: 0.08, min: 3.0, off: 0.06,
+  pop: 6.5, popUp: 5, overIn: 3.2, cool: 0.45 };
+const wallOn = () => WALL.on > 0.5 && (WALL.all > 0.5 || WORLD.zones === 3);
+function wallTry(b, nx, nz, nlx) {
+  const p = player, K = WALL;
+  if ((p.wallCool || 0) > 0 || p.bailT > 0 || p.grind || p.wall) return false;
+  const half = nlx ? b.hz : b.hx, thick = nlx ? b.hx : b.hz;
+  if (half * 2 < K.minW || b.y1 - p.pos.y < K.minH || b.y0 > p.pos.y + 0.6) return false;
+  const vn = p.vel.x * nx + p.vel.z * nz;
+  if (-vn < K.into || Math.hypot(p.vel.x, p.vel.z) < K.v) return false;
+  const tx = nlx ? b.s : b.c, tz = nlx ? b.c : -b.s, s = p.vel.x * tx + p.vel.z * tz;
+  p.wall = { b, nx, nz, tx, tz, half, thick, t: 0 };
+  p.vel.set(tx * s, p.vel.y + -vn * K.climbK, tz * s);
+  const nc = (p.pos.x - b.cx) * nx + (p.pos.z - b.cz) * nz; p.pos.x += nx * (thick + K.off - nc); p.pos.z += nz * (thick + K.off - nc);
+  p.grounded = true; p.airT = 0; p.coyote = 0; p.n.set(nx, 0, nz); p.vertLock = 0; p.autoTurn = null; p.flip = null; p.grab = null; p.dive = null; p.mel = null;
+  trick('WALLRIDE', 25); sparkBurst(8);
+  return true;
+}
+function stepWall(dt) {
+  const p = player, W = p.wall, b = W.b, K = WALL;
+  let s = p.vel.x * W.tx + p.vel.z * W.tz, vy = p.vel.y;
+  const sw = stickWorld();
+  if (sw.mag > 0.5 && sw.x * W.nx + sw.z * W.nz > 0.6) { wallLeave('off'); return; }      // the thumb pulled away from the wall
+  vy -= SK.g * K.grav * dt;
+  const k = Math.exp(-K.drag * dt); s *= k; vy *= vy > 0 ? k : 1;
+  p.pos.x += W.tx * s * dt; p.pos.z += W.tz * s * dt; p.pos.y += vy * dt;
+  const nc = (p.pos.x - b.cx) * W.nx + (p.pos.z - b.cz) * W.nz, ofs = W.thick + K.off - nc; p.pos.x += W.nx * ofs; p.pos.z += W.nz * ofs;
+  p.vel.set(W.tx * s, vy, W.tz * s); p.thumbGo = false; p.pushing = false;
+  // her body: up out of the wall, forward along the way she is going on it
+  const f = _v.set(W.tx * s, vy, W.tz * s); if (f.lengthSq() > 0.01) f.normalize(); else f.set(0, 1, 0);
+  const u = _v2.set(W.nx, 0, W.nz), x = _v3.crossVectors(u, f).normalize();
+  p.bq.setFromRotationMatrix(_m4.makeBasis(x, u, f));
+  if (Math.abs(s) > 0.5) p.heading = p.faceH = Math.atan2(W.tx * Math.sign(s), W.tz * Math.sign(s));
+  W.t += dt;
+  const tc = (p.pos.x - b.cx) * W.tx + (p.pos.z - b.cz) * W.tz;
+  if (p.pos.y >= b.y1 - 0.02 && vy > 0) { wallLeave('top'); return; }
+  if (Math.abs(tc) > W.half + 0.05) { wallLeave('end'); return; }
+  if (vy <= 0) { const g = groundAt(p.pos.x + W.nx * 0.45, p.pos.z + W.nz * 0.45, p.pos.y + 0.4, 0); if (g.hit && p.pos.y <= g.floor + 0.03) { wallLeave('down', g.floor); return; } }
+  if (Math.hypot(s, vy) < K.min) wallLeave('fall');
+}
+function wallLeave(why, floor) {
+  const p = player, W = p.wall; if (!W) return;
+  p.wall = null; p.wallCool = WALL.cool; p.n.set(0, 1, 0);
+  const s = p.vel.x * W.tx + p.vel.z * W.tz, vy = p.vel.y;
+  if (why === 'down') {
+    const out = Math.max(0, -vy) * WALL.climbK; p.pos.y = floor; p.grounded = true;
+    p.vel.set(W.tx * s + W.nx * out, 0, W.tz * s + W.nz * out);
+    if (p.vel.lengthSq() > 0.25) p.heading = Math.atan2(p.vel.x, p.vel.z) + (p.stance < 0 ? Math.PI : 0);
+    groundQ(p.bq); return;
+  }
+  p.grounded = false; p.airT = 0; p.coyote = 0; p.drift = 0; p.leftN = 1;
+  if (why === 'top') { p.pos.y = W.b.y1 + 0.05; p.pos.x -= W.nx * 0.6; p.pos.z -= W.nz * 0.6;
+    p.vel.set(W.tx * s - W.nx * WALL.overIn, Math.max(vy, 2), W.tz * s - W.nz * WALL.overIn); trick('WALL TOP', 20); return; }
+  p.pos.x += W.nx * 0.3; p.pos.z += W.nz * 0.3;
+  if (why === 'pop') { p.vel.x += W.nx * WALL.pop; p.vel.z += W.nz * WALL.pop; p.vel.y = Math.max(p.vel.y, 0) + WALL.popUp; trick('WALL PLANT', 15); }
+  else { p.vel.x += W.nx * 1.2; p.vel.z += W.nz * 1.2; }
+}
 function solidPush() {
   const p = player, L = solidList(p.pos.x, p.pos.z); if (!L) return false;
   let hit = false;
@@ -4293,6 +4523,7 @@ function solidPush() {
     // r103: A BREAKABLE SOLID (`brk`, m/s) met faster than that BREAKS instead of stopping her -- a window she busts out of.
     // Decided before the push, so she carries straight on through the hole it leaves.
     if (b.brk && -(p.vel.x * nx + p.vel.z * nz) >= b.brk) { b.live = false; if (b.onBreak) b.onBreak(b, -(p.vel.x * nx + p.vel.z * nz)); continue; }
+    if (wallOn() && wallTry(b, nx, nz, nlx)) return true;      // r123: met hard enough, the wall is ridden instead
     p.pos.x += nx * pen; p.pos.z += nz * pen;
     const vn = p.vel.x * nx + p.vel.z * nz;
     if (vn < 0) { const k = (1 + SOLID.bounce) * vn; p.vel.x -= nx * k; p.vel.z -= nz * k; }
@@ -6323,6 +6554,7 @@ function putBack(msg, col) {
   if (s) { p.pos.copy(s.pos); p.heading = p.faceH = s.h; }
   else respawn();
   if (p.grind) p.grind = null;
+  p.wall = null;
   SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0;
   p.vel.set(0, 0, 0); p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.flip = null; p.mel = null; p.melQ = null; p.bailT = 0; p.drift = 0;
   p.vertLock = 0; p.xferKick = null; p.autoTurn = null; p.kickRail = null; groundQ(p.bq);
@@ -12132,7 +12364,7 @@ function girlAnimMoves(dt) {
     if (girl.melSeen !== M) { girl.melSeen = M; rewind(M.nm); snap = true; const ac = girl.actions[M.nm]; if (ac) ac.time = W[0] * clipLen(M.nm, 1); }
     clipScale(M.nm, clipLen(M.nm, 1) * (W[1] - W[0]) / Math.max(0.2, M.dur));
     add(M.nm, 1);
-  } else if (p.grind && m.grind[p.grind.side]) {
+  } else if (p.grind && !p.grind.rail.path.surf && m.grind[p.grind.side]) {      // (r123: a loop is ridden, so it falls through to the skating)
     // ON A RAIL: the side she came at it from picks the clip. Snapped in, because a grind is a
     // landing, and played a little quicker the faster she is sliding.
     girl.bail = null;
@@ -12805,7 +13037,7 @@ function respawn() {
   SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0; p.spinAcc = 0; p.spinPrev = null; p.wasAir = false;
   p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null; p.dive = null; p.diveFx = 0; p.lift = null; p.thrown = null;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
-  p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
+  p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; p.wall = null; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
   if (g.hit) { p.pos.y = g.floor; p.n.set(g.nx, g.ny, g.nz); }
 }
@@ -13604,7 +13836,7 @@ function scoreStep(dt) {
   if (air && p.grab) { p.grabT = (p.grabT || 0) + dt; while (p.grabT > S.grabEvery) { p.grabT -= S.grabEvery; trick('', S.grabTick, true); } } else p.grabT = 0;
   if (p.grind) { const G = p.grind; G.scoreT = (G.scoreT || 0) + dt; while (G.scoreT > S.grindEvery) { G.scoreT -= S.grindEvery; trick('', S.grindTick, true); }
     if ((G.turns || 0) > (G.scored || 0)) { G.scored = G.turns; trick('RAIL LINK', S.link); } }
-  if (p.grounded && !p.grind) { S.ground += dt; if (S.ground > S.bankAfter) scoreBank(); } else S.ground = 0;
+  if (p.grounded && !p.grind && !p.wall) { S.ground += dt; if (S.ground > S.bankAfter) scoreBank(); } else S.ground = 0;
 }
 // THE RIGHT PAD'S FLICK, AS A RULE (the binding below calls this; `npm run sim melee` calls it too).
 // r74: THE DASH -- on a ramp, or within `DASH.win` of leaving one, once per ramp
@@ -13692,6 +13924,7 @@ function stepPlayer(dt) {
   if (p.jump) { const xfer = p.jump === 2; p.jump = 0;
     // r41: a TAP near a rail -- on the ground or in the air -- is a hop onto it; the swipe (transfer) never is
     if (p.grind) grindLeave(true);
+    else if (p.wall) wallLeave('pop');      // r123: a tap on the wall is a wall plant
     else if (!xfer && !GRIND.intent && railHome()) {}      // r71: with `intent` a tap is always a jump
     // r74: A TAP ON A STEEP FACE IS THE TRANSFER -- armed, and fired as she goes off the lip (a pop mid-face would only
     // hop her back onto the wall); just off the lip it fires at once; in the first moment of a locked air it releases it
@@ -13701,7 +13934,7 @@ function stepPlayer(dt) {
     else if (p.grounded || p.coyote > 0) doJump(xfer); }
   if (p.grounded && p.n.y > 0.97) p.dashed = 0;      // r74: one dash per ramp
   p.dashT = Math.max(0, (p.dashT || 0) - dt);
-  p.grindCool = Math.max(0, p.grindCool - dt);
+  p.grindCool = Math.max(0, p.grindCool - dt); p.wallCool = Math.max(0, (p.wallCool || 0) - dt);
   p.xferArm = p.grounded && p.n.y > 0.97 ? 0 : Math.max(0, (p.xferArm || 0) - dt);     // r57: back on the flat, it is gone
   stepMelee(dt);
   grabStep();
@@ -13716,8 +13949,9 @@ function stepPlayer(dt) {
   // not silently get a different game from a 30 Hz one.
   const n = clamp(Math.ceil(p.speed * dt / SK.sub), 1, SK.subMax), sdt = dt / n;
   for (let i = 0; i < n; i++) {
-    if (p.grind) stepGrind(sdt); else if (p.grounded) stepGround(sdt); else stepAir(sdt);
-    if (!p.grind) solidPush();          // r45: the city's walls, after every sub-step
+    if (p.grounded && !p.grind && !p.wall) surfCatch();      // r123: rolling onto a loop off the ground
+    if (p.wall) stepWall(sdt); else if (p.grind) stepGrind(sdt); else if (p.grounded) stepGround(sdt); else stepAir(sdt);
+    if (!p.grind && !p.wall) solidPush();          // r45: the city's walls, after every sub-step
     // r61: THE DIVE LANDS WITH ITS SPEED. Steering the air velocity down the face is not enough on its own: a dive from
     // high up often meets the flatter part of the curve, or the flat, nearly square, and the landing projection takes
     // the speed away. So what she was diving at is handed to her on the ground -- `slamKeep` of it, along the way she
@@ -13874,7 +14108,7 @@ function footGround(dt) {
   // and on her longer legs that is deeper; lifting until the lowest skate is on the surface puts a slide
   // on the ground instead of through it. Her feet are the strike's own business.
   const strike = !!p.mel && p.grounded && !p.grind;
-  const on = FOOTIK.on > 0.5 && p.grounded && !p.grind && p.bailT <= 0;
+  const on = FOOTIK.on > 0.5 && p.grounded && !p.grind && !p.wall && p.bailT <= 0;
   girl.ikW = damp(girl.ikW || 0, on ? 1 : 0, FOOTIK.hl, dt);
   girl.root.updateMatrixWorld(true);
   const n = p.n, o = p.pos;
@@ -13920,7 +14154,7 @@ function hipLeanUndo() { if (girl.leanSave && girl.hipsB) { girl.hipsB.quaternio
 // eases from the body she actually came off the loop holding. Split out of `poseGirl` (which returns early without
 // a skin) so `npm run sim city` runs the path the phone runs.
 function bodyAlign(dt) {
-  const p = player, onUps = !!(p.grind && p.grind.rail && p.grind.rail.ua);
+  const p = player, onUps = !!(p.grind && p.grind.rail && p.grind.rail.ua) || !!p.wall;      // r123: on a wall her body is the wall's
   if (p.grounded && !onUps) {
     if (!girl.alignQ) girl.alignQ = new THREE.Quaternion();
     if (!girl.wasGr) girl.alignQ.copy(swingOf(p.bq, _q2));       // from whatever she landed holding
@@ -14367,6 +14601,11 @@ const TAILUI = [
   ['SPEED.acc',      'Speed skate push (R held up)', 0, 20, 0.5, 'm/s2'],
   ['SPEED.cap',      'Speed skate top speed', 15, 45, 1, 'm/s'],
   ['CTRL.rDown',     'R flick down on the ground: 1 switch stance, 0 hop onto a rail', 0, 1, 1, ''],
+  ['S3.g',           'SK8 Sky gravity (main world 20)', 8, 20, 0.5, 'm/s2'],
+  ['WALL.on',        'Wall ride (SK8 Sky)', 0, 1, 1, ''],
+  ['WALL.all',       'Wall ride in every world', 0, 1, 1, ''],
+  ['WALL.v',         'Wall ride from', 4, 20, 0.5, 'm/s'],
+  ['WALL.grav',      'Wall ride gravity (of normal)', 0.1, 1, 0.05, ''],
   ['BOOST.cap',      'Boost up to', 20, 42, 1, 'm/s'],
   ['BOOST.fov',      'Boost lens kick', 0, 20, 1, 'deg'],
   ['DASH.win',       'Dash counts after leaving', 0.1, 1.2, 0.05, 's'],
@@ -14429,7 +14668,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
+const UIOBJ = { WORLD, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -14595,7 +14834,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { SK, AIR, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { SK, AIR, SURF, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,

@@ -496,3 +496,29 @@ tied together by booster coasters you grind:
   effect, and keeps gaining speed for as long as you hold, up to 31 m/s (above her normal top speed). A quick flick up is
   still the strike. Panel: "Speed skate push", "Speed skate top speed".
 - **Left stick flick up is still the one-shot boost.**
+
+## r123 — SK8 SKY: LIGHT GRAVITY, WALL RIDES, A LOOP YOU SKATE ROUND, THE ANNEX
+
+**Sim:** `node tools/sim.mjs sky` (the rows from "SK8 Sky's gravity" on)
+
+- **Lighter gravity in SK8 Sky** (15 against the main world's 20). Every jump floats: a flat ollie goes up 5.1 m. Panel row
+  "SK8 Sky gravity".
+- **The drop can be skated UP now.** The solid fill under the 24 m bank was topped 5 cm under its surface, so her round body
+  caught the low end of each box and she stopped dead. They sit 60 cm under now. Pushing from the toe, she makes the 24 m pad.
+- **Wall rides.** Hit a wall fast enough (8.5 m/s, at least 2.2 m/s into it) and you ride along it under lighter gravity,
+  climbing with how hard you came in. You come off over the top onto the roof, at the end, back down to the floor, or when
+  you slow down. Tap to plant off it. Push the stick away from the wall to let go. Panel: "Wall ride", "Wall ride from",
+  "Wall ride gravity", "Wall ride in every world" (off: it is SK8 Sky only for now).
+- **Bowl shells.** A kit bowl built UP had no outside: you saw through it until you were in it. Every raised bowl now has
+  four outer walls, and they are solid.
+- **In-ground bowls, a new kit piece (`bowlIn`).** Same bowl, sunk: the rim is the floor and the floor is 4.8 m down (XL).
+  `handoff/LEVEL_BUILDING.md` says how to use it in Blender (the floor round it needs a hole).
+- **THE ANNEX**: a second octagon south of the base, down a 90 m causeway from the base's south edge (x -44).
+  - **The loop**: a 10 m surface you skate right round, upside down at the top. A boost strip (the chevrons) on its run-in
+    takes you to 25 m/s, which is plenty. Too slow and you roll back down, or drop off near the top.
+  - **The walls**: two long blocks (4.4 and 3.6 m) with an alley between. Ride up their faces; come over onto the roofs.
+    Their roof edges are rails.
+  - **The sunk bowl**: XL, in the floor, with a coping ring to grind.
+  - A QP XL along the south edge, a volcano, a flat rail and a funbox.
+
+➤ stops: `sk8 annex`, `sk8 loop`, `sk8 walls`, `sk8 sunk bowl`.

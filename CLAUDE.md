@@ -94,6 +94,32 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **SK8 SKY GOES LIGHT: GRAVITY, WALL RIDES, SURFACE LOOPS, THE ANNEX (r123, `S3.g`, `WALL`, `stepWall`, `SURF`, `surfCatch`,
+  `surfLoop`, `bowlIn`, `S3A`, `s3Annex`, `npm run sim sky`).** *"Like Rocket League ... very light gravity, jump and float a little bit
+  ... if you have enough momentum you can skate on the walls, and skate around loops, 360 degree loops."*
+  - **`S3.g` (15) IS WRITTEN INTO `SK.g` in `sk8World` and every frame in `stepSk8`.** Everything reads `SK.g` live (jumps, slope
+    gravity on rails, `launchSolve`, the wall ride), so one number is the floatiness. Two sky rows only measured TIME and moved
+    with it: the drop row's air off the QP lasts longer, and the isle T rail takes longer down. A row that times an event
+    against gravity has to be re-read when the gravity changes.
+  - **THE DROP STOPPED HER DEAD GOING UP, AND IT WAS THE r103 LANDMINE AGAIN.** Its fill boxes were topped 0.05 under the bank,
+    so her round body met each box's low end. 0.6 under now. And the drop row's hands-off ride now rolls BACK UP the bank after
+    the QP, so "back" means "rolled west off the QP", not "ended low".
+  - **A WALL RIDE IS DECIDED IN `solidPush`, ON THE FACE IT WAS ABOUT TO PUSH HER OFF** (`wallTry` before the push): face long and
+    tall enough, her speed past `WALL.v`, into it past `WALL.into`. On it (`stepWall`) she is held to the face's plane with
+    `grav` of gravity; she climbs with `climbK` of the into-speed. It is SK8 Sky only (`wallOn`, `WALL.all` for every world):
+    every other world was tuned around walls being walls.
+  - **A SURF PATH IS A RAIL THAT IS NEVER CAUGHT.** `railPath({ surf: 1, ups })` sets `flat` false on every segment, and every
+    rail scan (catch, tap hop, swipe, air kick) already skips `!R.flat`. She rolls onto it off the ground at either end
+    (`surfCatch`, every sub-step), rides it at the lateral offset she arrived at, in her SKATING pose (`girlAnimMoves` lets a surf
+    grind fall through), and it keeps her while `v^2 k + g u.y >= 0` (`k` per segment from its own curvature, `kn`). Too slow
+    over the top she falls off; too slow on the way up her speed goes through zero and she ROLLS BACK (`G.dir` flips).
+    **The heading does not follow the rail while she is upside down**, or the camera would swing round at the top and back.
+  - **THE ANNEX** (`S3A`, centre -44,-240, half 52, chamfer 16 so the corners land on 4 m cells), down a causeway from the base's
+    south edge (whose parapet and rim rail are broken for it). The bowl's square hole is cut out of the floor cells. Far art
+    `SKY_ISLAND_01` moved out of it to (-175, -300).
+  - **The loop wants ~19.4 m/s at the bottom** (`5 g R` at g 15, R 5). The boost strip (`ORB.lanes`, `annex boost`) takes her to 25.
+  - **A KIT BOWL HAS A SHELL NOW** (four walls + `kit bowl shell` solids at its square) unless `fill: false`, `shell: false` or sunk.
+    The kit library GLB was re-exported for it.
 - **THE RIGHT PAD ON THE GROUND (r122, `CTRL.rDown`, `SPEED`, `speedStep`, `npm run sim ctrl98`).** *"Right stick down still
   swaps her between regular and fakie, right stick up does the melee -- and if you HOLD right up, she does the speed skate."*
   - **Flick down on the ground = `swivel()`** (r82's decision again: the grind is jump, then the air swipe down). `CTRL.rDown`

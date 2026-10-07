@@ -75,7 +75,7 @@ function place(x, y, z, heading, speed) {
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
   P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1; P.grind = null; P.grindCool = 0; P.grindLast = null;
   P.autoTurn = null; P.vertLock = 0; P.xferKick = null; P.stanceWhy = null; P.stanceAt = 0;
-  P.mel = null; P.melQ = null; P.kickRail = null; P.kicked = 0; P.settleLatch = 0; P.xferArm = 0;
+  P.mel = null; P.melQ = null; P.kickRail = null; P.kicked = 0; P.settleLatch = 0; P.xferArm = 0; P.wall = null; P.wallCool = 0;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
   rg.groundQ(P.bq);        // standing on whatever she was just placed on
@@ -5442,6 +5442,7 @@ CASES.heights = () => {
   rg.GRIND.intent = 0;
   return ok;
 };
+const _vq = new THREE.Vector3();
 // r97: SK8 SKY -- the floating skate city (world 3), every link ridden
 CASES.sky = async () => {
   let ok = true;
@@ -5487,8 +5488,10 @@ CASES.sky = async () => {
   for (const Pth of S.paths.filter(q => q.name === 'sk8 deck rail')) { const o = grindAll(Pth, 8, 8);
     say('a deck rail grinds its arc end to end', o.reached && !o.r.bail, o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)); }
   // the drop: from the art's 24 m pad, hands off, down the bank, up the QP XL and back, still on the base
-  { go((Cp[0][0] + Cp[0][1]) / 2 + 2, S.dropZ, Math.PI / 2, 3, 24); let qp = 0; const r = ride(9, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.x > 86 && P.pos.y > 3) qp = 1; });
-    say('THE DROP: off the 24 m pad, down the bank, up the QP XL', qp && r.clean && P.pos.y < 6, `${fix(r.vmax, 1)} m/s at the bottom, ${qp ? 'up the QP' : 'NEVER UP THE QP'}, ends ${at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
+  { go((Cp[0][0] + Cp[0][1]) / 2 + 2, S.dropZ, Math.PI / 2, 3, 24); let qp = 0, back = 0; const r = ride(12, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.x > 86 && P.pos.y > 3) qp = 1; if (qp && P.grounded && P.pos.x < 80) back = 1; });
+    // (r123: 12 s, and "back" means rolling back west off the QP -- in the lighter gravity the air off it lasts longer, and now
+    // the bank can be climbed she rolls back UP it hands off, which is exactly what used to stop her dead)
+    say('THE DROP: off the 24 m pad, down the bank, up the QP XL and back', qp && back && r.clean, `${fix(r.vmax, 1)} m/s at the bottom, ${qp ? 'up the QP' : 'NEVER UP THE QP'}, ends ${at([P.pos.x, P.pos.y, P.pos.z])}${cl(r)}`); }
   for (const Pth of S.paths.filter(q => q.name === 'sky drop rail')) { const o = grindAll(Pth, 4, 8, () => on(0, 0.15));
     say('a drop rail: grinds from the pad to the floor', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the floor' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
   // the bridges: off the deck (north) and the art's 32 m pads (west, south), out to each pad
@@ -5503,7 +5506,7 @@ CASES.sky = async () => {
   for (const [L, I] of [[S.isleT, rg.S3ISLES[0]], [S.isleH, rg.S3ISLES[1]]]) { go(L.x, L.z, 0, 0, L.y); let got = 0;
     const tr = []; const r = ride(8, (t, i) => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && Math.abs(P.pos.y - I.y) < 0.15 && Math.hypot(P.pos.x - I.x, P.pos.z - I.z) < I.r) got = 1; if (process.env.ISLETR && i % 6 === 0) tr.push(at([P.pos.x, P.pos.y, P.pos.z]) + (P.grounded ? 'g' : '') + (P.lift ? 'L' : '')); }); if (tr.length) console.log('    ' + tr.join(' | '));
     say(`isle ${I.key}: the pad throws her over and she lands on it, and stays`, got && !r.bail && !r.falls && Math.hypot(P.pos.x - I.x, P.pos.z - I.z) < I.r, `${got ? 'landed' : 'never on it'}, ends ${at([P.pos.x, P.pos.y, P.pos.z])}, up to ${fix(r.top)}${cl(r)}`); }
-  { const I = rg.S3ISLES[0], N = S.pads.find(q => q.key === 'north'), o = grindAll(S.paths.find(q => q.name === 'isle T rail'), 5, 16, () => P.grounded && Math.abs(P.pos.y - N.y) < 0.12);
+  { const I = rg.S3ISLES[0], N = S.pads.find(q => q.key === 'north'), o = grindAll(S.paths.find(q => q.name === 'isle T rail'), 5, 24, () => P.grounded && Math.abs(P.pos.y - N.y) < 0.12);
     say('isle T rail: off the isle down onto the north pad', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the pad' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
   { const o = grindAll(S.paths.find(q => q.name === 'isle H rail'), 5, 12, () => on(rg.KSZ.XL.H));
     say('isle H rail: off the isle down onto the bowl terrace', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + at(o.off)}, ${o.done ? 'on the terrace' : 'ends ' + at([P.pos.x, P.pos.y, P.pos.z])}`); }
@@ -5537,6 +5540,30 @@ CASES.sky = async () => {
   { const N = S.pads.find(q => q.key === 'north'); go(N.x - 4, N.z - 6, 0, 0, N.y); run(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
     const f0 = rg.ORB.falls || 0; place(N.x - 4, N.y - 6, N.z + N.h + 6, 0, 0); P.grounded = false; run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
     say('off a pad into the sea: put back where she stood', (rg.ORB.falls || 0) > f0 && P.pos.y > 0, `${(rg.ORB.falls || 0) > f0 ? 'put back' : 'never'} at ${at([P.pos.x, P.pos.y, P.pos.z])}`); }
+  // r123: THE LIGHTER GRAVITY, THE RAMP THAT COULD NOT BE CLIMBED, BOWL SHELLS, THE SUNK BOWL, THE LOOP, THE WALLS, THE ANNEX
+  { const g3 = rg.SK.g; go(-30, -60, 0, 0); P.jump = 1; let ap = 0; run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); ap = Math.max(ap, P.pos.y); });
+    say(`SK8 Sky's gravity is its own (S3.g ${rg.S3.g}), and a jump floats`, g3 === rg.S3.g && g3 < 20 && ap > 4.3, `g ${g3}, flat jump apex ${fix(ap)} m`); }
+  { go(S.drop.toe + 2, rg.S3.dropZ, -Math.PI / 2, 20); let top = 0; const r = ride(6, () => { rg.stick.L.x = 0; rg.stick.L.y = -1; city(); top = Math.max(top, P.pos.y); });
+    say('the drop is pushed UP from its toe to the 24 m pad (it stopped her dead)', top > 23 && !r.bail, `top ${fix(top)}${cl(r)}`); }
+  { const bowls = rg.KITW.pieces.filter(q => q.kind === 'bowl' && q.o.fill !== false && q.o.shell !== false && !q.o.sink), shells = rg.SOLID.all.filter(b => b.tag === 'kit bowl shell').length;
+    say(`every raised kit bowl has an outer shell (${bowls.length} bowls)`, bowls.length > 0 && shells >= 4 * bowls.length, `${shells} shell walls`); }
+  { const A = rg.S3A, B = A.bowl, q1 = rg.groundAt(B.x, B.z, 1, 10), fl = { hit: q1.hit, floor: q1.floor }, rim = { ...rg.groundAt(B.x + B.R - 0.6, B.z, 1, 1) };      // (`groundAt` hands back ONE shared object)
+    go(B.x + B.R + 2, B.z, -Math.PI / 2, 8); let lo = 9; const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); lo = Math.min(lo, P.pos.y); });
+    say('the SUNK bowl: rim flush with the floor, floor 4.8 m down, rolled into from the deck', fl.hit && Math.abs(fl.floor + rg.KSZ.XL.H) < 0.05 && rim.hit && Math.abs(rim.floor) < 0.05 && lo < -4.5 && r.clean, `floor ${fl.hit ? fix(fl.floor) : 'none'}, rim ${rim.hit ? fix(rim.floor) : 'none'}, lowest ${fix(lo)}${cl(r)}`); }
+  { const L = rg.S3A.loop, Lp = S.loop; Lp.done = 0; let up = 0, top = 0;
+    go(L.x, -190, Math.PI, 8); const r = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.bodyAlign(DT);
+      if (P.grind && P.grind.rail.path === Lp) { top = Math.max(top, P.pos.y); if (_vq.set(0, 1, 0).applyQuaternion(P.bq).y < -0.8) up++; } });
+    say('THE LOOP: off the boost strip, right round it upside down and out the far side', Lp.done === 1 && top > 2 * L.r - 0.2 && up > 5 && P.pos.z < L.z - 10 && r.clean, `top ${fix(top)}, ${up} frames upside down, ends ${fix(P.pos.x, 1)},${fix(P.pos.z, 1)}${cl(r)}`);
+    const lanes = rg.ORB.lanes; lanes.forEach(l => { l._v = l.v; l.v = 0; });
+    for (const v of [9, 15]) { Lp.done = 0; go(L.x, -215, Math.PI, v); let t2 = 0; const r2 = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind) t2 = Math.max(t2, P.pos.y); });
+      say(`  too slow (${v} m/s, no boost) she does not make it round, and ends on the floor`, !Lp.done && P.grounded && !P.grind && Math.abs(P.pos.y) < 0.1 && r2.deep < 0.12, `highest ${fix(t2)}, ends y ${fix(P.pos.y)}`); }
+    lanes.forEach(l => { l.v = l._v; }); }
+  { let wf = 0, top = 0; go(-12, -232, Math.PI - 0.5, 18); const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.wall) wf++; top = Math.max(top, P.pos.y); });
+    say('THE WALLS: at speed, angled in, she rides up the block instead of bouncing off it', wf * DT > 0.5 && top > 2 && r.clean, `${fix(wf * DT)} s on the wall, up to ${fix(top)}${cl(r)}`);
+    let wf2 = 0; go(-12, -232, Math.PI - 0.5, 6); ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.wall) wf2++; });
+    say('  ...and slowly she does not', wf2 === 0, `${wf2} frames`); }
+  { go(rg.S3A.x, -80, Math.PI, 8); let lo = 9, end = 0; const r = ride(9, () => { if (P.pos.z < -200) { rg.stick.L.y = 0; end = 1; } else { rg.stick.L.x = 0; rg.stick.L.y = -1; } city(); lo = Math.min(lo, P.pos.y); });
+    say('THE ANNEX: down the causeway from the base onto it', end && lo > -0.1 && r.clean, `lowest ${fix(lo)}, ends ${fix(P.pos.x, 1)},${fix(P.pos.z, 1)}${cl(r)}`); }
   // r98: HIS ART, THROUGH THE REAL LOADER AND THE SHIPPED `skyIngest`/`skyFlush` (textures cut: node decodes no images) --
   // every placed file merges, and the colliders typed from the measurement sit ON the art: at each the art's own up-facing
   // surface is found under the point and must be at the collider's height. A quarter turn the wrong way fails every row.
