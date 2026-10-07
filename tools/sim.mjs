@@ -4586,6 +4586,60 @@ CASES.orbtower = () => {
     say('the brake run sets her down on the deck slowly, and she stays', brake && land && Math.abs(land.y - T.y) < 0.3 && vLand < 9 && Math.abs(P.pos.y - T.y) < 0.3 && r < T.r, `${brake ? 'brake at ' + fix(vIn, 1) + ' m/s' : 'NEVER BRAKED'}, ${land ? 'down at ' + at(land) + ' doing ' + fix(vLand, 1) : 'never down'}, ends ${at(P.pos)} (r ${fix(r, 1)})`); }
   return ok;
 };
+// r119: DOWNTOWN -- the streets are open road, both streets ride end to end hands-off, every quarter pipe on a block face
+// sends her up and back into the street, every stairs-and-bank set takes her up onto its terrace, a ledge grinds, the stops.
+CASES.downtown = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const D = rg.DTN; if (!D.built) { console.log('  no downtown'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), cx = D.x, cz = D.z, rd = D.road;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; P.thrown = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  const kinds = {}; for (const q of D.pieces) kinds[q.kind] = (kinds[q.kind] || 0) + 1;
+  say(`${D.blocks.length} blocks, ${D.pieces.length} kit pieces on their street faces`, D.pieces.length >= 15, Object.entries(kinds).map(([k, n]) => `${n} ${k}`).join(', '));
+  const lift = rg.DYN.list.find(d => Math.hypot(d.x - cx, d.z - cz) < 8 && d.kind === 'lift');
+  const nearLift = (x, z) => lift && Math.abs(x - lift.x) < lift.cr + 0.8 && Math.abs(z - lift.z) < lift.cr + 0.8;
+  // THE ROADS: a floor at street level all along both, nothing solid in the lanes but the medians round the pylons
+  { const bad = new Map(); let n = 0;
+    const test = (x, z) => { if (nearLift(x, z)) return; n++; const g = rg.groundAt(x, z, 1.5, 0); if (!g.hit || Math.abs(g.floor) > 0.06) bad.set('floor ' + (g.hit ? fix(g.floor) : '-'), `${fix(x, 1)},${fix(z, 1)}`);
+      for (const y of [0.5, 1.5]) { const b = rg.solidAt(x, y, z, 0.3); if (b && !/median|pylon/.test(b.tag)) bad.set(b.tag, `${fix(x, 1)},${fix(z, 1)}`); } };
+    for (const x of [cx - rd + 0.8, cx - 2.5, cx + 2.5, cx + rd - 0.8]) for (let z = D.ns[0] + 1; z <= D.ns[1] - 1; z += 1) test(x, z);
+    for (const z of [cz - rd + 0.8, cz - 2.5, cz + 2.5, cz + rd - 0.8]) for (let x = D.ew[0] + 1; x <= D.ew[1] - 1; x += 1) if (Math.abs(x - cx) > rd) test(x, z);
+    say('both streets are open road at street level', !bad.size, [...bad].map(([k, v]) => k + ' at ' + v).join('; ') || `${n} points`); }
+  // RIDES: pushing straight down each street, both ways, end to end (a hands-off coast fades out on the flat by design)
+  for (const [nm, x, z, h, far] of [['the main street, southbound', cx + 3.5, D.ns[1] - 3, Math.PI, 112], ['the main street, northbound', cx + 3.5, D.ns[0] + 3, 0, 112],
+                                    ['the cross street, westbound', D.ew[1] - 2, cz + 4.6, -Math.PI / 2, 98], ['the cross street, eastbound', D.ew[0] + 4, cz + 4.6, Math.PI / 2, 98]]) {
+    reset(); place(x, 0.3, z, h, 8); P.pos.y = 0; let bail = 0, lo = 9; const x0 = P.pos.x, z0 = P.pos.z;
+    for (let i = 0; i < 14 / DT; i++) { rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; city(); rg.stepPlayer(DT); if (P.bailT > 0) bail = 1; lo = Math.min(lo, P.pos.y); if (Math.hypot(P.pos.x - x0, P.pos.z - z0) > far) break; }
+    const d = Math.hypot(P.pos.x - x0, P.pos.z - z0);
+    say(`pushing ${nm}, end to end`, d > far && !bail && lo > -0.2, `${fix(d, 0)} m, ends ${at(P.pos)}${bail ? ' BAIL' : ''}`); }
+  // EVERY QUARTER PIPE: straight at it from the far side of the road, up it and back down into the street
+  { const rows = []; let good = 0, n = 0;
+    for (const q of D.pieces.filter(q => q.kind === 'qp')) { n++; reset(); const f = q.f, h = rg.dtFaces ? (f.ax === 'x' ? (f.n > 0 ? -Math.PI / 2 : Math.PI / 2) : (f.n > 0 ? Math.PI : 0)) : 0;
+      const sx = f.ax === 'x' ? f.at + f.n * (q.Lq + 5.5) : q.c, sz = f.ax === 'x' ? q.c : f.at + f.n * (q.Lq + 5.5); place(sx, 0.3, sz, h, 10.5); P.pos.y = 0;
+      let top = 0, bail = 0, deep = 0, back = 0; const out = () => (f.ax === 'x' ? P.pos.x - f.at : P.pos.z - f.at) * f.n;
+      for (let i = 0; i < 3.2 / DT; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); top = Math.max(top, P.pos.y); if (P.bailT > 0) bail = 1;
+        const g = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (g.hit && !P.grind && g.floor - P.pos.y < 1.5) deep = Math.max(deep, g.floor - P.pos.y);
+        if (top > 1.4 && P.grounded && P.pos.y < 0.2 && out() > q.Lq) { back = 1; break; } }
+      const okq = top > 1.4 && back && !bail && deep < 0.12; if (okq) good++; else rows.push(`${f.k} at ${fix(q.c, 0)}: up ${fix(top, 1)}, ${back ? 'back' : 'ends ' + at(P.pos)}${bail ? ' BAIL' : ''}${deep >= 0.12 ? ' INSIDE ' + fix(deep) : ''}`); }
+    say(`every quarter pipe on a block face: up it and back into the street`, good === n && n > 0, rows.join('; ') || `${n} of ${n}`); }
+  // EVERY STAIRS-AND-BANK: up the bank side onto the terrace in front of the shops
+  { const rows = []; let good = 0, n = 0;
+    for (const q of D.pieces.filter(q => q.kind === 'sb')) { n++; reset(); const T = q.T, fx = Math.sin(T.yaw), fz = Math.cos(T.yaw), wx = Math.cos(T.yaw), wz = -Math.sin(T.yaw);
+      place(T.x - fx * 6 + wx * 2, 0.3, T.z - fz * 6 + wz * 2, T.yaw, 7); P.pos.y = 0; let up = 0;
+      for (let i = 0; i < 2.5 / DT && !up; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (P.grounded && Math.abs(P.pos.y - 1.2) < 0.12) up = 1; }
+      if (up) good++; else rows.push(`${q.f.k} at ${fix(q.c, 0)}: ends ${at(P.pos)}`); }
+    say('every stairs-and-bank: up the bank onto the shop terrace', good === n && n > 0, rows.join('; ') || `${n} of ${n}`); }
+  // A LEDGE: a tap from beside it grinds it
+  { const q = D.pieces.find(q => q.kind === 'ledge'), f = q.f, h = f.ax === 'x' ? 0 : Math.PI / 2, [x, z] = f.ax === 'x' ? [f.at + f.n * (2.6 + 1.5), q.c - q.size / 2 + 1] : [q.c - q.size / 2 + 1, f.at + f.n * (2.6 + 1.5)];
+    reset(); rg.ledgeClear(); place(x, 0.3, z, h, 5); P.pos.y = 0; run(0.1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); P.jump = 1; let on = 0;
+    run(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && /ledge/.test(P.grind.rail.path.name || '')) on = 1; });
+    say('a tap beside a ledge grinds it', on, on ? 'ground it' : `missed, ends ${at(P.pos)}`); }
+  // the stops
+  { const bad = []; for (const n of D.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every downtown ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${D.stops.length} stops`); }
+  return ok;
+};
 // r113: THE AIR -- standing in a district for a while, the fog, the sky light and the rim lamp come round to its colour;
 // back at the hub they go back; with it off they are the plain sky's.
 CASES.atmo = () => {

@@ -437,3 +437,20 @@ a tower"). One tower in the open NE field, under the sky rail, between the Garag
   Pyramid's top**, and from there onto the Northway.
 
 ➤ stops: `orb tower`, `orb tower lift`, `orb tower pad`.
+
+## r119 — DOWNTOWN (the Heights gets streets)
+
+From the third reference ("big tall buildings and a complex roadway street system between them ... ramps at the bottom
+of the buildings, stuff still in the sky"). The Heights already had the tall towers and the two-deck skylane with its
+trains, the ships and the air base. Now it has streets:
+
+- **The main street** runs north-south through the middle (120 m) and **the cross street** runs east-west (100 m). They
+  meet at a square round the sky-rail station's lift. Asphalt, a double yellow line, white edge lines, zebra crossings,
+  sidewalks, and planted medians round the skylane pylons where the elevated line crosses overhead.
+- **Eight storefront blocks** (16–26 m) line both streets, with the towers standing behind them. Each has shop glass,
+  a neon band, a sign (KICKFLIP RECORDS, MONSTER MART, COSMIC FUEL, スケート, BLADES, MARKET), windows, and murals up
+  the long faces. Big signs go up the towers' street-facing sides too.
+- **Ramps at the building bases**: 8 quarter pipes backed onto the shop walls, 3 stairs-and-bank sets up onto shop
+  terraces, ledges, a manual pad and a flat bar, plus palms in planters, benches and lamps.
+
+➤ stops: `downtown` (the north end of the main street), `downtown square`.

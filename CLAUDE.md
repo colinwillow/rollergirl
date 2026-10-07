@@ -94,6 +94,26 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **DOWNTOWN: THE HEIGHTS GETS STREETS, AND THE ROAD IS PAINT (r119, `DTN`, `dtFaces`, `downtownKit`, `buildDowntown`,
+  `npm run sim downtown`).** A main street N-S at x -205 (z -212..-86) and a cross street E-W at z -150 (x -256..-150), 6 m
+  lanes each side and 5 m sidewalks, lined by eight storefront blocks whose street faces carry kit ramps.
+  - **World 0 HAS NO ROOM LEFT FOR A STREET**: the open-ground scan's biggest circle was ~24 m. He chose rebuilding the
+    Heights over growing the world. The Heights' own machinery (docks, pads, lifts, air base, sky line, pylons) did not move;
+    the road is drawn quads on the plaza, NOT in the collider, so nothing measured there changed. Its old paving square and
+    lamp ring are skipped when `DTN.on`.
+  - **A BLOCK FACE IS A FRAME**: `dtFaces` marks a face `st` when it sits on a street's frontage line, and `DTN.fronts`
+    lists that face's modules by their middle `along` it (a world coordinate). Kit pieces go in with the park's kit
+    (`downtownKit`, beside `stackKit`, before the collider); the architecture goes in with the slice (`buildDowntown`, after
+    `buildHeights`). Both read the same table.
+  - **The blocks are sized round what already stands there**: NWn starts at x -225 because `heights`' "a tower is a wall"
+    row starts her at x -227. The quadrant blocks stop 1.5 m short of the skylane pylons. The north and south blocks stop
+    1.3 m short of the dock lifts' discs (x -231.3 / -178.7). All of them stay under 26 m, because the air base circles at 30.
+  - **The station lift stands in the square** (-209.4, -150), in the west lane, so there is no traffic yet. Cars on the
+    lanes would drive through it; move the lift or route round it first.
+  - `downtown` rides push down both streets end to end, because a hands-off coast fades out on the flat by design (the
+    first version coasted and "failed" at exactly 65 m every time). It also takes every QP up and back into the street,
+    every stairs-and-bank up onto its terrace, and a tap onto a ledge.
+
 - **THE ORB TOWER: A COASTER THAT STARTS AND ENDS ON ITS OWN DECK, AND A BRAKE RUN IS A PLAIN RAIL WITH DRAG (r118, `ORT`,
   `buildOrbTower`, `orbTowerRails`, `npm run sim orbtower`).** NE field (238, 252), deck 40 m, lift, an orb with turning rings
   (`ORB.anim`). The loop is ONE booster path with `ups` (out south, a 9 m vertical loop shifted 3 m sideways, a U-turn east,
