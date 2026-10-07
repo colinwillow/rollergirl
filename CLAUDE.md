@@ -94,6 +94,16 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE DRAIN: A SEWER IS A KIT PIPE NETWORK SET INTO A PLATEAU AS TALL AS ITS WALLS (r104, `DRN`, `buildDrain`, `npm run sim
+  drain`).** South of the Stack. The pieces run from the MOUTH on the plateau's east edge (west of it stands Nimbus, 7 m off
+  the edge, so a west mouth had no run-up), heading west, so `right: 1` turns the tee and elbow SOUTH. Every centreline is
+  recorded (`D.cl`) and the plateau is every 1.5 m cell further than a pipe's half width from them, merged into rows. Two
+  stretches carry a roof slab (H-0.6..H) -- the tunnels -- and a wall air under one is stopped by it.
+  - **THE CELLS MUST DIVIDE THE BLOCK EXACTLY.** Rounded cell counts put the plateau half a cell past its east edge, which
+    is a 0.22 m lip on top of the bank that meets it (`INSIDE 0.22`). The cell size is recomputed per axis to fit.
+  - **`groundAt` hands back ONE shared object** (the kit note's landmine): two calls side by side in a test read the
+    second answer twice, and "floor 4.80, ceiling Infinity" under a roof was that, not the geometry.
+  - A hands-off rider in the channel does two walls and stops: the coast fade on the 8 m flat bottom is working as tuned.
 - **THE WORKS: RAFTERS AND WINDOWS YOU BUST OUT OF (r103, `WRK`, `buildWorks`, `worksRails`, `stepWorks`, `npm run sim works`).**
   A warehouse on the west strip: door, bank to a mezzanine, nine rafters at 8.5 m (rails), a band of sixteen breakable panes
   in the north wall, an annex roof across a 1 m alley.

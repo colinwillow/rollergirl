@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r103</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r104</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r103';
+const BUILD = 'r104';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3522,6 +3522,7 @@ function buildPark() {
   stackKit();        // r100: THE STACK -- his buildings, a half pipe on every roof, each one higher
   buildUfo();        // r102: the mothership, 120 m up
   buildWorks();      // r103: the warehouse on the west strip
+  buildDrain();      // r104: the storm drain south of the Stack
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
@@ -3572,7 +3573,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -9075,6 +9076,73 @@ function stepWorks(dt) {
   if (!WRK.built) return;
   for (const P of WRK.panes) if (P.broke && (P.t += dt) > WRK.back && Math.hypot(player.pos.x - P.cx, player.pos.z - P.z) > 8) { P.broke = 0; P.b.live = true; if (WRK.glass) worksPane(P, 1); }
 }
+// ===== r104: THE DRAIN -- *"tunnels, the sewer system."* A storm drain sunk into a raised block of street south of the Stack:
+// a network of half-pipe channels (the kit's `pipe` / `tee` / `elbow` / `pipeEnd`, size XL, 4.8 m walls) whose floor is the
+// city's own ground, set into a plateau of concrete exactly as tall as their walls -- so from above it is a street with
+// trenches cut in it, and from inside it is a sewer. Two stretches are ROOFED over (the plateau carries straight across):
+// those are the tunnels, lit inside. The main channel's EAST end runs out of the plateau's edge at street level -- the MOUTH,
+// ride straight in off the street. Banks up onto the plateau from the east and the south, grates and drains on top, the branch ends in a
+// half bowl and the main run turns south into another.
+const DRN = { on: 1, built: 0, x0: 125, x1: 222, z0: -282, z1: -212, z: -228, size: 'XL', flat: 8, cell: 1.5, stops: [], cl: [],
+  run: [['pipe', { len: 32 }], ['tee', { len: 22, leg: 8, right: 1 }, [['pipe', { len: 14 }], ['pipeEnd', {}]]], ['pipe', { len: 20 }], ['elbow', { right: 1 }], ['pipe', { len: 12 }], ['pipeEnd', {}]],  // heading WEST from the mouth, so +w is north and `right` turns SOUTH
+  roofs: [] };
+function buildDrain() {
+  if (!DRN.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 10404;
+  const D = DRN, S = KSZ[D.size], H = S.H, c = kPipeC(S, D.flat);
+  const K = { ...KCOL }, Tn = {}; for (const k in KSZ) Tn[k] = KSZ[k].tint;
+  Object.assign(KCOL, { ...PARKD.pal.kcol, deck: 0xd8d6dc, cope: 0x9aa4b8 }); KSZ[D.size].tint = 0xc6c8cf;
+  const pieces = [], cl = D.cl;
+  const go = (T, steps) => { for (const [kind, o, branch] of steps) { const r = kitPiece(kind, D.size, { ...T }, { flat: D.flat, ...o }); if (r) { r.label = 'drain ' + kind; pieces.push(r); }
+      // the channel's middle line, in world -- the plateau keeps clear of it by the pipe's half width
+      const n = 12, pts = [];
+      if (kind === 'elbow') { const sd = o.right ? -1 : 1, Rc = KITW.deck + S.lip + D.flat / 2, O = kT(T, 0, sd * Rc, 0); for (let i = 0; i <= n; i++) { const a = i / n * Math.PI / 2, f = kT(O, Rc * Math.sin(a), -sd * Rc * Math.cos(a), 0); pts.push([f.x, f.z]); } }
+      else if (kind === 'pipeEnd') pts.push([T.x, T.z]);
+      else for (let i = 0; i <= n; i++) { const f = kT(T, r.out.u * i / n, 0, 0); pts.push([f.x, f.z]); }
+      cl.push({ kind, pts });
+      if (branch && r.out2) go({ ...kT(T, r.out2.u, r.out2.w, r.out2.dyaw), y: 0 }, branch);
+      if (!r || !r.out) break; T = { ...kT(T, r.out.u, r.out.w, r.out.dyaw), y: 0 }; } };
+  try { go({ x: D.x1, y: 0, z: D.z, yaw: -Math.PI / 2 }, D.run); }     // the mouth is the EAST end: west of the plateau stands Nimbus
+  finally { Object.assign(KCOL, K); for (const k in Tn) KSZ[k].tint = Tn[k]; }
+  D.pieces = pieces; D.c = c;
+  // distance from a point to the channel network's middle line
+  const dcl = (x, z) => { let best = 1e9; for (const L of cl) { if (L.pts.length === 1) { best = Math.min(best, Math.hypot(x - L.pts[0][0], z - L.pts[0][1])); continue; }
+      for (let i = 0; i < L.pts.length - 1; i++) { const [ax, az] = L.pts[i], [bx, bz] = L.pts[i + 1], ux = bx - ax, uz = bz - az, l2 = ux * ux + uz * uz || 1, t = clamp(((x - ax) * ux + (z - az) * uz) / l2, 0, 1);
+        best = Math.min(best, Math.hypot(x - ax - ux * t, z - az - uz * t)); } } return best; };
+  D.dcl = dcl;
+  // THE PLATEAU: every cell of the block further from the network than a channel's half width (its deck's back edge), merged
+  // into rows and drawn as paved concrete; its top is the street up here
+  const nx = Math.round((D.x1 - D.x0) / D.cell), nz = Math.round((D.z1 - D.z0) / D.cell), cx = (D.x1 - D.x0) / nx, cz = (D.z1 - D.z0) / nz,   // cells that fit EXACTLY: a plateau half a cell past its edge is a lip on top of the bank that meets it
+    on = (i, k) => dcl(D.x0 + (i + 0.5) * cx, D.z0 + (k + 0.5) * cz) > c - 0.25;
+  D.blocks = 0;
+  for (let k = 0; k < nz; k++) { let i = 0; while (i < nx) { if (!on(i, k)) { i++; continue; } let j = i; while (j < nx && on(j, k)) j++;
+      const x0 = D.x0 + i * cx, x1 = D.x0 + j * cx, z0 = D.z0 + k * cz, z1 = z0 + cz;
+      slBox('concrete', x0, 0, z0, x1, H, z1, { top: 'paving', bev: 0, solid: true, tag: 'drain plateau', tint: 0xd8d6dc, base: 0, skip: (k ? 'z' : '') + (k < nz - 1 ? 'Z' : '') + 'y' });
+      D.blocks++; i = j; } }
+  // THE TUNNELS: two stretches roofed over -- a slab across the channel at deck height, lamps under it
+  const roof = (ax, az, bx, bz) => { const x0 = Math.min(ax, bx) - (ax === bx ? c : 0), x1 = Math.max(ax, bx) + (ax === bx ? c : 0), z0 = Math.min(az, bz) - (az === bz ? c : 0), z1 = Math.max(az, bz) + (az === bz ? c : 0);
+    slBox('concrete', x0, H - 0.6, z0, x1, H, z1, { top: 'paving', bev: 0.03, solid: true, tag: 'drain tunnel roof', tint: 0xcfcdd6, base: H - 0.6, skip: '' });
+    const L = Math.max(x1 - x0, z1 - z0); for (let s = 3; s < L - 1; s += 5) { const px = ax === bx ? ax : Math.min(ax, bx) + s, pz = az === bz ? az : Math.min(az, bz) + s;
+      slGlow(px, H - 1.1, pz, 4, 0x9fffd0, 0.7); slBox('neon', px - 0.6, H - 0.72, pz - 0.6, px + 0.6, H - 0.6, pz + 0.6, { bev: 0, tint: 0x9fffd0, skip: 'Y' }); }
+    D.roofs.push([x0, z0, x1, z1]); };
+  roof(D.x1 - 28, D.z, D.x1 - 12, D.z);                                            // the main run, just in from the mouth
+  { const t = cl.find(L => L.kind === 'tee'), bx = (t.pts[0][0] + t.pts[t.pts.length - 1][0]) / 2; roof(bx, D.z - c - 2, bx, D.z - c - 16); }   // the branch
+  // the mouth: a frame round the open end of the main run, at the plateau's west edge
+  slBox('stone', D.x1 - 0.6, H - 0.9, D.z - c, D.x1 + 0.4, H + 0.4, D.z + c, { top: 'stone', bev: 0.05, tint: 0xa8a2b6, solid: true, tag: 'drain mouth', base: H - 0.9 });
+  slGlow(D.x1 - 1, H - 1.5, D.z, 6, 0x9fffd0, 0.6);
+  // up onto the plateau: two banks off its north edge
+  const K2 = { ...KCOL }; Object.assign(KCOL, PARKD.pal.kcol);
+  try { const run = H / Math.tan(25 * D2R);
+    for (const [x, z, yaw] of [[D.x1 + run, -262, -Math.PI / 2], [190, D.z0 - run, 0]]) { const r = kitPiece('bank', D.size, { x, y: 0, z, yaw }, { w: 10, angle: 25 }); if (r) r.label = 'drain bank'; } }
+  finally { Object.assign(KCOL, K2); }
+  // grates on top (dressing)
+  for (const [gx, gz] of [[150, -262], [196, -248], [140, -215], [214, -276]]) if (dcl(gx, gz) > c + 1) slBox('metal', gx - 1, H, gz - 0.7, gx + 1, H + 0.04, gz + 0.7, { bev: 0, tint: 0x4a5066 });
+  CITY.spots['the drain'] = [D.x1 + 16, 0, D.z, -Math.PI / 2];
+  CITY.spots['drain tunnel'] = [D.x1 - 20, 0, D.z, -Math.PI / 2];
+  CITY.spots['drain top'] = [208, H, -272, 0];
+  D.stops = ['the drain', 'drain tunnel', 'drain top'];
+  D.built = 1;
+}
 function hubDress() {
   if (!HUB.on) return;
   const D = HUB.deck, steel = (x0, y0, z0, x1, y1, z1) => slBox('metal', x0, y0, z0, x1, y1, z1, { bev: 0.01, skip: 'y' });
@@ -13176,7 +13244,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

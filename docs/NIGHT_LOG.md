@@ -118,3 +118,24 @@ rafters), a funbox, a ledge — and the line:
   or the mezzanine's kicker and you go straight through — SMASH, +150 — across the alley onto the
   **ANNEX** roof (6 m): a quarter pipe L, a pyramid, a flat bar, and a bank back down to the yard.
 - The panes come back 25 s later (never on top of you), so the line is there next time round.
+
+---
+
+## r104 — THE DRAIN (south of the Stack, x 125..222, z -282..-212)
+
+**➤ stops:** `the drain` (the street outside the mouth), `drain tunnel`, `drain top`
+**Sim:** `node tools/sim.mjs drain` (8 rows)
+
+A sewer: a network of **XL half-pipe channels** (the kit's `pipe` / `tee` / `elbow` / `pipeEnd`, 4.8 m walls)
+cut into a concrete **plateau exactly as tall as their walls** — from above a paved block with trenches in it,
+from inside a storm drain. It opens at the **MOUTH** on its east edge at street level: ride straight in off the
+street. Inside:
+
+- the main run goes west 90 m, then turns south into a **half bowl**;
+- a **branch** leaves it south through its own tunnel into a second half bowl;
+- two stretches are **roofed** — the **TUNNELS**, lit with green strips. Under a roof the walls are still
+  walls, but the ceiling stops an air (it stays inside);
+- on top: grates, and two **banks** up from the street (east and south edges). Drop in off the edge of any
+  trench and you're in the channel.
+
+(The mouth faces east because Orbital's Nimbus tower stands 7 m off the plateau's west edge.)

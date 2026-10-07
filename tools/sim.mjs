@@ -4383,6 +4383,50 @@ CASES.links = () => {
 // r103: THE WORKS -- in through the door, up the bank to the mezzanine, off its kicker through a window onto the annex, the
 // rafters caught from the mezzanine and ridden off the end through a window, a pane that is a wall when met slowly, the hall's
 // quarter pipe launching her up among the rafters, the annex's bank back down, and the panes coming back.
+// r104: THE DRAIN -- in off the street through the mouth and along the channel under the tunnel roof, dropped in off the
+// plateau, the half pipe pumped, up the bank onto the plateau, down the branch into its half bowl, and the tunnel's roof a
+// ceiling (a vert air under it does not come out through the top).
+CASES.drain = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const D = rg.DRN; if (!D.built) { console.log('  the drain was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), H = rg.KSZ[D.size].H;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; };
+  const ride = (sec, drive) => { const r = { bail: 0, deep: 0, top: -99, low: 99 }; let kq = 0; run(sec, (t, i) => { if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (process.env.DRT && kq++ % 12 === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', fix(P.speed, 1), fix(Math.atan2(P.vel.x, P.vel.z), 2));
+      if (P.bailT > 0) r.bail = 1; r.top = Math.max(r.top, P.pos.y); r.low = Math.min(r.low, P.pos.y);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  say(`${D.pieces.length} channel pieces, ${D.blocks} plateau rows, ${D.roofs.length} tunnels`, D.pieces.length === 8 && D.roofs.length === 2 && D.blocks > 30, '');
+  { const bad = []; for (const n of D.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Drain ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${D.stops.length} stops`); }
+  // in through the mouth, along under the tunnel roof
+  { reset(); place(D.x1 + 12, 0.3, D.z, -Math.PI / 2, 10); let tun = 0, far = 0;
+    const r = ride(5, () => { rg.cam.az = -Math.PI / 2; rg.stick.L.x = 0; rg.stick.L.y = P.grounded ? -0.6 : 0;
+      const rf = D.roofs[0]; if (P.pos.x > rf[0] && P.pos.x < rf[2] && P.pos.y < 0.5) tun = 1; if (P.pos.x < 180 && P.pos.y < 1) far = 1; });
+    say('in off the street through the mouth, along under the tunnel', tun && far && r.clean, `${tun ? 'through the tunnel' : 'NEVER IN THE TUNNEL'}, ${far ? 'on down the channel' : 'stopped'} -- ends ${at(P.pos)}${cl(r)}`); }
+  // the tunnel's roof is a ceiling over the channel and a floor on top (groundAt hands back ONE shared object: copy it)
+  { const rf = D.roofs[0], x = (rf[0] + rf[2]) / 2, z = D.z, a = { ...rg.groundAt(x, z, 1, 0) }, b = { ...rg.groundAt(x, z, H + 1, 0) }, lid = rg.solidAt(x, H - 0.3, z, 0), air = !rg.solidAt(x, H - 1.2, z, 0);
+    say('under the tunnel roof: the channel floor, the roof a ceiling; on it, a floor', a.hit && a.floor < 0.1 && lid && air && b.hit && Math.abs(b.floor - H) < 0.05, `floor ${a.hit ? fix(a.floor) : '-'}, ${lid ? 'roof solid' : 'NO ROOF'}, ${air ? 'air under it' : 'SOLID UNDER IT'}, on top ${b.hit ? fix(b.floor) : '-'}`); }
+  // dropped in off the plateau, down into the channel, across, up the far wall and back -- hands off
+  { reset(); const x = 158; place(x, H + 0.3, D.z1 - 2, Math.PI, 5); P.pos.y = H; let inn = 0, swings = 0, side = 0;
+    const r = ride(10, () => { rg.stick.L.x = rg.stick.L.y = 0;
+      if (P.pos.y < 0.3 && Math.abs(P.pos.z - D.z) < 4) inn = 1; if (inn) { const sd = P.pos.z > D.z ? 1 : -1; if (P.pos.y > 2 && sd !== side) { swings++; side = sd; } } });
+    say('dropped in off the plateau, wall to wall across the channel', inn && swings >= 2 && r.clean, `${inn ? 'in' : 'NEVER IN'}, ${swings} walls ridden, ends ${at(P.pos)}${cl(r)}`); }
+  // up a bank onto the plateau from the street
+  { reset(); place(D.x1 + 18, 0.3, -262, -Math.PI / 2, 15); let up = 0;
+    const r = ride(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && P.pos.y > H - 0.1 && P.pos.x < D.x1) up = 1; });
+    say('up a bank from the street onto the plateau', up && r.clean, (up ? `up, ends ${at(P.pos)}` : `ends ${at(P.pos)}`) + cl(r)); }
+  // the branch: down its tunnel and round its half bowl
+  { reset(); const t = D.cl.find(L => L.kind === 'pipeEnd'), bx = t.pts[0][0]; place(bx, 0.3, D.z - 4, Math.PI, 14); let bowl = 0;
+    const r = ride(6, () => { rg.cam.az = Math.PI; rg.stick.L.x = 0; rg.stick.L.y = 0; if (P.pos.z < t.pts[0][1] - 3 && P.pos.y > 1.5) bowl = 1; });
+    say('down the branch, under its tunnel, up into its half bowl', bowl && r.clean, bowl ? `up the bowl's wall, top ${fix(r.top)}` : `ends ${at(P.pos)}${cl(r)}`); }
+  // a vert air under the tunnel roof does not come out through it
+  { reset(); const rf = D.roofs[0], x = (rf[0] + rf[2]) / 2; place(x, 0.3, D.z, 0, 14); P.pos.y = 0; P.n.set(0, 1, 0); const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    say('a fast air up the wall under the tunnel stays under its roof', r.top < H - 0.5 && r.clean, `top ${fix(r.top)} (roof underside ${fix(H - 0.6)})${cl(r)}`); }
+  return ok;
+};
 CASES.works = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
