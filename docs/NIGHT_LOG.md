@@ -546,3 +546,9 @@ His weirdport kit city, whole, as its own world on the LEVEL key (`?world=weirdp
 files copied byte for byte, KTX2 textures through weirdport's transcoder, his paint tint and anti-tiling shaders, merged per
 material per 48 m cell. Collider: 6,374 boxes (three city-wide meshes split into their parts), 31k floor triangles, 112
 rails. ➤ stop: `weirdport street`. Step 1 of 4; next is a prop and building library from it for the main world.
+
+## r127 -- WEIRDPORT PROPS IN THE MAIN WORLD
+
+His painted props, cut out of his city file into a 1.9 MB library (`npm run wpprops`), load before the park builds. The
+slice's lamps, trees, palms, planter bushes, benches and crates draw his instead (colliders untouched -- the old builders run
+muted), and ~870 pieces of his weeds, litter, leaves, bags and boxes are laid along the foot of every wall. Step 2 of 4.

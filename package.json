@@ -21,7 +21,8 @@
     "rebase": "node tools/rebase.mjs",
     "plan": "node tools/plan.mjs",
     "trace": "node tools/trace.mjs",
-    "export:park": "node tools/export.mjs park"
+    "export:park": "node tools/export.mjs park",
+    "wpprops": "node tools/wpprops.mjs"
   },
   "type": "module",
   "devDependencies": {

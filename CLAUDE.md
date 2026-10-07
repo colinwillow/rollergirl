@@ -76,7 +76,9 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   `building_kit_generated_visual.glb` + `building_kit_collision.glb` are his four generated buildings BKG0-3, imported
   whole. No draco (custom attributes), WebP textures. `models/props/prop_hydrant.glb` is his hydrant.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
-  SkeletonUtils. From the city repo.
+  SkeletonUtils. From the city repo. Since r126 also weirdport's KTX2Loader (+ WorkerPool, ktx-parse, zstddec) and `basis/`.
+- `models/wpcity/` (r126, world 4) and `models/wpprops/wp_props.glb` (r127, `npm run wpprops`) — his weirdport city and the
+  prop library cut from it.
 - `handoff/` — **the level-building brief for his Blender session (r83)**: `LEVEL_BUILDING.md`, `rollergirl_blender.py`,
   and `rollergirl_kit_library.glb/.json` (regenerate with `npm run export:lib`; it IS committed, unlike `exports/`). Since r91
   the library carries the combos as `combo_<key>` groups, and `rollergirl_combo_tests.json` is what `npm run sim combos` measured.
@@ -97,6 +99,31 @@ way round. Measuring components made a six-frame stride and a static clip look i
 honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
+
+- **HIS WEIRDPORT PROPS IN THE MAIN WORLD (r127, `WPP`, `wppLoad`, `wppBuild`, `wppClutter`, `SLMUTE`, `npm run wpprops`,
+  `npm run sim wpp`).** Step two of four. `models/wpprops/wp_props.glb` (1.9 MB) is CUT out of his city's visual by
+  `tools/wpprops.mjs`: his file places every prop as a node on ONE shared mesh per kind, so the library is one node per kind
+  (32: trees, palms, bushes, weeds, lamps, benches, crates, bins, bags, cans, cups, rubble) with the draco primitives and
+  KTX2 images copied byte for byte, and his median scale per kind in the extras (the meshes are tripo-unit; his NODE carries
+  the size). **Re-run `npm run wpprops` after every export of his city.**
+  - **IT LOADS BEFORE THE PARK BUILDS (world 0 only), with a `wait` timeout** -- a stalled fetch never rejects, and without
+    it the boot card would hang on a prop library.
+  - **THE SWAP RUNS THE OLD BUILDER MUTED (`SLMUTE`).** `slLamp`, `slTree`, `slPalm`, `slBush`, `slBench`, `slCrate` are
+    wrappers now; with the library in, the original (`*0`) runs with `slTri` and `slGlow` silenced, so every collider it
+    adds and every `slr()` it draws are exactly what they were, and his prop goes on the same spot (`wppAt`, through
+    `SLX`). **Skipping the original instead would shift the slice's random sequence and move half the world.**
+    `npm run sim wpp` boots with a stand-in library and compares solids (count + checksum), rails, glows and spots with a
+    second boot without one (`wppbase`): identical.
+  - **A planter of cards was a dozen triangles a bush; his round bush is ~400**, so only `bushK` (.55) of them stand, a size
+    up, some as his leafy weeds. **Budget: about 350k triangles all told**, merged per material per 128 m cell, cells under
+    `cellMin` triangles joined into one leftover per material. `clutter.max` (440 spots, ~870 pieces) and `bushK` are the dials.
+  - **THE CLUTTER (`wppClutter`)**: every box over `minH` standing on the floor beside it is a wall; its faces are walked every
+    `step` m and a point kept where the floor right outside is flat, at the box's foot, dry and not inside anything. Choice and
+    cluster by a HASH of the point, never `slr()`, and the best `max` by hash win, so the cap thins the world evenly.
+    No colliders: weeds, cans and bags are rolled through.
+  - **Guessed, for him to check on the phone:** the lamp head's position (`lampHead`, the glow sits there), the bench's
+    facing (`benchYaw`), the lamp's size (`lampS` .75 -- his post is 5.8 m with a 1.9 m arm).
+  - The chip says `NO WP PROPS` if the library fails; the procedural props then stand as they always did.
 
 - **WEIRDPORT CITY IS WORLD 4, AND IT IS HIS FILES, NOT A RE-BUILD (r126, `WPC`, `wpCityLoad`, `wpTint`, `wpFill`, `meshParts`,
   `?world=weirdport`, `npm run sim wpcity`).** Step one of four for *"looking anywhere near the quality of weirdport"*: his kit

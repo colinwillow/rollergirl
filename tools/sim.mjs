@@ -45,6 +45,21 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : process.argv[2] === 'sky' ? '3' : process.argv[2] === 'wpcity' ? '4' : '0');
 // r90: the main world's north district is the skate park now; the City it replaced is one switch away, and `city` boots with it
 if (process.argv[2] === 'city') globalThis.localStorage.setItem('rg.city', '1');
+// r127: `wpp` boots with a STAND-IN prop library (boxes under his kind names) -- headless there is no KTX2 and no draco worker,
+// and what is under test is the swap and the clutter pass, not his meshes
+if (process.argv[2] === 'wpp') {
+  const fams = ['prop_crate', 'prop_cardboard_box', 'prop_tree_round_tree', 'prop_tree_pink_blossom', 'prop_tree_banana_plant', 'prop_tree_palm_mid', 'prop_tree_palm_small',
+    'prop_tree_palm_bushy', 'plant_bush_round', 'plant_weed_small', 'plant_weed_leafy', 'plant_weed_tall_a', 'plant_weed_tall_b', 'plant_weed_spiky', 'plant_dandelion',
+    'plant_clover_patch', 'plant_dirt_clumps', 'plant_dry_leaves', 'plant_ground_cover', 'plant_dry_pile', 'debris_soda_can', 'debris_cup', 'debris_trash_bag',
+    'debris_bag_pile', 'debris_rubble', 'brk_bench_intact', 'brk_lightpost_intact'];
+  globalThis.window = globalThis.window || globalThis;
+  globalThis.window.__wppFake = T => { const L = {}, mats = {};
+    for (const f of fams) { const k = f.split('_')[0], m = mats[k] || (mats[k] = new T.MeshStandardMaterial({ name: k })), parts = [{ geo: new T.BoxGeometry(0.4, 0.4, 0.4).translate(0, 0.2, 0), mat: m }];
+      if (/bench|lightpost/.test(f)) { const g = new T.BoxGeometry(0.2, 1, 0.2); g.setAttribute('color', new T.BufferAttribute(new Float32Array(g.attributes.position.count * 4).fill(0.7), 4));
+        parts.push({ geo: g, mat: mats.wk || (mats.wk = new T.MeshStandardMaterial({ name: 'wk', vertexColors: true })) }); }
+      L[f] = { parts, s: 1, h: 0.4 }; }
+    return L; };
+}
 
 const html = fs.readFileSync('index.html', 'utf8');
 let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
@@ -3088,6 +3103,41 @@ CASES.score = () => {
     say('a bail loses the combo', S.combo === 0 && S.total === 0, `combo ${S.combo}, total ${S.total}`); P.wasBail = false; }
   return ok;
 };
+// ---------------------------------------------------------------- weirdport props (r127)
+// THE SWAP MUST MOVE NOTHING SHE CAN TOUCH. The slice builders that draw his props instead run muted, and that is only safe
+// if every collider, rail, glow and random draw comes out exactly as it does without the library -- so this boots with a
+// stand-in library and compares the world against a second boot without one (`wppbase`, a child). Then the clutter: every
+// piece on a floor at its own height, out of every solid, out of the water.
+const wppSig = () => { let h = 0; for (const B of rg.SOLID.all) h = (h * 31 + Math.round(B.cx * 100) + Math.round(B.cz * 7) + Math.round(B.y1 * 13) + Math.round(B.hx * 50)) | 0;
+  return { solids: rg.SOLID.all.length, hash: h, rails: rg.RAILS.length, glows: rg.SLC.glows.length, spots: Object.keys(rg.CITY.spots).length }; };
+CASES.wppbase = async () => { console.log('SIG ' + JSON.stringify(wppSig())); return true; };
+CASES.wpp = async () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(50)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const W = rg.WPP;
+  if (!W.lib) { console.log('  booted without the stand-in library -- run `npm run sim wpp`'); return false; }
+  const { spawnSync } = await import('child_process');
+  const r = spawnSync(process.execPath, [process.argv[1], 'wppbase'], { encoding: 'utf8', maxBuffer: 64 << 20 });
+  const line = (r.stdout || '').split('\n').find(l => l.startsWith('SIG ')), base = line ? JSON.parse(line.slice(4)) : null, mine = wppSig();
+  say('the world without the library booted', !!base, base ? JSON.stringify(base) : 'no signature');
+  if (base) for (const k of Object.keys(base)) say('  same ' + k + ' with his props swapped in', base[k] === mine[k], `${mine[k]} against ${base[k]}`);
+  const byF = {}; for (const p of W.put) byF[p.f] = (byF[p.f] || 0) + 1;
+  say('lamps, trees, palms, bushes and benches swapped', ['brk_lightpost_intact', 'prop_tree_palm_mid', 'plant_bush_round', 'brk_bench_intact'].every(f => byF[f] > 0), JSON.stringify(byF).slice(0, 160));
+  say('clutter laid along the walls', W.clutter.n > 300, `${W.clutter.n} pieces from ${W.clutter.cand} wall spots`);
+  const clut = W.put.filter(p => p.clutter);
+  let inside = 0, off = 0, wet = 0;
+  for (const p of clut) {
+    if (rg.solidAt(p.x, p.y + 0.3, p.z, 0)) inside++;
+    const g = rg.groundAt(p.x, p.z, p.y + 0.3, 0.4); if (!g.hit || Math.abs(g.floor - p.y) > 0.13) off++;
+    if (rg.ORB.water.some(Wt => p.x > Wt.x0 && p.x < Wt.x1 && p.z > Wt.z0 && p.z < Wt.z1 && p.y < Wt.y + 0.3)) wet++;
+  }
+  say('no clutter inside a solid', !inside, `${inside} of ${clut.length}`);
+  say('all clutter on its floor', !off, `${off} of ${clut.length} off it`);
+  say('no clutter in the water', !wet, `${wet}`);
+  say('merged into few meshes', W.meshes.length > 0 && W.meshes.length < 80, `${W.meshes.length} meshes`);
+  return ok;
+};
+
 // ---------------------------------------------------------------- weirdport city (r126)
 // His kit city's collision file through the real loader and the shipped `levelIngest` (the pictures are draco + KTX2 and are
 // not loaded here, so the grass fill from the visual is a stated gap). Does it split into sane boxes, is there a street to
@@ -5874,10 +5924,10 @@ for (const k of Object.keys(CASES)) {
   console.log(`\n== ${k} ==`);
   let ok = false;
   // the zones case needs a page booted in the OTHER world, so a full run hands it to a process of its own
-  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky' || k === 'wpcity') && !only) {
+  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky' || k === 'wpcity' || k === 'wpp') && !only) {
     const { spawnSync } = await import('child_process');
     const r = spawnSync(process.execPath, [process.argv[1], k], { encoding: 'utf8', maxBuffer: 64 << 20 });
-    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky|wpcity) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
+    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky|wpcity|wpp) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
   try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.LAND.flipBail = 0; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on

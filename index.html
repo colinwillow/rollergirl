@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r126</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r127</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r126';
+const BUILD = 'r127';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
+const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_props.glb":"1ea211af","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -4419,6 +4419,7 @@ const SOLID = { cell: 8, x0: -480, z0: -480, w: 120, h: 120, cells: null, all: [
 // and moved by (tx, tz) on the way out, so one facade builder faces all four ways. x' = tx + x c + z s, z' = tz - x s + z c,
 // which carries a box's local x axis to (c, -s): exactly `solidAdd`'s yaw, so a solid's yaw is simply `+ a`.
 let SLX = null;
+let SLMUTE = 0;      // r127: >0 while a slice builder runs only for its colliders and its random draws -- his prop is drawn instead
 const slXp = (x, z) => SLX ? [SLX.tx + x * SLX.c + z * SLX.s, SLX.tz - x * SLX.s + z * SLX.c] : [x, z];
 const slXv = v => { const q = slXp(v[0], v[2]); return [q[0], v[1], q[1]]; };
 const slXn = n => SLX ? [n[0] * SLX.c + n[2] * SLX.s, n[1], -n[0] * SLX.s + n[2] * SLX.c] : n;
@@ -5210,9 +5211,7 @@ const wpSkip = o => { const u = o.userData || {}; return !!(u.collider || u.dt_c
 // THE COLLIDER AND THE STREETS ARE WAITED FOR (there is no floor without the first, and no grass without the second); the
 // buildings -- the biggest file -- land whenever they land, and the anti-tiling goes on once both pictures are in.
 async function wpCityLoad() {
-  try { const { KTX2Loader } = await import('./vendor/KTX2Loader.js');
-    loader.setKTX2Loader(new KTX2Loader().setTranscoderPath('./vendor/basis/').detectSupport(renderer)); WPC.ktx = 1;
-  } catch (e) { console.warn('[wpcity] no KTX2 loader', e); WPC.failed.push('ktx2'); }
+  try { await ktxOn(); WPC.ktx = 1; } catch (e) { console.warn('[wpcity] no KTX2 loader', e); WPC.failed.push('ktx2'); }
   const I = new THREE.Matrix4(), vopt = { noCells: 1, cast: WPC.cast, alpha: 1, cell: WPC.cell, skip: wpSkip };
   const get = (f, what) => loadGLB(WPC.dir + f).then(g => g.scene, e => { WPC.failed.push(what); console.warn('[wpcity] ' + f + ' did not arrive', e); return null; });
   const cP = get(WPC.col, 'collision'), vP = get(WPC.vis, 'streets'), bP = get(WPC.bld, 'buildings');
@@ -5226,6 +5225,145 @@ async function wpCityLoad() {
     catch (e) { console.warn('[wpcity] detile', e); WPC.failed.push('detile'); }
     WPC.roots.length = 0; solidSides();
   });
+}
+
+// ---- r127: HIS WEIRDPORT PROPS IN THE MAIN WORLD (`WPP`) ----------------------------------------------------------------
+// Step two of four. `models/wpprops/wp_props.glb` is cut out of his city file by `npm run wpprops` -- one node per prop kind
+// (32 of them: trees, palms, bushes, weeds, lamps, benches, planters, crates, dumpsters, bins, bags, cans, cups, rubble), his
+// draco meshes and KTX2 textures byte for byte, his median scale for each kind in its extras. It loads BEFORE the park builds,
+// so the six slice builders that have a painted twin (`slLamp`, `slTree`, `slPalm`, `slBush`, `slBench`, `slCrate`) can draw
+// his instead -- muted, so colliders and the slice's random sequence do not move. Then `wppClutter` lays his weeds, litter
+// and leaves along the foot of every wall in the world, the "fully debris and clutter" half, with no colliders at all.
+// Everything is merged per material per `cell` metres (one draw per material per cell, culled like the slice).
+const WPP = { file: 'models/wpprops/wp_props.glb', swap: 1, lib: null, failed: 0, put: [], meshes: [], n: 0, tris: 0, wait: 12,
+  cell: 128, cellMin: 6000, bushK: 0.55, lampS: 0.75, lampHead: [5.45, 1.7], benchYaw: 0, H: {},
+  clutter: { on: 1, max: 440, step: 1.7, p: 0.42, minH: 2.2, n: 0,
+    kinds: [['plant_weed_small', 3], ['plant_weed_leafy', 3], ['plant_weed_tall_a', 2], ['plant_weed_tall_b', 2], ['plant_weed_spiky', 2],
+      ['plant_dandelion', 2], ['plant_clover_patch', 1.5], ['plant_dirt_clumps', 1.5], ['plant_dry_leaves', 1.5], ['plant_ground_cover', 1],
+      ['plant_dry_pile', 0.5], ['debris_soda_can', 1.5], ['debris_cup', 1], ['debris_trash_bag', 0.7], ['debris_bag_pile', 0.35],
+      ['debris_rubble', 0.6], ['prop_cardboard_box', 0.6]] },
+  nocast: /^(plant_|debris_|prop_cardboard)/ };
+function wppAt(f, x, y, z, yaw, s) {
+  if (SLX) { const q = slXp(x, z); x = q[0]; z = q[1]; yaw += SLX.a; }
+  WPP.put.push({ f, x, y, z, yaw, s });
+}
+// the KTX2 transcoder, once, for whichever world needs it (weirdport's own, `vendor/basis/`)
+let _ktx = null;
+function ktxOn() {
+  return _ktx || (_ktx = import('./vendor/KTX2Loader.js').then(({ KTX2Loader }) => {
+    loader.setKTX2Loader(new KTX2Loader().setTranscoderPath('./vendor/basis/').detectSupport(renderer)); return 1; }));
+}
+// A STALLED FETCH NEVER REJECTS, so the boot waits `WPP.wait` seconds for the library and then builds without it (the plain
+// procedural props) rather than holding the card for ever -- Shredworld's c190, one game over.
+async function wppLoad() {
+  try {
+    await ktxOn();
+    const g = await Promise.race([loadGLB(WPP.file), new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), WPP.wait * 1000))]);
+    const lib = {}; g.scene.updateMatrixWorld(true);
+    for (const node of g.scene.children) {
+      const u = node.userData || {}, f = u.fam || node.name.replace(/^wp_/, ''), parts = [];
+      node.traverse(o => { if (o.isMesh && o.geometry) parts.push({ geo: o.geometry, mat: o.material }); });
+      if (!parts.length) continue;
+      let lo = Infinity, hi = -Infinity; for (const P of parts) { P.geo.computeBoundingBox(); lo = Math.min(lo, P.geo.boundingBox.min.y); hi = Math.max(hi, P.geo.boundingBox.max.y); }
+      lib[f] = { parts, s: u.sMed || 1, h: hi - lo }; WPP.H[f] = (hi - lo) * (u.sMed || 1);
+    }
+    const seen = new Set();
+    for (const L of Object.values(lib)) for (const P of L.parts) { const m = P.mat; if (seen.has(m)) continue; seen.add(m);
+      wpTint(m); if (m.map) m.map.anisotropy = Math.min(8, renderer.capabilities && renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1);
+      if (m.transparent && m.map) { m.transparent = false; m.alphaTest = 0.5; } }    // a leaf card is a cutout, not a sorted blend
+    WPP.lib = lib;
+    console.log('[wpp] ' + Object.keys(lib).length + ' prop kinds');
+  } catch (e) { WPP.failed = 1; console.warn('[wpp] the prop library did not arrive -- the procedural props stand', e);
+    // a harness can hand in a stand-in library (`npm run sim wpp`): headless there is no KTX2 and no draco worker
+    if (typeof window !== 'undefined' && window.__wppFake) { WPP.lib = window.__wppFake(THREE); for (const f in WPP.lib) WPP.H[f] = WPP.lib[f].h * WPP.lib[f].s; WPP.failed = 0; } }
+}
+// HIS WEEDS AND LITTER ALONG THE FOOT OF EVERY WALL. Every box taller than `minH` that stands ON the floor beside it is a wall;
+// its four faces are walked every `step` metres, and a point is kept when the floor right outside is flat, at the box's own
+// foot, out of the water and not inside anything else. Which points, and what goes on each, come from a hash of the point --
+// the same city every load, and not one draw from the slice's sequence. The best `max` by hash win, so the cap thins the
+// whole world evenly rather than filling the first districts built.
+function wppClutter() {
+  const C = WPP.clutter; if (!C.on) return 0;
+  const tot = C.kinds.reduce((a, k) => a + (WPP.lib[k[0]] ? k[1] : 0), 0); if (!tot) return 0;
+  const pick = h => { let a = h * tot; for (const [f, w] of C.kinds) { if (!WPP.lib[f]) continue; if ((a -= w) <= 0) return f; } return C.kinds[0][0]; };
+  const cand = [];
+  for (const B of SOLID.all) {
+    if (!B.live || B.y1 - B.y0 < C.minH || Math.min(B.hx, B.hz) < 0.6) continue;
+    for (const [ax, sg] of [[0, 1], [0, -1], [1, 1], [1, -1]]) {
+      const L = ax ? B.hx : B.hz, n = Math.max(1, Math.floor(2 * L / C.step));
+      for (let i = 0; i < n; i++) {
+        const t = -L + (i + 0.5) * 2 * L / n, out = 0.2 + 0.0;
+        const lx = ax ? t : sg * (B.hx + out), lz = ax ? sg * (B.hz + out) : t;
+        const x = B.cx + lx * B.c + lz * B.s, z = B.cz - lx * B.s + lz * B.c, h = wppH(x, z, 11);
+        if (h > C.p) continue;
+        const g = groundAt(x, z, B.y0 + 0.5, 0.6); if (!g.hit || Math.abs(g.floor - B.y0) > 0.15 || g.ny < 0.97) continue;
+        const y = g.floor;
+        if (solidAt(x, y + 0.3, z, 0.05)) continue;
+        if (ORB.water.some(W => x > W.x0 && x < W.x1 && z > W.z0 && z < W.z1 && y < W.y + 0.3)) continue;
+        const nx = (ax ? 0 : sg) * B.c + (ax ? sg : 0) * B.s, nz = -(ax ? 0 : sg) * B.s + (ax ? sg : 0) * B.c;
+        cand.push({ x, y, z, h, nx, nz, tx: B.c * (ax ? 1 : 0) + B.s * (ax ? 0 : 1), tz: -B.s * (ax ? 1 : 0) + B.c * (ax ? 0 : 1) });
+      }
+    }
+  }
+  cand.sort((a, b) => a.h - b.h);
+  let n = 0;
+  for (const P of cand.slice(0, C.max)) {
+    const m = 1 + Math.floor(wppH(P.x, P.z, 12) * 3);
+    for (let k = 0; k < m; k++) {
+      const a = wppH(P.x, P.z, 20 + k), b = wppH(P.x, P.z, 30 + k), f = pick(wppH(P.x, P.z, 40 + k)), L = WPP.lib[f];
+      const along = (a - 0.5) * 1.1, off = 0.05 + b * 0.45, x = P.x + P.tx * along + P.nx * off, z = P.z + P.tz * along + P.nz * off;
+      if (solidAt(x, P.y + 0.3, z, 0.02)) continue;
+      const g = groundAt(x, z, P.y + 0.4, 0.5); if (!g.hit || Math.abs(g.floor - P.y) > 0.12) continue;
+      WPP.put.push({ f, x, y: g.floor, z, yaw: wppH(P.x, P.z, 50 + k) * 6.28, s: L.s * (0.8 + wppH(P.x, P.z, 60 + k) * 0.45), clutter: 1 }); n++;
+    }
+  }
+  C.n = n; C.cand = cand.length;
+  return n;
+}
+// EVERY PLACEMENT, MERGED PER MATERIAL PER CELL. His meshes stay his: positions and normals through the placement's matrix,
+// uv and (for his tinted metal) the vertex colour as they are -- RGBA kept, the tint's grime lives in the alpha.
+function wppBuild() {
+  if (!WPP.lib) return;
+  wppClutter();
+  const B = new Map(), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), T = new THREE.Vector3();
+  for (const p of WPP.put) {
+    const L = WPP.lib[p.f]; if (!L) continue;
+    M.compose(T.set(p.x, p.y, p.z), Q.setFromAxisAngle(UP, p.yaw), S.setScalar(p.s));
+    const cell = Math.floor(p.x / WPP.cell) + ',' + Math.floor(p.z / WPP.cell), cast = !WPP.nocast.test(p.f);
+    for (const P of L.parts) { const k = P.mat.uuid + '|' + cell + '|' + (cast ? 1 : 0); let b = B.get(k); if (!b) B.set(k, b = { m: P.mat, cast, L: [], t: 0 }); b.L.push([P.geo, M.clone()]);
+      b.t += (P.geo.index ? P.geo.index.count : P.geo.attributes.position.count) / 3; }
+  }
+  // a cell with only a few of a material is not worth a draw of its own: those join one leftover mesh per material (the slice's rule)
+  for (const [k, b] of [...B]) { if (b.t >= WPP.cellMin) continue; B.delete(k);
+    const lk = b.m.uuid + '|rest|' + (b.cast ? 1 : 0); let r = B.get(lk); if (!r) B.set(lk, r = { m: b.m, cast: b.cast, L: [], t: 0, rest: 1 }); r.L.push(...b.L); r.t += b.t; }
+  const v = new THREE.Vector3(), nm = new THREE.Matrix3();
+  for (const b of B.values()) {
+    let nv = 0, ni = 0; const hasC = b.L.some(([g]) => g.attributes.color), cs = Math.max(3, ...b.L.map(([g]) => g.attributes.color ? g.attributes.color.itemSize : 3));
+    for (const [g] of b.L) { nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
+    const pos = new Float32Array(nv * 3), nrm = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), col = hasC ? new Float32Array(nv * cs) : null, idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+    let o = 0, oi = 0;
+    for (const [g, m] of b.L) {
+      nm.getNormalMatrix(m);
+      const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, Cc = g.attributes.color, I = g.index;
+      for (let i = 0; i < P.count; i++) {
+        v.fromBufferAttribute(P, i).applyMatrix4(m); pos[(o + i) * 3] = v.x; pos[(o + i) * 3 + 1] = v.y; pos[(o + i) * 3 + 2] = v.z;
+        if (N) { v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nrm[(o + i) * 3] = v.x; nrm[(o + i) * 3 + 1] = v.y; nrm[(o + i) * 3 + 2] = v.z; }
+        if (U) { uv[(o + i) * 2] = U.getX(i); uv[(o + i) * 2 + 1] = U.getY(i); }
+        if (col) { col[(o + i) * cs] = Cc ? Cc.getX(i) : 1; col[(o + i) * cs + 1] = Cc ? Cc.getY(i) : 1; col[(o + i) * cs + 2] = Cc ? Cc.getZ(i) : 1;
+          if (cs === 4) col[(o + i) * 4 + 3] = Cc && Cc.itemSize === 4 ? Cc.getW(i) : 1; }
+      }
+      if (I) for (let i = 0; i < I.count; i++) idx[oi + i] = I.getX(i) + o; else for (let i = 0; i < P.count; i++) idx[oi + i] = i + o;
+      o += P.count; oi += I ? I.count : P.count;
+    }
+    const G = new THREE.BufferGeometry();
+    G.setAttribute('position', new THREE.BufferAttribute(pos, 3)); G.setAttribute('normal', new THREE.BufferAttribute(nrm, 3)); G.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    if (col) G.setAttribute('color', new THREE.BufferAttribute(col, cs));
+    G.setIndex(new THREE.BufferAttribute(idx, 1)); G.computeBoundingSphere();
+    const me = new THREE.Mesh(G, b.m); me.castShadow = b.cast; me.receiveShadow = true; me.name = 'wpp:' + b.m.name;
+    scene.add(me); WPP.meshes.push(me); WPP.tris += ni / 3;
+  }
+  WPP.n = WPP.put.length;
+  console.log('[wpp] ' + WPP.n + ' props (' + WPP.clutter.n + ' clutter from ' + WPP.clutter.cand + ' wall spots), ' + WPP.meshes.length + ' meshes, ' + Math.round(WPP.tris / 1000) + 'k tris');
 }
 
 // ---- HYDRANTS ------------------------------------------------------------------------------------------
@@ -7540,7 +7678,7 @@ function slTri(k, a, b, c, o) {
   let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const nl = Math.hypot(nx, ny, nz); if (nl < 1e-12) return;
   nx /= nl; ny /= nl; nz /= nl;
   if (o.solid) triAdd(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
-  if (o.noDraw) return;
+  if (o.noDraw || SLMUTE) return;
   const B = slb(k), T = o.T || SLT_T[k] || 1, ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
   _slc.setHex(o.tint === undefined ? 0xffffff : o.tint).convertSRGBToLinear();
   const vs = [a, b, c];
@@ -7634,7 +7772,7 @@ function slDecal(k, key, c, r, u, w, h, nOff) {
   slQuad(k, P(-1, -1), P(1, -1), P(1, 1), P(-1, 1), n, { uv4: [[u0, v0], [u1, v0], [u1, v1], [u0, v1]] });
   return { c, w, h };
 }
-const slGlow = (x, y, z, s, col, a) => { if (SLX) [x, z] = slXp(x, z); SLC.glows.push({ x, y, z, s, col, a: a === undefined ? 0.85 : a }); };
+const slGlow = (x, y, z, s, col, a) => { if (SLMUTE) return; if (SLX) [x, z] = slXp(x, z); SLC.glows.push({ x, y, z, s, col, a: a === undefined ? 0.85 : a }); };
 // a tube along points, into a bucket (smooth)
 function slTube(k, pts, r, o) {
   const curve = new THREE.CatmullRomCurve3(pts.map(p => SLV(p[0], p[1], p[2])), false, 'centripetal', 0.1);
@@ -7644,7 +7782,52 @@ function slTube(k, pts, r, o) {
 }
 
 // ---- props ----------------------------------------------------------------------------------------------------
+
+// r127: HIS PAINTED PROPS STAND WHERE THESE DID. In the main world, once the weirdport library has arrived, each of these runs
+// MUTED -- so every collider it adds and every random number it draws are exactly what they were, and nothing else in the
+// world moves -- and his prop is placed on the same spot instead (`wppAt`). With no library they draw as they always have.
+const wppHere = () => !!(WPP.lib && WPP.swap && !SLMUTE);
+const wppH = (x, z, k) => slHash(Math.round(x * 10) | 0, Math.round(z * 10) | 0, k);
+function wppMuted(run) { SLMUTE++; try { run(); } finally { SLMUTE--; } }
 function slLamp(x, y, z) {
+  if (!wppHere()) return slLamp0(x, y, z);
+  wppMuted(() => slLamp0(x, y, z));
+  const yaw = Math.floor(wppH(x, z, 1) * 4) * Math.PI / 2, s = WPP.lampS, L = WPP.lampHead;
+  wppAt('brk_lightpost_intact', x, y, z, yaw, s);
+  slGlow(x + Math.sin(yaw) * L[1] * s, y + L[0] * s, z + Math.cos(yaw) * L[1] * s, 2.6, 0xffc777, 0.75);
+}
+function slCrate(x, y, z, s, ry) {
+  if (!wppHere()) return slCrate0(x, y, z, s, ry);
+  wppMuted(() => slCrate0(x, y, z, s, ry));
+  wppAt('prop_crate', x, y, z, ry || 0, s / 0.165);
+}
+function slBush(x, y, z, s) {
+  if (!wppHere()) return slBush0(x, y, z, s);
+  wppMuted(() => slBush0(x, y, z, s));
+  // a planter of cards was a dozen triangles a bush and his round bush is four hundred, so only `bushK` of them stand, a size
+  // up, and some are his leafy weeds instead -- the bed still reads full at a third of the cost
+  const h = wppH(x, z, 2); if (h > WPP.bushK) return;
+  const f = h < WPP.bushK * 0.5 ? 'plant_bush_round' : h < WPP.bushK * 0.8 ? 'plant_weed_leafy' : 'plant_weed_tall_a';
+  wppAt(f, x, y - 0.03, z, wppH(x, z, 7) * 6.28, clamp(s * (f === 'plant_bush_round' ? 2.0 : 2.8), 0.5, 2.6));
+}
+function slTree(x, y, z, h) {
+  if (!wppHere()) return slTree0(x, y, z, h);
+  wppMuted(() => slTree0(x, y, z, h));
+  const k = wppH(x, z, 3), f = k < 0.55 ? 'prop_tree_round_tree' : k < 0.85 ? 'prop_tree_pink_blossom' : 'prop_tree_banana_plant';
+  wppAt(f, x, y, z, wppH(x, z, 4) * 6.28, clamp(h * 1.15 / WPP.H[f], 0.45, 1.6));
+}
+function slBench(x, y, z, ry) {
+  if (!wppHere()) return slBench0(x, y, z, ry);
+  wppMuted(() => slBench0(x, y, z, ry));
+  wppAt('brk_bench_intact', x, y, z, (ry || 0) + WPP.benchYaw, 1.1);
+}
+function slPalm(x, y, z, h, tint, lean) {
+  if (!wppHere()) return slPalm0(x, y, z, h, tint, lean);
+  wppMuted(() => slPalm0(x, y, z, h, tint, lean));
+  const k = wppH(x, z, 5), f = k < 0.4 ? 'prop_tree_palm_mid' : k < 0.75 ? 'prop_tree_palm_small' : 'prop_tree_palm_bushy';
+  wppAt(f, x, y, z, wppH(x, z, 6) * 6.28, clamp((h + 1.2) / WPP.H[f], 0.5, 1.7));
+}
+function slLamp0(x, y, z) {
   const prof = [[0.26, 0], [0.26, 0.08], [0.18, 0.12], [0.16, 0.5], [0.12, 0.58], [0.075, 0.7], [0.07, 3.0], [0.11, 3.08], [0.11, 3.16], [0, 3.16]].map(([a, b]) => new THREE.Vector2(a, b));
   slGeo('metal', new THREE.LatheGeometry(prof, 12), slMat(x, y, z), { smooth: true });
   // the lantern: a cage, four lit panes, a cap and a finial
@@ -7661,7 +7844,7 @@ function slBollard(x, y, z) {
   const prof = [[0.18, 0], [0.18, 0.05], [0.13, 0.1], [0.12, 0.55], [0.16, 0.62], [0.16, 0.7], [0.1, 0.78], [0, 0.82]].map(([a, b]) => new THREE.Vector2(a, b));
   slGeo('metal', new THREE.LatheGeometry(prof, 10), slMat(x, y, z), { smooth: true });
 }
-function slCrate(x, y, z, s, ry) {
+function slCrate0(x, y, z, s, ry) {
   const m = slMat(x, y + s / 2, z, ry, s, s, s);
   slGeo('wood', new THREE.BoxGeometry(1, 1, 1), m, { base: y });
   for (const e of [-0.5, 0.5]) { slGeo('wood', new THREE.BoxGeometry(1.04, 0.12, 0.12).translate(0, e * 0.88, 0.47), m); slGeo('wood', new THREE.BoxGeometry(1.04, 0.12, 0.12).translate(0, e * 0.88, -0.47), m);
@@ -7690,13 +7873,13 @@ function slPlanter(x, y, z, w, d, hgt) {
   solidAdd(x, z, w / 2, d / 2, y, y + hgt, 0, { top: true, tag: 'slice prop' });
 }
 // a bush: three crossed cards of the clump texture
-function slBush(x, y, z, s) {
+function slBush0(x, y, z, s) {
   const tint = slpick([0xffffff, 0xe8ffe0, 0xd8f0c8, 0xf0ffe8]);
   for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI + slr() * 0.4, rx = Math.cos(a) * s, rz = Math.sin(a) * s;
     slQuad('bush', [x - rx, y - 0.05, z - rz], [x + rx, y - 0.05, z + rz], [x + rx, y + s * 1.6, z + rz], [x - rx, y + s * 1.6, z - rz], null, { uv4: [[0, 0], [1, 0], [1, 1], [0, 1]], tint }); }
 }
 // a little tree in a planter: a lathed trunk and a crown of crossed leaf cards
-function slTree(x, y, z, h) {
+function slTree0(x, y, z, h) {
   const prof = [[0.2, 0], [0.13, 0.3], [0.1, h * 0.6], [0.06, h * 0.8], [0, h * 0.82]].map(([a, b]) => new THREE.Vector2(a, b));
   slGeo('wood', new THREE.LatheGeometry(prof, 8), slMat(x, y, z), { smooth: true, tint: 0x8a6a52 });
   for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28 + slr(), r = k ? 0.7 + slr() * 0.4 : 0, s = 1.0 + slr() * 0.5;
@@ -7719,7 +7902,7 @@ function slIvy(xa, za, xb, zb, y, nx, nz, dens, lmin, lmax) {
     const rx = (zb - za) / L * w / 2, rz = -(xb - xa) / L * w / 2, v = len / 2.2, tint = slpick([0xffffff, 0xdcf5d0, 0xf2ffe6, 0xc8e8b8]);
     slQuad('vine', [x - rx, y - len, z - rz], [x + rx, y - len, z + rz], [x + rx, y + 0.15, z + rz], [x - rx, y + 0.15, z - rz], [nx, 0, nz], { uv4: [[0, 0], [1, 0], [1, v], [0, v]], tint }); }
 }
-function slBench(x, y, z, ry) {
+function slBench0(x, y, z, ry) {
   const m = slMat(x, y, z, ry);
   for (const s of [-0.75, 0.75]) slGeo('metal', new THREE.BoxGeometry(0.08, 0.45, 0.5).translate(s, 0.22, 0), m);
   for (let i = 0; i < 3; i++) slGeo('wood', new THREE.BoxGeometry(1.8, 0.05, 0.13).translate(0, 0.47, -0.17 + i * 0.17), m);
@@ -7942,7 +8125,7 @@ function slShroom(x, y, z, h, col) {
   slGlow(x, y + h * 0.75, z, r * 3.2, col, 0.4);
 }
 // a palm: a curved trunk and a crown of drooping fronds (crossed leaf cards in the frond texture, tinted)
-function slPalm(x, y, z, h, tint, lean) {
+function slPalm0(x, y, z, h, tint, lean) {
   const la = slr() * 6.28, lx = Math.cos(la) * (lean || 0.6), lz = Math.sin(la) * (lean || 0.6), pts = [];
   for (let k = 0; k <= 6; k++) { const t = k / 6; pts.push([x + lx * t * t, y + h * t, z + lz * t * t]); }
   slTube('wood', pts, 0.15, { tint: 0x9a7a62 });
@@ -14593,7 +14776,7 @@ function hud(dt) {
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
-      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
+      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (!WORLD.zones && WPP.failed ? ' · NO WP PROPS' : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
       (HYD.failed ? ' · NO HYDRANT GLB' : '') + (performance.now() - (CITY.goAt || -1e9) < 3000 ? ' · → ' + CITY.goMsg : '') + (player.grind && player.grind.rail && player.grind.rail.path.name !== 'park' ? ' ' + player.grind.rail.path.name : '');
     if (gemsB) { gemsB.textContent = GEM.got; gemsN.textContent = GEM.list.length; } }
 }
@@ -15038,8 +15221,10 @@ tailLoad();
 // not need to be playable. The CITY and the GIRL are the two there is no game without.
 async function init() {
   setBoot(WORLD.zones === 4 ? 'loading weirdport city' : WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : WORLD.zones === 3 ? 'building sk8 sky' : 'building the park', 0.05);
+  if (!WORLD.zones) { setBoot('loading weirdport props', 0.04); await wppLoad(); }      // r127: before the park builds, so its props can be his
   if (WORLD.zones === 2 || (!WORLD.zones && PARKD.on)) await schematicLoad();      // r73: the park his schematic describes, built with the kit (r90: and the main world's park district)
   buildPark();
+  if (!WORLD.zones) { try { wppBuild(); } catch (e) { console.warn('[wpp] build', e); WPP.failed = 2; } }
   // r64: HIS ZONES' COLLIDERS ARE STARTED NOW AND WAITED FOR BEFORE SHE DROPS IN -- there is no floor without them
   const zonesCol = WORLD.zones === 1 ? levelImports(LEVEL.zones) : WORLD.zones === 4 ? wpCityLoad() : null;
   if (WORLD.zones === 4) { SPAWN.set(WPC.spawn[0], WPC.spawn[1], WPC.spawn[2]); SPAWN.h = WPC.spawn[3]; CITY.spots['weirdport street'] = WPC.spawn.slice(); if (!LEVEL.go.includes('weirdport street')) LEVEL.go.unshift('weirdport street'); }
@@ -15079,7 +15264,7 @@ window.rg = { SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtm
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  WORLD, WPC, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
+  WORLD, WPC, WPP, wppLoad, wppBuild, wppClutter, wppAt, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
   STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   HRING, hubRing, vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
