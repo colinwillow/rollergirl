@@ -161,3 +161,23 @@ meet is a hip.
   Pyramid's north-east face onto its top deck. Hands off, you carry straight on round the sky rail.
 
 The sky rail now comes down to the field: sky rail → obelisk → pyramid top → face or hip → field.
+
+---
+
+## r106 — THE LAUNCH (the open south-west field, south of the Heights, under the sky rail)
+
+**➤ stops:** `the launch` (the street by the lift), `launch deck`, `launch gap`
+**Sim:** `node tools/sim.mjs launch` (8 rows)
+
+A tower with a **36 m deck**, a needle mast out of its middle with a beacon on top.
+
+- **The sky rail comes down onto it.** Grinding the sky rail past the tower, push the stick out toward it and a branch
+  spirals almost twice round the needle and the last half turn closes in, finishing **heading west over the deck** —
+  pointed straight at the drop.
+- **A cargo lift** up the north side from the street to the deck.
+- **THE DROP**: off the deck's west edge, a walled 27° bank all the way to the field, with a down rail on each wall.
+  36 m of fall, **32 m/s at the bottom**, straight into a big kicker, a **30 m gap** and a 7 m landing ramp. Hands
+  off, you come down on the ramp 35 m from the lip. Coming in off the sky rail you're faster still and the world's edge
+  bank catches you like a quarter pipe.
+
+The full line: sky rail → round the needle → deck → the drop → the gap — tested end to end.

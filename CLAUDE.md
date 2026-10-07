@@ -94,6 +94,16 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE LAUNCH (r106, `LCH`, `buildLaunch`, `launchRails`, `skrBranch`, `npm run sim launch`).** SW field, x -292..-126.
+  A 36 m deck on a shaft, a needle mast, a cargo lift (DYN rect), a walled 27 deg drop bank west off the deck, a kicker, a
+  30 m gap, an XXL landing. **`skrBranch(O, o)` is r105's obelisk spiral made a helper**: `tg` ends on the tangent toward a
+  point, `end` (an angle round O) ends with an INWARD turn so it can finish over a deck the circle goes round.
+  - **AN INWARD SPIRAL ENDS HEADING INWARD unless its radius is eased** -- a quarter turn from R 18 to 3 finished 68 deg
+    off round, a half turn still 45; `r = rEnd + (R - rEnd)(1 - t)^2` stops closing in as it arrives and ends due west.
+  - **A JUMP IS TUNED TO THE SPEED THAT ARRIVES, MEASURED.** 32.5 m/s at the drop's foot flew 43 m off the kicker -- clean
+    over a 16 m gap and a 15 m landing onto the flat. The landing moved to where she comes down (35 m out hands off).
+  - **`steer` CAME OFF ITS SPOT AGAIN** -- every district since r100 has landed on it. Its rows now take a start and a frame
+    rotation picked off a ray probe of clear corridors, and read travel relative to the rotation.
 - **THE PYRAMIDS AND THE OBELISK DROP (r105, `PYR`, `buildPyramids`, `pyramidRails`, `npm run sim pyramids`).** NE field.
   Faces are four `slQuad`s (`solid: true`) per pyramid, the top a deck; hip rails 0.45 m proud of each hip.
   - **A HIP'S CREASE IS A FOUND LEDGE RIGHT UNDER ITS RAIL**, and the swipe prefers a rail only when it is a metre nearer

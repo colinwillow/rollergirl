@@ -1915,9 +1915,12 @@ CASES.city = async () => {
 // the loop between the two: a harness without `stepCam` cannot see it at all.
 CASES.steer = () => {
   let ok = true; const D = 180 / Math.PI;
-  const go = (phases, latch) => {
+  // r106: each row has its own start and a frame turned by A, picked off a measured clear corridor (`npm run sim` + a ray
+  // probe) -- every district built since r100 has landed on the last spot. The whole test turns with A, so `travel` is
+  // read relative to it.
+  const go = (phases, latch, at = [-288, -72], A = Math.PI / 4) => {
     const keep = rg.CAM.steerLatch; rg.CAM.steerLatch = latch;
-    place(-200, 0, -285, 0, 10); rg.cam.az = rg.cam.steerAz = 0; rg.cam.idle = 9; rg.cam.thA = null; rg.stick.L.down = 1;      // r103: open ground south of the Heights -- the old spots are under THE STACK and THE WORKS now; this rides ~75 m each way
+    place(at[0], 0, at[1], A, 10); rg.cam.az = rg.cam.steerAz = A; rg.cam.idle = 9; rg.cam.thA = null; rg.stick.L.down = 1;
     let turned = 0, last = P.heading, aim = 0;
     for (const [dur, fx] of phases) { const n = Math.round(dur / DT);
       for (let i = 0; i < n; i++) { const [x, y] = fx(i / n); rg.stick.L.x = x; rg.stick.L.y = y;
@@ -1925,7 +1928,7 @@ CASES.steer = () => {
         const s = rg.stickWorld(); aim = Math.atan2(s.x, s.z); } }
     if (process.env.STP) console.log('    ends at', fix(P.pos.x, 1), fix(P.pos.z, 1), 'from', JSON.stringify(phases.map(q => q[0])));
     rg.stick.L.down = 0; rg.stick.L.x = rg.stick.L.y = 0; rg.CAM.steerLatch = keep;
-    return { turned: turned * D, off: Math.abs(rg.wrapAngle(Math.atan2(P.vel.x, P.vel.z) - aim)) * D, travel: Math.atan2(P.vel.x, P.vel.z) * D };
+    return { turned: turned * D, off: Math.abs(rg.wrapAngle(Math.atan2(P.vel.x, P.vel.z) - aim)) * D, travel: rg.wrapAngle(Math.atan2(P.vel.x, P.vel.z) - A) * D };
   };
   // r84: on the r83 push -- this measures the steering FRAME, and at the new acceleration the 2 s run reaches the obstacles
   // past this spot at 18 m/s and the row measures the crash instead
@@ -1935,7 +1938,7 @@ CASES.steer = () => {
   console.log(`  held up-left diagonal, 5 s:      turned ${fix(a.turned, 0)} deg, travel ${fix(a.travel, 0)} (asked 45)   [old frame: turned ${fix(b.turned, 0)} deg]`);
   if (!(a.turned < 70 && Math.abs(a.travel - 45) < 5 && b.turned > 200)) ok = false;
   const swing = [[2, () => [1, 0]], [0.25, u => [Math.cos(u * Math.PI), -Math.sin(u * Math.PI)]], [3, () => [-1, 0]]];
-  const c = go(swing, 1);
+  const c = go(swing, 1, [-210, -72], 0);
   console.log(`  right 2 s, swung over to left:   ends ${fix(c.off, 1)} deg off where the thumb points, travel ${fix(c.travel, 0)}`);
   if (!(c.off < 5)) ok = false;
   Object.assign(rg.SK, keepK);
@@ -4386,6 +4389,51 @@ CASES.links = () => {
 // r104: THE DRAIN -- in off the street through the mouth and along the channel under the tunnel roof, dropped in off the
 // plateau, the half pipe pumped, up the bank onto the plateau, down the branch into its half bowl, and the tunnel's roof a
 // ceiling (a vert air under it does not come out through the top).
+CASES.launch = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const L = rg.LCH; if (!L.built || !L.spiralRail) { console.log('  the launch was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), S = rg.SKR;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; rg.GRIND.intent = 0; };
+  const away = () => { const Tr = rg.HT.trains.filter(tr => tr.path === S.path); Tr.forEach((tr, i) => tr.s = S.path.len * (0.15 + 0.5 * i)); };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, top: -99, vmax: 0 }; let kq = 0, done = 0; run(sec, (t, i) => { if (done) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (process.env.LT && kq++ % 12 === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', P.grind ? 'GR ' + P.grind.rail.path.name : '', fix(P.speed, 1));
+      if (P.bailT > 0) r.bail = 1; r.top = Math.max(r.top, P.pos.y); r.vmax = Math.max(r.vmax, P.speed);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); if (stop && stop()) done = 1; }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const onDeck = p => Math.abs(p.x - L.x) < L.half - 0.2 && Math.abs(p.z - L.z) < L.half - 0.2 && Math.abs(p.y - L.top) < 0.15;
+  const j = L.spiralRail.segs[0].jx, drops = rg.PATHS.filter(q => q.name === 'launch drop rail');
+  say(`deck at ${L.top} m, the drop ${fix(L.Lt, 0)} m, gap ${L.gap} m, spiral ${fix(L.sweep / 2 / Math.PI, 2)} turns`, drops.length === 2 && j && j.a.some(q => q.at === 'm'), j && j.a.some(q => q.at === 'm') ? 'branches off the sky rail' : 'NOT JOINED TO THE SKY RAIL');
+  { const bad = []; for (const n of L.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Launch ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${L.stops.length} stops`); }
+  // the lift: on at the bottom, up, off south onto the deck
+  { reset(); const D = L.liftP, Pd = D.fn(0); rg.HT.t = Math.ceil(rg.HT.t / 26 + 1) * 26 + 1; city(); place(D.x, 0.6, D.z, Math.PI, 0); let up = 0, deck = null;
+    const r = ride(24, () => { if (D.y > L.top - 0.1) up = 1; rg.cam.az = Math.PI; rg.stick.L.x = 0; rg.stick.L.y = up ? -0.7 : 0; if (P.grounded && onDeck(P.pos) && !deck) deck = P.pos.clone(); }, () => deck);
+    void Pd; say('the lift up the north side, off onto the deck', up && deck && r.clean, `${up ? 'up' : 'NEVER UP'}, ${deck ? 'on the deck at ' + at(deck) : 'not on the deck -- ends ' + at(P.pos)}${cl(r)}`); }
+  // THE DROP: off the deck, down the bank, the kicker, over the gap onto the landing
+  { reset(); place(L.x - L.half + 1.5, L.top + 0.3, L.z, -Math.PI / 2, 3); let air = null, land = null, vt = 0;
+    const r = ride(12, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.x < L.toe + 1 && !vt) vt = P.speed; if (P.pos.x < L.lip && !P.grounded && !air) air = P.pos.clone(); if (air && P.grounded && !land) land = P.pos.clone(); }, () => land);
+    say('down the drop, off the kicker, over the gap onto the landing', air && land && land.x < L.landTop - 0.5 && r.clean, `${fix(vt, 1)} m/s at the foot, ${land ? 'down at ' + at(land) + ', ' + fix(L.lip - land.x, 1) + ' m from the lip' : 'never down -- ends ' + at(P.pos)}, top ${fix(r.top)}${cl(r)}`); }
+  // a drop wall's rail, from the top to the field
+  { reset(); const R = drops[0], a = R.segs[1].a; place(L.x - L.half - 0.5, L.top + 0.3, a.z + (a.z > L.z ? -1.4 : 1.4), -Math.PI / 2, 4); rg.GRIND.intent = 1; rg.ledgeClear(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, down = null; const r = ride(10, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && drops.includes(P.grind.rail.path)) on = 1; if (on && !P.grind && P.grounded && P.pos.y < 3.5 && !down) down = P.pos.clone(); }, () => down);
+    say('the swipe down onto a drop wall\'s rail: all the way down', on && down && r.clean, `${on ? 'on the rail' : 'NEVER ON IT'}, ${down ? 'down at ' + at(down) : 'never down -- ends ' + at(P.pos)}${cl(r)}`); }
+  // off the sky rail, round the needle onto the deck -- and on, down the drop and over the gap
+  const J = L.J, ri = (() => { let b = 0, bd = 1e9; S.path.segs.forEach((q, i) => { const d = Math.hypot(q.a.x - J.x, q.a.z - J.z); if (d < bd) { bd = d; b = i; } }); return b; })();
+  const sky = (stick) => { away(); reset(); const q = S.path.segs[(ri - 12 + S.path.segs.length) % S.path.segs.length], h = Math.atan2(q.b.x - q.a.x, q.b.z - q.a.z);
+    place(q.a.x, q.a.y + 0.4, q.a.z, h, 20); P.pos.set(q.a.x, q.a.y + 0.4, q.a.z); P.grounded = false; P.vel.y = -1;
+    let sp = 0, deck = null, land = null, past = 0;
+    const r = ride(30, () => { if (stick && P.grind) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - L.side * 75 * Math.PI / 180; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;
+      if (P.grind && P.grind.rail.path === L.spiralRail) sp = 1; if (P.grind && P.grind.rail.path === S.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) > 25 && !sp && P.pos.x < J.x) past = 1;
+      if (sp && P.grounded && onDeck(P.pos) && !deck) deck = P.pos.clone(); if (deck && P.pos.x < L.lip - 2 && P.grounded && !land) land = P.pos.clone(); }, () => land || past);
+    return { r, sp, deck, land, past }; };
+  { const o = sky(true);
+    say('off the sky rail, stick out: round the needle onto the deck', o.sp && o.deck && o.r.clean, `${o.sp ? 'on the spiral' : 'NEVER TOOK IT'}, ${o.deck ? 'on the deck at ' + at(o.deck) : 'never on the deck -- ends ' + at(P.pos)}${cl(o.r)}`);
+    say('... and straight on down the drop and over the gap', o.land && o.land.x < L.landTop - 0.5 && o.r.clean, o.land ? `down at ${at(o.land)}` : `ends ${at(P.pos)}`); }
+  { const o = sky(false); say('hands off, she carries straight on along the sky rail', !o.sp && o.past, o.sp ? 'TOOK THE SPIRAL' : o.past ? 'carried on' : `ends ${at(P.pos)}`); }
+  return ok;
+};
 CASES.pyramids = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
