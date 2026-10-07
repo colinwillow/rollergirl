@@ -343,3 +343,21 @@ Stack–Shores transit.
 whichever districts you're among, from the same table the ground tint uses: warm stone toward the Acropolis, rose over
 the Stack, gold out by the pyramids, steel by the Works. Out in a seam it's a mix. The rim lamp (the coloured edge on
 you) takes the local hue most strongly, which is the clearest cue that you've crossed into somewhere else.
+
+---
+
+## r114 — THE CANNONS
+
+**Sim:** `node tools/sim.mjs cannons` (5 rows)
+
+**Four launch pads out in the seams, each one throwing you across to a different district's deck.** Look for the green
+beacon on a pole beside each pad; they're on the ➤ key as `shores cannon`, `acro cannon`, `northway cannon` and
+`garage cannon`.
+
+- **Shores cannon** (hub's east strip, 106, 50): 150 m over the lagoon onto the Shores transit tower's ring deck at 24 m.
+- **Acro cannon** (west seam, -108, 60): 190 m onto the Acropolis sky agora at 28 m.
+- **Northway cannon** (north field, -60, 305): up onto the Northway at 27 m, where the lane picks you up.
+- **Garage cannon** (north-east field, 200, 278): into the bowl on the Garage roof at 35 m.
+
+Each throw is solved the moment you stand on the pad, against what's actually in the way, like every other launcher.
+**Landing catches you at 8 m/s**, so you arrive on a 7 m ring deck instead of shooting straight off the other side.

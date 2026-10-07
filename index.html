@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r113</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r114</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r113';
+const BUILD = 'r114';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3558,6 +3558,7 @@ function buildPark() {
   buildSlice();      // r52: the slice -- one street of the painting built to a look, west through the west gate
   buildNorthway();   // r112: the elevated highway across the north field, and its interchange
   buildStation();    // r110: the deck at 210 m over the mothership, and the corkscrew up to it off the sky rail
+  buildCannons();    // r114: launch pads in the seams that throw her onto other districts' decks
   buildTram();       // r109: the Crosstown tram round the hub's south side, and its express lanes
   buildBlend();      // r108: the seams between districts dressed by their mixed cultures, and skate spots in them
   triBuild();
@@ -3611,7 +3612,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -6310,6 +6311,8 @@ function putBack(msg, col) {
 function stepOrbital(dt) {
   // r85: A LIFT'S SECOND HALF -- at the top of the climb, across onto its target in the time it takes to fall to it
   { const p = player, L = p.lift;
+    if (p.thrown && (p.grounded || p.grind)) { const T = p.thrown, h = Math.hypot(p.vel.x, p.vel.z);   // a cannon's landing is caught: rolling on at
+      if (T.landV && p.grounded && h > T.landV) { p.vel.x *= T.landV / h; p.vel.z *= T.landV / h; } p.thrown = null; }   // 40 m/s she leaves a 7 m deck
     if (L && (p.grounded || p.grind)) p.lift = null;
     else if (L && p.vel.y <= 0) { const t = Math.sqrt(2 * Math.max(0.5, p.pos.y - L.ty) / SK.g);
       p.vel.x = (L.tx - p.pos.x) / t; p.vel.z = (L.tz - p.pos.z) / t; p.lift = null; } }
@@ -6355,7 +6358,7 @@ function stepOrbital(dt) {
     if (L.cool > 0 || p.grind || !p.grounded || Math.hypot(p.pos.x - L.x, p.pos.z - L.z) > L.r || Math.abs(p.pos.y - L.y) > 0.6) continue;
     const { vy, T, lift } = launchSolve(L, p.pos);
     leaveGround(0, false); p.vel.set(lift ? 0 : (L.tx - p.pos.x) / T, vy, lift ? 0 : (L.tz - p.pos.z) / T);
-    p.lift = lift ? L : null;
+    p.lift = lift ? L : null; p.thrown = lift ? null : L;   // r114: a throw is not held to `SK.max` (a cannon crosses 190 m)
     p.vertLock = 0; p.xferKick = null; p.autoTurn = null; L.cool = 1; sparkBurst(16);
     p.drift = AIR.driftMax;   // the launch IS the flight: holding forward must not carry her past what it aimed at
   }
@@ -9515,6 +9518,31 @@ function buildNorthway() {
   N.stops = ['northway', 'interchange'];
   N.built = 1;
 }
+// ===== r114: THE CANNONS -- *"big fucking jumps ... connective tissue."* Launch pads out in the seams that throw her across to
+// ANOTHER district's deck: the hub's east strip to the Shores transit deck (150 m, over the lagoon), the west seam to the
+// Acropolis sky agora (190 m), the north field up onto the Northway, the north-east field onto the Garage roof. The pad is
+// the existing launcher (`ORB.launch`, `shPad`): the arc is solved at the moment she stands on it against the live collider,
+// raised until clear, and a lift if no arc is. Built before the seam dressing, so it keeps clear of them.
+const CANNON = { on: 1, built: 0, stops: [], landV: 8, list: [
+  { name: 'shores cannon', x: 106, z: 50, to: 'transit deck', t: [211.6, 121], apex: 10 },
+  { name: 'acro cannon', x: -108, z: 60, to: 'acro sky', apex: 12 },
+  { name: 'northway cannon', x: -60, z: 305, to: 'northway', apex: 4 },
+  { name: 'garage cannon', x: 200, z: 278, to: 'garage roof', t: [251, 198.5], apex: 8 }], made: [] };
+function buildCannons() {
+  if (!CANNON.on || WORLD.zones || !PARKD.on) return;
+  triBuild(); solidBuild();
+  for (const C of CANNON.list) { const S0 = CITY.spots[C.to]; if (!S0) continue; const T = C.t ? [C.t[0], S0[1], C.t[1]] : S0;   // `t`: a nearer point on that deck
+    const g = groundAt(T[0], T[2], T[1] + 1, 0.5), ty = (g.hit ? g.floor : T[1]) + 0.6;
+    shPad(C.x, C.z, 0, T[0], ty, T[2], C.apex); const L = ORB.launch[ORB.launch.length - 1]; L.name = C.name; L.r = 1.7; L.landV = CANNON.landV;
+    // a tall beacon beside it, so a pad in an open field can be found from a distance
+    slGeo('metal', new THREE.CylinderGeometry(0.12, 0.18, 6, 8), slMat(C.x + 2.6, 3, C.z), { smooth: true, tint: 0xd8d2e6 });
+    slGeo('neon', new THREE.SphereGeometry(0.5, 12, 8), slMat(C.x + 2.6, 6.3, C.z), { smooth: true, tint: 0x8dff3a }); slGlow(C.x + 2.6, 6.3, C.z, 5, 0x8dff3a, 0.7);
+    solidAdd(C.x + 2.6, C.z, 0.18, 0.18, 0, 6, 0, { top: false, tag: 'cannon beacon' });
+    const h = Math.atan2(C.x - T[0], C.z - T[2]);     // the stop: 5 m back from the pad, facing it (and so facing where it throws)
+    CITY.spots[C.name] = [C.x + 5 * Math.sin(h), 0, C.z + 5 * Math.cos(h), h + Math.PI];
+    CANNON.made.push({ ...C, L, tx: T[0], ty, tz: T[2] }); CANNON.stops.push(C.name); }
+  CANNON.built = CANNON.made.length ? 1 : 0;
+}
 // ===== r106: THE LAUNCH -- *"big fucking jumps ... the sky rail ... everything so integrated."* The open south-west field
 // under the sky rail, south of the Heights. A tower with a deck at 36 m; the sky rail spirals down onto it (stick toward
 // it as you pass); a cargo lift up its north side from the street. Off the deck's west edge THE DROP: a walled 27 degree
@@ -12151,7 +12179,7 @@ function vertRelease(flick) {
 function respawn() {
   const p = player;
   SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0; p.spinAcc = 0; p.spinPrev = null; p.wasAir = false;
-  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null; p.dive = null; p.diveFx = 0; p.lift = null;
+  p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null; p.dive = null; p.diveFx = 0; p.lift = null; p.thrown = null;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
   p.lean = 0; p.stance = 1; p.flip = null; p.grind = null; p.grindCool = 0; groundQ(p.bq);
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y + 4, 8);
@@ -12620,7 +12648,7 @@ function stepAir(dt) {
   p.vel.y -= SK.g * dt;
   if (p.vel.y < -34) p.vel.y = -34;
   const h = Math.hypot(p.vel.x, p.vel.z);
-  if (h > SK.max) { p.vel.x *= SK.max / h; p.vel.z *= SK.max / h; }
+  if (h > SK.max && !p.thrown) { p.vel.x *= SK.max / h; p.vel.z *= SK.max / h; }
 
   const y0 = p.pos.y;
   _pp.copy(p.pos);
@@ -13943,7 +13971,7 @@ window.rg = { SK, AIR, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, A
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

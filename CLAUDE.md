@@ -94,6 +94,20 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE CANNONS: A THROW IS NOT HELD TO `SK.max`, AND IT IS CAUGHT ON LANDING (r114, `CANNON`, `buildCannons`, `p.thrown`,
+  `L.landV`, `npm run sim cannons`).** Four `ORB.launch` pads in the seams, each throwing her onto another district's deck
+  (Shores transit ring, Acropolis sky agora, the Northway, the Garage roof's bowl). Each has a beacon and a ➤ stop.
+  - **`stepAir` CAPS HORIZONTAL SPEED AT `SK.max` (42 m/s), AND `launchSolve` NEVER KNEW.** A 190 m throw needs about 60 m/s
+    across, so she was launched correctly and cut back to 42 on the first air frame: the Acropolis throw came down 25 m
+    short on the terrace with "clear +0". `p.thrown` (set at launch, cleared on touching anything) lifts the cap for that
+    flight only. The -34 m/s fall cap is still there, so keep a throw's apex under ~29 m above its target or the solved
+    arc stops being the flown arc.
+  - **A ➤ spot is the wrong place to aim at.** The transit deck's spot is on the ring's far side and the throw went under
+    the deck's near edge into the tower. `t: [x, z]` aims at a nearer point on the same deck; the Garage cannon aims into
+    the roof bowl, whose walls catch her.
+  - **Landing at 40 m/s on a 7 m ring deck is landing off the far side**, so a thrown landing is scaled to `L.landV` (8).
+    The sim coasts 3 s after touchdown and requires she is still up there.
+
 - **A WIRE CAN START ON ANOTHER RAIL, AND THE AIR TAKES THE DISTRICT'S COLOUR (r113, `WIRE.list[i][2] = { rail, at }`,
   `wireOnRail`, `ATMO`, `atmoMix`, `stepAtmo`, `npm run sim wires`, `npm run sim atmo`).**
   - **The peak - plunge 1 wire starts ON the sky rail** at its point nearest `at` (-9, -275): railLink makes a T (the wire's

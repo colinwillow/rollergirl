@@ -4430,6 +4430,24 @@ CASES.blend = () => {
     say('every seam spot rolls through: over the funbox, off the kicker', !bad.length, bad.join('; ') || `${B.spotList.length} spots, both lanes`); }
   return ok;
 };
+// r114: THE CANNONS -- every pad, rolled onto from its stop: thrown, and down on the other district's deck.
+CASES.cannons = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const C = rg.CANNON; if (!C.built) { console.log('  no cannons'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT);
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  say(`${C.made.length} cannons`, C.made.length === C.list.length, C.made.map(m => `${m.name} -> ${m.to}`).join('; '));
+  for (const m of C.made) { reset(); m.L.cool = 0; rg.goSpot(m.name); const sp = P.pos.clone(); place(sp.x, 0.3, sp.z, rg.CITY.spots[m.name][3], 3); P.pos.y = 0;
+    let up = 0, land = null, top = 0, bail = 0;
+    run(14, () => { if (land) return; rg.stick.L.x = rg.stick.L.y = 0; city(); if (!P.grounded) up = 1; top = Math.max(top, P.pos.y); if (P.bailT > 0) bail = 1;
+      if (up && P.grounded && !land) land = P.pos.clone(); });
+    let stay = null; if (land) { run(3, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); stay = P.pos.clone(); }
+    const there = land && Math.abs(land.y - (m.ty - 0.6)) < 0.35 && Math.hypot(land.x - m.tx, land.z - m.tz) < 10;
+    const kept = stay && stay.y > m.ty - 3;     // still up there (a lane may carry her along it, a bowl round it)
+    say(`${m.name}: thrown onto the ${m.to}, and stays on it`, there && !bail && kept, `${up ? 'thrown' : 'NEVER THROWN'} (${m.L.clear === 'lift' ? 'a lift' : m.L.clear === -1 ? 'NO CLEAR ARC' : '+' + m.L.clear + ' m'}), top ${fix(top, 1)}, ${land ? 'down at ' + at(land) : 'never down'}, 3 s later ${stay ? at(stay) : '-'}${bail ? ' BAIL' : ''}`); }
+  return ok;
+};
 // r113: THE AIR -- standing in a district for a while, the fog, the sky light and the rim lamp come round to its colour;
 // back at the hub they go back; with it off they are the plain sky's.
 CASES.atmo = () => {
