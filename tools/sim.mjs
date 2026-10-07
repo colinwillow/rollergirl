@@ -2336,7 +2336,7 @@ CASES.ctrl98 = async () => {
     run(0.7, () => { rg.stick.R.down = 1; rg.stick.R.x = 0; rg.stick.R.y = -1; if (!P.grounded && P.grab) grab = grab || P.grab.k; });
     say('...pressed in the air and held: the grab', !!grab, grab ? `grab ${grab}` : 'NONE');
     rg.stick.R.down = 0; rg.stick.R.x = rg.stick.R.y = 0; P.grab = null; }
-  rg.girl.moves = keep.m; rg.girl.ready = keep.r; P.stanceLock = keep.lock; clear(); rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = 0; rg.CTRL.rDown = 0;
+  rg.girl.moves = keep.m; rg.girl.ready = keep.r; P.stanceLock = keep.lock; clear(); rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = 0; rg.CTRL.rDown = 0; rg.LAND.flipBail = 0;
   return ok;
 };
 // r86: *"Flick or tap the right stick, she launches off the vert straight up regardless -- the flick gets you a boost. Only
@@ -5848,7 +5848,7 @@ for (const k of Object.keys(CASES)) {
     process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
-  try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
+  try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.LAND.flipBail = 0; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
   if (!ok) { fail++; console.log('  -> FAIL'); }
 }
 console.log(fail ? `\n${fail} case(s) failed` : '\nall cases pass');

@@ -12382,7 +12382,7 @@ function girlAnimMoves(dt) {
     if (girl.melSeen !== M) { girl.melSeen = M; rewind(M.nm); snap = true; const ac = girl.actions[M.nm]; if (ac) ac.time = W[0] * clipLen(M.nm, 1); }
     clipScale(M.nm, clipLen(M.nm, 1) * (W[1] - W[0]) / Math.max(0.2, M.dur));
     add(M.nm, 1);
-  } else if (p.grind && !p.grind.rail.path.surf && m.grind[p.grind.side]) {      // (r123: a loop is ridden, so it falls through to the skating)
+  } else if (p.grind && !(p.grind.rail && p.grind.rail.path.surf) && m.grind[p.grind.side]) {      // (r123: a loop is ridden, so it falls through to the skating)
     // ON A RAIL: the side she came at it from picks the clip. Snapped in, because a grind is a
     // landing, and played a little quicker the faster she is sliding.
     girl.bail = null;
