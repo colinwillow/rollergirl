@@ -94,6 +94,20 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE PYRAMIDS AND THE OBELISK DROP (r105, `PYR`, `buildPyramids`, `pyramidRails`, `npm run sim pyramids`).** NE field.
+  Faces are four `slQuad`s (`solid: true`) per pyramid, the top a deck; hip rails 0.45 m proud of each hip.
+  - **A HIP'S CREASE IS A FOUND LEDGE RIGHT UNDER ITS RAIL**, and the swipe prefers a rail only when it is a metre nearer
+    (`GRIND.ledgePen`). Stopped at the top corner and at the foot, the swipe took the crease (or the deck's edge) every time.
+    The rails run OUT past both ends of the hip -- 1.4 m in over the top deck and 1.6 m out over the field -- so where she
+    reaches one, the rail is what is nearest.
+  - **NOTHING ON A DIAGONAL.** Every hip rail ends flying her out along the pyramid's diagonal; the first dressing put a
+    brazier on each. Dressing stands along the base edges.
+  - **THE BRANCH OFF THE SKY RAIL IS SOLVED, NOT PLACED.** The obelisk stands `dn` off the rail; the spiral's radius is
+    `dn / cos(kick)`, so its circle crosses the rail at `kick` (35 deg) and the branch leaves there. It is taken at the
+    DOWNSTREAM crossing (turning toward the obelisk), or it would swing out over the far side and back across the rail just
+    under it. At 35 deg the stick has to be pushed well out to the side: `railPick` wants the branch to beat straight-on by
+    `brMargin`, and at 25 deg a stick 45 deg out scored a tie. The sim holds it 75 deg out.
+  - Probe positions read at the EVENT, not after the ride: `run()` keeps stepping her after a row's stop condition.
 - **THE DRAIN: A SEWER IS A KIT PIPE NETWORK SET INTO A PLATEAU AS TALL AS ITS WALLS (r104, `DRN`, `buildDrain`, `npm run sim
   drain`).** South of the Stack. The pieces run from the MOUTH on the plateau's east edge (west of it stands Nimbus, 7 m off
   the edge, so a west mouth had no run-up), heading west, so `right: 1` turns the tee and elbow SOUTH. Every centreline is

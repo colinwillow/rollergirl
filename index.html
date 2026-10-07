@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r104</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r105</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r104';
+const BUILD = 'r105';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3523,6 +3523,7 @@ function buildPark() {
   buildUfo();        // r102: the mothership, 120 m up
   buildWorks();      // r103: the warehouse on the west strip
   buildDrain();      // r104: the storm drain south of the Stack
+  buildPyramids();   // r105: the pyramids and the obelisk in the north-east field
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
@@ -3538,6 +3539,7 @@ function buildPark() {
   skyRailRails();    // r101: before acroRails builds the gem mesh
   ufoRails();        // r102
   worksRails();      // r103
+  pyramidRails();    // r105: after the sky rail, which the obelisk drop branches off
   acroRails();       // r92
   cityRails();
   railWeave();       // r59: connectors between railings that stop just short of each other
@@ -3573,7 +3575,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -9143,6 +9145,102 @@ function buildDrain() {
   D.stops = ['the drain', 'drain tunnel', 'drain top'];
   D.built = 1;
 }
+// ===== r105: THE PYRAMIDS -- *"going on the pyramids ... big fucking jumps ... everything so integrated."* The open field
+// north-east of the park district, under the sky rail. Two smooth pyramids whose four faces are the floor (a ramp she rolls
+// up from any side, a hip where two meet) and whose tops are decks:
+//   THE GREAT PYRAMID  22 m, its faces 34 degrees; a pad on the field throws her to the top, a booster grinds her up its
+//                      south-west hip, and a down rail runs down each of the other three hips
+//   THE TABLE          8 m, across a 6 m valley from the Great Pyramid's east face -- drop down that face, up the Table's
+//                      west face, and its top edge is a kicker: the air carries her over the top deck onto its east face
+//   THE OBELISK DROP   a branch off the sky rail (stick toward it as it leaves) spiralling down round a 60 m obelisk and
+//                      on over the Great Pyramid's north-east face onto its top deck -- the sky rail comes down to the field
+const PYR = { on: 1, built: 0, stops: [],
+  ps: [{ key: 'great', x: 130, z: 252, h: 22, t: 5, ang: 33.7, tint: 0xf2d194 },
+       { key: 'table', x: 195, z: 252, h: 8, t: 6, ang: 28, tint: 0xeac283 }],
+  pad: { x: 130, z: 205 }, ob: { x: 174, z: 293, h: 58, r: 2.2 }, drop: { kick: 35, grade: 0.3, maxV: 21 } };
+function buildPyramids() {
+  if (!PYR.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 10505;
+  const gold = 0xffc94a;
+  for (const Q of PYR.ps) {
+    const run = Q.h / Math.tan(Q.ang * D2R), B = Q.t + run; Q.B = B; Q.k = Math.tan(Q.ang * D2R);
+    const c = (sx, sz, d, y) => [Q.x + sx * d, y, Q.z + sz * d], S4 = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    const Bq = S4.map(([sx, sz]) => c(sx, sz, B, 0.02)), Tq = S4.map(([sx, sz]) => c(sx, sz, Q.t, Q.h)), nrm = [[0, 1, -1], [1, 1, 0], [0, 1, 1], [-1, 1, 0]];
+    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; slQuad('stone', Bq[i], Bq[j], Tq[j], Tq[i], nrm[i], { solid: true, tint: i % 2 ? Q.tint : 0xf6dca6, T: 5 }); }
+    slQuad('paving', Tq[0], Tq[1], Tq[2], Tq[3], [0, 1, 0], { solid: true, tint: 0xf8ecd0 });
+    // gold along the top edges and down the four hips; a neon band round the base
+    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; slTube('metal', [[Tq[i][0], Q.h + 0.03, Tq[i][2]], [Tq[j][0], Q.h + 0.03, Tq[j][2]]], 0.07, { tint: gold });
+      slTube('metal', [[Tq[i][0], Q.h + 0.03, Tq[i][2]], [Bq[i][0], 0.1, Bq[i][2]]], 0.09, { tint: gold }); }
+    // braziers and palms along the base, never on a DIAGONAL: every hip rail runs out over the field along one
+    for (const [sx, sz] of S4) for (const sw of [0, 1]) { const u = B + 2.5, v = B - 9; const [ax, az] = sw ? [v, u] : [u, v];
+      if (Q.x + sx * ax > 93) acBrazier(Q.x + sx * ax, 0, Q.z + sz * az); if (sw) slPalm(Q.x + sx * (u + 2), 0, Q.z + sz * (v - 5), 6.5, 0xffb86a); }
+  }
+  // THE OBELISK: a plinth, a tapering shaft of stone, glowing glyph bands, a gold tip -- under the sky rail, which spirals round it
+  { const O = PYR.ob;
+    slBox('stone', O.x - 3, 0, O.z - 3, O.x + 3, 1.2, O.z + 3, { bev: 0.06, tint: 0xe2c690, solid: true, tag: 'obelisk', base: 0, top: 'paving' });
+    slGeo('stone', new THREE.CylinderGeometry(O.r * 0.62, O.r, O.h, 4, 1).rotateY(Math.PI / 4), slMat(O.x, 1.2 + O.h / 2, O.z), { tint: 0xf0d6a0, base: 1.2 });
+    for (let y = 8; y < O.h - 4; y += 9) { const r = O.r * (1 - 0.38 * y / O.h) * Math.SQRT2 + 0.03; slGeo('neon', new THREE.CylinderGeometry(r, r, 0.3, 4, 1, true).rotateY(Math.PI / 4), slMat(O.x, 1.2 + y, O.z), { tint: 0x5ff0ff }); }
+    slGeo('neon', new THREE.ConeGeometry(O.r * 0.66, O.r * 1.5, 4).rotateY(Math.PI / 4), slMat(O.x, 1.2 + O.h + O.r * 0.75, O.z), { tint: gold });
+    solidAdd(O.x, O.z, O.r, O.r, 0, 1.2 + O.h, 0, { top: false, tag: 'obelisk' });
+    slGlow(O.x, 1.2 + O.h + 1.6, O.z, 5, 0xffd27a, 0.7); }
+  // the pad on the field south of the Great Pyramid, throwing her onto its top deck
+  { const G = PYR.ps[0], p = PYR.pad;
+    ORB.launch.push({ x: p.x, z: p.z, y: 0, r: 1.7, tx: G.x, ty: G.h + 0.6, tz: G.z - 1, apex: 4, cool: 0, name: 'pyramid pad' });
+    slGeo('neon', new THREE.TorusGeometry(1.55, 0.14, 6, 28).rotateX(Math.PI / 2), slMat(p.x, 0.06, p.z), { tint: gold }); slGlow(p.x, 1, p.z, 4, gold, 0.6); }
+  const G = PYR.ps[0], T = PYR.ps[1];
+  CITY.spots['pyramids'] = [PYR.pad.x - 10, 0, PYR.pad.z - 2, 0];
+  CITY.spots['great pyramid'] = [G.x, G.h, G.z, Math.PI / 2];
+  CITY.spots['pyramid valley'] = [(G.x + G.B + T.x - T.B) / 2, 0, G.z - 26, 0];
+  PYR.stops = ['pyramids', 'great pyramid', 'pyramid valley'];
+  PYR.built = 1;
+}
+function pyramidRails() {
+  if (!PYR.built) return;
+  const G = PYR.ps[0], hipAt = (Q, sx, sz, d, lift) => SLV(Q.x + sx * d, Math.max(0, Q.h - Math.max(0, d - Q.t) * Q.k) + lift, Q.z + sz * d);
+  // THE HIPS: a rail 0.45 m proud along each, top corner to the field -- the south-west one is a BOOSTER that grinds her up
+  PYR.hips = [];
+  for (const Q of PYR.ps) for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const up = Q === G && sx < 0 && sz < 0, pts = [];
+    // run out past both ends -- onto the top deck and onto the field: the hip's own crease is a found LEDGE right under the
+    // rail, and where she reaches it the rail has to be the nearer of the two or the swipe takes the crease instead
+    for (let d = Q.t - 1.4; d <= Q.B + 1.6; d += 1.5) pts.push(hipAt(Q, sx, sz, d, 0.45));
+    if (up) pts.reverse();
+    const R = railPath(pts, up ? { name: 'pyramid hip booster', boost: 15, boostK: 2.2, maxV: 19 } : { name: 'pyramid hip', maxV: 22 });
+    railDraw(R, { mat: up ? 'boost' : 'orange', postMax: 3 }); gemsAlong(R, 7, 0.9, 4); PYR.hips.push(R);
+    if (up) PYR.upHip = R; }
+  // THE OBELISK DROP. O stands `dn` off the sky rail; a circle of radius dn / cos(kick) round it crosses the rail at `kick`
+  // degrees, so a branch can leave the rail there (a branch that leaves TANGENT can never be picked, r67). Down the side
+  // the rail is travelling, so the branch leaves turning toward O and never crosses back over the rail at its height.
+  if (SKR.built && SKR.path) {
+    const O = PYR.ob, D = PYR.drop, P = SKR.pts, n = P.length; let bi = 0, bd = 1e9;
+    for (let i = 0; i < n; i++) { const d = Math.hypot(P[i].x - O.x, P[i].z - O.z); if (d < bd) { bd = d; bi = i; } }
+    const a = P[bi], b = P[(bi + 1) % n], tl = Math.hypot(b.x - a.x, b.z - a.z), tx = (b.x - a.x) / tl, tz = (b.z - a.z) / tl;
+    const along = (O.x - a.x) * tx + (O.z - a.z) * tz, Nx = a.x + tx * along, Nz = a.z + tz * along, dn = Math.hypot(O.x - Nx, O.z - Nz);
+    const R = dn / Math.cos(D.kick * D2R), off = Math.sqrt(R * R - dn * dn), side = Math.sign(tx * (O.z - Nz) - tz * (O.x - Nx));   // O right (+1) or left of travel
+    // J on the rail polyline: walk it from the foot of the perpendicular
+    let J = null; { let s = 0, i = bi; const want = along + off; let px = a.x, pz = a.z, py = a.y, acc = 0;
+      while (!J && s < 40) { const q = P[(i + 1) % n], L = Math.hypot(q.x - px, q.z - pz); if (acc + L >= want) { const f = (want - acc) / L; J = SLV(px + (q.x - px) * f, py + (q.y - py) * f, pz + (q.z - pz) * f); } else { acc += L; px = q.x; pz = q.z; py = q.y; i = (i + 1) % n; } s++; } }
+    PYR.R = R; PYR.J = J; PYR.dn = dn;
+    // round O from J, in the sense that leaves the rail toward O; then the tangent off the circle to the Great Pyramid's top
+    const phi0 = Math.atan2(J.x - O.x, J.z - O.z), sg = side > 0 ? -1 : 1, Tg = { x: G.x + 3, z: G.z + 3 };
+    let phiT = null; { const dT = Math.hypot(Tg.x - O.x, Tg.z - O.z), aT = Math.atan2(Tg.x - O.x, Tg.z - O.z), be = Math.acos(R / dT);
+      // the two tangent points are at aT +- be; the one where moving in the sense `sg` heads AT the target
+      for (const cand of [aT + be, aT - be]) { const px = O.x + R * Math.sin(cand), pz = O.z + R * Math.cos(cand), hx = Math.cos(cand) * sg, hz = -Math.sin(cand) * sg;
+        if (hx * (Tg.x - px) + hz * (Tg.z - pz) > 0) phiT = cand; } }
+    let sweep = ((phiT - phi0) * sg) % (2 * Math.PI); if (sweep < 0) sweep += 2 * Math.PI;
+    const yEx = G.h + 2.4, drop = J.y - yEx; while (drop / (R * sweep) > D.grade) sweep += 2 * Math.PI;
+    const pts = [], nS = Math.ceil(R * sweep / 1.5);
+    for (let i = 0; i <= nS; i++) { const f = i / nS, ph = phi0 + sg * sweep * f; pts.push(SLV(O.x + R * Math.sin(ph), J.y - drop * f, O.z + R * Math.cos(ph))); }
+    pts[0] = J.clone();
+    const E = pts[pts.length - 1], sl = Math.hypot(Tg.x - E.x, Tg.z - E.z), m = Math.ceil(sl / 2);
+    for (let i = 1; i <= m; i++) { const f = i / m; pts.push(SLV(E.x + (Tg.x - E.x) * f, yEx + (G.h + 0.95 - yEx) * f, E.z + (Tg.z - E.z) * f)); }
+    PYR.dropRail = railPath(pts, { name: 'obelisk drop', maxV: D.maxV });
+    railDraw(PYR.dropRail, { mat: 'orange', postMax: 6 }); gemsAlong(PYR.dropRail, 14, 0.9, 10);
+    // arms off the obelisk out to the spiral, so it is held up by something
+    for (let i = 4; i <= nS; i += 6) { const p = pts[i], ux = p.x - O.x, uz = p.z - O.z, ul = Math.hypot(ux, uz), r0 = O.r * (1 - 0.38 * (p.y - 1.2) / O.h) + 0.1;
+      if (p.y > 1.2 + O.h) continue; slTube('metal', [[O.x + ux / ul * r0, p.y - 1.4, O.z + uz / ul * r0], [p.x, p.y - 0.14, p.z]], 0.1); }
+    PYR.sweep = sweep; PYR.side = side; }
+}
 function hubDress() {
   if (!HUB.on) return;
   const D = HUB.deck, steel = (x0, y0, z0, x1, y1, z1) => slBox('metal', x0, y0, z0, x1, y1, z1, { bev: 0.01, skip: 'y' });
@@ -13244,7 +13342,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

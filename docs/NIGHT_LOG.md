@@ -139,3 +139,25 @@ street. Inside:
   trench and you're in the channel.
 
 (The mouth faces east because Orbital's Nimbus tower stands 7 m off the plateau's west edge.)
+
+---
+
+## r105 — THE PYRAMIDS (the open field north-east of the park district, under the sky rail)
+
+**➤ stops:** `pyramids` (the field, by the pad), `great pyramid` (its top), `pyramid valley`
+**Sim:** `node tools/sim.mjs pyramids` (9 rows)
+
+Two smooth sandstone pyramids with gold hips. **Every face is floor**: ride up one from any side; where two faces
+meet is a hip.
+
+- **THE GREAT PYRAMID**, 22 m, faces at 34°. A **pad** on the field south of it throws you onto the top deck. Its
+  south-west hip is a **booster rail** — swipe down at the corner and it grinds you up to the top. The other three
+  hips are **down rails**, running from the top deck all the way out onto the field.
+- **THE TABLE**, 8 m, across a 6 m valley from the Great Pyramid's east face. Drop off the top, down the east face,
+  across the valley and up the Table's face, and its top edge kicks you: **the air carries you right over its top
+  deck** onto its east face (measured: 22 m drop in, landing on the far side).
+- **THE OBELISK DROP**: a 60 m obelisk stands beside the sky rail. Grinding the sky rail past it, **push the stick out
+  toward it** and you take a branch off the rail that spirals 2.6 times round the obelisk and runs on over the Great
+  Pyramid's north-east face onto its top deck. Hands off, you carry straight on round the sky rail.
+
+The sky rail now comes down to the field: sky rail → obelisk → pyramid top → face or hip → field.

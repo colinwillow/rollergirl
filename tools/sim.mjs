@@ -4386,6 +4386,59 @@ CASES.links = () => {
 // r104: THE DRAIN -- in off the street through the mouth and along the channel under the tunnel roof, dropped in off the
 // plateau, the half pipe pumped, up the bank onto the plateau, down the branch into its half bowl, and the tunnel's roof a
 // ceiling (a vert air under it does not come out through the top).
+CASES.pyramids = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const Y = rg.PYR; if (!Y.built || !Y.dropRail) { console.log('  the pyramids were not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), [G, T] = Y.ps, S = rg.SKR;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; rg.GRIND.intent = 0; };
+  const away = () => { const Tr = rg.HT.trains.filter(tr => tr.path === S.path); Tr.forEach((tr, i) => tr.s = S.path.len * (0.15 + 0.5 * i)); };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, top: -99 }; let kq = 0, done = 0; run(sec, (t, i) => { if (done) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (process.env.PYT && kq++ % 12 === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', P.grind ? 'GR ' + P.grind.rail.path.name : '', fix(P.speed, 1));
+      if (P.bailT > 0) r.bail = 1; r.top = Math.max(r.top, P.pos.y);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); if (stop && stop()) done = 1; }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const onTop = (Q, p) => Math.max(Math.abs(p.x - Q.x), Math.abs(p.z - Q.z)) < Q.t + 0.2 && Math.abs(p.y - Q.h) < 0.15;
+  const j = Y.dropRail.segs[0].jx;
+  say(`${Y.ps.length} pyramids, ${Y.hips.length} hip rails, the drop ${fix(Y.dropRail.segs.length * 1.5, 0)} m, ${fix(Y.sweep / 2 / Math.PI, 2)} turns`, Y.hips.length === 8 && j && j.a.some(q => q.at === 'm'), j && j.a.some(q => q.at === 'm') ? 'branches off the sky rail' : 'NOT JOINED TO THE SKY RAIL');
+  // the faces are the floor: the height on a face is the pyramid's own slope
+  { const bad = []; for (const Q of Y.ps) for (const [dx, dz] of [[0.5, 0], [0, -0.7], [-0.3, 0.3], [0.8, 0.8]]) { const d = Q.t + (Q.B - Q.t) * Math.max(Math.abs(dx), Math.abs(dz)), x = Q.x + dx * (Q.B - Q.t) + Math.sign(dx) * Q.t, z = Q.z + dz * (Q.B - Q.t) + Math.sign(dz) * Q.t;
+      const want = Q.h - (Math.max(Math.abs(x - Q.x), Math.abs(z - Q.z)) - Q.t) * Q.k, g = rg.groundAt(x, z, 40, 0); void d; if (!g.hit || Math.abs(g.floor - want) > 0.08) bad.push(`${Q.key} ${fix(x, 0)},${fix(z, 0)} ${g.hit ? fix(g.floor) : '-'} want ${fix(want)}`); }
+    say('a face is the floor at the pyramid\'s own slope', !bad.length, bad.join('; ') || 'all 8 points'); }
+  { const bad = []; for (const n of Y.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Pyramids ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${Y.stops.length} stops`); }
+  // the pad throws her onto the top
+  { reset(); place(Y.pad.x, 0.3, Y.pad.z - 6, 0, 4); let top = null;
+    const r = ride(7, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && onTop(G, P.pos) && !top) top = P.pos.clone(); }, () => top);
+    say('the pad on the field throws her onto the Great Pyramid\'s top', top && r.clean, top ? `on top at ${at(top)}` : `ends ${at(P.pos)}${cl(r)}`); }
+  // up the south-west hip on the booster
+  { reset(); const a = Y.upHip.segs[0].a; place(a.x + 0.8, 0.3, a.z - 1.2, Math.PI / 4, 3); rg.GRIND.intent = 1; rg.ledgeClear(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, top = 0; const r = ride(9, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === Y.upHip) on = 1; if (on && !P.grind && P.grounded && onTop(G, P.pos)) top = 1; }, () => top);
+    say('the swipe down onto the hip booster grinds her up onto the top', on && top && r.clean, `${on ? 'on the booster' : 'NEVER ON IT'}, ${top ? 'on top' : 'never on top -- ends ' + at(P.pos)}${cl(r)}`); }
+  // down the north-west hip
+  { reset(); const H = Y.hips.find(R => R.name === 'pyramid hip' && R.segs[0].a.x < G.x && R.segs[0].a.z > G.z && Math.abs(R.segs[0].a.x - G.x) < 6);
+    place(G.x - G.t + 1.5, G.h + 0.3, G.z + G.t - 0.4, -Math.PI / 4, 3); rg.GRIND.intent = 1; rg.ledgeClear(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, down = 0; const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === H) on = 1; if (on && !P.grind && P.grounded && P.pos.y < 0.3 && !down) down = P.pos.clone(); }, () => down);
+    say('the swipe down onto a hip rail: down the edge to the field', on && down && r.clean, `${on ? 'on the hip' : 'NEVER ON IT'}, ${down ? 'down at ' + at(down) : 'never down -- ends ' + at(P.pos)}${cl(r)}`); }
+  // the table-top: off the Great Pyramid's east edge, down its face, across the valley, up the Table and over its top
+  { reset(); place(G.x + G.t - 0.5, G.h + 0.3, G.z, Math.PI / 2, 3); let over = 0, land = null;
+    const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!P.grounded && Math.abs(P.pos.x - T.x) < T.t && P.pos.y > T.h + 0.8) over = 1; if (over && P.grounded && !land) land = P.pos.clone(); }, () => land && P.pos.y < 0.3);
+    say('down the face, up the Table: the air carries her over its top', over && land && land.x > T.x + T.t - 0.5 && r.clean, `${over ? 'over the top' : 'NEVER OVER'}, ${land ? 'down at ' + at(land) : 'never down'}, top ${fix(r.top)}${cl(r)}`); }
+  // the obelisk drop: grinding the sky rail toward it, the stick out to the side takes the branch; hands off does not
+  const J = Y.J, ri = (() => { let b = 0, bd = 1e9; S.path.segs.forEach((q, i) => { const d = Math.hypot(q.a.x - J.x, q.a.z - J.z); if (d < bd) { bd = d; b = i; } }); return b; })();
+  const sky = (stick) => { away(); reset(); const q = S.path.segs[(ri - 12 + S.path.segs.length) % S.path.segs.length], h = Math.atan2(q.b.x - q.a.x, q.b.z - q.a.z);
+    place(q.a.x, q.a.y + 0.4, q.a.z, h, 20); P.pos.set(q.a.x, q.a.y + 0.4, q.a.z); P.grounded = false; P.vel.y = -1;
+    let drop = 0, land = null, past = 0;
+    const r = ride(16, () => { if (stick && P.grind) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - Y.side * 75 * Math.PI / 180; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;
+      if (P.grind && P.grind.rail.path === Y.dropRail) drop = 1; if (P.grind && P.grind.rail.path === S.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) > 25 && drop === 0 && P.pos.x > J.x) past = 1;
+      if (drop && !P.grind && P.grounded && !land) land = P.pos.clone(); }, () => land || past);
+    return { r, drop, land, past }; };
+  { const o = sky(true), onG = o.land && Math.max(Math.abs(o.land.x - G.x), Math.abs(o.land.z - G.z)) < G.B && o.land.y > 6;
+    say('off the sky rail, stick out: the obelisk drop onto the Great Pyramid', o.drop && onG && o.r.clean, `${o.drop ? 'on the drop' : 'NEVER TOOK IT'}, ${o.land ? 'down at ' + at(o.land) : 'never down -- ends ' + at(P.pos)}${cl(o.r)}`); }
+  { const o = sky(false); say('hands off, she carries straight on along the sky rail', !o.drop && o.past, o.drop ? 'TOOK THE DROP' : o.past ? 'carried on' : `ends ${at(P.pos)}`); }
+  return ok;
+};
 CASES.drain = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
