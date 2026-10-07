@@ -4371,6 +4371,60 @@ CASES.links = () => {
 // next, a weak transfer falling back onto its own roof rather than off the building, the summit pad and the helix, the bowl,
 // the plunge west off the summit with a held push, both down rails -- and his art loaded through the real loader, every
 // roof collider checked against the roof in the file.
+// r101: THE SKY RAIL -- one booster rail round the whole world, 60 to 91 m up. Its numbers (length, grade, pylons), nothing
+// solid on the line but the places it is meant to run along, a lap hands-off past all four stations, getting ON at each
+// (the swipe down) and OFF at each (a tap pops her onto the deck), both lifts from the street, and a train knocking her off.
+CASES.skyrail = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.SKR; if (!S.built || !S.path) { console.log('  the sky rail was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT);
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; };
+  const away = () => { for (const tr of rg.HT.trains) if (tr.path === S.path) tr.s = (tr.s0 == null ? (tr.s0 = tr.s) : tr.s0); const T = rg.HT.trains.filter(tr => tr.path === S.path); T.forEach((tr, i) => tr.s = S.path.len * (0.15 + 0.5 * i)); };
+  const trains = rg.HT.trains.filter(tr => tr.path === S.path), D = rg.DYN.list.filter(d => S.lifts.includes(d));
+  say(`${fix(S.len, 0)} m round, ${S.pts.length} points, ${S.pylons} pylons, ${trains.length} trains, ${D.length} lifts`, S.len > 1500 && S.pylons >= 25 && trains.length === 2 && D.length === 2, '');
+  say('no grade on it steeper than 15%', S.maxGrade <= 0.15, `steepest ${fix(S.maxGrade * 100, 1)}%`);
+  // nothing solid on the line except where it is meant to run along something
+  { const ok2 = /^(summit deck|summit wall|sky station|sky station wall|rim)$/, bad = new Map();
+    for (const p of S.pts) for (const dy of [-1.2, -0.6, 0.4, 1.2, 2.2]) { const b = rg.solidAt(p.x, p.y + dy, p.z, 0.2); if (b && !ok2.test(b.tag)) bad.set(b.tag, at(p)); }
+    say('nothing solid on the line but the summit, the stations, the peak', !bad.size, [...bad].map(([k, v]) => `${k} at ${v}`).join('; ') || 'clear'); }
+  // the stops
+  { const bad = []; for (const n of S.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every sky rail ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${S.stops.length} stops`); }
+  // the stations: where each is on the path
+  const St = [['summit', S.plan[0], S.plan[1]], ['peak', S.plan[6], S.plan[7]], ['heights', S.plan[12], S.plan[13]], ['park', S.plan[22], S.plan[23]]];
+  // a lap, hands off, from the summit chord
+  { away(); reset(); const a = S.path.segs[0].a, b = S.path.segs[0].b, h = Math.atan2(b.x - a.x, b.z - a.z);
+    place(a.x, a.y + 0.4, a.z, h, 10); P.pos.set(a.x, a.y + 0.4, a.z); P.grounded = false; P.vel.y = -1;
+    let on = 0, off = null, t = 0; const near = St.map(() => 1e9);
+    run(100, () => { if (off) return; t += DT; rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === S.path) on = 1; if (on && !P.grind) off = [t, P.pos.clone()];
+      St.forEach(([, p, q], i) => { near[i] = Math.min(near[i], Math.hypot(P.pos.x - (p[0] + q[0]) / 2, P.pos.z - (p[1] + q[1]) / 2)); }); });
+    say('a lap, hands off: on it the whole way round, past every station', on && (!off || off[0] > 80) && near.every(d => d < 3), `${off ? 'off after ' + fix(off[0], 1) + ' s at ' + at(off[1]) : 'still on after 100 s'}; nearest each station ${near.map(d => fix(d, 1)).join('/')} m`); }
+  // ON at each station: standing on it beside the rail, the swipe down
+  for (const [nm, p, q] of St) { away(); reset(); rg.GRIND.intent = 1; rg.ledgeClear();
+    const mx = p[0] + (q[0] - p[0]) * 0.15, mz = p[1] + (q[1] - p[1]) * 0.15, ux = q[0] - p[0], uz = q[1] - p[1], ul = Math.hypot(ux, uz), h = Math.atan2(ux, uz);
+    // her spot: 1.6 m in from the rail (toward the deck / roof / island centre), heading along it
+    const cands = [[-uz / ul, ux / ul], [uz / ul, -ux / ul]].map(([nx, nz]) => { const x = mx + nx * 1.6, z = mz + nz * 1.6, g = rg.groundAt(x, z, p[2] + 0.5, 0); return { x, z, y: g.hit ? g.floor : -99 }; }).sort((A, B) => Math.abs(A.y - p[2] + 0.95) - Math.abs(B.y - p[2] + 0.95));
+    const c = cands[0]; place(c.x, c.y + 0.3, c.z, h, 4); const g = rg.groundAt(c.x, c.z, c.y + 0.5, 1); if (g.hit) P.pos.y = g.floor;
+    run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60); let on = 0;
+    let tapAt = null; run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on && !tapAt) { P.jump = 1; tapAt = P.pos.clone(); } city(); if (P.grind && P.grind.rail.path === S.path) on = 1; });
+    // and OFF: a tap pops her off -- she must come down on the station, not off it
+    let down = null; if (on) { let k = 0; run(3, () => { rg.stick.L.x = rg.stick.L.y = 0; if (process.env.DOFF && k++ % 6 === 0) console.log('    ', at(P.pos), P.grind ? 'GR' : '', P.grounded ? 'G' : 'a', fix(P.speed, 1)); city(); if (!P.grind && P.grounded && !down) down = P.pos.clone(); }); }
+    rg.GRIND.intent = 0; void tapAt;
+    say(`${nm} station: on with the swipe down, off with a tap onto it`, on && down && down.y > p[2] - 3, `${on ? 'on' : 'NEVER ON from ' + at(P.pos)}${on ? (down ? ', down at ' + at(down) : ', never down') : ''}`); }
+  // the lifts: on at the street, up to the deck
+  for (const L of D) { reset(); rg.HT.t = 0; L.x = L.S.lx; L.y = 0; L.z = L.S.lz; place(L.S.lx + 1, 0.3, L.S.lz, 0, 0); let top = 0, t = 0;
+    run(rg.SKR.lift.period * 0.6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); t += DT; top = Math.max(top, P.grounded ? P.pos.y : 0); });
+    say(`${L.S.name}'s lift: on at the street, carried up to the deck`, top > L.S.y - 0.2, `carried to ${fix(top)} (deck ${fix(L.S.y)})`); }
+  // a train catches a grinder from behind and knocks her off
+  { reset(); const T = trains[0], k0 = rg.HT.knocks || 0, s = S.path.len * 0.3; for (const tr of trains) tr.s = s - (tr === T ? 40 : -600);
+    let seg = null, acc = 0; for (const sg of S.path.segs) { if (acc + sg.len > s) { seg = sg; break; } acc += sg.len; }
+    const a = seg.a, h = Math.atan2(seg.b.x - a.x, seg.b.z - a.z); place(a.x, a.y + 0.4, a.z, h, 10); P.pos.set(a.x, a.y + 0.4, a.z); P.grounded = false; P.vel.y = -1;
+    run(15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); });
+    say('a train catches her from behind and knocks her off', (rg.HT.knocks || 0) > k0, `${(rg.HT.knocks || 0) - k0} knock(s)`); }
+  away(); return ok;
+};
 CASES.stack = async () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
@@ -4471,7 +4525,7 @@ CASES.heights = () => {
       const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit && !P.grind) r.deep = Math.max(r.deep, q.floor - P.pos.y); }); r.clean = !r.bail && r.deep < 0.12; return r; };
   const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
   const onDock = (y) => H.docks.some(D => D.y === y && P.pos.x > D.x0 && P.pos.x < D.x1 && P.pos.z > D.z0 && P.pos.z < D.z1) && P.grounded && Math.abs(P.pos.y - y) < 0.1;
-  say(`${H.towers.length} towers, ${H.docks.length} docks, ${H.pylons} pylons, ${H.trains.length} trains, ${H.lifts.length} lifts`, H.docks.length === 8 && H.lifts.length === 4 && H.trains.length === 2, '');
+  say(`${H.towers.length} towers, ${H.docks.length} docks, ${H.pylons} pylons, ${H.trains.filter(tr => tr.path === H.lowPath || tr.path === H.highPath).length} trains (r101: the sky rail runs its own on the same machinery), ${H.lifts.length} lifts`, H.docks.length === 8 && H.lifts.length === 4 && H.trains.filter(tr => tr.path === H.lowPath || tr.path === H.highPath).length === 2, '');
   say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
   // the stops
   { const bad = []; for (const n of H.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;

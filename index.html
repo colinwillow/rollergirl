@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r100</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r101</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r100';
+const BUILD = 'r101';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3532,6 +3532,7 @@ function buildPark() {
   sliceRails();
   heightsRails();    // r96: before acroRails, which builds the gem mesh
   stackRails();      // r100
+  skyRailRails();    // r101: before acroRails builds the gem mesh
   acroRails();       // r92
   cityRails();
   railWeave();       // r59: connectors between railings that stop just short of each other
@@ -3567,7 +3568,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -8695,9 +8696,9 @@ function stackKit() {
       const t = STK.par, wh = 1.1, W = (x0, z0, x1, z1) => { slBox('stone', x0, M.y, z0, x1, M.y + wh, z1, { top: 'stone', bev: 0.04, solid: true, tag: 'summit wall', tint: 0xf1e9f7, base: M.y });
         slBox('neon', x0 - 0.02, M.y + wh - 0.3, z0 - 0.02, x1 + 0.02, M.y + wh - 0.18, z1 + 0.02, { bev: 0, tint: 0x3ff0e0, skip: 'yY' }); };
       const kw = STK.plunge.kick.w / 2 + 0.6;
-      W(r.x0, r.z1 - t, M.x + 4, r.z1); W(r.x1 - t, r.z0, r.x1, M.z + 6);      // north (east part open for the helix), east (north part open)
+      W(r.x0, r.z1 - t, M.x + 4, r.z1); W(r.x1 - t, r.z0 + 4, r.x1, M.z + 6);  // north (east part open for the helix), east (north part open; r101: the sky rail's gap at the south end)
       W(r.x0, r.z0, r.x1, r.z0 + t);                                             // south
-      W(r.x0, r.z0, r.x0 + t, M.z - kw); W(r.x0, M.z + kw, r.x0 + t, r.z1);     // west, with the plunge's gap
+      W(r.x0, r.z0 + 4, r.x0 + t, M.z - kw); W(r.x0, M.z + kw, r.x0 + t, r.z1); // west, with the plunge's gap (and the sky rail's at the south end)
       stkPlunge(p);
       CITY.spots['summit'] = [M.x + 13, M.y, M.z + 13, -Math.PI * 0.75]; STK.go.push('summit'); }
   } finally { Object.assign(KCOL, K); for (const k in Tn) KSZ[k].tint = Tn[k]; }
@@ -8752,6 +8753,108 @@ function stackRails() {
   { const r1 = STK.roofs[0], y = r1.y + KSZ.M.H;
     // and off roof 1's landing deck, north over its wall and down into the street
     STK.streetRail = curve([[r1.x0 + 3, y + 0.75, r1.z1 - 8], [r1.x0 + 3, y + 0.55, r1.z1 + 0.2], [r1.x0 + 4.5, y - 4, r1.z1 + 6], [r1.x0 + 12, y - 9.5, r1.z1 + 9.5], [r1.x0 + 26, 2.6, r1.z1 + 10.5], [r1.x0 + 38, 0.9, r1.z1 + 10.5]], 'stack street rail', { maxV: 22 }); }   // the lagoon starts at z -112: stay south of it
+}
+// ===== r101: THE SKY RAIL -- *"vertical grind systems, train systems, the sky rail ... I want everything integrated."* One
+// closed booster rail round the whole world, 60 to 91 m up, through the high points of the districts: across the STACK's
+// summit (along its south wall), across ORBITAL's peak island, over a station deck in the middle of THE HEIGHTS, round the
+// west side, over a station deck north of the PARK, down the east side past NEON SHORES and back onto the summit. Where it
+// runs along a roof or an island she is ON it the moment she swipes down; the two station decks have a lift from the street.
+// Trains run on it and knock a grinder off (the Heights' rule). Its pylons stand only on open ground or in water.
+//   THE PLAN is a few points; KEYS are where it has to be at a height (a station: two points, one height, so the rail is
+//   level along the deck); between keys the height runs linearly by arc length. Checked: no grade over 15%.
+const SKR = { on: 1, built: 0, boost: 24, stops: [], lifts: [],
+  plan: [[284.6, -198.3, 90.95], [251.4, -198.3, 90.95], [225, -216], [160, -250], [80, -262], [22, -270],
+         [-10.9, -275, 60.9], [-52, -275, 60.9], [-84, -266], [-130, -246], [-176, -226], [-195.3, -192],
+         [-195.3, -170, 78], [-195.3, -130, 78], [-196, -108], [-212, -62], [-268, -12], [-292, 60], [-292, 150], [-262, 248], [-200, 292], [-100, 306],
+         [-21, 307.2, 70], [21, 307.2, 70], [80, 304], [170, 284], [240, 246], [292, 214], [322, 160], [326, 90], [322, 0], [318, -80], [314, -150], [306, -196]],
+  // the two station decks: centre, half sizes, deck height (the rail runs along the edge at deck + 0.95), and a lift in the middle
+  // THE STATION DECKS run 40+ m along the rail: off a booster at 24 m/s a tap carries her 20-odd metres before she is down.
+  // Each a rectangle at `y` (the rail along its `edge` at y + 0.95, 0.3 in from it, so a tap lands her ON the deck), the lift
+  // shaft toward the far side so the strip along the rail is clear.
+  stations: [{ name: 'heights station', x0: -215, x1: -195, z0: -173, z1: -127, y: 77.05, edge: 'e', lx: -209.4, lz: -150, neon: 0x3ff0e0 },
+             { name: 'park station', x0: -23, x1: 23, z0: 291.5, z1: 307.5, y: 69.05, edge: 'n', lx: 0, lz: 296.6, neon: 0xff6fd0 }],
+  // the peak's own island is 20 m across, so the rail runs on over a platform at the island's height
+  peakDeck: { x0: -53, x1: -24, z0: -278.2, z1: -271.8, y: 59.95 },
+  hole: 4.6, lift: { r: 3.6, period: 30 } };
+function buildSkyRail() {
+  if (!SKR.on || WORLD.zones || !STK.built) return;
+  _slseed = 10101;
+  // THE PATH: a closed centripetal spline through the plan, sampled every 2 m; heights from the keys
+  const C = new THREE.CatmullRomCurve3(SKR.plan.map(q => SLV(q[0], 0, q[1])), true, 'centripetal'), N = Math.ceil(C.getLength() / 2), P = C.getSpacedPoints(N).slice(0, N);
+  const cum = [0]; for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + P[i].distanceTo(P[i - 1])); const Lt = cum[cum.length - 1] + P[P.length - 1].distanceTo(P[0]);
+  const keys = []; SKR.plan.forEach(q => { if (q[2] == null) return; let bi = 0, bd = 1e9; P.forEach((p, i) => { const d = (p.x - q[0]) ** 2 + (p.z - q[1]) ** 2; if (d < bd) { bd = d; bi = i; } }); keys.push([bi, q[2]]); });
+  keys.sort((a, b) => a[0] - b[0]);
+  P.forEach((p, i) => { let k = keys.findIndex(q => q[0] > i); const a = keys[(k < 0 ? keys.length : k) - 1] || keys[keys.length - 1], b = keys[k < 0 ? 0 : k];
+    const sa = cum[a[0]], sb = b[0] > a[0] ? cum[b[0]] : cum[b[0]] + Lt, si = i >= a[0] ? cum[i] : cum[i] + Lt; p.y = a[1] + (b[1] - a[1]) * (sb > sa ? (si - sa) / (sb - sa) : 0); });
+  SKR.pts = P; SKR.len = Lt; let g = 0; for (let i = 0; i < P.length; i++) { const q = P[(i + 1) % P.length], h = Math.hypot(q.x - P[i].x, q.z - P[i].z); g = Math.max(g, Math.abs(q.y - P[i].y) / h); } SKR.maxGrade = g;
+  // THE GIRDER: a box beam under the rail line, neon down both sides
+  const n = P.length, Nn = P.map((p, i) => { const a = P[(i - 1 + n) % n], b = P[(i + 1) % n], dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1; return [-dz / l, dx / l]; });
+  const w = 0.6, Q = (i, s, dy) => [P[i].x + Nn[i][0] * s, P[i].y + dy, P[i].z + Nn[i][1] * s];
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n;
+    slQuad('concrete', Q(i, -w, -0.1), Q(j, -w, -0.1), Q(j, w, -0.1), Q(i, w, -0.1), [0, 1, 0], { tint: 0xe8e2f4 });
+    slQuad('concrete', Q(i, -w, -1.3), Q(j, -w, -1.3), Q(j, w, -1.3), Q(i, w, -1.3), [0, -1, 0], { tint: 0xa8a2bc });
+    for (const s of [-1, 1]) { const nn = [Nn[i][0] * s, 0, Nn[i][1] * s];
+      slQuad('concrete', Q(i, s * w, -1.3), Q(j, s * w, -1.3), Q(j, s * w, -0.1), Q(i, s * w, -0.1), nn, { tint: 0xd6d0e6 });
+      slQuad('neon', Q(i, s * (w + 0.01), -0.5), Q(j, s * (w + 0.01), -0.5), Q(j, s * (w + 0.01), -0.36), Q(i, s * (w + 0.01), -0.36), nn, { tint: (i >> 4) & 1 ? 0x3ff0e0 : 0xff6fd0 }); } }
+  slTube('orange', P.concat([P[0]]).map(p => [p.x, p.y, p.z]), 0.07);
+  SKR.Nn = Nn;
+  // THE STATIONS: a deck round a lift shaft, walled on its three other sides, a lift from the street to it
+  for (const S of SKR.stations) { const y = S.y, { x0, x1, z0, z1 } = S, h = SKR.hole, hx0 = S.lx - h, hx1 = S.lx + h, hz0 = S.lz - h, hz1 = S.lz + h;
+    for (const [a, b, c, d] of [[x0, x1, z0, hz0], [x0, x1, hz1, z1], [x0, hx0, hz0, hz1], [hx1, x1, hz0, hz1]]) if (b - a > 0.05 && d - c > 0.05)
+      slBox('stone', a, y - 1.2, c, b, y, d, { top: 'paving', bev: 0.05, solid: true, tag: 'sky station', tint: 0xf0eaf8, base: y - 1.2 });
+    slBox('neon', x0 - 0.03, y - 0.75, z0 - 0.03, x1 + 0.03, y - 0.6, z1 + 0.03, { bev: 0, tint: S.neon, skip: 'yY' });
+    const wall = (a, b, c, d) => slBox('stone', a, y, c, b, y + 1.1, d, { top: 'stone', bev: 0.04, solid: true, tag: 'sky station wall', tint: 0xf1e9f7, base: y });
+    // walled on three sides, each wall stopping short of the rail edge so the rail never runs through one
+    const e = S.edge, c = 1.6, wx0 = e === 'w' ? x0 + c : x0, wx1 = e === 'e' ? x1 - c : x1, wz0 = e === 's' ? z0 + c : z0, wz1 = e === 'n' ? z1 - c : z1;
+    if (e !== 'w') wall(x0, x0 + 0.5, wz0, wz1); if (e !== 'e') wall(x1 - 0.5, x1, wz0, wz1); if (e !== 's') wall(wx0, wx1, z0, z0 + 0.5); if (e !== 'n') wall(wx0, wx1, z1 - 0.5, z1);
+    // the shaft's frame: four posts from the street to the deck, a ring at the top
+    for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) slGeo('metal', new THREE.CylinderGeometry(0.22, 0.3, y - 1.2, 8), slMat(S.lx + dx * (h - 0.35), (y - 1.2) / 2, S.lz + dz * (h - 0.35)), { smooth: true });
+    slGeo('neon', new THREE.TorusGeometry(h - 0.2, 0.1, 4, 24).rotateX(Math.PI / 2), slMat(S.lx, y + 0.05, S.lz), { tint: S.neon });
+    slGlow(S.lx, y + 1.5, S.lz, 7, S.neon, 0.5);
+    const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+    CITY.spots[S.name] = e === 'e' || e === 'w' ? [x0 + (x1 - x0) * (e === 'e' ? 0.75 : 0.25), y, z0 + 4, 0] : [x0 + 4, y, z0 + (z1 - z0) * (e === 'n' ? 0.8 : 0.2), Math.PI / 2];
+    void mx; void mz; SKR.stops.push(S.name); }
+  // the peak's platform
+  { const D = SKR.peakDeck; slBox('stone', D.x0, D.y - 1.0, D.z0, D.x1, D.y, D.z1, { top: 'paving', bev: 0.05, solid: true, tag: 'sky station', tint: 0xf0eaf8, base: D.y - 1 });
+    slBox('neon', D.x0 - 0.03, D.y - 0.6, D.z0 - 0.03, D.x1 + 0.03, D.y - 0.45, D.z1 + 0.03, { bev: 0, tint: 0xffc93c, skip: 'yY' });
+    slBox('stone', D.x0, D.y, D.z0, D.x0 + 0.5, D.y + 1.1, D.z1, { top: 'stone', bev: 0.04, solid: true, tag: 'sky station wall', tint: 0xf1e9f7, base: D.y });
+    slGeo('stone', new THREE.ConeGeometry(4, 12, 6).rotateX(Math.PI), slMat((D.x0 + D.x1) / 2, D.y - 7, (D.z0 + D.z1) / 2), { tint: 0x9a8aa8 });
+    CITY.spots['peak station'] = [D.x1 - 4, D.y, (D.z0 + D.z1) / 2 - 1.5, -Math.PI / 2]; SKR.stops.push('peak station'); }
+  SKR.built = 1;
+}
+function skrLiftMesh(R, col, neon) {
+  const g = new THREE.Group(), top = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.92, 0.7, 6), new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, metalness: 0.2 }));
+  top.position.y = -0.35; g.add(top);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(R * 0.93, 0.08, 4, 6), new THREE.MeshBasicMaterial({ color: neon })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.02; g.add(rim);
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(R * 0.7, 18), new THREE.MeshBasicMaterial({ color: neon, transparent: true, opacity: 0.8 })); glow.rotation.x = Math.PI / 2; glow.position.y = -0.72; g.add(glow);
+  g.userData.noHole = true; g.traverse(o => { if (o.material) o.material.userData = { noHole: true }; }); scene.add(g); return { g, fans: [] };
+}
+// AFTER THE COLLIDER: the rail itself, its gems, the lifts and the trains
+function skyRailRails() {
+  if (!SKR.built) return;
+  // THE PYLONS (after the collider, so the ground under each can be asked): every ~44 m, only where it is open ground (or
+  // water) all the way up -- never on something she rides
+  const P = SKR.pts, Nn = SKR.Nn, n = P.length;
+  SKR.pylons = 0; let acc = 30;
+  for (let i = 0; i < n; i++) { acc += Math.hypot(P[(i + 1) % n].x - P[i].x, P[(i + 1) % n].z - P[i].z); if (acc < 44) continue;
+    const p = P[i], q = groundAt(p.x, p.z, p.y - 2, 0), base = q.hit ? q.floor : 0;
+    let clear = base < 1.7; for (let y = base + 1; y < p.y - 2 && clear; y += 2) for (const [dx, dz] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) if (solidAt(p.x + dx, y, p.z + dz, 0)) { clear = false; break; }
+    if (!clear) continue; acc = 0; SKR.pylons++;
+    const h = p.y - 1.3 - base; slGeo('concrete', new THREE.CylinderGeometry(0.7, 1.1, h, 10), slMat(p.x, base + h / 2, p.z), { smooth: true, tint: 0xd8d2e6 });
+    slGeo('neon', new THREE.TorusGeometry(1.0, 0.09, 4, 16).rotateX(Math.PI / 2), slMat(p.x, base + h * 0.5, p.z), { tint: 0xff6fd0 });
+    slGeo('concrete', new THREE.BoxGeometry(3.2, 0.6, 1.6), slMat(p.x, p.y - 1.6, p.z, Math.atan2(Nn[i][0], Nn[i][1])), { tint: 0xd8d2e6 }); }
+  SKR.path = railLoop(SKR.pts.map(p => SLV(p.x, p.y, p.z)), { name: 'sky rail', boost: SKR.boost, boostK: 1.4, maxV: SKR.boost + 4 });
+  gemsAlong(SKR.path, 40, 0.9, 20);
+  for (const S of SKR.stations) { const L = SKR.lift, m = skrLiftMesh(L.r + 0.4, 0xece8f6, S.neon), y = S.y;
+    const p = { x: S.lx, y: 0, z: S.lz, cr: L.r, mesh: m, kind: 'lift', S, fn: (t) => { const u = (t % L.period) / L.period;
+        const e = u < 0.15 ? 0 : u < 0.5 ? (u - 0.15) / 0.35 : u < 0.65 ? 1 : 1 - (u - 0.65) / 0.35, s = e * e * (3 - 2 * e); return [S.lx, y * s, S.lz]; } };
+    DYN.list.push(p); SKR.lifts.push(p); }
+  // THE TRAINS: the Heights' machinery (`HT.trains`, stepped and knocking riders off in `stepHeights`), three cars each
+  const body = new THREE.BoxGeometry(2.4, 2.3, 8).translate(0, 1.2, 0), band = new THREE.BoxGeometry(2.46, 0.7, 7.2).translate(0, 1.7, 0);
+  for (const [s0, col] of [[0, 0xf4f0fa], [0.5, 0xfbe8f2]]) { const im = new THREE.InstancedMesh(body, new THREE.MeshStandardMaterial({ color: col, roughness: 0.4, metalness: 0.25 }), 3);
+    const ib = new THREE.InstancedMesh(band, new THREE.MeshStandardMaterial({ color: 0x1a2440, emissive: 0xff6fd0, emissiveIntensity: 0.55 }), 3);
+    im.frustumCulled = ib.frustumCulled = false; scene.add(im); scene.add(ib);
+    HT.trains.push({ path: SKR.path, v: SKR.boost + 4, cars: 3, carL: 8.6, gap: 0.6, s: SKR.path.len * s0, mesh: im, band: ib }); }
 }
 function hubDress() {
   if (!HUB.on) return;
@@ -9203,6 +9306,7 @@ function buildSlice() {
   buildAcro();      // r92: and the Acropolis west of that, four levels up
   buildLinks();     // r95: and bridges between the districts that only met at the hub
   buildHeights();   // r96: and the skyscraper district south-west of the hub
+  buildSkyRail();   // r101: and one rail round the whole world, high over all of them
   Object.assign(CITY.spots, { slice: [-97.8, Q, -5.25, -Math.PI / 2], 'slice bridge': [BR.x, yB(BR.zc), BR.zc + 6, Math.PI], 'slice terrace': [-140, TER, 15, -Math.PI / 2] });
   SLC.built = 1;
 }
@@ -12853,7 +12957,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

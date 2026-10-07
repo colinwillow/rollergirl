@@ -94,6 +94,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE SKY RAIL: ONE BOOSTER RAIL ROUND THE WHOLE WORLD, 60-91 m UP (r101, `SKR`, `buildSkyRail`, `skyRailRails`,
+  `npm run sim skyrail`).** 2 km, closed (`railLoop`), on a girder, through four stations: the Stack's summit (along its south
+  edge), the Orbital peak (its island plus a platform), a deck between the Heights towers and a deck north of the park, both
+  with a LIFT from the street (DYN). Two trains on it (pushed into `HT.trains`, so `stepHeights` steps and knocks).
+  - **THE PLAN IS POINTS AND KEYS.** `SKR.plan` is [x, z] or [x, z, y]; a centripetal spline through it, sampled every 2 m;
+    the points with a y are keys (a station is two keys at one height, so the rail is level along the deck) and between them
+    the height is linear by arc length. Move a point and the grade check (`maxGrade`, under 15%) says if it got too steep.
+  - **A STATION DECK HAS TO BE LONGER THAN A TAP OFF A BOOSTER CARRIES HER** -- 24 m/s for most of a second is twenty-odd
+    metres, so the first decks (20 m) dropped her 70 m off their far ends. They are 40+ m along the rail now, the rail 0.3 m
+    INSIDE the deck's edge so the pop lands on it, and the walls stop 1.6 m short of that edge so the rail never runs through one.
+  - **PYLONS ARE PLACED AFTER THE COLLIDER** (`skyRailRails`): each asks the ground and the solids under it and stands only on
+    open ground or water. Asked before `triBuild`, every answer is "nothing there" and they stand in the middle of everything.
+  - **`HT.trains` IS SHARED NOW** -- the heights case counted every train in it; it counts its own two lines'.
+  - Not yet: branches off it (a drop rail down to the Pantheon or the Shores spire would be a Y junction -- `railLink` already
+    makes one when a path's END sits on the loop).
+
 - **THE STACK: A ROW OF HIS BUILDINGS, EACH A STEP TALLER, A HALF PIPE ON EVERY ROOF (r100, `STK`, `stackKit`, `stkRoof`,
   `stackRails`, `npm run sim stack`, `docs/NIGHT_LOG.md`).** *"Buildings arranged with jumps, so you launch up one jump onto a
   building with a half pipe on top, pump and gain speed, then go onto a higher building."* South-east of the hub (x 143..314,

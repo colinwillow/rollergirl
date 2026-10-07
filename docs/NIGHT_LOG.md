@@ -50,3 +50,30 @@ His art: the pack's buildings, **scaled to the height the line needs** (the scal
 height over the file's measured roof) and **cleared above the roof** (`skyArt`'s new `clip`), so
 none of the planters, huts and masts he stood on them is in the middle of a half pipe. Until a
 file arrives a plain block stands in. The chip says `NO SKY ART n/m` in this world now too.
+
+---
+
+## r101 — THE SKY RAIL (round the whole world, 60–91 m up)
+
+**➤ stops:** `heights station`, `park station`, `peak station` (and `summit`, from r100)
+**Sim:** `node tools/sim.mjs skyrail` (13 rows)
+
+One closed **booster rail, 2 km round**, carried on a box girder with neon down both sides and
+42 pylons (only on open ground or water — never on anything you ride). A hands-off lap is about
+85 s at 22–24 m/s. Steepest grade 11%. It runs, in order:
+
+- **across the Stack's summit** (r100), 1.3 m inside its south wall at deck height — gaps cut in the
+  wall's corners for it. The summit is a station: swipe down to get on, tap to get off;
+- south-west over the Orbital sky islands to **the peak**: across the peak island's north side and
+  on over a new 29 m platform at the island's height (the island alone is only 20 m across);
+- north to **THE HEIGHTS STATION**, a 46 m deck at 77 m hanging between the four towers, with a
+  **lift from the Heights plaza** to it (a hex platform, 30 s round trip);
+- up the west side, round the Acropolis and the Pantheon to **THE PARK STATION**, a 46 m deck at
+  69 m north of the skate park district, with its own lift from the street;
+- down the east side past Neon Shores' spire and back onto the summit.
+
+**Two trains** run on it at 28 m/s — faster than the booster, so one catches you from behind and
+knocks you off (the Heights' rule, on the same machinery).
+
+**Getting off is a tap**, and the station decks are long on purpose: off a booster at 24 m/s a tap
+carries her twenty-odd metres before she is down, so a deck shorter than that is a 70 m fall.
