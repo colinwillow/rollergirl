@@ -400,3 +400,25 @@ a 91 m wire across to saucer A; A climbs to B (49 m), and A drops to C (123 m). 
 So the line in the sky is now: plaza cannon → donut → halo → saucer A → B or C, or the dunk → skyway spire → sky helix → plaza.
 
 The ➤ key has `saucer a/b/c` (the decks) and `saucer a/b/c lift` (the lift feet).
+
+---
+
+## r117 — THE WEB
+
+**Sim:** `node tools/sim.mjs wires` (now 30 rows)
+
+**Two more wires tie the saucers into the lines already in the sky:**
+
+- **Heights high line → saucer C** (57 m): grinding the Heights' high line (53 m), push the stick out at the north-east
+  corner and you branch onto a wire up to saucer C.
+- **Sky rail → saucer A** (134 m): grinding the sky rail south-east past the station, stick out (to the right) just
+  after the station corkscrew's junction, and a wire drops you onto saucer A.
+
+Ridden the other way, from either saucer, the wire merges you onto the high line or the sky rail.
+
+**A real grind fix came out of this:** at booster speed she covers ~0.4 m a frame, so a junction a few tenths of a metre into
+the next rail segment was skipped and could never be taken. Branches are now checked on the segment she enters too.
+(The sky rail branch turned out to have a second reason: from the north-west it leaves *behind* you, and a branch behind
+your direction of travel can never be picked. Ride it south-east.)
+
+Saucer C's lift moved to its west side and its volcano east of the middle, so its wires leave from the flat west half.

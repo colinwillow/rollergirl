@@ -94,6 +94,23 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **A BRANCH ON THE SEGMENT SHE JUST ENTERED WAS NEVER ASKED ABOUT (fixed r117, `stepGrind`'s `branch`), AND A BRANCH
+  BEHIND HER CAN NEVER BE (`RAILNET.minDot`) (r117, the web: high line -> saucer C, sky rail -> saucer A, `npm run sim wires`).**
+  - The branch test only looked at the segment she STARTED the frame on. At booster speed (22 m/s, ~0.37 m a frame) she
+    crosses into the next segment with overshoot, and a branch at t 0.17 of that one was jumped over. It now runs again
+    for each segment entered that frame.
+  - **A branch that leaves BACKWARD relative to her travel is filtered out by `minDot` (-0.15) before the stick is even
+    read.** The sky rail -> saucer A wire leaves at 103 deg to the sky rail ridden north-west, so it is only takeable
+    riding south-east. With the stick held square out on the wrong heading, it read "never took it".
+  - **`wires`' branch rows pick their start properly now**: an "ahead > 20" match 80 m away round another bend is
+    rejected (`bd > 8`), and the ring/fallback start rides whichever way round puts the wire FORWARD. Trains on the parent
+    rail are held still half a lap away (the high line's train sat on her start), and the stick is pushed out only within
+    14 m of the junction, as a player would. Held the whole way, it took the station corkscrew's branch 20 m earlier.
+  - `WIRE.list` options: `from: [x, z]` (where on B's deck to walk from, when its ➤ spot faces another wire) and
+    `sag` (0 for a wire that climbs into a saucer: a sagging one dips under the parapet it crosses).
+  - Tried and left out: sky rail -> saucer B (any sky rail point near B is below it, and climbing into a saucer goes
+    through its parapet), launch spiral -> saucer C (a Heights tower is in the way from either side of the spiral).
+
 - **THE SAUCERS: DECKS ON STALKS, LIFTS FOUND, WIRES OFF THE DONUT (r116, `SAU`, `buildSaucers`, `saucerRails`,
   `npm run sim saucers`).** A (72 m), B (84 m, a 150 deg XXL curved wall round its north half), C (55 m, a volcano), all in the
   west seam. Linked by three `WIRE.list` entries: the donut halo to A (a rail-mode wire, like r113's peak branch), A-B, A-C.

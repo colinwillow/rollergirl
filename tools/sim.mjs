@@ -4508,7 +4508,8 @@ CASES.saucers = () => {
       // at the top: roll in toward the middle (the lift waits there a few seconds)
       if (on) { run(0.6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.cam.az = Q.la + Math.PI; run(1.2, () => { rg.stick.L.x = 0; rg.stick.L.y = -0.8; city(); }); run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); }
       const r = Math.hypot(P.pos.x - Q.x, P.pos.z - Q.z);
-      say(`saucer ${Q.key}: the lift up from the street, and off onto the deck`, on && Math.abs(P.pos.y - Q.y) < 0.3 && r < Q.r - 1, `${on ? 'up at ' + fix(on, 1) + ' s' : 'NEVER UP (top ' + fix(top, 1) + ')'}, ends ${at(P.pos)} (r ${fix(r, 1)})`); }
+      say(`saucer ${Q.key}: the lift up from the street, and off onto the deck`, on && P.pos.y > Q.y - 0.3 && P.pos.y < Q.y + 3 && r < Q.r - 1,      // (on C she rolls on up the volcano)
+         `${on ? 'up at ' + fix(on, 1) + ' s' : 'NEVER UP (top ' + fix(top, 1) + ')'}, ends ${at(P.pos)} (r ${fix(r, 1)})`); }
     // HANDS OFF across the deck, every way but out of the lift's gap: the parapet keeps her on
     { const fell = []; let n = 0;
       for (let k = 0; k < 8; k++) { const h = k * Math.PI / 4; if (Math.abs(wa(h - Q.la)) < 0.8) continue; reset();
@@ -4524,7 +4525,7 @@ CASES.saucers = () => {
       const r = Math.hypot(P.pos.x - Q.x, P.pos.z - Q.z);
       say(`saucer b: into the giant wall at ${v} m/s, up it and back onto b`, top > Q.y + Q.wall.H * 0.5 && lo > Q.y - 0.5 && r < Q.r, `up to ${fix(top - Q.y, 1)} m over the deck (the wall is ${fix(Q.wall.H, 1)}), ends ${at(P.pos)}`); } }
   // C's volcano: over it
-  { const Q = S.made.find(q => q.park === 'volcano'); reset(); place(Q.x, Q.y + 0.3, Q.z + Q.r - 3, Math.PI, 9); P.pos.y = Q.y; let top = 0, lo = 1e9; run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); lo = Math.min(lo, P.pos.y); });
+  { const Q = S.made.find(q => q.park === 'volcano'); reset(); place(Q.x + 5, Q.y + 0.3, Q.z + Q.r - 4, Math.PI, 9); P.pos.y = Q.y; let top = 0, lo = 1e9; run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); lo = Math.min(lo, P.pos.y); });
     say('saucer c: over the volcano', top > Q.y + 1.5 && lo > Q.y - 0.5, `up to ${fix(top - Q.y, 1)} m, ends ${at(P.pos)}`); }
   return ok;
 };
@@ -4632,24 +4633,29 @@ CASES.wires = () => {
     reset(); const K = rg.RAILS.filter(q => q.path && q.path.name === m.rail), J = m.ea, wx = m.eb.x - J.x, wz = m.eb.z - J.z, wl = Math.hypot(wx, wz);
     // a segment ~30 m back from J, ridden so that she arrives travelling the way the wire leaves
     let q0 = null, bd = 1e9; for (const q of K) { const d = Math.abs(Math.hypot(q.a.x - J.x, q.a.z - J.z) - 30), ahead = ((J.x - q.a.x) * wx + (J.z - q.a.z) * wz) / wl; if (ahead > 20 && d < bd) { bd = d; q0 = q; } }
+    if (bd > 8) q0 = null;     // (r117: a match 80 m away round some other bend is not "30 m back")
     // r116: off a RING (the donut's halo) nothing is 20 m behind the branch along the wire -- the wire leaves square to it -- so
     // the start is ~30 m back ALONG the ring instead, ridden forward
     let ringFw = false; if (!q0) { let j = 0, bj = 1e9; K.forEach((q, i) => { const d = Math.hypot(q.a.x - J.x, q.a.z - J.z); if (d < bj) { bj = d; j = i; } });
-      let acc = 0, i = j; while (acc < 30) { i = (i - 1 + K.length) % K.length; acc += K[i].len; } q0 = K[i]; ringFw = true; }
+      // ridden whichever way round the wire leaves FORWARD of her (a branch behind her travel can never be picked: `minDot`)
+      const fwd = K[j].d.x * wx + K[j].d.z * wz >= 0; let acc = 0, i = j;
+      while (acc < 30) { i = fwd ? (i - 1 + K.length) % K.length : (i + 1) % K.length; acc += K[i].len; } q0 = K[i]; ringFw = fwd ? 1 : -1; }
     if (!q0) { say(`off the ${m.rail} onto the ${m.a} - ${m.b} wire`, false, 'no rail behind the branch'); continue; }
-    const fw = ringFw || (q0.b.x - q0.a.x) * wx + (q0.b.z - q0.a.z) * wz > 0, s0 = fw ? q0.a : q0.b, s1 = fw ? q0.b : q0.a, h = Math.atan2(s1.x - s0.x, s1.z - s0.z);
-    rg.HT.trains.filter(tr => tr.path === q0.path).forEach((tr, i) => tr.s = tr.path.len * (0.25 + 0.5 * i));
+    const fw = ringFw ? ringFw > 0 : (q0.b.x - q0.a.x) * wx + (q0.b.z - q0.a.z) * wz > 0, s0 = fw ? q0.a : q0.b, s1 = fw ? q0.b : q0.a, h = Math.atan2(s1.x - s0.x, s1.z - s0.z);
+    // the trains on that rail held still, half a lap from where she starts (r117: the high line's train sat on her start and knocked her off)
+    const held = rg.HT.trains.filter(tr => tr.path === q0.path).map((tr, i) => { const v = tr.v; tr.s = ((q0.s0 || 0) + tr.path.len * (0.4 + 0.2 * i)) % tr.path.len; tr.v = 0; return [tr, v]; });
     place(s0.x, s0.y + 0.4, s0.z, h, 16); P.pos.set(s0.x, s0.y + 0.4, s0.z); P.grounded = false; P.vel.y = -1;
     let hj = h; { let bj = 1e9; for (const q of K) { const d = Math.hypot((q.a.x + q.b.x) / 2 - J.x, (q.a.z + q.b.z) / 2 - J.z); if (d < bj) { bj = d; hj = Math.atan2(q.b.x - q.a.x, q.b.z - q.a.z) + (fw ? 0 : Math.PI); } } }   // her heading AT the branch
     const side = Math.sign(Math.sin(hj) * wz - Math.cos(hj) * wx) || 1;     // the wire leaves to her right (+1) or left
     let took = 0, land = null, past = 0, nearJ = 0;
-    const r = ride(30, () => { if (stick && P.grind) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - side * Math.PI / 2; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;     // square out to its side: the branch is only ~18 deg off the rail
+    const r = ride(30, () => { if (stick && P.grind && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) < 14) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - side * Math.PI / 2; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;     // square out to its side, as she comes up to the branch (the branch is only ~18 deg off the sky rail)
       if (P.grind && P.grind.rail.path === m.path) took = 1; if (!took && P.grind && P.grind.rail.path === q0.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) < 6) nearJ = 1;
       if (!took && P.grind && P.grind.rail.path === q0.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) > 25 && nearJ) past = 1;     // (went by the branch, and on: along a straight rail or round a ring)
       if (took && !P.grind && P.grounded && !land) land = P.pos.clone(); }, () => land || past);
     const there = land && Math.hypot(land.x - m.eb.x, land.z - m.eb.z) < 14;
     if (stick) say(`off the ${m.rail}, stick out: onto the wire to ${m.b}`, took && there && r.clean, `${took ? 'on the wire' : 'NEVER TOOK IT'}, ${land ? 'down at ' + at(land) : 'never down -- ends ' + at(P.pos)}${cl(r)}`);
-    else say(`hands off, she carries on along the ${m.rail}`, !took && past, took ? 'TOOK THE WIRE' : past ? 'carried on' : `ends ${at(P.pos)}`); }
+    else say(`hands off, she carries on along the ${m.rail}`, !took && past, took ? 'TOOK THE WIRE' : past ? 'carried on' : `ends ${at(P.pos)}`);
+    for (const [tr, v] of held) tr.v = v; }
   return ok;
 };
 // r110: THE STATION -- the deck at 210 m: the corkscrew joined to the sky rail, its line clear of the mothership and everything
@@ -4842,7 +4848,7 @@ CASES.launch = () => {
   const sky = (stick) => { away(); reset(); const q = S.path.segs[(ri - 12 + S.path.segs.length) % S.path.segs.length], h = Math.atan2(q.b.x - q.a.x, q.b.z - q.a.z);
     place(q.a.x, q.a.y + 0.4, q.a.z, h, 20); P.pos.set(q.a.x, q.a.y + 0.4, q.a.z); P.grounded = false; P.vel.y = -1;
     let sp = 0, deck = null, land = null, past = 0;
-    const r = ride(30, () => { if (stick && P.grind) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - L.side * 75 * Math.PI / 180; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;
+    const r = ride(30, () => { if (stick && P.grind && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) < 14) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - L.side * 75 * Math.PI / 180; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;
       if (P.grind && P.grind.rail.path === L.spiralRail) sp = 1; if (P.grind && P.grind.rail.path === S.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) > 25 && !sp && P.pos.x < J.x) past = 1;
       if (sp && P.grounded && onDeck(P.pos) && !deck) deck = P.pos.clone(); if (deck && P.pos.x < L.lip - 2 && P.grounded && !land) land = P.pos.clone(); }, () => land || past);
     return { r, sp, deck, land, past }; };

@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r116</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r117</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r116';
+const BUILD = 'r117';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3801,11 +3801,15 @@ function stepGrind(dt) {
   const tOld = G.t;
   G.t += G.dir * G.s * dt / R.len;
   // r59: PAST A BRANCH -- another rail leaves this one here; the left stick pointing down it takes it
-  if (RAILNET.on && R.br) for (const B of R.br) {
-    if (!((G.dir > 0 && tOld < B.t && G.t >= B.t) || (G.dir < 0 && tOld > B.t && G.t <= B.t))) continue;
-    const pk = railPick([{ R, t: B.t, dir: G.dir, nat: 1, bonus: RAILNET.brMargin }, { R: B.R, t: B.at === 'a' ? 0 : 1, dir: B.at === 'a' ? 1 : -1 }], _ve.copy(R.d).multiplyScalar(G.dir));
-    if (pk && pk.R !== R) { const over = Math.abs(G.t - B.t) * R.len; R = G.rail = pk.R; G.dir = pk.dir; G.t = pk.t + pk.dir * over / R.len; G.turns = (G.turns || 0) + 1; sparkBurst(6); break; }
-  }
+  // r117: ...on the segment she ENTERED this frame too. At booster speed a frame is ~0.4 m, so a branch a few tenths of a
+  // metre into the next segment was jumped by the overshoot and never asked about: the sky rail's branch to saucer A could
+  // not be taken at all, with the stick held square out either side
+  const branch = (t0) => { if (!RAILNET.on || !R.br) return false; for (const B of R.br) {
+      if (!((G.dir > 0 && t0 < B.t && G.t >= B.t) || (G.dir < 0 && t0 > B.t && G.t <= B.t))) continue;
+      const pk = railPick([{ R, t: B.t, dir: G.dir, nat: 1, bonus: RAILNET.brMargin }, { R: B.R, t: B.at === 'a' ? 0 : 1, dir: B.at === 'a' ? 1 : -1 }], _ve.copy(R.d).multiplyScalar(G.dir));
+      if (pk && pk.R !== R) { const over = Math.abs(G.t - B.t) * R.len; R = G.rail = pk.R; G.dir = pk.dir; G.t = pk.t + pk.dir * over / R.len; G.turns = (G.turns || 0) + 1; sparkBurst(6); return true; } }
+    return false; };
+  let took = branch(tOld);
   // r45: OFF THE END OF ONE SEGMENT AND ONTO THE NEXT, carrying the overshoot in metres -- r59: or onto whatever
   // rail is JOINED at that end, which can run the other way (`railExit` picks, the stick can choose)
   for (let k = 0; k < 8; k++) {
@@ -3813,6 +3817,7 @@ function stepGrind(dt) {
     const over = (atB ? G.t - 1 : -G.t) * R.len, nx = railExit(R, atB ? 'b' : 'a', G.dir); if (!nx) break;
     if (!nx.nat) { G.turns = (G.turns || 0) + 1; }
     R = G.rail = nx.R; G.dir = nx.dir; G.t = nx.t + nx.dir * over / R.len;
+    if (!took) took = branch(nx.t - nx.dir * 1e-9);
   }
   ux = R.d.x * G.dir; uy = R.d.y * G.dir; uz = R.d.z * G.dir;
   G.time += dt;
@@ -9411,7 +9416,8 @@ function stationRails() {
 const WIRE = { on: 1, built: 0, clear: 5, inset: 6, sag: 0.025, sagMax: 5, boost: 16, boostK: 2.5, maxV: 22, shifts: [0, 2, -2, 4, -4, 6, -6],
   list: [['peak', 'plunge 1', { rail: 'sky rail', at: [-9, -275] }], ['sky', 'plunge 2'], ['garage roof', 'spire'], ['launch deck', 'nimbus top'], ['skyway spire', 'transit deck'], ['acro sky', 'roof line'],
     ['great pyramid', 'transit deck'], ['rooftop park', 'stack 1'], ['stack 2', 'transit deck'], ['stack 4', 'nimbus top'],
-    ['the donut', 'saucer a', { rail: 'donut halo', at: [-33.1, 12.7] }], ['saucer a', 'saucer b'], ['saucer a', 'saucer c']],   // r116: the donut's halo to the saucers
+    ['the donut', 'saucer a', { rail: 'donut halo', at: [-33.1, 12.7] }], ['saucer a', 'saucer b'], ['saucer a', 'saucer c'],   // r116: the donut's halo to the saucers
+    ['the heights', 'saucer c', { rail: 'heights high line', at: [-191, -126], from: [-197, -68] }], ['sky', 'saucer a', { rail: 'sky rail', at: [-232, -38], from: [-131, 49] }]],   // r117: the saucers tied into the lines already in the sky
   paths: [], made: [], skipped: [] };
 function wireEnd(A, B, sh) {     // from deck A toward B, shifted `sh` sideways: the last clean point on A's deck, and how far that runs
   const dx = B[0] - A[0], dz = B[2] - A[2], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ox = A[0] - uz * sh, oz = A[2] + ux * sh, g0 = groundAt(A[0], A[2], A[1] + 1, 0.5), y = g0.hit ? g0.floor : A[1];     // (a ➤ spot can stand a little over its deck)
@@ -9445,9 +9451,9 @@ function wireRails() {
     let ok = null, why = '';
     for (const sh of W.shifts) {
       // off a rail, the shift slides the branch point along it instead of sideways across a deck
-      const a = opt && opt.rail ? wireOnRail(opt.rail, opt.at[0] + sh, opt.at[1]) : wireEnd(A, B, sh), b = wireEnd(B, a ? [a.x, a.y, a.z] : A, opt && opt.rail ? 0 : -sh);
+      const a = opt && opt.rail ? wireOnRail(opt.rail, opt.at[0] + sh, opt.at[1]) : wireEnd(A, B, sh), b = wireEnd(opt && opt.from ? [opt.from[0], B[1], opt.from[1]] : B, a ? [a.x, a.y, a.z] : A, opt && opt.rail ? 0 : -sh);   // (`from`: where on B's deck to walk from, when its ➤ spot faces another wire)
       if (!a || !b) { why = why || `shift ${sh}: no deck run at ${!a ? na : nb}`; continue; }
-      const L = Math.hypot(b.x - a.x, b.z - a.z), sag = Math.min(W.sagMax, W.sag * L), n = Math.max(8, Math.ceil(L / 2)), pts = [];
+      const L = Math.hypot(b.x - a.x, b.z - a.z), sag = Math.min(W.sagMax, (opt && opt.sag != null ? opt.sag : W.sag) * L), n = Math.max(8, Math.ceil(L / 2)), pts = [];
       for (let i = 0; i <= n; i++) { const f = i / n; pts.push(SLV(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f - sag * 4 * f * (1 - f), a.z + (b.z - a.z) * f)); }
       // clear: nothing solid round the bar or over it, no floor up at it -- except the deck under each end
       let bad = 0;
@@ -9643,7 +9649,7 @@ const SAU = { on: 1, built: 0, stops: [], made: [], stalk: 2.6, par: 0.9, lift: 
   list: [
     { key: 'a', x: -125, z: 48, y: 72, r: 14, park: 'none', col: 0xf4ecff, neon: 0x3ff0e0, rim: 0xb98bff },
     { key: 'b', x: -150, z: 140, y: 84, r: 21, park: 'wall', col: 0xfff0f4, neon: 0xff6fd0, rim: 0xffb04a, lift0: Math.PI / 2, wall: { size: 'XXL', a0: -75, a1: 75 } },   // (its lift off to the side: whatever comes down the wall crosses the deck due south)
-    { key: 'c', x: -190, z: -60, y: 55, r: 16, park: 'volcano', col: 0xeefcf4, neon: 0x8dff3a, rim: 0x3fa0ff } ] };
+    { key: 'c', x: -190, z: -60, y: 55, r: 17, park: 'volcano', col: 0xeefcf4, neon: 0x8dff3a, rim: 0x3fa0ff, lift0: -Math.PI / 2 } ] };
 function buildSaucers() {
   if (!SAU.on || WORLD.zones || !PARKD.on) return;
   _slseed = 11616; triBuild(); solidBuild();
@@ -9681,7 +9687,7 @@ function buildSaucers() {
     // THE PARK
     const K2 = { ...KCOL }; Object.assign(KCOL, PARKD.pal.kcol);
     try {
-      if (Q.park === 'volcano') kitPiece('volcano', 'M', { x, y, z: z - 5, yaw: 0 }, { h: 2.4, top: 1.8, angle: 26, rail: 0 });
+      if (Q.park === 'volcano') kitPiece('volcano', 'M', { x: x + 5, y, z, yaw: 0 }, { h: 2.4, top: 1.8, angle: 26, rail: 0 });
       if (Q.park === 'wall') { const W = Q.wall, S = { ...KSZ[W.size], tint: 0xffd6e8 }, rq = S.H / (1 - Math.cos(S.sweep)), lip = rq * Math.sin(S.sweep), dk = 1.6, rc = r - 0.7 - dk - lip, a0 = W.a0 * D2R, a1 = W.a1 * D2R;
         KIT_KINDS.qpIn({ x, y, z, yaw: 0 }, S, { rc, a0, a1, deck: dk, fill: false });
         Object.assign(W, { rc, lip, H: S.H, dk });
@@ -9701,7 +9707,7 @@ function buildSaucers() {
       DYN.list.push(p); Object.assign(Q, { lift: p, lx, lz }); }
     // THE STOPS: on the deck (its middle for A and C; on the flat south half for B), and at the lift's foot
     const nm = 'saucer ' + Q.key, dz = Q.park === 'wall' ? -r * 0.4 : 0;
-    CITY.spots[nm] = Q.park === 'volcano' ? [x, y, z + r - 6.5, 0] : [x, y, z + dz, 0];
+    CITY.spots[nm] = Q.park === 'volcano' ? [x - 5, y, z + 9, 0] : [x, y, z + dz, 0];   // (C's volcano stands east of its middle: its wires leave from the west half)
     CITY.spots[nm + ' lift'] = [x + (ld + 6) * Math.sin(la), 0, z + (ld + 6) * Math.cos(la), la + Math.PI];
     SAU.stops.push(nm); SAU.made.push(Q);
   }
