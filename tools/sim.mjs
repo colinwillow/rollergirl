@@ -4389,6 +4389,48 @@ CASES.links = () => {
 // r104: THE DRAIN -- in off the street through the mouth and along the channel under the tunnel roof, dropped in off the
 // plateau, the half pipe pumped, up the bank onto the plateau, down the branch into its half bowl, and the tunnel's roof a
 // ceiling (a vert air under it does not come out through the top).
+CASES.garage = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const G = rg.GAR; if (!G.built) { console.log('  the garage was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), top = G.n * G.lv;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; rg.GRIND.intent = 0; };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, top: -99 }; let kq = 0, done = 0; run(sec, (t, i) => { if (done) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (process.env.GT && kq++ % 15 === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', P.grind ? 'GR ' + P.grind.rail.path.name : '', P.onLane || '', fix(P.speed, 1));
+      if (P.bailT > 0) r.bail = 1; r.top = Math.max(r.top, P.pos.y);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); if (stop && stop()) done = 1; }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  say(`${G.n} decks every ${G.lv} m, ${G.ramps.length} ramps (lanes), roof ${top} m`, G.ramps.length === G.n && G.levels.length === G.n && rg.ORB.lanes.filter(L => /^garage ramp/.test(L.name)).length === G.n && G.rail, G.rail ? 'a rail onto the Table' : 'NO RAIL');
+  // every deck is a floor at its height (away from the holes), and the underside clears the ramp beneath it
+  { const bad = []; for (const Lv of G.levels) { const g = rg.groundAt((G.x0 + G.x1) / 2, G.z1 - 1.5, Lv.y + 0.5, 0); if (!g.hit || Math.abs(g.floor - Lv.y) > 0.05) bad.push(`deck ${Lv.j}: ${g.hit ? fix(g.floor) : '-'}`); }
+    for (const R of G.ramps) for (let f = 0.05; f < 1; f += 0.1) { const z = R.zs + (R.ze - R.zs) * f, y = R.y0 + (R.y1 - R.y0) * f; for (const dy of [0.6, 1.4, 2.0]) { const b = rg.solidAt(R.x, y + dy, z, 0.25); if (b) { bad.push(`ramp ${R.i} at ${fix(z, 0)}: ${b.tag} ${fix(dy, 1)} over it`); break; } } }
+    say('every deck a floor; nothing solid over a ramp at her height', !bad.length, bad.slice(0, 4).join('; ') || 'clear'); }
+  { const bad = []; for (const n of G.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every Garage ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${G.stops.length} stops`); }
+  // a lane carries her up a ramp with no push
+  { reset(); const R = G.ramps[0]; place(R.x, 0.3, R.zs + 0.5, R.ze > R.zs ? 0 : Math.PI, 1); let up = 0;
+    const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && P.pos.y > R.y1 - 0.1) up = 1; }, () => up);
+    say('hands off at the foot of a ramp, its lane carries her up a level', up && r.clean, up ? `up at ${at(P.pos)}` : `ends ${at(P.pos)}${cl(r)}`); }
+  // the whole climb: up every ramp, across each deck's end to the next, onto the roof
+  { reset(); const R0 = G.ramps[0], wp = []; for (const R of G.ramps) { wp.push([R.x, R.zs]); wp.push([R.x, R.ze + Math.sign(R.ze - R.zs) * 0.8]); }
+    place(R0.x, 0.3, R0.zs - 3, 0, 4); let k = 0, roof = null, worst = 0;
+    const r = ride(70, () => { const [tx, tz] = wp[Math.min(k, wp.length - 1)], dx = tx - P.pos.x, dz = tz - P.pos.z; if (Math.hypot(dx, dz) < 1.6 && k < wp.length - 1) k++;
+      rg.cam.az = rg.cam.steerAz = Math.atan2(dx, dz); rg.stick.L.x = 0; rg.stick.L.y = P.grounded ? -0.55 : 0;
+      const lv = Math.floor((P.pos.y + 0.5) / G.lv); worst = Math.max(worst, k / 2 - lv);
+      if (P.grounded && P.pos.y > top - 0.1 && !roof) roof = P.pos.clone(); }, () => roof);
+    say('the climb: up all five ramps through the building onto the roof', roof && r.clean, roof ? `on the roof at ${at(roof)}` : `ends ${at(P.pos)}, waypoint ${k}/${wp.length}${cl(r)}`); }
+  // the roof bowl: dropped in, swinging wall to wall
+  { reset(); const B = G.bowl, cx = (G.x0 + G.x1) / 2 - 3, cz = (G.z0 + G.z1) / 2 - 1; place(cx, top + 0.3, cz, Math.PI / 2, 9); let hi = 0, side = 0, sw = 0;
+    const r = ride(8, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.y > top + 1.2) { const sd = Math.sign(P.pos.x - cx); if (sd !== side) { sw++; side = sd; } hi = Math.max(hi, P.pos.y - top); } });
+    void B; say('the roof bowl: rolled across it, wall to wall', sw >= 2 && r.clean && P.pos.y > top - 0.5, `${sw} walls, highest ${fix(hi)} over the roof, ends ${at(P.pos)}${cl(r)}`); }
+  // the down rail off the roof onto the Table
+  { reset(); const a = G.rail.segs[1].a, T = rg.PYR.ps[1]; place(a.x + 1.2, top + 0.3, a.z - 1.2, -Math.PI / 4, 3); rg.GRIND.intent = 1; rg.ledgeClear(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, land = null; const r = ride(12, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === G.rail) on = 1; if (on && !P.grind && P.grounded && !land) land = P.pos.clone(); }, () => land);
+    const onT = land && Math.max(Math.abs(land.x - T.x), Math.abs(land.z - T.z)) < T.B;
+    say('off the roof\'s corner: the down rail onto the Table', on && onT && r.clean, `${on ? 'on the rail' : 'NEVER ON IT'}, ${land ? 'down at ' + at(land) + (onT ? ' (the Table)' : ' (NOT the Table)') : 'never down -- ends ' + at(P.pos)}${cl(r)}`); }
+  return ok;
+};
 CASES.launch = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
@@ -4608,9 +4650,12 @@ CASES.ufo = () => {
     run(6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === R) { on = 1; s += P.speed * DT; } });
     say('the rim ring grinds', on && s > 20, `${fix(s, 0)} m on it`); }
   // a scout: wait on the street under its path, its beam lifts her onto its back and it carries her
-  { reset(); const S = U.list[0]; let tc = rg.HT.t + 4;
+  // SCT=<t> starts the row's clock there: the row depends on where earlier cases left HT.t
+  { reset(); if (process.env.SCT) rg.HT.t = +process.env.SCT; const S = U.list[0]; let tc = rg.HT.t + 4;
     // a moment when its path is over open street with nothing between the street and the saucer (over a roof, the roof is in the way)
-    const open = t => { const [x, y, z] = S.fn(t); for (let k = 0; k < 6; k++) { const [x2, , z2] = S.fn(t + k); const g = rg.groundAt(x2, z2, 1, 0); if (g.hit && g.floor > 0.2) return false;
+    const open = t => { const [x, y, z] = S.fn(t); for (let k = 0; k < 6; k++) { const [x2, y2, z2] = S.fn(t + k); const g = rg.groundAt(x2, z2, 1, 0); if (g.hit && g.floor > 0.2) return false;
+        const g2 = rg.groundAt(x2, z2, y2 - 1.5, 0); if (g2.hit && g2.floor > 0.2) return false;
+        for (const [dx, dz] of [[2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5]]) { const g3 = rg.groundAt(x2 + dx, z2 + dz, 1, 0); if (g3.hit && g3.floor > 0.04) return false; }     // and FLAT: on a bank's toe she rolls off the scout's path while she waits     // r107: a FLOOR overhead (a monorail beam, a roof) stops the beam too -- the old check only asked about solids
         for (let yy = 1; yy < y - 1; yy += 1.5) for (const [dx, dz] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) if (rg.solidAt(x2 + dx, yy, z2 + dz, 0)) return false; } return true; };
     while (!open(tc) && tc < rg.HT.t + 200) tc += 0.5;
     const [x, , z] = S.fn(tc); place(x, 0.3, z, 0, 0); let top = 0, on = 0, carried = 0, x0 = null;

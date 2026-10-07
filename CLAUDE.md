@@ -94,6 +94,19 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE GARAGE (r107, `GAR`, `buildGarage`, `garageRails`, `npm run sim garage`).** NE field, x 239..271 z 184..216. Five
+  slabs every 7 m, a ramp per level up alternating columns (even east going north, odd west going south), each a lane in
+  `ORB.lanes` (conveyor, governed). A slab is four boxes round a HOLE over the top of the ramp coming up through it, cut
+  where the slab's underside would be under `head` (2.8 m) over the ramp -- the sim checks nothing solid sits over any
+  ramp at her height. Kit pieces on the decks, a bowl L on the roof, a down rail off the roof's NW corner onto the Table.
+  - **A ➤ stop over a ramp's arrival hole stands her on the RAMP**, a few cm off the deck height it was typed at.
+  - The sim's climb row follows waypoints (the ends of each ramp) with `cam.az` pointed at the next one -- a route
+    follower, which is the honest shape for a line that turns at every deck.
+  - **THE GARAGE CASE MOVED THE CLOCK AND THE UFO CASE'S SCOUT ROW FAILED** -- only in the full run, never alone. The row
+    waits for a moment the scout is over "open street", and that test asked about solids overhead but not FLOORS and not
+    SLOPE: at two clocks in a sweep it stood her on a bank's toe, she rolled 2 m off the path while she waited, and the beam
+    missed her. It asks for flat ground and no floor overhead now, and `SCT=<t>` sets the row's clock: swept over 0..1000 s,
+    every start passes. **A row that passes alone and fails in the full run depends on state an earlier case left.**
 - **THE LAUNCH (r106, `LCH`, `buildLaunch`, `launchRails`, `skrBranch`, `npm run sim launch`).** SW field, x -292..-126.
   A 36 m deck on a shaft, a needle mast, a cargo lift (DYN rect), a walled 27 deg drop bank west off the deck, a kicker, a
   30 m gap, an XXL landing. **`skrBranch(O, o)` is r105's obelisk spiral made a helper**: `tg` ends on the tangent toward a

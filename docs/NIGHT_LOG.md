@@ -181,3 +181,22 @@ A tower with a **36 m deck**, a needle mast out of its middle with a beacon on t
   bank catches you like a quarter pipe.
 
 The full line: sky rail → round the needle → deck → the drop → the gap — tested end to end.
+
+---
+
+## r107 — THE GARAGE (the north-east field, east of the pyramids)
+
+**➤ stops:** `the garage` (the foot of the first ramp), `garage roof`
+**Sim:** `node tools/sim.mjs garage` (7 rows)
+
+An open parking structure, **five decks every 7 m**, that you ride up **inside**. A ramp per level climbs one side and
+the next climbs the other side the other way, so the line zig-zags up through the building. Every ramp is a
+**conveyor** (the neon stripe): stand on one with no push and it carries you up a level. Every deck has something on
+it — a funbox, a mini half pipe of two quarter pipes, a ledge and a flat bar, a pyramid — and **the roof at 35 m is a
+bowl** behind a parapet.
+
+Off the roof's **north-west corner** (the one gap in the parapet) a **down rail** runs over the field and drops you on
+the **Table's top deck**: from there it's down into the pyramid valley and up the Great Pyramid's face.
+
+Measured: hands off at the first ramp's foot, the lane takes you up a level; following the route, up all five ramps
+onto the roof; the roof bowl wall to wall; the rail off the corner onto the Table.
