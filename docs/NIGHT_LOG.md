@@ -269,3 +269,31 @@ Its circle clears the Mothership's dish by 13 m at the dish's height. Nothing el
   still pass.
 - A floor drawn as a disc from its exact centre (`acDisc` from radius 0) was facing down, so it didn't exist to the
   physics. It does now.
+
+---
+
+## r111 — THE HIGH WIRES (between districts, at roof height)
+
+**Sim:** `node tools/sim.mjs wires` (8 rows)
+
+Booster rails strung between decks of **different districts that stand at the same height**, so a roof in one is a
+ride from a roof in the next. Three went up:
+
+| from | to | length | height |
+|---|---|---|---|
+| **Launch deck** | **Nimbus** roof (Orbital) | 223 m | 36 m |
+| **Acropolis sky agora** | the canal street's **roofline** | 191 m | 28 → 25 m |
+| **Garage roof** | the **Shores spire** island | 39 m | 35 → 36 m |
+
+Each is a booster both ways (about 16 m/s), so either end is a start: swipe down onto it from the deck. It sags a little
+in the middle, carries gems, and drops you on the other deck.
+
+**The ends are found, not typed.** From each deck it walks toward the other until the deck ends or something blocks,
+then checks the whole wire against everything solid and every floor, trying a few side-shifts. An end must also be at
+least 5 m from any other rail, so a swipe there finds this one. A wire that can't be strung cleanly is left out and
+says why. Seven candidates were left out. The best of them, the Orbital peak to the Stack's 60 m roof (247 m, dead
+level, clear the whole way), lost only because the sky rail's peak station is on the same small island and the swipe
+there grabbed the wire.
+
+**Watch for:** you arrive at ~16 m/s. On the Garage roof, hands off, you roll straight across and off the far side.
+Brake or turn when you land. Off the Launch end you roll into the big drop, which is a line in itself.

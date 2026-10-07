@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r110</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r111</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r110';
+const BUILD = 'r111';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3547,6 +3547,7 @@ function buildPark() {
   pyramidRails();    // r105: after the sky rail, which the obelisk drop branches off
   launchRails();     // r106: likewise its spiral
   stationRails();    // r110: the corkscrew and the parapet's grind ring
+  wireRails();       // r111: the high wires between districts' decks (after every deck is in the collider)
   garageRails();     // r107: its ramps' lanes, its rail onto the Table
   acroRails();       // r92
   cityRails();
@@ -9364,6 +9365,61 @@ function stationRails() {
   S.corkRail = railPath(g.pts, { name: 'station corkscrew', boost: S.cork.boost, boostK: S.cork.boostK, maxV: S.cork.maxV }); railDraw(S.corkRail, { mat: 'boost', postMax: 6 }); gemsAlong(S.corkRail, 16, 0.9, 12);
   S.rims = S.ringRuns.map(run => { const R = railPath(run.map(p => SLV(p[0], p[1], p[2])), { name: 'station rim' }); railDraw(R, { mat: 'boost', postMax: 2 }); return R; });
 }
+// ===== r111: THE HIGH WIRES -- *"connective tissue ... grind rails ... so you're always in one giant place."* Booster rails
+// strung between decks of DIFFERENT districts that stand at the same height, so a roof in one is a ride from a roof in the
+// next: the Orbital peak and the Stack's 60 m roof, the Orbital sky island and the Stack's 45 m roof, the Garage roof and
+// the Shores spire, the Launch deck and the Nimbus roof, the hub's skyway spire and the Shores transit deck, the
+// Acropolis sky agora and the canal street's roofline. Booster both ways, so either end is a start.
+//   THE ENDS ARE FOUND, NOT TYPED: from each deck's ➤ spot toward the other it walks while the floor stays at the deck's
+// height and nothing solid stands at rail height; the rail ends up to `inset` metres back from where that stops. Then the
+// whole wire, sag and all, has to clear every solid and every floor, tried at a few side-shifts; a wire that cannot is
+// logged and left out rather than run through something.
+const WIRE = { on: 1, built: 0, clear: 5, inset: 6, sag: 0.025, sagMax: 5, boost: 16, boostK: 2.5, maxV: 22, shifts: [0, 2, -2, 4, -4, 6, -6],
+  list: [['peak', 'plunge 1'], ['sky', 'plunge 2'], ['garage roof', 'spire'], ['launch deck', 'nimbus top'], ['skyway spire', 'transit deck'], ['acro sky', 'roof line'],
+    ['great pyramid', 'transit deck'], ['rooftop park', 'stack 1'], ['stack 2', 'transit deck'], ['stack 4', 'nimbus top']],
+  paths: [], made: [], skipped: [] };
+function wireEnd(A, B, sh) {     // from deck A toward B, shifted `sh` sideways: the last clean point on A's deck, and how far that runs
+  const dx = B[0] - A[0], dz = B[2] - A[2], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ox = A[0] - uz * sh, oz = A[2] + ux * sh, g0 = groundAt(A[0], A[2], A[1] + 1, 0.5), y = g0.hit ? g0.floor : A[1];     // (a ➤ spot can stand a little over its deck)
+  let last = -1;
+  for (let s = 0; s < 60; s += 0.5) { const x = ox + ux * s, z = oz + uz * s, g = groundAt(x, z, y + 1.5, 0);
+    if (!g.hit || Math.abs(g.floor - y) > 0.15 || g.ny < 0.97) break;
+    if (solidAt(x, y + 0.5, z, 0.4) || solidAt(x, y + 1.2, z, 0.4) || solidAt(x, y + 2.0, z, 0.4)) break;
+    last = s; }
+  if (last < 2.5) return null;
+  const s0 = Math.max(0, last - WIRE.inset); return { x: ox + ux * s0, z: oz + uz * s0, y: y + 0.95, run: last - s0 };
+}
+function wireNear(e) {     // the name of a rail within `WIRE.clear` of a wire end (an end is where she swipes on), or null
+  for (const R of RAILS) { const dx = R.b.x - R.a.x, dy = R.b.y - R.a.y, dz = R.b.z - R.a.z, l2 = dx * dx + dy * dy + dz * dz || 1e-9;
+    const t = Math.max(0, Math.min(1, ((e.x - R.a.x) * dx + (e.y - R.a.y) * dy + (e.z - R.a.z) * dz) / l2));
+    if (Math.hypot(R.a.x + dx * t - e.x, R.a.y + dy * t - e.y, R.a.z + dz * t - e.z) < WIRE.clear) return R.path ? R.path.name : 'rail'; }
+  return null;
+}
+function wireRails() {
+  if (!WIRE.on || WORLD.zones || !PARKD.on) return;
+  const W = WIRE;
+  for (const [na, nb] of W.list) {
+    const A = CITY.spots[na], B = CITY.spots[nb]; if (!A || !B) { W.skipped.push(`${na} / ${nb}: no spot`); continue; }
+    let ok = null, why = '';
+    for (const sh of W.shifts) {
+      const a = wireEnd(A, B, sh), b = wireEnd(B, A, -sh); if (!a || !b) { why = why || `shift ${sh}: no deck run at ${!a ? na : nb}`; continue; }
+      const L = Math.hypot(b.x - a.x, b.z - a.z), sag = Math.min(W.sagMax, W.sag * L), n = Math.max(8, Math.ceil(L / 2)), pts = [];
+      for (let i = 0; i <= n; i++) { const f = i / n; pts.push(SLV(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f - sag * 4 * f * (1 - f), a.z + (b.z - a.z) * f)); }
+      // clear: nothing solid round the bar or over it, no floor up at it -- except the deck under each end
+      let bad = 0;
+      for (let i = 0; i <= n && !bad; i++) { const q = pts[i], f = i / n, nearEnd = f * L < a.run + 1 || (1 - f) * L < b.run + 1;
+        for (const dy of [0.25, 1.0, 2.0]) { const o = solidAt(q.x, q.y + dy, q.z, 0.35); if (o) { bad = 1; why = why || `shift ${sh}: ${o.tag} at ${Math.round(f * L)} m`; } }
+        if (!nearEnd) { const g = groundAt(q.x, q.z, q.y + 2.2, 0); if (g.hit && g.floor > q.y - 0.4) { bad = 1; why = why || `shift ${sh}: a floor at ${Math.round(f * L)} m`; } } }
+      // and no other rail within reach of either end: a swipe there must find THIS rail, not the one beside it (the sky rail
+      // crosses the Orbital peak's island, and the station's swipe-on grabbed the wire instead)
+      if (!bad) for (const e of [a, b]) { const near = wireNear(e); if (near) { bad = 1; why = why || `shift ${sh}: the ${near} is ${W.clear} m from an end`; } }
+      if (!bad) { ok = { pts, a, b, L, sh }; break; } }
+    if (!ok) { W.skipped.push(`${na} / ${nb} (${why})`); continue; }
+    const P = railPath(ok.pts, { name: `wire ${na} - ${nb}`, boost: W.boost, boostK: W.boostK, maxV: W.maxV }); railDraw(P, { mat: 'boost', postMax: 3 }); gemsAlong(P, Math.max(6, Math.round(ok.L / 16)), 0.9, 6);
+    W.paths.push(P); W.made.push({ a: na, b: nb, L: ok.L, sh: ok.sh, path: P, ea: ok.a, eb: ok.b });
+  }
+  W.built = W.made.length > 0 ? 1 : 0;
+  console.log(`[high wires] ${W.made.length} strung (${W.made.map(m => `${m.a} - ${m.b} ${Math.round(m.L)} m`).join(', ')})${W.skipped.length ? ', LEFT OUT: ' + W.skipped.join('; ') : ''}`);
+}
 // ===== r106: THE LAUNCH -- *"big fucking jumps ... the sky rail ... everything so integrated."* The open south-west field
 // under the sky rail, south of the Heights. A tower with a deck at 36 m; the sky rail spirals down onto it (stick toward
 // it as you pass); a cargo lift up its north side from the street. Off the deck's west edge THE DROP: a walled 27 degree
@@ -13791,7 +13847,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

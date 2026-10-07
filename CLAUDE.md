@@ -94,6 +94,19 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE HIGH WIRES: ENDS FOUND BY WALKING THE DECK, AND A WIRE THAT DOES NOT CLEAR IS LEFT OUT (r111, `WIRE`, `wireEnd`,
+  `wireNear`, `wireRails`, `npm run sim wires`).** Booster rails (16 m/s, both ways) between same-height decks of different
+  districts, listed as ➤ spot name pairs in `WIRE.list`. Strung: launch deck - nimbus top (223 m at 36), acro sky - roof line
+  (191 m), garage roof - spire (39 m). Seven candidates are left out and the build log says why (the first shift's reason).
+  - **A ➤ SPOT CAN STAND 0.2 m OVER ITS DECK** (peak 60.2 on a 60.0 island, nimbus 36.2): the walk read that as "not on the
+    deck" and five of six wires were refused. `wireEnd` takes the floor under the spot.
+  - **AN END MUST BE `WIRE.clear` (5 m) FROM EVERY OTHER RAIL** (`wireNear`). The sky rail's peak station is ON the Orbital
+    peak's island, so the peak - plunge 1 wire (247 m, level, otherwise clear) put its end beside it and `skyrail`'s
+    "peak station: on with the swipe down" grabbed the wire. That wire is out until it can branch off the sky rail itself.
+  - `wireRails` runs in the rails phase (the collider is built), before `acroRails` (the gem mesh) and before `railLink`.
+  - **She arrives at ~16 m/s** and a hands-off landing rolls on: across the Garage roof and off the far side
+    (`WSTAY=1 node tools/sim.mjs wires` prints where she is 4 s after landing). A player steers or brakes.
+
 - **THE STATION: 210 m UP, AND THE ONLY WAY THERE IS A BOOSTER BRANCH OFF THE SKY RAIL (r110, `STN`, `buildStation`,
   `stationRails`, `skrBranchPts`, `npm run sim station`).** A deck r 22 at (-163, 210, -60) over the mothership; THE
   CORKSCREW, 710 m, 2.2 turns at a 28% grade, R 54.5, is ridden UP off the sky rail with the stick (booster 18) and DOWN

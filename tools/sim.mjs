@@ -4429,6 +4429,33 @@ CASES.blend = () => {
     say('every seam spot rolls through: over the funbox, off the kicker', !bad.length, bad.join('; ') || `${B.spotList.length} spots, both lanes`); }
   return ok;
 };
+// r111: THE HIGH WIRES -- every wire that was strung: each end over its deck, and ridden BOTH ways, on with a swipe down off the
+// deck and hands off from there, down on the deck at the other end.
+CASES.wires = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const W = rg.WIRE; if (!W.built) { console.log('  no wire was strung'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT);
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, vmax: 0 }; let kq = 0, done = 0; run(sec, (t, i) => { if (done) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (process.env.WT && kq++ % (+process.env.WT) === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', P.grind ? 'GR ' + P.grind.rail.path.name : '', fix(P.speed, 1));
+      if (P.bailT > 0) r.bail = 1; r.vmax = Math.max(r.vmax, P.speed);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); if (stop && stop()) done = 1; }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  console.log(`  strung: ${W.made.map(m => `${m.a} - ${m.b} ${fix(m.L, 0)} m`).join('; ')}${W.skipped.length ? '\n  left out: ' + W.skipped.join('; ') : ''}`);
+  say(`${W.made.length} wires strung between districts' decks`, W.made.length >= 3, `${W.skipped.length} left out (each one says why)`);
+  { const bad = []; for (const m of W.made) for (const e of [m.ea, m.eb]) { const g = rg.groundAt(e.x, e.z, e.y, 0); if (!g.hit || Math.abs(e.y - 0.95 - g.floor) > 0.05) bad.push(`${m.a} - ${m.b} at ${fix(e.x, 0)},${fix(e.z, 0)}`); }
+    say('every wire ends over a deck, 0.95 m up', !bad.length, bad.join('; ') || `${W.made.length * 2} ends`); }
+  for (const m of W.made) for (const [e, f, nm] of [[m.ea, m.eb, m.b], [m.eb, m.ea, m.a]]) {
+    reset(); const h = Math.atan2(f.x - e.x, f.z - e.z); place(e.x - Math.sin(h) * 1.5, e.y - 0.95 + 0.3, e.z - Math.cos(h) * 1.5, h, 3); P.pos.y = e.y - 0.95;
+    rg.GRIND.intent = 1; rg.ledgeClear(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, land = null; const r = ride(40, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === m.path) on = 1;
+      if (on && !P.grind && P.grounded && !land) land = P.pos.clone(); }, () => land || (on && !P.grind && P.pos.y < Math.min(e.y, f.y) - 8));
+    const there = land && Math.hypot(land.x - f.x, land.z - f.z) < 14 && Math.abs(land.y - (f.y - 0.95)) < 0.3;
+    if (process.env.WSTAY && land) { run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); console.log(`      4 s later: ${at(P.pos)}`); }
+    say(`along the wire to ${nm}`, on && there && r.clean, `${on ? 'on it' : 'NEVER ON IT'}, ${land ? 'down at ' + at(land) + (there ? '' : ' (NOT the deck)') : 'never down -- ends ' + at(P.pos)}, fastest ${fix(r.vmax, 1)}${cl(r)}`); }
+  return ok;
+};
 // r110: THE STATION -- the deck at 210 m: the corkscrew joined to the sky rail, its line clear of the mothership and everything
 // else, the stop, the parapet holding her in, UP the corkscrew off the sky rail with the stick (and hands off she carries on
 // past it), DOWN it from the deck onto the sky rail, the bowl, the parapet's grind ring.
@@ -4850,7 +4877,7 @@ CASES.skyrail = () => {
     const cands = [[-uz / ul, ux / ul], [uz / ul, -ux / ul]].map(([nx, nz]) => { const x = mx + nx * 1.6, z = mz + nz * 1.6, g = rg.groundAt(x, z, p[2] + 0.5, 0); return { x, z, y: g.hit ? g.floor : -99 }; }).sort((A, B) => Math.abs(A.y - p[2] + 0.95) - Math.abs(B.y - p[2] + 0.95));
     const c = cands[0]; place(c.x, c.y + 0.3, c.z, h, 4); const g = rg.groundAt(c.x, c.z, c.y + 0.5, 1); if (g.hit) P.pos.y = g.floor;
     run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60); let on = 0;
-    let tapAt = null; run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on && !tapAt) { P.jump = 1; tapAt = P.pos.clone(); } city(); if (P.grind && P.grind.rail.path === S.path) on = 1; });
+    let tapAt = null, kq2 = 0; run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; if (on && !tapAt) { P.jump = 1; tapAt = P.pos.clone(); } city(); if (P.grind && P.grind.rail.path === S.path) on = 1; if (process.env.DON && kq2++ % 6 === 0) console.log('    ', at(P.pos), P.grind ? 'GR ' + P.grind.rail.path.name : '', P.grounded ? 'G' : 'a', fix(P.speed, 1), P.kickRail ? 'kick ' + (P.kickRail.path ? P.kickRail.path.name : '?') : ''); });
     // and OFF: a tap pops her off -- she must come down on the station, not off it
     let down = null; if (on) { let k = 0; run(3, () => { rg.stick.L.x = rg.stick.L.y = 0; if (process.env.DOFF && k++ % 6 === 0) console.log('    ', at(P.pos), P.grind ? 'GR' : '', P.grounded ? 'G' : 'a', fix(P.speed, 1)); city(); if (!P.grind && P.grounded && !down) down = P.pos.clone(); }); }
     rg.GRIND.intent = 0; void tapAt;
