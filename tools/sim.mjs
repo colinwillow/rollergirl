@@ -63,6 +63,7 @@ if (!rg.ready()) { console.error('the module never became ready'); process.exit(
 // `CASES.intent` is the one that drives the swipe.
 rg.GRIND.intent = 0;
 rg.CTRL.map = 1;      // r82: every case but `ctrl` was written against the old pad layout
+rg.LAND.flipBail = 0;    // r124: and against landing a flip short as a fall (`flip` drives it)
 rg.CTRL.rDown = 0;    // r122: and against the ground swipe down as the hop onto a rail (`ctrl98` drives the shipped stance switch)
 
 // ---- driving ----
@@ -1649,7 +1650,23 @@ CASES.flip = () => {
   const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
   for (const on of [1, 0]) { rg.FLIPP.on = on; place(60, 1, -60, 0, 6); P.grounded = false; P.pos.y += 6; P.vel.y = 3; P.flip = null;
     rg.startFlip('up'); chk(`Procedural flips ${on}: flip is ${on ? 'procedural' : 'the clip'}`, P.flip && !!P.flip.proc === !!on); }
-  rg.FLIPP.on = 1; P.flip = null; rg.girl.moves = keepM;
+  rg.FLIPP.on = 1; P.flip = null;
+  // r124: MORE THAN ONE FLIP AN AIR, AND A FLIP NOT ROUND IS A FALL. Off a big air: flick, wait it out, flick again -- two
+  // flips. A second flick while the first is turning does nothing. A second flicked just before the ground cannot finish
+  // and, with `flipBail` on, she goes down; with it off she lands.
+  { const keepB = rg.LAND.flipBail, keepL = P.stanceLock; P.stanceLock = true; rg.LAND.flipBail = 1;
+    const big = () => { place(60, 1, -60, 0, 4); P.grounded = false; P.coyote = 0; P.pos.y += 14; P.vel.y = 6; P.flip = null; P.bailT = 0; P.stance = 1; P.heading = 0; P.bq.identity(); };
+    big(); const a = rg.startFlip('up'), mid = rg.startFlip('down'); let n = 0, done = 0, landed = 0;
+    for (let i = 0; i < 6 / DT && !landed; i++) { rg.stepPlayer(DT); rg.bodyAlign(DT); if (P.flip && P.flip.t >= P.flip.dur && P.flip.n === 1 && !done) { done = 1; n = rg.startFlip('up') ? 2 : 1; } if (P.grounded) landed = 1; }
+    chk('two flips in one big air (the second after the first)', a && !mid && n === 2 && landed && !(P.bailT > 0), `first ${a}, mid-flip flick ${mid ? 'TAKEN' : 'refused'}, second ${n === 2 ? 'taken' : 'REFUSED'}, ${P.bailT > 0 ? 'FELL' : 'landed'}`);
+    // a second flick with ~0.25 s of air left: too late to finish
+    for (const fb of [1, 0]) { rg.LAND.flipBail = fb; big(); rg.startFlip('up'); let tried = 0, late = 0;
+      for (let i = 0; i < 6 / DT && !P.grounded; i++) { rg.stepPlayer(DT); rg.bodyAlign(DT);
+        if (!tried && P.flip && P.flip.t >= P.flip.dur) { const g = rg.groundAt(P.pos.x, P.pos.z, P.pos.y, 0.05), h = P.pos.y - (g.hit ? g.floor : 0), vy = P.vel.y, left = (vy + Math.sqrt(Math.max(0, vy * vy + 2 * rg.SK.g * h))) / rg.SK.g;
+          if (left < 0.3) { tried = 1; late = rg.startFlip('up') ? 1 : 0; } } }
+      chk(`a flip flicked too late ${fb ? 'is a fall' : 'lands (flipBail off)'}`, late && (fb ? P.bailT > 0 : !(P.bailT > 0)), `${late ? 'taken' : 'NOT TAKEN'}, ${P.bailT > 0 ? 'fell' : 'landed'}`); }
+    rg.LAND.flipBail = keepB; P.stanceLock = keepL; P.bailT = 0; P.flip = null; P.stance = 1; }
+  rg.girl.moves = keepM;
   return ok;
 };
 
@@ -2279,6 +2296,10 @@ CASES.ctrl98 = async () => {
     place(a0.x + uz / ul * 1.6 + ux / ul * 1.5, (g.hit ? g.floor : 0) + 0.1, a0.z - ux / ul * 1.6 + uz / ul * 1.5, Math.atan2(ux, uz), 4); clear();
     await flick(eR, R, 0, 70); let got = null; run(1.6, () => { if (P.grind && !got) got = P.grind.rail.path; });
     say('ground beside rail 0, RIGHT swipe down: switches stance, no grind (r122)', !got && P.stance === -1, `${got ? 'GRINDING ' + got.name : 'no grind'}, stance ${P.stance > 0 ? 'regular' : 'FAKIE'}`); }
+  // r124: *"swipe down on the right stick ... right now it's doing a melee"* -- a phone swipe down drifts sideways; within 60 deg
+  // of straight down it is still the stance switch, and nothing else
+  for (const [dx, lab] of [[45, 'down and a little right'], [-80, 'down and well left']]) { ground(); await flick(eR, R, dx, 70);
+    say(`ground, RIGHT swipe ${lab}: switches stance, no strike (r124)`, P.stance === -1 && !P.mel, `stance ${P.stance > 0 ? 'regular' : 'FAKIE'}${P.mel ? ', a STRIKE' : ''}`); }
   // r122: THE SPEED SKATE -- the right thumb HELD up on the ground; and let go, no strike fires
   { ground(10); run(0.1); const v0 = P.speed; let mx = 0, sk = 0; await wait(160); R.dispatchEvent(eR('pointerdown', 150, 150)); R.dispatchEvent(eR('pointermove', 150, 80));
     run(1.5, () => { rg.stick.L.x = rg.stick.L.y = 0; mx = Math.max(mx, P.speed); if (P.speedSk) sk = 1; }); await wait(330); R.dispatchEvent(eR('pointerup', 150, 80)); run(0.05);

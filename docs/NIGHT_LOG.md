@@ -522,3 +522,14 @@ tied together by booster coasters you grind:
   - A QP XL along the south edge, a volcano, a flat rail and a funbox.
 
 ➤ stops: `sk8 annex`, `sk8 loop`, `sk8 walls`, `sk8 sunk bowl`.
+
+## r124 — SWIPE DOWN = FAKIE, CHAINED FLIPS, NO MORE SEE-THROUGH WALLS
+
+- **Right stick swipe down on the ground switches regular / fakie**, and now it takes anything within 60 deg of straight
+  down: a real thumb swipe drifts sideways, and the drift was reading as a sideways flick, which is a melee. It never
+  falls through to a strike, and it says **FAKIE** or **REGULAR** on screen.
+- **More than one flip per air.** Once a flip is round, flick the left stick again for the next. A flip flicked too late to
+  finish is a **fall** (she goes down and gets up). Panel: "More than one flip per air", "Land a flip not round = fall".
+- **Big structures are solid from behind.** Most of the world was drawn one-sided, so from behind a wall, under a deck or
+  past an open edge you looked straight through it. Every opaque world material is drawn both sides now, including his
+  art and imported levels as they arrive.

@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r123</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r124</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r123';
+const BUILD = 'r124';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -692,6 +692,11 @@ const LAND = {
   // two seconds of hang time, which reads as slow motion; now it goes over quickly and she spots
   // the landing in the air pose
   flipFill: 0.75, flipMin: 0.35, flipMax: 1.0,
+  // r124: *"if I flick the left stick to do a flip it only allows me to do one flip while I'm in the air -- I wanna be able to do
+  // multiple if I have enough airtime ... if you don't complete the flip, maybe you fall over."* Once a flip is round, another
+  // flick starts the next (`chain`). A chained flip never takes less than `chainMin` -- so flicked too late it CANNOT finish --
+  // and is refused only when the ground is under `chainLate` away. Landing any flip short of `flipDone` is a fall (`flipBail`).
+  chain: 1, chainMin: 0.5, chainLate: 0.12, flipBail: 1,
   bailT: 3.2,              // a bail's whole length: going down, and getting back up
   // OFF BY DEFAULT (r23): *"let's get rid of the falling over -- she lands no matter how you land,
   // forward or backward."* A sideways landing takes whichever end is nearer, and an unfinished flip
@@ -3100,12 +3105,25 @@ function skyIngest(f, root) {
 // is to say nothing at all. So the far copies of each material cap their fog, the Orbital backdrop's `fogCap`.
 const _skyFar = new Map();
 function skyFar(m) { let f = _skyFar.get(m); if (!f) { f = fogCap(m.clone(), SKYART.farFog); f.name = m.name + '|far'; _skyFar.set(m, f); } return f; }
+// r124: *"If I come up on the backside of them I'm just looking through these massive structures."* Most of the world is drawn
+// ONE-SIDED -- a quad facing out, culled from behind -- so from inside a wall, under a deck, past an open edge or from the back
+// of a piece of his art, the far side is simply not there. Every opaque world material is drawn both sides now; the shadow
+// keeps the side it had (`shadowSide` BackSide, three's own default for a front-sided material), so nothing new self-shadows.
+// Skinned meshes (her) and anything transparent or marked `oneSide` are left alone.
+function solidSides(root) {
+  let n = 0;
+  (root || scene).traverse(o => { if (!o.isMesh || o.isSkinnedMesh || o.isPoints) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      if (!m || m.side !== THREE.FrontSide || m.transparent || (m.userData && m.userData.oneSide)) continue;
+      m.side = THREE.DoubleSide; m.shadowSide = THREE.BackSide; m.needsUpdate = true; n++; } });
+  return n;
+}
 function skyFlush() {
   for (const [key, B] of SKYART.bk) { if (!B.dirty || !B.gs.length) continue; B.dirty = 0;
     const g = mergeGeometries(B.gs); if (!g) { console.warn('[sky art] could not merge ' + key); continue; }
     g.computeBoundingSphere(); const old = SKYART.mesh.get(key);
     if (old) { old.geometry.dispose(); old.geometry = g; } else { const me = new THREE.Mesh(g, B.far ? skyFar(B.m) : B.m); me.name = 'sky art:' + key; me.castShadow = !B.far; me.receiveShadow = true; scene.add(me); SKYART.mesh.set(key, me); } }
-  let t = 0; for (const me of SKYART.mesh.values()) t += me.geometry.index.count / 3; SKYART.tris = t;
+  let t = 0; for (const me of SKYART.mesh.values()) { t += me.geometry.index.count / 3; solidSides(me); } SKYART.tris = t;
 }
 async function skyArtLoad() {
   if ((WORLD.zones !== 3 && WORLD.zones !== 0) || !SKYART.place.length) return;      // r100: the main world has it too
@@ -4724,7 +4742,7 @@ function levelImports(list) {
     const place = new THREE.Matrix4().compose(new THREE.Vector3().fromArray(L.at), new THREE.Quaternion().setFromAxisAngle(UP, L.yaw || 0), new THREE.Vector3(1, 1, 1));
     const fail = (what, e) => { LEVEL.failed.push(L.name + ' ' + what); console.warn('[level] ' + L.name + ' ' + what + ' did not arrive', e); };
     if (L.col) cols.push(loadGLB(L.col).then(g => { LEVEL.stats[L.name] = levelIngest(null, g.scene, place, L.name); console.log('[level] ' + L.name + ' collision: ' + JSON.stringify(LEVEL.stats[L.name])); }, e => fail('collision', e)));
-    loadGLB(L.vis).then(g => { const st = levelIngest(g.scene, null, place, L.name); LEVEL.done.push(L.name); console.log('[level] ' + L.name + ' visual: ' + JSON.stringify(st)); }, e => fail('visual', e));
+    loadGLB(L.vis).then(g => { const st = levelIngest(g.scene, null, place, L.name); solidSides(); LEVEL.done.push(L.name); console.log('[level] ' + L.name + ' visual: ' + JSON.stringify(st)); }, e => fail('visual', e));
   }
   return Promise.all(cols);
 }
@@ -12866,7 +12884,7 @@ const DASH = { on: 1, n: 0.95, win: 0.5, add: 4.5, cap: 30, fx: 0.45 };
 // is map 1 (r81's layout), now the default again: RIGHT tap = jump (straight up and back on vert), flick up on/just off
 // vert = transfer, flick down = grind (the dive), any other flick = melee; LEFT flick in the air = flip, on the ground up =
 // boost and down/sideways = slide, tap = swivel; air holds: left = turn, right = grab. Maps 2-4 stay on the panel.
-const CTRL = { map: 1, rotDelay: 0.18, grabDelay: 0.28, rDown: 1 };     // r122 `rDown`: on the ground the right flick DOWN switches stance (0 = r71's hop onto a rail)
+const CTRL = { map: 1, rotDelay: 0.18, grabDelay: 0.28, rDown: 1, rDownCone: 60 * Math.PI / 180 };     // r122 `rDown`: on the ground the right flick DOWN switches stance (0 = r71's hop onto a rail)
 const ctrl82 = () => CTRL.map > 1.5;
 const ctrl84 = () => CTRL.map > 2.5;
 const airR = () => CTRL.map > 1.5 && CTRL.map < 3.5;      // map 2/3: the RIGHT thumb turns her in the air and the left grabs
@@ -13605,7 +13623,7 @@ function landStance(fwd) {
       }
     }
   }
-  if (!LAND.bail) bail = false;
+  if (!LAND.bail) bail = !!(p.flip && p.flip.t < p.flip.dur * LAND.flipDone) && LAND.flipBail > 0.5;      // r124: a flip not round is a fall
   if (bail) { p.bailT = LAND.bailT; p.vel.multiplyScalar(AIR.bailKeep); p.bailId++; p.pushing = false; }
 }
 
@@ -13650,13 +13668,17 @@ function swivel() {
 }
 function startFlip(dir) {
   const p = player, m = girl.moves;
-  if (!m || p.grounded || p.flip || p.bailT > 0) return false;
+  if (!m || p.grounded || p.bailT > 0) return false;
+  if (p.flip && (p.flip.t < p.flip.dur || LAND.chain < 0.5)) return false;      // r124: one at a time, but one AFTER another
+  const chain = p.flip ? (p.flip.n || 1) + 1 : 1;
   const nm = m.flip[dir]; if (!nm) return false;
   const g = groundAt(p.pos.x, p.pos.z, p.pos.y, 0.05);
   const h = g.hit ? Math.max(0, p.pos.y - g.floor) : 3;
   const vy = p.vel.y, left = (vy + Math.sqrt(Math.max(0, vy * vy + 2 * SK.g * h))) / SK.g;
-  if (left * LAND.flipFill < LAND.flipMin) return false;
-  p.flip = { nm, dir, t: 0, dur: clamp(left * LAND.flipFill, LAND.flipMin, LAND.flipMax), proc: FLIPP.on > 0.5 };
+  if (chain === 1 && left * LAND.flipFill < LAND.flipMin) return false;
+  if (chain > 1 && left < LAND.chainLate) return false;
+  const dur = chain === 1 ? clamp(left * LAND.flipFill, LAND.flipMin, LAND.flipMax) : clamp(left * LAND.flipFill, LAND.chainMin, LAND.flipMax);
+  p.flip = { nm, dir, t: 0, dur, proc: FLIPP.on > 0.5, n: chain };
   return true;
 }
 
@@ -13891,7 +13913,12 @@ function rightFlick(dx, dy) {
   // r71: THE SWIPE DOWN ASKS FOR A GRIND -- on the ground a hop onto the nearest rail or ledge (or, with nothing in
   // reach, the strike it always was); in the air a dive at it
   // r122: ON THE GROUND THE SWIPE DOWN SWITCHES STANCE (`CTRL.rDown`) -- the grind is jump, then swipe down in the air
-  if (dir === 'down' && p.grounded && CTRL.rDown > 0.5) return swivel() ? 'switch' : null;
+  // r124: *"right now it's doing a melee."* A thumb swiped DOWN on a phone drifts sideways, and anything more sideways than down
+  // read as left/right -- a strike. On the ground down now takes anything within `CTRL.rDownCone` of straight down, and it
+  // NEVER falls through to a strike; it says FAKIE / REGULAR so there is no doubt which one happened.
+  if (p.grounded && !p.grind && CTRL.rDown > 0.5 && dy > 0 && Math.abs(dx) < dy * Math.tan(CTRL.rDownCone)) {
+    if (swivel()) { try { toast(p.stance < 0 ? 'FAKIE' : 'REGULAR', '#6fe8ff'); } catch (e) {} return 'switch'; }
+    return null; }
   if (dir === 'down' && GRIND.intent) { const g = grindDown(); if (g) return g; }
   if (p.grounded) {
     // r57: a swipe UP is the transfer ONLY on the steep face itself -- swiped instead of the ollie as she goes off the
@@ -14601,6 +14628,8 @@ const TAILUI = [
   ['SPEED.acc',      'Speed skate push (R held up)', 0, 20, 0.5, 'm/s2'],
   ['SPEED.cap',      'Speed skate top speed', 15, 45, 1, 'm/s'],
   ['CTRL.rDown',     'R flick down on the ground: 1 switch stance, 0 hop onto a rail', 0, 1, 1, ''],
+  ['LAND.chain',     'More than one flip per air', 0, 1, 1, ''],
+  ['LAND.flipBail',  'Land a flip not round = fall', 0, 1, 1, ''],
   ['S3.g',           'SK8 Sky gravity (main world 20)', 8, 20, 0.5, 'm/s2'],
   ['WALL.on',        'Wall ride (SK8 Sky)', 0, 1, 1, ''],
   ['WALL.all',       'Wall ride in every world', 0, 1, 1, ''],
@@ -14822,6 +14851,7 @@ async function init() {
   if (zonesCol) { setBoot('loading the zones', 0.9); await zonesCol; }
   setBoot('drop in', 1);
   respawn();
+  solidSides();      // r124: every world material both sides (imports and his art are caught as they land)
   hudGutter(); resize();
   ready = true;
   if (WORLD.zones === 3) { CITY.goMsg = 'SK8 SKY -- \u27A4 jumps between areas'; CITY.goAt = performance.now(); try { toast('SK8 SKY', '#ff6fd0'); } catch (e) {} }
@@ -14834,7 +14864,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { SK, AIR, SURF, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,

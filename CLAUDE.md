@@ -94,6 +94,20 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **SWIPE DOWN, CHAINED FLIPS, BOTH SIDES (r124, `CTRL.rDownCone`, `LAND.chain`/`chainMin`/`chainLate`/`flipBail`, `solidSides`).**
+  - *"Swipe down on the right stick ... it's doing a melee."* `rightFlick` classes a flick by its LARGER axis, so a thumb that
+    drifts sideways on the way down was a sideways flick -- a strike. On the ground the stance switch now takes anything within
+    `rDownCone` (60 deg) of straight down, before the axis test, never falls through to a strike, and toasts FAKIE / REGULAR.
+    `ctrl98` swipes down-and-sideways both ways through the real pad.
+  - *"It only allows me to do one flip while I'm in the air."* `startFlip` refused while `p.flip` was set, and it stays set
+    until landing. A FINISHED flip now lets the next one start (`p.flip.n` counts them). The first flip is still fitted to the
+    air left (never fails); a chained one is never shorter than `chainMin`, so flicked too late it cannot finish, and landing any
+    flip short of `flipDone` is a bail while `flipBail` is on -- even with `LAND.bail` 0. **Every sim case but `flip` runs with
+    `flipBail` 0** (top of `sim.mjs`), because random sessions flick flips at the ground. A stated gap, not a silent one.
+  - *"I'm looking through these massive structures."* The world was one-sided; `solidSides()` turns every opaque, unskinned,
+    front-sided material DoubleSide at the end of `init`, in `skyFlush` and after a level visual lands. **`shadowSide` is set
+    to BackSide** -- three's own default for a FrontSide material -- so the shadow pass is unchanged and nothing new
+    self-shadows. A material that must stay one-sided sets `userData.oneSide`.
 - **SK8 SKY GOES LIGHT: GRAVITY, WALL RIDES, SURFACE LOOPS, THE ANNEX (r123, `S3.g`, `WALL`, `stepWall`, `SURF`, `surfCatch`,
   `surfLoop`, `bowlIn`, `S3A`, `s3Annex`, `npm run sim sky`).** *"Like Rocket League ... very light gravity, jump and float a little bit
   ... if you have enough momentum you can skate on the walls, and skate around loops, 360 degree loops."*
