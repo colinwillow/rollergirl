@@ -6158,6 +6158,11 @@ CASES.spillway = async () => {
   { const R = S.crestRun; go(R.x0, R.z, Math.PI / 2, 8, S.crest.y); let far = 0; const r = ride(8, () => { if (far) { P.vel.set(0, 0, 0); return; } fwd(); if (P.pos.x > R.x1) far = 1; });
     say('the crest road: over the rollers hands on, clean, still on the road', far && r.clean && on(S.crest.y, 0.9), `ends ${at()}${cl(r)}`); }
   { const o = grindAll(S.rainbow.rails[0], 9, 8); say('THE RAINBOW: across the chute\'s mouth end to end', o.reached && !o.r.bail, o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off); }
+  // r137: THE WIRE -- lantern deck to the turbine hall's roof, and on along the roof rail
+  { const Pth = S.paths.find(q => q.name === 'the wire'), H = S.hall, o = grindAll(Pth, 6, 20, () => (P.grind && P.grind.rail.path.name === 'hall roof rail') || on(H.h + 0.6, 0.3));
+    say('THE WIRE: off the lantern deck over the harbour onto the hall roof', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off}, ${o.done ? 'on the roof' : 'ends ' + at()}`); }
+  { let m = 0, tri = 0; rg.scene.traverse(o => { if (o.isMesh && o.visible) { m++; const g = o.geometry; tri += g.index ? g.index.count / 3 : (g.attributes.position ? g.attributes.position.count / 3 : 0); } });
+    say(`the scene: ${m} meshes, ${Math.round(tri / 1000)}k triangles before his art`, m < 400, ''); }
   return ok;
 };
 

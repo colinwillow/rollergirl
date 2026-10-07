@@ -132,6 +132,8 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
     block) -- find it by key.
   - **NOT VERIFIABLE HERE:** how any of it looks (46 art placements, two water planes, the neon, no GPU), and the chute's
     speed between gates (34 m/s against the 22 the gates hold inside them) is a phone decision.
+  - **r137: THE WIRE** -- a 150 m booster rail from the lantern deck to the hall roof, ending ON the roof rail's line so
+    `railLink` makes a T. 163 meshes, 67k triangles before the art (SK8 Sky's order).
   - **r136: THE CENTRE'S CREST IS ONLY x +-42 WIDE AT v 144.** Rollers typed along z 144 from x -66 ran off the mitre onto the
     WEST WING, whose crest curves north -- at (-64, 142) the wing is its FACE, 1 m lower, and the row read *INSIDE 1.64*.
     Past the mitre a world z is a different facet's v. And a rainbow rail's rise is a climb: 1.4 m stalls a 7 m/s grind at

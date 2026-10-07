@@ -90,6 +90,10 @@ penstock). *"No dead edges"*: riding off a terrace is a thing you do down a line
 A line of light runs along every riser's top edge under the lip. His buildings stand against the risers of every terrace on
 both wings and the centre, where no line runs.
 
+**THE WIRE (r137).** A booster rail (16 m/s) off the lantern deck's rim, over the harbour, 150 m without touching the
+ground, onto the turbine hall's roof where it joins the roof's own rail. A swipe from the deck takes it. *Harness: deck to
+roof, 8.5 s, on the roof.* The scene is 163 meshes and 67k triangles before his art.
+
 **THE CREST ROAD (r136).** A pump track of rollers along the centre's crest toward the chute, and THE RAINBOW: a rail arched
 across the chute's mouth 3 m over the road -- a grind over the top of the hero line, and a drop-in off it into the channel.
 *Harness: the rollers hands on, the rainbow end to end at 9 m/s.*
@@ -109,11 +113,11 @@ terrace 2 on each wing, terrace 3 -> the crest, the crest -> the islands. **The 
 - `spwRing` -- a round parapet with gaps and a rail on top. `spwParapet`, `spwStrip`, `spwBody`, `spwRiser` -- the facet frame's
   strips, bodies and faces. `spwRailPts` -- a filleted polyline in facet coordinates with heights by arc length.
 
-## What the harness rode clean (30 of 30)
+## What the harness rode clean (32 of 32)
 
 L1, L8 x3, L2, L3, the crest rail, the harbour ledge, the east lift, three pads, L5 (the pad, four hops, the drop), L6, L7
-(lift, helix, causeway), L4 (the street, the gap), the lip rails, the west half pipe, the intake, a riser wall ride, the crest rollers, the rainbow, plus every
-➤ stop standing her on a floor.
+(lift, helix, causeway), L4 (the street, the gap), the lip rails, the west half pipe, the intake, a riser wall ride, the crest rollers, the rainbow, the wire, the scene's size, plus
+every ➤ stop standing her on a floor.
 
 ## Not done, said plainly
 
