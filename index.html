@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r130</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r131</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r130';
+const BUILD = 'r131';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -551,6 +551,20 @@ const SK = {
   back: -0.35,
   brake: 20.0,         // r84: 12 -> 20, *"a quick speed stop and then cut the other way"* -- the held brake too
   fakieAt: 1.2,      // below this she always turns to face the thumb rather than riding backwards
+  // r131: SHE COMES TO REST. *"There's almost no way to stop her -- she's always slightly sliding ... going up an elevator
+  // she's just always sliding around, there's no friction."* Every term above is EXPONENTIAL, and an exponential never
+  // reaches zero: 0.3 m/s fading at `roll` is still 0.2 a minute later. So with the thumb not pushing, on ground no steeper
+  // than `restG` m/s^2 of slope pull (about 4 deg -- every deck, lift and plaza; never a ramp), a linear `creep` takes the
+  // last of her speed, and under `restV` she is STOPPED: velocity zero and gravity's slope term off, which is the static
+  // friction a skate's bearings have. On a moving platform that is relative to the platform (`stepDyn` carries position),
+  // so she rides a lift standing still. Steering still pivots her on the spot.
+  creep: 1.0, restV: 0.45, restG: 1.4,
+  // AND A HELD BRAKE IS A STOP, NOT A TURN-AROUND (r131). *"If I just hold down she just goes the other way ... you can't
+  // hold something to stop."* r23 let the held brake become a push the other way once she had stopped; now the latch holds
+  // her stopped for as long as the thumb stays back -- on slopes up to `brakeHold` m/s^2 of pull (about 12 deg) too. To go
+  // the other way, let go and press again: a fresh press at a standstill turns her round and pushes, as it always did.
+  // `brakeFlip` 1 is r23's held-brake-into-a-push.
+  brakeHold: 4.2, brakeFlip: 0,
   // PUMPING. On anything steeper than `pumpAt` the stride stops being a stride and becomes
   // a pump -- energy put in along the slope, which is how you get up a transition.
   pumpAt: 0.22,        // 1 - n.y, so about 12 degrees
@@ -12422,7 +12436,12 @@ const MOVES = {
   // between -- and each played faster or slower by how far she is off its centre, inside the rates
   pushV: [4, 14],      // reference speeds: each push clip plays x1 at its own (r84: which clip shows is the thumb's strength)
   byDrive: 1, hardFloor: 0.8,
-  roll: ['idle_normal', 'idle_backward'],   // the neutral pose, forward and in fakie
+  // r131: *"Her idle ride pose is her idle stand pose, so she's kind of turned to the side -- when she's moving it should be
+  // the first frame of one of her riding animations."* The thumb-off rolling pose is `rollAt` of the first riding clip in
+  // `rollFrom` that the skin has, frozen (`holdClip`, built at load) -- squared up in a skating crouch, facing her travel.
+  // A skin with none of them falls back to its idle, as before. Change these and reload.
+  roll: ['blade_roll_forward', 'blade_roll_backward'],
+  rollFrom: ['medium', 'casual', 'soft', 'hard'], rollAt: 0,
   // *"Maybe don't use the backwards versions?"* -- 0 plays the FORWARD clips in fakie too, which
   // is a forward stroke while she rolls backwards. Kept as a switch for the A/B; 1 is the fix.
   useBack: 1,
@@ -12549,7 +12568,24 @@ function prepClips(clips, root) {
   for (const c of clips) if (/_flip$/.test(c.name)) c.tracks = c.tracks.filter(t => !/Hips\.position$/.test(t.name));
   const twist = clips.find(c => c.name === 'front_twist_flip');
   if (twist && !clips.some(c => c.name === 'front_twist_flip__mirror')) clips.push(mirrorClip(twist, root, 'front_twist_flip__mirror'));
+  // r131: HER ROLLING POSE IS A FRAME OF A RIDING CLIP, HELD -- see `MOVES.rollFrom`. After `faceForward`, so the backward one
+  // is already turned to face her nose.
+  ['forward', 'backward'].forEach((d, i) => {
+    const nm = MOVES.roll[i]; if (clips.some(c => c.name === nm)) return;
+    const src = MOVES.rollFrom.map(t => clips.find(c => c.name === `blade_${t}_${d}`)).find(Boolean);
+    if (src) clips.push(holdClip(src, nm, MOVES.rollAt));
+  });
   return clips;
+}
+// ONE FRAME OF A CLIP AS A CLIP OF ITS OWN: every track sampled at `at` of the source's length and written as a single key.
+// Not a paused action -- a paused action still has a duration the mixer walks, and one key cannot drift. `duration` is .1,
+// not 0, because a zero-length clip on repeat divides by its own length (Shredworld's `rifle_aim`).
+function holdClip(src, name, at) {
+  const t0 = clamp(at, 0, 1) * src.duration, tracks = src.tracks.map(tr => {
+    const I = tr.createInterpolant(), v = Array.from(I.evaluate(t0));
+    return new tr.constructor(tr.name, [0], v);
+  });
+  return new THREE.AnimationClip(name, 0.1, tracks);
 }
 // ZAP'S MELEE CLIPS (r39), fetched once and CLONED per skin, so a character swap never hands the same
 // clip objects to a second mixer. A failure is a missing feature, not a missing character.
@@ -13859,9 +13895,9 @@ function stepGround(dt) {
     const back = fwdR < SK.back;
     if (!back) p.braked = 0;
     braking = back && (Math.abs(along) > 0.55 || p.braked);
-    // ...AND IT STOPS BEING A BRAKE ONCE SHE HAS STOPPED, so the same held thumb turns her
-    // round and pushes off the other way. On skates that is one input, not two.
-    if (braking && Math.abs(along) < 0.55) { braking = false; p.braked = 0; }
+    // r23 let it stop being a brake once she had stopped (the same held thumb turned her round and pushed off); r131 keeps
+    // the latch, so a held brake HOLDS her -- see `SK.brakeHold`. `brakeFlip` 1 is the old way.
+    if (braking && Math.abs(along) < 0.55 && SK.brakeFlip > 0.5) { braking = false; p.braked = 0; }
     if (braking) p.braked = 1;
     go = fwdR > SK.ahead && !skid;
     // r84: HOW HARD THE THUMB IS PUSHED IS HOW HARD SHE SKATES. *"If you really pull the stick hard I want her to really
@@ -13952,6 +13988,15 @@ function stepGround(dt) {
   along = decay(along, SK.roll, dt);
   p.flatT = n.y > 0.97 ? p.flatT + dt : 0;
   if (!go && p.flatT > SK.coastAfter) along = decay(along, SK.coast, dt);
+  // r131: COMING TO REST -- see `SK.creep`. The slope's own pull along the surface is g * sin(angle) * cos(angle).
+  const pull = SK.g * n.y * Math.sqrt(Math.max(0, 1 - n.y * n.y)), held = ctrl && p.braked && !go;
+  let rest = false;
+  if (ctrl && !go && !skid && !(p.shoveT > 0) && (pull < SK.restG || (held && pull < SK.brakeHold))) {
+    // the creep waits out `coastAfter` like the coast does, so a half pipe's flat bottom is not taxed on every crossing
+    if (pull < SK.restG && p.flatT > SK.coastAfter) along -= Math.sign(along) * Math.min(Math.abs(along), SK.creep * dt);
+    if (Math.hypot(along, lat) < SK.restV || (held && Math.abs(along) < 0.55)) { along = 0; lat = 0; rest = true; }
+  }
+  p.rest = rest;
   p.thumbGo = go && !braking;          // the move brain shows a PUSH only while the thumb is pushing
   // THE EDGES BITE ACROSS THE WHEELS. Not a hard lock: letting a little through is the
   // difference between carving and running on a rail.
@@ -13961,10 +14006,13 @@ function stepGround(dt) {
   // anything: the `along` she keeps is along where she is NOW pointing.
   surfaceFrame(n, p.heading);
   p.vel.set(0, 0, 0).addScaledVector(_F, along).addScaledVector(_R, lat);
-  // GRAVITY'S COMPONENT ALONG THE SURFACE: G - (G.n)n, with G = (0,-g,0).
-  p.vel.x += SK.g * n.y * n.x * dt;
-  p.vel.y += SK.g * (n.y * n.y - 1) * dt;
-  p.vel.z += SK.g * n.y * n.z * dt;
+  // GRAVITY'S COMPONENT ALONG THE SURFACE: G - (G.n)n, with G = (0,-g,0). Not while she is at rest (r131): that is the
+  // bearings holding her, and the slope is gentle enough by construction that they do.
+  if (!rest) {
+    p.vel.x += SK.g * n.y * n.x * dt;
+    p.vel.y += SK.g * (n.y * n.y - 1) * dt;
+    p.vel.z += SK.g * n.y * n.z * dt;
+  }
 
   const h = Math.hypot(p.vel.x, p.vel.z);
   if (h > SK.max) { p.vel.x *= SK.max / h; p.vel.z *= SK.max / h; }
@@ -15285,6 +15333,11 @@ const TAILUI = [
   ['SK.hardK',       'Hard push strength (full stick)', 0.8, 2.5, 0.05, ''],
   ['SK.softK',       'Light push strength', 0.3, 1.5, 0.05, ''],
   ['SK.brake',       'Held brake', 4, 40, 1, 'm/s2'],
+  ['SK.brakeFlip',   'Held brake turns into a push the other way (r23; 0 = it holds her stopped, r131)', 0, 1, 1, ''],
+  ['SK.brakeHold',   'Held brake holds her on slopes up to', 0, 12, 0.1, 'm/s2'],
+  ['SK.restV',       'Comes to rest under (r131)', 0, 1.5, 0.05, 'm/s'],
+  ['SK.creep',       'Rolling stop (thumb off, flat)', 0, 3, 0.05, 'm/s2'],
+  ['SK.restG',       'Stands still on slopes up to', 0, 4, 0.1, 'm/s2'],
   ['VERT.swipeXfer', 'Swipe up on vert = transfer, tap = straight up (r81)', 0, 1, 1, ''],
   ['VERT.flickBoost', 'Flick up on vert = boost; HOLD right up in the air = transfer (r86)', 0, 1, 1, ''],
   ['VERT.holdT',     'Hold up this long to transfer', 0.15, 0.8, 0.01, 's'],

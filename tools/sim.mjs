@@ -223,6 +223,38 @@ CASES.brake = () => {
   }
   return ok;
 };
+// ---------------------------------------------------------------- r131: she comes to rest, and a held brake holds her
+// *"There's almost no way to stop her -- she's always slightly sliding ... if I just hold down she goes the other way ... going
+// up an elevator she's always sliding around."* Every row reads her speed as EXACTLY zero, because "nearly stopped" is the bug.
+CASES.rest = () => {
+  let ok = true; const keepR = { c: rg.SK.creep, v: rg.SK.restV, f: rg.SK.brakeFlip };
+  if (process.env.NOREST) Object.assign(rg.SK, { creep: 0, restV: 0, brakeFlip: 1 });      // the revert test: r130's physics
+  const say = (l, c, x) => { console.log(`  ${l.padEnd(52)} ${c ? 'ok' : 'WRONG'} ${x}`); if (!c) ok = false; };
+  // 1. let go at a jog on the flat: she stops, and stays stopped
+  { place(60, 1, -60, 0, 4); let at = -1, moved = 0, z0 = 0;
+    run(12, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (at < 0 && P.vel.length() === 0) { at = t; z0 = P.pos.z; } if (at >= 0 && P.vel.length() > 0) moved = 1; });
+    say('let go at 4 m/s on the flat: stops dead', at >= 0 && !moved && Math.abs(P.pos.z - z0) < 1e-6, at < 0 ? `still ${fix(P.speed, 3)} m/s after 12 s` : `stopped at ${fix(at, 2)} s, ${fix(P.pos.z - -60, 1)} m on, still since`); }
+  // 2. hold the brake from 10 m/s for four seconds: stopped, facing the same way, NOT pushing off backwards
+  { place(60, 1, -60, 0, 10); const h0 = P.heading; let at = -1;
+    run(4, (t) => { rg.cam.az = 0; rg.stick.L.x = 0; rg.stick.L.y = 1; if (at < 0 && P.vel.length() === 0) at = t; });
+    const yaw = Math.abs(Math.atan2(Math.sin(P.heading - h0), Math.cos(P.heading - h0))) * 57.3;
+    say('hold the brake from 10 m/s for 4 s: stopped and held', at >= 0 && P.vel.length() === 0 && yaw < 2, `stopped at ${at < 0 ? 'NEVER' : fix(at, 2) + ' s'}, ${fix(P.speed, 3)} m/s at 4 s, turned ${fix(yaw, 1)} deg`);
+    // 3. ...let go, press back again: NOW she turns round and goes
+    run(0.2, () => { rg.stick.L.x = rg.stick.L.y = 0; });
+    run(2, () => { rg.cam.az = 0; rg.stick.L.x = 0; rg.stick.L.y = 1; });
+    say('...let go and press back again: turns round and goes', P.vel.z < -3, `${fix(-P.vel.z, 1)} m/s the other way`); }
+  // 4. a moving lift: on it at 1 m/s with no thumb -- she comes to rest ON it and rides it standing still
+  { const L = (rg.HT.lifts || [])[0];
+    if (!L) say('a lift to stand on', false, 'none built');
+    else { rg.stepCity(DT); place(L.x, L.y + 0.5, L.z, 0.7, 1);
+      let off = 0, ys = [];
+      run(8, () => { rg.stick.L.x = rg.stick.L.y = 0; rg.stepCity(DT); off = Math.max(off, Math.hypot(P.pos.x - L.x, P.pos.z - L.z)); ys.push(P.pos.y); });
+      const rel = Math.hypot(P.pos.x - L.x, P.pos.z - L.z);
+      say('on a lift at 1 m/s, thumb off: comes to rest on it', P.vel.length() === 0 && P.grounded && Math.abs(P.pos.y - L.y) < 0.2 && rel < L.cr,
+        `${fix(P.speed, 3)} m/s, ${fix(rel, 2)} m from its middle (r ${fix(L.cr, 1)}), rode ${fix(Math.max(...ys) - Math.min(...ys), 1)} m of height`); } }
+  Object.assign(rg.SK, { creep: keepR.c, restV: keepR.v, brakeFlip: keepR.f });
+  return ok;
+};
 // ---------------------------------------------------------------- carving
 CASES.carve = () => {
   // THE STICK IS A HEADING, NOT A TORQUE, so a held sideways thumb turns her ninety degrees and
@@ -1238,7 +1270,7 @@ CASES.panel = () => {
   { const wk = document.getElementById('worldB'), down = () => (wk._h.pointerdown || []).forEach(f => f({ preventDefault() {}, stopPropagation() {} }));
     down(); const wb = P.children.filter(c => c.className && c.className.startsWith('wbtn')).map(b => b.textContent);
     const open1 = P.classList.contains('on'); down(); const shut = !P.classList.contains('on');
-    const okW = open1 && shut && wb.length === 4 && ['SKATE PARK', 'SK8 SKY', 'RAMP KIT PARK', 'HIS ZONES'].every(t => wb.some(x => x.includes(t)));
+    const okW = open1 && shut && wb.length === 5 && ['SKATE PARK', 'SK8 SKY', 'RAMP KIT PARK', 'WEIRDPORT CITY', 'HIS ZONES'].every(t => wb.some(x => x.includes(t)));
     console.log(`  LEVEL key: opens ${open1 ? 'yes' : 'NO'}, ${wb.length} worlds (${wb.map(x => x.split(/[a-z]/)[0].trim()).join(' / ')}), closes on a second tap ${shut ? 'yes' : 'NO'}`); if (!okW) ok = false;
     rg.tailPanel(); }
   const wb = P.children.filter(c => c.className === 'btns').flatMap(c => c.children || []).map(b => b.textContent);
@@ -1484,7 +1516,15 @@ CASES.moves = () => {
   // r23: medium is gone; a hard push in fakie (which he has not drawn) borrows casual_backward
   if (moves.fwd.push.join() !== 'blade_casual_forward,blade_hard_forward' ||
       moves.back.push.join() !== 'blade_casual_backward,blade_casual_backward' ||
-      moves.fwd.roll !== 'idle_normal' || moves.back.roll !== 'idle_backward') { console.log('  -> wrong push / roll clips'); ok = false; }
+      moves.fwd.roll !== 'blade_roll_forward' || moves.back.roll !== 'blade_roll_backward') { console.log('  -> wrong push / roll clips'); ok = false; }
+  // r131: the rolling pose is ONE held frame of his medium riding clip, not his standing idle
+  for (const [nm, src] of [['blade_roll_forward', 'blade_medium_forward'], ['blade_roll_backward', 'blade_medium_backward']]) {
+    const c = clips.find(c => c.name === nm), s0 = clips.find(c => c.name === src);
+    const hips = c && c.tracks.find(t => /Hips\.quaternion$/.test(t.name)), hs = s0 && s0.tracks.find(t => /Hips\.quaternion$/.test(t.name));
+    const one = c && c.tracks.every(t => t.times.length === 1), same = hips && hs && [0, 1, 2, 3].every(i => Math.abs(hips.values[i] - hs.values[i]) < 1e-5);
+    const good = !!(one && same && c.tracks.length === s0.tracks.length); if (!good) ok = false;
+    console.log(`  ${(nm + ': one held frame of ' + src).padEnd(36)} ${good ? 'ok' : 'WRONG'} ${c ? `${c.tracks.length} tracks, ${one ? 'one key each' : 'NOT one key'}, hips ${same ? '= frame 0' : 'differ'}` : 'missing'}`);
+  }
   if (Object.keys(moves.flip).length !== 4 || R.solo || !/^idle/.test(R.fallback)) ok = false;
   const keep = { a: rg.girl.actions, cw: rg.girl.cw, len: rg.girl.clipLen, m: rg.girl.moves, r: rg.girl.ready };
   const log = {};
@@ -1508,7 +1548,7 @@ CASES.moves = () => {
   state({ speed: 0, stance: -1 }); step(1);
   check('standing in FAKIE', top() === 'idle_backward', top());
   // ROLLING WITH THE THUMB OFF is the neutral pose; PUSHING eases casual -> hard with HOW HARD THE THUMB PUSHES (r84, `drive`)
-  for (const [v, st, go, want, dv] of [[6, 1, false, 'idle_normal', 0], [6, -1, false, 'idle_backward', 0],
+  for (const [v, st, go, want, dv] of [[6, 1, false, 'blade_roll_forward', 0], [6, -1, false, 'blade_roll_backward', 0],
                                    [2, 1, true, 'blade_casual_forward', 0], [20, 1, true, 'blade_hard_forward', 1],
                                    [2, -1, true, 'blade_casual_backward', 0], [20, -1, true, 'blade_casual_backward', 1]]) {
     state({ speed: v, stance: st, thumbGo: go, drive: dv }); step(1.5);
@@ -1780,10 +1820,10 @@ CASES.r42 = () => {
       setEffectiveWeight(v) { this.w = v; return this; }, getEffectiveWeight() { return this.w; }, setEffectiveTimeScale(v) { this.ts = v; return this; }, setLoop() { return this; } };
     Object.assign(P, { grounded: true, flip: null, bailT: 0, landHard: 0, grind: null, mel: null, speed: 10, stance: 1, thumbGo: false });
     const tops = []; for (let i = 0; i < Math.round(12 / DT); i++) { rg.girlAnimMoves(DT); if (i % 30 === 0) tops.push(rg.girl.top); }
-    const styled = [...new Set(tops.filter(n => n && !/idle_normal/.test(n)))];
-    check('cruising, she slips into style skates', styled.length >= 2 && tops.includes('idle_normal'), styled.join(', '));
+    const styled = [...new Set(tops.filter(n => n && !/blade_roll_forward/.test(n)))];
+    check('cruising, she slips into style skates', styled.length >= 2 && tops.includes('blade_roll_forward'), styled.join(', '));
     Object.assign(P, { speed: 2 }); for (let i = 0; i < Math.round(2 / DT); i++) rg.girlAnimMoves(DT);
-    check('slow, she does not', rg.girl.top === 'idle_normal', rg.girl.top);
+    check('slow, she does not', rg.girl.top === 'blade_roll_forward', rg.girl.top);
     Object.assign(rg.girl, { actions: keep.a, cw: keep.cw, clipLen: keep.len, moves: keep.m, ready: keep.r, style: null }); }
   return ok;
 };

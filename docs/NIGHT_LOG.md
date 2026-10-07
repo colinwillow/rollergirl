@@ -573,3 +573,9 @@ as turned, shifted 2.5 m slabs with joints, ramps are his weathered painted curb
 graffiti tags are scattered over the world (two draw calls). Render scale 1.5 on phones (was 2), buildings and clutter no longer
 cast shadows, half the hidden windows and half the wall clutter gone, far chunks culled. Panel: Render scale, Draw distance,
 Painted surfaces, District colour, Painted surface brightness, Paving slab size / joint, decals on/off.
+
+## r131 -- stopping, braking, and the rolling pose
+- She comes to rest: a linear creep and a static stop under 0.45 m/s on gentle ground (lifts included).
+- A held brake holds her stopped instead of turning into a push the other way; press again to turn round.
+- Thumb off while rolling shows a held frame of `blade_medium` instead of the standing idle.
+- `npm run sim rest`, revert-tested. ➤ stop: anywhere flat, and any lift.

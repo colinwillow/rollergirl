@@ -100,6 +100,27 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **SHE COMES TO REST, A HELD BRAKE HOLDS, AND HER ROLLING POSE IS A RIDING FRAME (r131, `SK.creep/restV/restG`,
+  `SK.brakeHold/brakeFlip`, `holdClip`, `MOVES.rollFrom`, `npm run sim rest`).** *"There's almost no way to stop her -- she's always
+  slightly sliding ... if I just hold down she just goes the other way ... on an elevator she's always sliding around, there's no
+  friction."*
+  - **EVERY SLOWING TERM WAS EXPONENTIAL, AND AN EXPONENTIAL NEVER REACHES ZERO.** `roll`, `coast` and `grip` all `decay`, so a
+    0.3 m/s drift is still there a minute later. Now, thumb not pushing, on ground whose slope pull is under `restG` (about 4 deg:
+    every deck, lift and plaza, never a ramp), a LINEAR `creep` takes the last of it (after `coastAfter` on the flat, so a half
+    pipe's bottom is not taxed per crossing), and under `restV` she is STOPPED: velocity zero and gravity's slope term off. A lift
+    carries position only (`stepDyn`), so her velocity is already relative to it and resting there means riding it still.
+  - **THE HELD BRAKE KEEPS ITS LATCH AT A STANDSTILL.** r23 dropped it under 0.55 m/s so the same held thumb turned her round and
+    pushed off -- which is "I hold down and she goes the other way". It holds her stopped now, on slopes up to `brakeHold` too, with
+    no steering; letting go and pressing back again at a standstill turns her round and pushes, as before. `brakeFlip` 1 is r23.
+  - **THE THUMB-OFF ROLL WAS `idle_normal`, A STANDING POSE TURNED SIDE-ON.** `holdClip` freezes `rollAt` of the first of
+    `rollFrom` (medium) into `blade_roll_forward/backward` at load (one key per track, `duration` .1; after `faceForward`, so the
+    backward one already faces her nose). Measured: medium's frame 0 has its hips 2.7 units off centre against a 22-unit sway.
+  - **New keys, no `UI_VER` bump**: rows with no stored value cannot be stale on his phone.
+  - `npm run sim rest`: stops dead from 4 m/s, a held brake from 10 is stopped at 0.45 s and still stopped at 4 s facing the same
+    way, a fresh press turns her round, and on a moving lift at 1 m/s she comes to rest on it and rides 40 m standing. **Revert-
+    tested** (`NOREST=1`): the brake row reads 11.4 m/s the other way and she drifts off the lift. `panel` also expects five worlds
+    now -- it had been failing since r126 added WEIRDPORT CITY.
+
 - **"IT STILL LOOKS THE SAME, AND IT IS SLOWER" (r130, `DETAIL.paint`, `DEC`, `decBuild`, `LOOK.res`, `farCull`, `npm run sim glsl`).**
   *"The ground is just this gray grid ... the beauty of weirdport is how much of the screen is covered by beautiful painted
   textures."* r129 put his textures in as LUMINANCE only -- the detail pass's design -- so the pastel vertex colours still WERE
