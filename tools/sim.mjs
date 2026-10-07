@@ -2731,6 +2731,7 @@ CASES.wing = () => {
   let ok = true; const say = (l, c, x) => { console.log(`  ${l.padEnd(60)} ${c ? 'ok' : 'WRONG'} ${x}`); if (!c) ok = false; };
   const W = rg.WING, L = rg.stick.L, D = 180 / Math.PI, A = rg.AIR, J = rg.JUMP2;
   const hands = () => { L.x = 0; L.y = 0; L.down = 0; };
+  const UPY = W.pull > 0.5 ? 1 : -1;      // which way on the pad is 'climb' (r144: push UP, the pad's -y)
   const air = (y, h, v) => { place(60, 0.1, -60, h, v); P.pos.y += y; P.grounded = false; P.airT = 0.5; P.coyote = 0; };
   // 1. takeoff from the ground
   hands(); place(60, 0.1, -60, 0, 6); const y0 = P.pos.y; rg.wingSet(1);
@@ -2747,17 +2748,17 @@ CASES.wing = () => {
       `heading ${fix(dh * D, 0)} deg, travel ${fix(wrap(vb - P.heading) * D, 1)} deg off it, bank ${fix(P.wBank * D, 0)} deg`);
   run(1, () => { L.x = -1; L.y = 0; L.down = 1; }); hands();
   say('stick LEFT: back the other way', wrap(P.heading - h0) > -0.3, `heading ${fix(wrap(P.heading - h0) * D, 0)} deg from the start`);
-  // 4. climb and dive (W.pull 1: pull back to climb)
+  // 4. climb and dive (`W.pull` says which way is climb)
   air(80, 0, 0); rg.wingSet(1); run(2, hands); const v1 = P.vel.length(), yb = P.pos.y;
-  run(1.2, () => { L.x = 0; L.y = 1; L.down = 1; }); const vc = P.vel.length(), climbed = P.pos.y - yb;
-  say('pull back: she climbs, and it costs her speed', P.wPitch > 0.6 && climbed > 3 && vc < v1 - 2, `pitch ${fix(P.wPitch * D, 0)} deg, up ${fix(climbed, 1)} m, ${fix(v1, 1)} -> ${fix(vc, 1)} m/s`);
-  run(2.5, () => { L.x = 0; L.y = -1; L.down = 1; }); const vd = P.vel.length();
-  say('push forward: she dives, and it buys speed past cruise', P.wPitch < -0.8 && vd > W.cruise + 4, `pitch ${fix(P.wPitch * D, 0)} deg, ${fix(vd, 1)} m/s`);
+  run(1.2, () => { L.x = 0; L.y = UPY; L.down = 1; }); const vc = P.vel.length(), climbed = P.pos.y - yb;
+  say(`stick ${UPY < 0 ? 'UP' : 'back'}: she climbs, and it costs her speed`, P.wPitch > 0.6 && climbed > 3 && vc < v1 - 2, `pitch ${fix(P.wPitch * D, 0)} deg, up ${fix(climbed, 1)} m, ${fix(v1, 1)} -> ${fix(vc, 1)} m/s`);
+  run(2.5, () => { L.x = 0; L.y = -UPY; L.down = 1; }); const vd = P.vel.length();
+  say(`stick ${UPY < 0 ? 'DOWN' : 'forward'}: she dives, and it buys speed past cruise`, P.wPitch < -0.8 && vd > W.cruise + 4, `pitch ${fix(P.wPitch * D, 0)} deg, ${fix(vd, 1)} m/s`);
   hands(); run(2, hands);
   say('let go: she levels out', Math.abs(P.wPitch) < 0.3, `pitch ${fix(P.wPitch * D, 1)} deg`);
   // 5. dive into the ground: the wings fold and she rolls away
   air(14, 0, 0); rg.wingSet(1); let landed = null;
-  run(5, () => { L.x = 0; L.y = -0.7; L.down = 1; if (!landed && P.grounded) landed = { v: P.vel.length(), up: new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq).y }; });
+  run(5, () => { L.x = 0; L.y = -0.7 * UPY; L.down = 1; if (!landed && P.grounded) landed = { v: P.vel.length(), up: new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq).y }; });
   hands();
   say('dived into the ground: lands, the wings fold, upright, rolling on', landed && !P.wing && W.out === 0 && P.stance === 1 && landed.up > 0.99 && landed.v > 8,
       landed ? `${fix(landed.v, 1)} m/s on touchdown, up ${fix(landed.up, 3)}, stance ${P.stance}, wing ${P.wing}` : 'never landed');

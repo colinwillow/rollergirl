@@ -100,6 +100,11 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **PUSH UP TO CLIMB (r145, `WING.pull` 0, `UI_VER` 144).** *"It's inverted -- I want up on the left stick to go up and down to go
+  down."* The airplane sense (pull back to climb) is the panel's other setting now. **`UI_VER` 144 drops his saved `WING.pull`**:
+  the panel saves every row on every drag, so r142's 1 was already stored on his phone and a new default alone would never
+  have reached it. `npm run sim wing` reads `W.pull` to know which way is climb.
+
 - **THE WING PANELS LIE ALONG HER BACK (r144, `wingBuild`, `wingFold`).** *"The flat part would be along her back -- right now it
   feels like the plane goes along the top of her head, rotationally."* r142 built each panel flat in her body's X-Z plane --
   across her back like a hat brim, so laid forward in flight they stood on edge. They are X-Y now (span left-right, chord up

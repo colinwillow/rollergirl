@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r144</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r145</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -237,7 +237,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r144';
+const BUILD = 'r145';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -402,13 +402,14 @@ const JUMP2 = { on: 1, k: 0.85, flip: 1, pts: 10 };
 // flying ... particles coming out of the tips so it looks like airflow ... the button above the left stick, the same way the other
 // one is above the right."* Tap the WINGS segment on the left stick's ring: from the ground she pops into the air and flies, in the
 // air she flies at once. The LEFT STICK FLIES HER (raw, not through the camera -- a plane is steered relative to itself): x turns,
-// y pitches (`pull` 1: pull back to climb, the airplane way; 0: push up to climb). Let go and she levels out. The jets hold her at
+// y pitches (`pull` 0: push up to climb, which is his choice since r144; 1: pull back to climb, the airplane way). Let go and she levels out. The jets hold her at
 // `cruise`; a dive trades height for speed and a climb the other way, down to `vmin` (the jets never let her stall). She lands by
 // touching anything -- the wings fold and she rolls away with her speed -- or tap the segment again and she drops.
 // THE WINGS ARE PROCEDURAL STAND-INS for his model: a pack on her back, two arms of three panels that unfold one after another, a
 // jet at each tip. They ride HER BODY's frame at her upper back (Spine2), not a bone's -- a bone's frame is the armature's 0.01.
 const WING = { on: 1, out: 0, open: 0, openT: 0.45, v0: 14, cruise: 20, vmin: 9, vmax: 36, thrust: 0.9, gk: 1,
-  turn: 1.7, pitchRate: 1.5, climb: 55 * Math.PI / 180, dive: 70 * Math.PI / 180, levelHL: 0.7, pull: 1,
+  turn: 1.7, pitchRate: 1.5, climb: 55 * Math.PI / 180, dive: 70 * Math.PI / 180, levelHL: 0.7, pull: 0,      // r144: push UP to climb (his call; 1 is the airplane way)
+ 
   lie: 80 * Math.PI / 180, bank: 0.7, bankHL: 0.15, clip: 'in_air', camFollow: 3.0, settle: 7, trailLife: 0.55,
   seg: [0.44, 0.38, 0.32], chord: [0.30, 0.24, 0.17] };
 
@@ -16782,8 +16783,8 @@ const UI_DEF = {}; for (const k of TAILKEYS) UI_DEF[k] = uiGet(k);
 // in this file never reaches a phone that has saved once. (Shredworld lost five builds to exactly this.) The store carries
 // a version, and the rows named for each later version are DROPPED from an older store and take the file's new default;
 // everything else he tuned is kept. **Bump `UI_VER` and name the row in the same commit that changes its default.**
-const UI_VER = 98;
-const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'], 98: ['CTRL.map', 'VERT.flickBoost', 'VERT.swipeXfer'] };
+const UI_VER = 144;
+const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'], 98: ['CTRL.map', 'VERT.flickBoost', 'VERT.swipeXfer'], 144: ['WING.pull'] };
 function tailSave() {
   try { const o = { mode: TAIL.mode, ver: UI_VER, lookStyle: LOOK.at === undefined ? LOOK.style : LOOK.at };
     for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}

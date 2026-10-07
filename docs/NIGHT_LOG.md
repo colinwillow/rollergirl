@@ -663,3 +663,7 @@ jump: the second tap in the air propels you upward and she does a flip."*
 - The wing panels were flat across her back like a hat brim; they now lie flat along it, so flying face-down her back is up and
   the wings are horizontal like an airplane's, leading edge toward her head and the jets blowing toward her feet. Folded, they
   still tuck down onto the pack.
+
+## r145 -- push up to climb
+
+- Flying the wings, left stick UP climbs and DOWN dives. The airplane way (pull back to climb) is still on the panel.
