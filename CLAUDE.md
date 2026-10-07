@@ -100,6 +100,34 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE DOUBLE JUMP AND THE WING PACK (r142, `JUMP2`, `jump2`, `WING`, `WG`, `wingSet`/`wingStart`/`wingEnd`/`wingFly`/`wingFrame`,
+  `WINGROW`, `arcRow`, `npm run sim wing`).** *"A jetpack that's more like a wing -- two wings come out of her backpack, three segments
+  each, a little jet on the end ... she flies forward like Superman ... continuously flying ... particles off the tips like airflow
+  ... the button above the left stick ... and a double jump: the second tap in the air propels you upward, she does a flip."*
+  - **THE DOUBLE JUMP is the right-pad tap in the air that nothing else took** -- the last branch of `stepPlayer`'s jump chain, after
+    the coyote jump, the rail hop (intent 0) and the vert taps. Once per airtime (`p.dj`, cleared on any ground, rail or wall).
+    The kick is SET (`AIR.jump * k`), never added, and a fresh front flip (`startFlip('up')`) is fitted to the air it buys unless
+    a flip is already going round. Headless the flip cannot be checked (no moves); the kick and the gate are.
+  - **THE WINGS ARE A FLIGHT MODE OF `stepAir`, NOT A SECOND INTEGRATOR.** `p.wing` swaps the stick/settle/righting/gravity block
+    for `wingFly`, which sets the velocity from a speed, a pitch and her heading; everything after it -- the rail catch, the face
+    catch, the landing, `solidPush` -- runs exactly as for any air, so she collides with the city for free. The left stick is
+    read RAW (a plane is steered relative to itself): x turns (negated, the air spin's rule), y pitches (`pull` 1 = pull back to
+    climb), released she levels. The jets hold `cruise`; gravity along the flight line trades height for speed both ways
+    (`vmin` floor, so she never stalls). A wall she hits costs what it cost: `wV` drops to the speed she actually has.
+  - **TOUCHING ANYTHING FOLDS THEM, AND `wingEnd` RUNS BEFORE THE LANDING READS `p.bq`.** In flight her body is laid forward
+    (`wingQ`: yaw, `Rx(lie - pitch)`, a roll about her spine for the bank), and the landing takes her heading from her body's
+    forward flattened -- straight down -- and judges the landing by her up against the face. So she is stood upright on her
+    heading first, and the skipped turn goes to `girl.wingRes`, which `poseGirl` eases out like `flipRes`. Same at a rail, a
+    put-back and a respawn; walls do not catch her (`wallTry`).
+  - **THE MODEL IS PROCEDURAL AND RIDES HER BODY'S FRAME, NOT A BONE'S** (a bone's frame is the armature's 0.01): `bodyG`'s world
+    quaternion (with the blaster's swivel), at Spine2 plus 13 cm behind. Pack, three panels a side unfolding one after another
+    (`wingFold`), a nozzle and a `glowBall` jet at each tip; trails 4 and 5 stream off the tips (`WING.trailLife`).
+  - **FLYING, BOTH PADS' FLICKS ARE OFF** (a correction of a plane's stick is not a trick), the right pad orbits the camera again
+    (not the grabs), and the follow comes in behind at `WING.camFollow`. The chip says `WINGS n deg` (her pitch).
+  - **THE ARC BUILDER IS SHARED NOW (`arcRow`)**: GUNROW on the right stick, WINGROW (cyan) on the left, both a table. Key `v`.
+  - **NOT VERIFIABLE HERE**: the look of the wings and of her laid-forward pose (`WING.clip` is `in_air` until his model and pose
+    arrive), the jets, the trails, whether the pitch sense feels right (`Wings: pull back to climb` on the panel flips it).
+
 - **THE KIT RING AND THE SWIVEL (r141, `GUNROW`, `gunRowBuild`, `gunSwivel`, `GUN.swivel`, `gun.body`, `gun.legBack`).**
   *"The blaster button ... the same style weirdport does it, wrapped around the stick. And when you initiate a shot she needs to
   swivel her body round so she's skating whatever direction the blaster is going -- her legs need to match."*

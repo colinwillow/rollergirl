@@ -100,7 +100,7 @@ function place(x, y, z, heading, speed) {
   P.vel.set(Math.sin(heading) * (speed || 0), 0, Math.cos(heading) * (speed || 0));
   P.airT = 0; P.braked = 0; P.pushing = false; P.pushT = 0; P.pushOff = 9; P.shoveT = 0; P.n.set(0, 1, 0);
   P.bailT = 0; P.lean = 0; P.stance = 1; P.flip = null; P.shoveDir = 1; P.grind = null; P.grindCool = 0; P.grindLast = null;
-  P.autoTurn = null; P.vertLock = 0; P.xferKick = null; P.stanceWhy = null; P.stanceAt = 0;
+  P.autoTurn = null; P.vertLock = 0; P.xferKick = null; P.stanceWhy = null; P.stanceAt = 0; P.wing = 0; P.dj = 0; rg.WING.out = 0; rg.WING.open = 0;
   P.mel = null; P.melQ = null; P.kickRail = null; P.kicked = 0; P.settleLatch = 0; P.xferArm = 0; P.wall = null; P.wallCool = 0;
   const g = rg.groundAt(x, z, y + 3, 6);
   if (g.hit) { P.pos.y = g.floor; P.n.set(g.nx, g.ny, g.nz); }
@@ -2725,6 +2725,61 @@ function meleeCase() {
 //   the twist puts the BARREL on the camera's bearing at every angle inside `max`, and stops at `max` past it;
 //   the trigger arms on a held push up, charges, and fires on release; a quick flick does not fire; a sideways drag never arms;
 //   the speed skate stands down while the gun is out; and a bolt flies and dies.
+// r142: THE DOUBLE JUMP AND THE WING PACK, through the shipped step. The wings themselves are a picture; what is measured here is the
+// flight -- takeoff, the cruise, the turn, the climb and the dive, the landing that folds them -- and the second tap in the air.
+CASES.wing = () => {
+  let ok = true; const say = (l, c, x) => { console.log(`  ${l.padEnd(60)} ${c ? 'ok' : 'WRONG'} ${x}`); if (!c) ok = false; };
+  const W = rg.WING, L = rg.stick.L, D = 180 / Math.PI, A = rg.AIR, J = rg.JUMP2;
+  const hands = () => { L.x = 0; L.y = 0; L.down = 0; };
+  const air = (y, h, v) => { place(60, 0.1, -60, h, v); P.pos.y += y; P.grounded = false; P.airT = 0.5; P.coyote = 0; };
+  // 1. takeoff from the ground
+  hands(); place(60, 0.1, -60, 0, 6); const y0 = P.pos.y; rg.wingSet(1);
+  say('tapped on the ground: she pops up and flies', P.wing && !P.grounded && W.out === 1, `wing ${P.wing}, grounded ${P.grounded}, vy ${fix(P.vel.y, 1)}`);
+  let low = 99; run(2.5, () => { hands(); low = Math.min(low, P.pos.y - y0); });
+  say('hands off for 2.5 s: still flying, climbed out and levelling', P.wing && P.pos.y - y0 > 3 && Math.abs(P.wPitch) < 0.35, `up ${fix(P.pos.y - y0, 1)} m, pitch ${fix(P.wPitch * D, 1)} deg, ${fix(P.vel.length(), 1)} m/s`);
+  // 2. the cruise
+  air(80, 0, 10); rg.wingSet(1); const yA = P.pos.y; run(4, hands);
+  say(`level, hands off: the jets bring her to cruise (${W.cruise})`, Math.abs(P.vel.length() - W.cruise) < 2 && Math.abs(P.pos.y - yA) < 4, `${fix(P.vel.length(), 1)} m/s, height ${fix(P.pos.y - yA, 1)} m`);
+  // 3. the turn
+  const h0 = P.heading; run(1, () => { L.x = 1; L.y = 0; L.down = 1; }); hands();
+  const vb = Math.atan2(P.vel.x, P.vel.z), dh = wrap(P.heading - h0);
+  say('stick RIGHT for 1 s: she turns right and her travel goes with her', dh < -1.2 && Math.abs(wrap(vb - P.heading)) < 0.05 && P.wBank > 0.3,
+      `heading ${fix(dh * D, 0)} deg, travel ${fix(wrap(vb - P.heading) * D, 1)} deg off it, bank ${fix(P.wBank * D, 0)} deg`);
+  run(1, () => { L.x = -1; L.y = 0; L.down = 1; }); hands();
+  say('stick LEFT: back the other way', wrap(P.heading - h0) > -0.3, `heading ${fix(wrap(P.heading - h0) * D, 0)} deg from the start`);
+  // 4. climb and dive (W.pull 1: pull back to climb)
+  air(80, 0, 0); rg.wingSet(1); run(2, hands); const v1 = P.vel.length(), yb = P.pos.y;
+  run(1.2, () => { L.x = 0; L.y = 1; L.down = 1; }); const vc = P.vel.length(), climbed = P.pos.y - yb;
+  say('pull back: she climbs, and it costs her speed', P.wPitch > 0.6 && climbed > 3 && vc < v1 - 2, `pitch ${fix(P.wPitch * D, 0)} deg, up ${fix(climbed, 1)} m, ${fix(v1, 1)} -> ${fix(vc, 1)} m/s`);
+  run(2.5, () => { L.x = 0; L.y = -1; L.down = 1; }); const vd = P.vel.length();
+  say('push forward: she dives, and it buys speed past cruise', P.wPitch < -0.8 && vd > W.cruise + 4, `pitch ${fix(P.wPitch * D, 0)} deg, ${fix(vd, 1)} m/s`);
+  hands(); run(2, hands);
+  say('let go: she levels out', Math.abs(P.wPitch) < 0.3, `pitch ${fix(P.wPitch * D, 1)} deg`);
+  // 5. dive into the ground: the wings fold and she rolls away
+  air(14, 0, 0); rg.wingSet(1); let landed = null;
+  run(5, () => { L.x = 0; L.y = -0.7; L.down = 1; if (!landed && P.grounded) landed = { v: P.vel.length(), up: new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq).y }; });
+  hands();
+  say('dived into the ground: lands, the wings fold, upright, rolling on', landed && !P.wing && W.out === 0 && P.stance === 1 && landed.up > 0.99 && landed.v > 8,
+      landed ? `${fix(landed.v, 1)} m/s on touchdown, up ${fix(landed.up, 3)}, stance ${P.stance}, wing ${P.wing}` : 'never landed');
+  // 6. folded mid-air: she drops
+  air(30, 0, 0); rg.wingSet(1); run(1, hands); rg.wingSet(0); run(0.6, hands);
+  say('tapped again in the air: folded, she falls', !P.wing && P.vel.y < -3 && W.out === 0, `wing ${P.wing}, vy ${fix(P.vel.y, 1)}`);
+  // 7. the double jump
+  hands(); place(60, 0.1, -60, 0, 0); P.jump = 1; run(0.35, hands);
+  const vyA = P.vel.y; P.jump = 1; run(1 / 60, hands); const vyB = P.vel.y;
+  say('jump, then tap in the air: the second jump', P.dj === 1 && Math.abs(vyB - A.jump * J.k) < 0.6 && vyB > vyA + 2, `vy ${fix(vyA, 2)} -> ${fix(vyB, 2)} (set to ${fix(A.jump * J.k, 2)})`);
+  console.log(`    ...and its flip: ${P.flip ? P.flip.dir + ' over ' + fix(P.flip.dur, 2) + ' s' : 'none (no clips headless -- startFlip needs her moves)'}`);
+  run(0.2, hands); const vyC = P.vel.y; P.jump = 1; run(1 / 60, hands);
+  say('a third tap does nothing', P.vel.y < vyC, `vy ${fix(vyC, 2)} -> ${fix(P.vel.y, 2)}`);
+  run(3, hands); say('landing gives it back', P.grounded && P.dj === 0, `grounded ${P.grounded}, dj ${P.dj}`);
+  place(60, 0.1, -60, 0, 0); P.jump = 1; run(1 / 60, hands);
+  say('a tap on the ground is still the jump, not the double', P.dj === 0 && P.vel.y > 5, `vy ${fix(P.vel.y, 1)}, dj ${P.dj}`);
+  // 8. jump, double, then the wings
+  run(0.3, hands); P.jump = 1; run(0.3, hands); rg.wingSet(1); run(1, hands);
+  say('jump, double jump, then the wings: flying', P.wing && !P.grounded, `wing ${P.wing}, ${fix(P.vel.length(), 1)} m/s`);
+  rg.wingSet(0); hands(); place(60, 0.1, -60, 0, 0);
+  return ok;
+};
 CASES.gun = () => {
   let ok = true;
   const say = (l, c, x) => { console.log(`  ${l.padEnd(58)} ${c ? 'ok' : 'WRONG'} ${x}`); if (!c) ok = false; };

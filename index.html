@@ -133,6 +133,15 @@
   #kitRow text{font:800 10px system-ui,sans-serif;letter-spacing:.1em;fill:#ffd0e2;text-anchor:middle;dominant-baseline:central;
     pointer-events:none;user-select:none}
   #kitRow text.sel{fill:#1b1033}
+  /* r142: the LEFT stick's row, the same ring mirrored onto its home (92 px in from the left), in the left pad's cyan */
+  #wingRow{position:fixed;z-index:6;pointer-events:none;--mr:106px;
+    left:calc(92px - var(--mr));bottom:calc(92px - var(--mr));width:calc(var(--mr) * 2);height:calc(var(--mr) * 2)}
+  #wingRow svg{overflow:visible;filter:drop-shadow(0 0 1.5px #1b1033) drop-shadow(0 2px 0 #1b103399)}
+  #wingRow path{fill:#1b103355;stroke:#5fe1ff;stroke-width:2.5;pointer-events:all;cursor:pointer;touch-action:none}
+  #wingRow path.sel{fill:#5fe1ff}
+  #wingRow text{font:800 10px system-ui,sans-serif;letter-spacing:.1em;fill:#c8f6ff;text-anchor:middle;dominant-baseline:central;
+    pointer-events:none;user-select:none}
+  #wingRow text.sel{fill:#1b1033}
   /* THE RETICLE: only while the trigger is held. It tightens as the charge fills and goes hot at full. */
   #gunRet{position:fixed;left:0;top:0;width:34px;height:34px;border-radius:50%;pointer-events:none;z-index:6;display:none;
     border:3px solid #7ff3ff;box-shadow:0 0 0 2px #1b103399,0 0 12px #2ec8ff;box-sizing:border-box}
@@ -202,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r141</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r142</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -213,7 +222,7 @@
 <button class="key" id="tailB" aria-label="settings">&#9881;</button>
 <button class="key" id="goB" aria-label="go somewhere">&#10148;</button>
 <button class="key" id="worldB" aria-label="switch level">LEVEL</button>
-<div id="kitRow" aria-label="kit"></div>
+<div id="kitRow" aria-label="kit"></div><div id="wingRow" aria-label="wings"></div>
 <div id="gunRet"></div>
 <div id="tailP"></div>
 <button id="newer">build ready &middot; tap</button>
@@ -228,7 +237,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r141';
+const BUILD = 'r142';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -381,6 +390,27 @@ const GUN = {
   // the swivel tap -- so she does not spin back. There are no left/right skates yet; sideways she uses the nearer of the two.
   swivel: { on: 1, ease: 0.12, hold: 0.35, back: 1.75, fwd: 1.40, minV: 1.0 },
 };
+// r142: THE DOUBLE JUMP. *"Your second tap in the air after you jump propels you upward -- she probably does a flip on her second
+// jump. It'll be fun for launching off stuff and then double jumping and then opening the wingsuit."* A right-pad TAP in the air that
+// nothing else wanted (not the coyote moment, not a rail hop) is the second jump: once per airtime, given back by any surface. The
+// kick is SET, not added (City's rule): added to a fall it is nothing, added to a rising jump it is orbit; set, it is the same
+// height whenever it is spent, which is what makes it a save. And a front flip fitted to the air it buys, unless a flip is already
+// going round -- nothing in this game cuts.
+const JUMP2 = { on: 1, k: 0.85, flip: 1, pts: 10 };
+// r142: THE WING PACK. *"Rather than a jetpack that propels you up, this one's like a wing -- two wings come out of her backpack, each
+// three segments that fold out, with a little jet on the end ... she flies forward like Superman, like a ship ... continuously
+// flying ... particles coming out of the tips so it looks like airflow ... the button above the left stick, the same way the other
+// one is above the right."* Tap the WINGS segment on the left stick's ring: from the ground she pops into the air and flies, in the
+// air she flies at once. The LEFT STICK FLIES HER (raw, not through the camera -- a plane is steered relative to itself): x turns,
+// y pitches (`pull` 1: pull back to climb, the airplane way; 0: push up to climb). Let go and she levels out. The jets hold her at
+// `cruise`; a dive trades height for speed and a climb the other way, down to `vmin` (the jets never let her stall). She lands by
+// touching anything -- the wings fold and she rolls away with her speed -- or tap the segment again and she drops.
+// THE WINGS ARE PROCEDURAL STAND-INS for his model: a pack on her back, two arms of three panels that unfold one after another, a
+// jet at each tip. They ride HER BODY's frame at her upper back (Spine2), not a bone's -- a bone's frame is the armature's 0.01.
+const WING = { on: 1, out: 0, open: 0, openT: 0.45, v0: 14, cruise: 20, vmin: 9, vmax: 36, thrust: 0.9, gk: 1,
+  turn: 1.7, pitchRate: 1.5, climb: 55 * Math.PI / 180, dive: 70 * Math.PI / 180, levelHL: 0.7, pull: 1,
+  lie: 80 * Math.PI / 180, bank: 0.7, bankHL: 0.15, clip: 'in_air', camFollow: 3.0, settle: 7, trailLife: 0.55,
+  seg: [0.44, 0.38, 0.32], chord: [0.30, 0.24, 0.17] };
 
 // THE ROSTER. ONE CHARACTER AT A TIME -- a switch is a menu action, not a parade, so there is
 // no second root, no second mixer and no second weight table to keep in step. The pick lives
@@ -4709,6 +4739,7 @@ function setStance(st, why) {
 }
 function enterGrind(c) {
   const p = player;
+  if (p.wing) wingEnd();
   p.grind = { rail: c.rail, t: c.t, dir: c.dir, s: c.s, side: c.side, time: 0 };
   // r32: A RAIL SETS HER STANCE FROM HER BODY, THE WAY A LANDING DOES. It kept the stance from the
   // last time she touched the ground -- so ollie forward, spin 180 onto a rail, and `stepGrind`
@@ -5238,7 +5269,7 @@ const WALL = { on: 1, all: 0, v: 8.5, into: 2.2, minH: 2.2, minW: 2.5, climbK: 0
 const wallOn = () => WALL.on > 0.5 && (WALL.all > 0.5 || WORLD.zones === 3 || WORLD.zones === 5);      // r135: the spillway's risers and canyon walls ride too
 function wallTry(b, nx, nz, nlx) {
   const p = player, K = WALL;
-  if ((p.wallCool || 0) > 0 || p.bailT > 0 || p.grind || p.wall) return false;
+  if ((p.wallCool || 0) > 0 || p.bailT > 0 || p.grind || p.wall || p.wing) return false;
   const half = nlx ? b.hz : b.hx, thick = nlx ? b.hx : b.hz;
   if (half * 2 < K.minW || b.y1 - p.pos.y < K.minH || b.y0 > p.pos.y + 0.6) return false;
   const vn = p.vel.x * nx + p.vel.z * nz;
@@ -7701,6 +7732,7 @@ function inTris(T, x, z) {
 // PUT HER BACK WHERE SHE LAST STOOD -- the water's rule, and (r64) the fall off a floating island's
 function putBack(msg, col) {
   const p = player, s = ORB.safe;
+  if (p.wing) wingEnd();
   if (s) { p.pos.copy(s.pos); p.heading = p.faceH = s.h; }
   else respawn();
   if (p.grind) p.grind = null;
@@ -12847,7 +12879,7 @@ function sparkStep(dt) {
 const TRAIL = { on: 1, life: 0.22, w: 0.10, v0: 9, v1: 18, spin0: 3, spin1: 9, n: 48, col: 0xffffff, tail: 0x7fe3ff, alpha: 0.85 };
 const trailMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false,
   side: THREE.DoubleSide, fog: false, toneMapped: false });
-const trails = [0, 1, 2, 3].map(() => {      // r80: 2 and 3 are her HANDS, shown only while she boosts
+const trails = [0, 1, 2, 3, 4, 5].map(() => {      // r142: 4 and 5 are the WING TIPS      // r80: 2 and 3 are her HANDS, shown only while she boosts
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL.n * 2 * 3), 3));
   g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRAIL.n * 2 * 4), 4));
@@ -12896,6 +12928,15 @@ function trailStep(dt) {
   const handsOn = (p.boostFx > 0 || p.diveFx > 0) && TRAIL.on;      // r80 the boost, r81 the dive
   girl.boostK = damp(girl.boostK || 0, handsOn ? 1 : 0, handsOn ? 0.04 : 0.2, dt);
   const LF = TRAIL.life * (1 + girl.boostK * (BOOST.trailLife - 1));
+  girl.wingK = damp(girl.wingK || 0, p.wing && WING.open > 0.9 ? 1 : 0, p.wing ? 0.1 : 0.25, dt);
+  for (let j = 4; j < 6; j++) {      // r142: the wing tips stream air -- longer and slower than a skate's slash
+    const T = trails[j], tip = WG.tips[j - 4];
+    if (tip && WG.g && WG.g.visible) { tip.getWorldPosition(_trB); T.hist.push({ x: _trB.x, y: _trB.y, z: _trB.z, t: now }); }
+    while (T.hist.length && (now - T.hist[0].t > WING.trailLife || T.hist.length > TRAIL.n)) T.hist.shift();
+    const c = trailBuild(T.hist, now, camera.position, girl.wingK, T.geo.attributes.position.array, T.geo.attributes.color.array, WING.trailLife);
+    T.geo.setDrawRange(0, c > 0 ? (c / 2 - 1) * 6 : 0);
+    if (c) { T.geo.attributes.position.needsUpdate = true; T.geo.attributes.color.needsUpdate = true; }
+  }
   for (let j = 0; j < 4; j++) {
     const T = trails[j], hand = j > 1, f = hand ? girl.hands && girl.hands[j - 2] : F && F[j];
     if (f && girl.ready) {
@@ -13869,7 +13910,7 @@ function girlAnimMoves(dt) {
       if (girl.flipSeen !== f) { girl.flipSeen = f; rewind(f.nm); snap = true; }
       clipScale(f.nm, clipLen(f.nm, 1) / f.dur);
       add(f.nm, 1);
-    } else add(G || m.air || m.fwd.push[0], 1);    // a finished flip hands back to the air pose (or the grab)
+    } else add((p.wing && girl.actions[WING.clip] ? WING.clip : null) || G || m.air || m.fwd.push[0], 1);     // r142: the wing pack's pose    // a finished flip hands back to the air pose (or the grab)
   } else {
     girl.bail = null;
     const back = MOVES.useBack > 0.5 && (gun.legBack !== null && m.back ? gun.legBack : p.stance < 0), loco = back ? m.back : m.fwd, v = p.speed;     // r141: the swivel's legs
@@ -14138,6 +14179,7 @@ for (const t of ['touchstart', 'touchend', 'touchcancel'])
 // mirror. A flick is a fast move AND a release, so a held thumb spinning or pushing her is never
 // one; on the ground it does nothing (a tap there is the swivel, and a fired flick eats the tap).
 bindStick(document.getElementById('stkL'), stick.L, null, (dx, dy) => {
+  if (player.wing) return;      // r142: flying, the left thumb is the stick of a plane and a fast correction is not a trick
   // r39: ON THE GROUND THE LEFT FLICK IS THE SLIDE TACKLE (Zap's `slide_kick`), along her travel.
   // r80: ...a flick DOWN (or sideways) is; a flick UP is the BOOST.
   // r82: THE LEFT PAD IS THE MELEE -- a flick down the slide, any other way a strike that way; in the air the air strike
@@ -14172,6 +14214,7 @@ bindStick(document.getElementById('stkR'), stick.R, null, (dx, dy) => {
   // camera never also jumps.
   // r39: ON THE GROUND (flat) IT IS THE MELEE CHAIN; a swipe UP on a steep face, a rail or off a lip is
   // still the transfer; IN THE AIR it is the flying kick, aimed at a rail if there is one that way.
+  if (player.wing) return;      // r142: and not a strike or a dive either
   if (rightFlick(dx, dy)) { const s = STICKS[1]; if (s && s.pop) s.pop(); }
 }, (far, held) => {
   // A TAP IS A JUMP, AND `far` IS NOW MEASURED FROM WHERE THE THUMB LANDED, so it is genuinely
@@ -14505,6 +14548,7 @@ function vertRelease(flick) {
 
 function respawn() {
   const p = player;
+  if (p.wing) wingEnd();
   SCORE.combo = 0; SCORE.n = 0; SCORE.list.length = 0; p.spinAcc = 0; p.spinPrev = null; p.wasAir = false;
   p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.heading = p.faceH = SPAWN.h; p.drift = 0; p.mel = null; p.melQ = null; p.kickRail = null; p.kicked = 0; p.grindWant = 0; p.dashed = 0; p.leftN = null; p.boostT = 0; p.boostFx = 0; p.boostCool = 0; p.vlip = null; p.dive = null; p.diveFx = 0; p.lift = null; p.thrown = null;
   p.grounded = true; p.n.set(0, 1, 0); p.airT = 0; p.pushing = false; p.braked = 0; p.bailT = 0;
@@ -14822,6 +14866,8 @@ function stepAir(dt) {
   p.airT += dt; p.coyote -= dt;
   if (p.flip) { p.flip.t += dt;
     if (!p.flip.scored && p.flip.t >= p.flip.dur * LAND.flipDone) { p.flip.scored = 1; const F = SCORE.flip[p.flip.dir]; if (F) trick(F[0], F[1]); } }
+  if (p.wing) wingFly(dt);       // r142: the wing pack flies her -- none of the stick, settle, righting or gravity below
+  else {
   // THE LEFT STICK: X SPINS HER, Y PUSHES HER. Read RAW off the pad rather than through
   // `cam.az`, because a spin is relative to her body and the thrust is along her nose -- neither
   // is a question about where the lens happens to be.
@@ -14991,6 +15037,7 @@ function stepAir(dt) {
   if (p.vel.y < -34) p.vel.y = -34;
   const h = Math.hypot(p.vel.x, p.vel.z);
   if (h > SK.max && !p.thrown) { p.vel.x *= SK.max / h; p.vel.z *= SK.max / h; }
+  }
 
   const y0 = p.pos.y;
   _pp.copy(p.pos);
@@ -15028,6 +15075,7 @@ function stepAir(dt) {
   // climbing body was never tested against the thing it was climbing into.
   const under = g2.hit && p.pos.y < g2.floor - 0.001;
   if (g2.hit && (under || (p.vel.y <= 0 && p.pos.y <= g2.floor + 0.02))) {
+    if (p.wing) wingEnd();      // r142: touching anything folds the wings -- upright first, so the landing below reads a skater
     p.pos.y = g2.floor;
     _N.set(g2.nx, g2.ny, g2.nz);
     const v0 = p.vel.length();
@@ -15255,7 +15303,7 @@ function grabStep() {
   const m4 = CTRL.map > 3.5, rg1 = m4 || CTRL.map < 1.5;      // r99: map 1 grabs on the right thumb too, so a press must begin in the air (r55's quick pushed grab is kept)
   const air = !p.grounded && !p.grind && p.bailT <= 0;
   if (p.xferHold) { if (!R.down) p.xferHold = 0; p.grab = null; return; }     // r47: that hold was a transfer
-  if (!air || !R.down || (!c82 && (p.gAim || p.gArm > 0)) || (c82 && !p.lAir) || (rg1 && !p.rAir) || (m4 && hold < CTRL.grabDelay) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
+  if (!air || p.wing || !R.down || (!c82 && (p.gAim || p.gArm > 0)) || (c82 && !p.lAir) || (rg1 && !p.rAir) || (m4 && hold < CTRL.grabDelay) || !MOVES.grab || p.settling || (p.mel && p.mel.kind === 'kick')) { p.grab = null; return; }
   // r55: *"The grabs don't really work."* Two reasons, both fixed. The direction was decided ONCE, at `grabAt` after
   // the press -- and the stick floats, so the thumb lands as the centre and at 0.3 s it had often not moved yet:
   // every grab came out as the centre one, and pushing the thumb over afterwards changed nothing. And held DOWN it was
@@ -15429,7 +15477,9 @@ function stepPlayer(dt) {
     else if (!xfer && tapXferOn() && p.grounded && p.n.y < MELEE.xferN) p.xferArm = VERT.faceArm;
     else if (!xfer && tapXferOn() && !p.grounded && p.coyote > 0 && p.leftN != null && p.leftN < MELEE.xferN) doJump(true);
     else if (!xfer && tapXferOn() && !p.grounded && p.vertLock && p.airT < VERT.tapWin) { if (vertRelease(true)) trick('TRANSFER', SCORE.xfer); }
-    else if (p.grounded || p.coyote > 0) doJump(xfer); }
+    else if (p.grounded || p.coyote > 0) doJump(xfer);
+    else if (!xfer && !p.wing) jump2(); }      // r142: the second tap in the air
+  if (p.grounded || p.grind || p.wall) p.dj = 0;
   if (p.grounded && p.n.y > 0.97) p.dashed = 0;      // r74: one dash per ramp
   p.dashT = Math.max(0, (p.dashT || 0) - dt);
   p.grindCool = Math.max(0, p.grindCool - dt); p.wallCool = Math.max(0, (p.wallCool || 0) - dt);
@@ -15975,6 +16025,147 @@ function gunFrame(dt) {
   el.style.transform = `translate(${((_gbw.x + 1) / 2 * innerWidth).toFixed(1)}px, ${((1 - _gbw.y) / 2 * innerHeight).toFixed(1)}px) translate(-50%,-50%) scale(${(1.25 - 0.45 * p.gChg).toFixed(3)})`;
   el.classList.add('on'); el.classList.toggle('full', p.gChg >= 0.995);
 }
+// ---------- r142: the double jump and the wing pack (see `JUMP2`, `WING`) ----------
+function jump2() {
+  const p = player;
+  if (!JUMP2.on || p.dj || p.grounded || p.grind || p.wall || p.wing || p.bailT > 0) return false;
+  p.dj = 1;
+  p.vel.y = AIR.jump * JUMP2.k;            // SET, not added
+  p.drift = 0; p.slamS = 0;
+  if (JUMP2.flip && (!p.flip || p.flip.t >= p.flip.dur)) { p.flip = null; startFlip('up'); }      // a fresh front flip, fitted to the air it bought
+  trick('DOUBLE JUMP', JUMP2.pts);
+  return true;
+}
+const _wkq = new THREE.Quaternion(), _wkq2 = new THREE.Quaternion(), _wkq3 = new THREE.Quaternion(), YAX = new THREE.Vector3(0, 1, 0);
+// HER BODY IN FLIGHT: yawed to the heading, laid forward `lie - pitch` (head along the flight line), rolled about her own spine
+// into the bank. `Rx(+a)` takes her up (+Y) toward her front (+Z); a roll about her spine by +b lifts her LEFT (+X) side, which
+// is the bank of a turn to the RIGHT.
+function wingQ(out) {
+  const p = player;
+  return out.setFromAxisAngle(YAX, p.heading).multiply(_wkq2.setFromAxisAngle(XAX, clamp(WING.lie - p.wPitch, 0, 2.9)))
+    .multiply(_wkq3.setFromAxisAngle(YAX, p.wBank));
+}
+function wingSet(on) {
+  if (!WING.on) return;
+  if (on) { if (!wingStart()) return; }
+  else wingEnd();
+  WING.out = on ? 1 : 0; arcPaint(WINGROW);
+  toast(on ? 'WINGS' : 'FOLDED');
+}
+function wingStart() {
+  const p = player;
+  if (p.wing) return true;
+  if (p.bailT > 0) return false;
+  if (p.grind) grindLeave(true);
+  else if (p.wall) wallLeave('pop');
+  else if (p.grounded) { doJump(false); }      // from the ground she pops into the air and flies
+  p.vertLock = 0; p.xferKick = null; p.autoTurn = null; p.vlip = null; p.kickRail = null; p.grindWant = 0; p.grab = null; p.dive = null;
+  p.flip = null;      // a flip in progress leaves its turn in `girl.flipRes`, which settles out on its own
+  const v = p.vel.length(), hs = Math.hypot(p.vel.x, p.vel.z);
+  if (hs > 1) p.heading = Math.atan2(p.vel.x, p.vel.z);      // she flies along where she was going, facing it
+  setStance(1, 'wings');
+  p.wPitch = v > 1 ? clamp(Math.asin(clamp(p.vel.y / v, -1, 1)), -WING.dive, WING.climb) : WING.climb * 0.6;
+  p.wV = Math.max(v, WING.v0); p.wBank = 0;
+  p.grounded = false; p.wing = 1;
+  return true;
+}
+// FOLDED -- by a tap, a landing, a rail, a put-back. She is stood upright on her heading at once, and the difference is handed to
+// `girl.wingRes`, which `poseGirl` eases out, so nothing on screen snaps while everything that reads `p.bq` sees a skater.
+function wingEnd() {
+  const p = player;
+  WING.out = 0; arcPaint(WINGROW);
+  if (!p.wing) return;
+  p.wing = 0;
+  _wkq.setFromAxisAngle(YAX, p.heading);
+  girl.wingRes = (girl.wingRes || new THREE.Quaternion()).copy(_wkq).invert().multiply(p.bq);
+  p.bq.copy(_wkq); p.faceH = p.heading; p.drift = 0;
+}
+// THE FLIGHT. The stick is read raw: a plane is steered relative to itself, not to where the lens is.
+function wingFly(dt) {
+  const p = player, W = WING;
+  let sx = stick.L.x, sy = stick.L.y;
+  if (keys.a || keys.arrowleft) sx -= 1; if (keys.d || keys.arrowright) sx += 1;
+  if (keys.w || keys.arrowup) sy -= 1; if (keys.s || keys.arrowdown) sy += 1;
+  sx = clamp(sx, -1, 1); sy = clamp(sy, -1, 1);
+  const tx = Math.abs(sx) > 0.08 ? Math.sign(sx) * clamp((Math.abs(sx) - 0.08) / 0.62, 0, 1) : 0;
+  const ty = Math.abs(sy) > 0.12 ? Math.sign(sy) * clamp((Math.abs(sy) - 0.12) / 0.58, 0, 1) : 0;
+  // the speed she is ACTUALLY doing, so a wall she hit or a ceiling she scraped costs her what it cost
+  const vNow = p.vel.length(); if (vNow < p.wV) p.wV = Math.max(W.vmin, vNow);
+  p.heading -= tx * W.turn * dt;      // NEGATED: heading grows +Z toward +X, which is her LEFT (the air spin's rule)
+  if (ty) p.wPitch += (W.pull > 0.5 ? ty : -ty) * W.pitchRate * dt;
+  else p.wPitch = damp(p.wPitch, 0, W.levelHL, dt);      // let go and she levels out
+  p.wPitch = clamp(p.wPitch, -W.dive, W.climb);
+  // the jets hold `cruise`; gravity along the flight line trades height for speed both ways
+  p.wV += (W.thrust * (W.cruise - p.wV) - SK.g * Math.sin(p.wPitch) * W.gk) * dt;
+  p.wV = clamp(p.wV, W.vmin, W.vmax);
+  const cp = Math.cos(p.wPitch);
+  p.vel.set(Math.sin(p.heading) * cp * p.wV, Math.sin(p.wPitch) * p.wV, Math.cos(p.heading) * cp * p.wV);
+  p.wBank = damp(p.wBank, tx * W.bank, W.bankHL, dt);
+  p.faceH = p.heading;
+  wingQ(p.bq);
+}
+// THE WINGS THEMSELVES: built once, in metres, in her body's frame (+X her left, +Y up, +Z her front; her back is -Z).
+const WG = { g: null, pack: null, j: [[], []], tips: [], jets: [], spine: null, model: null };
+function wingBuild() {
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  const panel = new THREE.MeshStandardMaterial({ color: 0xff6fa5, roughness: 0.45, metalness: 0.15, side: THREE.DoubleSide });
+  const edge = new THREE.MeshStandardMaterial({ color: 0x5fe1ff, roughness: 0.35, metalness: 0.2, emissive: 0x1a6a80, emissiveIntensity: 0.6 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2a1f3d, roughness: 0.6, metalness: 0.3 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x9aa3b8, roughness: 0.3, metalness: 0.8 });
+  const mesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; return m; };
+  const pack = mesh(new THREE.BoxGeometry(0.30, 0.36, 0.13), dark); pack.position.set(0, 0, -0.07); g.add(pack);
+  const stripe = mesh(new THREE.BoxGeometry(0.31, 0.05, 0.14), edge); stripe.position.set(0, 0.08, -0.07); g.add(stripe);
+  WG.pack = pack;
+  for (const s of [1, -1]) {
+    const k = s > 0 ? 0 : 1;
+    let par = g;
+    for (let i = 0; i < 3; i++) {
+      const L = WING.seg[i], C = WING.chord[i], jt = new THREE.Group();
+      if (i === 0) jt.position.set(s * 0.12, 0.10, -0.12); else jt.position.set(s * WING.seg[i - 1], 0.012 * (i % 2 ? 1 : -1), 0);
+      par.add(jt); WG.j[k].push(jt);
+      const pl = mesh(new THREE.BoxGeometry(L, 0.022, C), panel); pl.position.set(s * L / 2, 0, -C * 0.25); jt.add(pl);
+      const le = mesh(new THREE.BoxGeometry(L, 0.03, 0.035), edge); le.position.set(s * L / 2, 0.004, C * 0.25); jt.add(le);
+      par = jt;
+    }
+    const tip = new THREE.Group(); tip.position.set(s * WING.seg[2], 0, -0.03); par.add(tip);
+    const noz = mesh(new THREE.CylinderGeometry(0.032, 0.05, 0.15, 10), metal); noz.rotation.x = Math.PI / 2; noz.position.set(0, 0, -0.06); tip.add(noz);
+    const jet = glowBall(0.12); jet.position.set(0, 0, -0.17); tip.add(jet);
+    WG.tips.push(tip); WG.jets.push(jet);
+  }
+  WG.g = g;
+}
+wingBuild();
+// open 0..1, segment by segment: the root swings out from down along her back, then each panel unfolds off the last
+function wingFold(k) {
+  for (let side = 0; side < 2; side++) {
+    const s = side ? -1 : 1, J = WG.j[side];
+    for (let i = 0; i < 3; i++) {
+      const u = clamp((k - i * 0.25) / 0.5, 0, 1), e = u * u * (3 - 2 * u);
+      if (i === 0) J[i].rotation.set(0, s * lerp(0.25, 0.22, e), s * lerp(-1.35, 0.14, e));
+      else J[i].rotation.set(0, s * lerp(i === 1 ? 2.85 : -2.85, 0.10, e), s * lerp(0, 0.05, e));
+    }
+  }
+}
+const _wkv = new THREE.Vector3(), _wko = new THREE.Vector3();
+function wingFrame(dt) {
+  const p = player, W = WING;
+  W.open = clamp(W.open + (W.out ? 1 : -1) * dt / W.openT, 0, 1);
+  const g = WG.g; if (!g) return;
+  if (!girl.ready || !girl.model || W.open <= 0.001) { g.visible = false; return; }
+  if (WG.model !== girl.model) { WG.model = girl.model; WG.spine = girl.model.getObjectByName('mixamorig_Spine2') || girl.model.getObjectByName('mixamorig_Spine1'); }
+  if (!WG.spine) { g.visible = false; return; }
+  g.visible = true;
+  // her body's frame (with the blaster's swivel, which turns the drawn body), at her upper back
+  bodyG.getWorldQuaternion(g.quaternion).multiply(_wkq.setFromAxisAngle(YAX, gun.body || 0));
+  WG.spine.getWorldPosition(_wkv);
+  _wko.set(0, 0.02, -0.13).applyQuaternion(g.quaternion);
+  g.position.copy(_wkv).add(_wko);
+  const sc = (RIG.height || 1.7) / 1.7; g.scale.setScalar(sc);
+  wingFold(W.open);
+  // the jets: on once the wings are out, flickering, harder while she climbs
+  const on = W.open > 0.9 && p.wing ? 1 : 0, f = 0.8 + 0.2 * (p.wPitch > 0 ? 1 : 0) + Math.random() * 0.35;
+  for (const j of WG.jets) { j.visible = on > 0; if (on) ballSize(j, f); }
+}
 function poseGirl(dt) {
   if (!girl.ready) return;
   const p = player;
@@ -16004,6 +16195,11 @@ function poseGirl(dt) {
     if (Math.abs(girl.flipRes.w) > 0.99995) girl.flipRes = null;
   }
   if (girl.flipRes) bodyG.quaternion.multiply(girl.flipRes);
+  // r142: FOLDING THE WINGS stood her upright in one step (`wingEnd`); what that step skipped eases out here, flip-style
+  if (girl.wingRes) {
+    girl.wingRes.slerp(_fq.identity(), Math.min(1, WING.settle * dt));
+    if (Math.abs(girl.wingRes.w) > 0.99995) girl.wingRes = null; else bodyG.quaternion.multiply(girl.wingRes);
+  }
   // WHICH WAY HER EXPORT FACES IS THE ONE THING NO OFFLINE CHECK HERE CAN SETTLE, so it is
   // applied every frame rather than baked in at load: `rg.RIG.spin = Math.PI` turns her
   // round on the phone, with no rebuild and no push.
@@ -16060,7 +16256,7 @@ function stepCam(dt) {
   // camera you spend the whole session putting back.
   // r55: in the air the right pad is the GRABS, so it does not also orbit -- held left it was swinging the lens round
   // her for the whole flight while she held the grab
-  const rx = ((!p.grounded && !p.grind && MOVES.grab && !p.gAim) || p.speedSk) ? 0 : stick.R.x;      // r140: aiming, the right pad's x IS the aim, in the air too      // r122: and a held speed skate does not swing the lens
+  const rx = ((!p.grounded && !p.grind && MOVES.grab && !p.gAim && !p.wing) || p.speedSk) ? 0 : stick.R.x;      // r140: aiming, the right pad's x IS the aim, in the air too      // r122: and a held speed skate does not swing the lens
   const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
   if (yaw || p.gAim) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;      // r140: a held trigger owns the bearing -- no follow
   if (!stick.L.down) { cam.steerAz = cam.az; cam.thA = null; }   // no left thumb: the frames agree (see stickWorld)
@@ -16090,7 +16286,7 @@ function stepCam(dt) {
   // never overshoots. `follow` is the spring's natural frequency.
   if (cam.idle > CAM.idle && hs > 0.8) {
     const want = hs > 1.4 ? Math.atan2(p.vel.x, p.vel.z) : p.faceH;
-    const rate = (p.grounded ? CAM.follow : CAM.followAir) * clamp(hs / 5, 0.3, 1.4);
+    const rate = (p.wing ? WING.camFollow : p.grounded ? CAM.follow : CAM.followAir) * clamp(hs / 5, 0.3, 1.4);     // r142: flying, the lens comes in behind her like a ship's
     const err = wrapAngle(want - cam.az);
     let d;
     if (CAM.spring > 0.5) { cam.azV = (cam.azV || 0) + (rate * rate * err - 2 * rate * (cam.azV || 0)) * dt; d = cam.azV * dt; }
@@ -16169,7 +16365,7 @@ function hud(dt) {
         ? (girl.tail.baked > ANIM.still ? ' · TAIL BAKED' : (TAIL.on ? ' · TAIL ' + TAIL.mode : ' · TAIL OFF'))
         : '') +
       // a console warning is invisible on a phone, and "the sky never loaded" looks like "it is meant to be grey"
-      (LOOK.failed ? ' · NO SKY IMG' : '') + ((WORLD.zones === 3 || WORLD.zones === 0 || WORLD.zones === 5) && SKYART.failed.length ? ' · NO SKY ART ' + SKYART.failed.length + '/' + SKYART.want : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (GUN.failed ? ' · NO GUN GLB' : GUN.out ? ' · GUN ' + (gun.group ? gun.cm + 'cm' : 'none') + (gun.tracks ? '' : ' nopose') : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
+      (LOOK.failed ? ' · NO SKY IMG' : '') + ((WORLD.zones === 3 || WORLD.zones === 0 || WORLD.zones === 5) && SKYART.failed.length ? ' · NO SKY ART ' + SKYART.failed.length + '/' + SKYART.want : '') + (MELEE.failed ? ' · NO MELEE GLB' : '') + (GUN.failed ? ' · NO GUN GLB' : GUN.out ? ' · GUN ' + (gun.group ? gun.cm + 'cm' : 'none') + (gun.tracks ? '' : ' nopose') : '') + (player.wing ? ' · WINGS ' + Math.round((player.wPitch || 0) * 57.3) + 'deg' : '') + (WORLD.zones === 2 && SHEET.err ? ' · NO PARK JSON' : '') +
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
@@ -16215,6 +16411,7 @@ function frame() {
   stepPlayer(dt);
   girlAnim(dt);
   poseGirl(dt);
+  wingFrame(dt);      // r142: the wings on her back, after the pose they hang off
   sparkStep(dt);
   stepCity(dt);
   stepCam(dt);
@@ -16288,14 +16485,17 @@ async function wearChar(i, onProg) {
 // roster is blind without it: "did that take" must not be a question you answer by
 // recognising her.
 // r140: THE BLASTER KEY. A tap takes it out or puts it away; `g` on a keyboard does the same.
-// r141: THE KIT RING (weirdport's `buildArcRow`). A ROW IS A TABLE: a second thing to carry is one line in `GUNROW`, and the
+// r141: THE KIT RING (weirdport's `buildArcRow`). A ROW IS A TABLE: a second thing to carry is one line in its `items`, and the
 // arc simply divides again. Every number is a ring radius or a bearing; nothing here is placed in pixels by eye.
-const GUNROW = { r0: 74, r1: 106, mid: 90, each: 50, gap: 4,
+// r142: ONE BUILDER, TWO ROWS -- the right stick's (the blaster) and the left stick's (the wings), weirdport's m104 rule: two
+// copies of this would be two places for an arc to drift.
+const GUNROW = { el: document.getElementById('kitRow'), r0: 74, r1: 106, mid: 90, each: 50, gap: 4,
   items: [{ label: 'BLASTER', on: () => !!GUN.out, pick: () => gunSet(!GUN.out) }] };
-const gunRowEl = document.getElementById('kitRow');
-function gunRowBuild() {
-  const G = GUNROW, R0 = G.r0, R1 = G.r1, NS = 'http://www.w3.org/2000/svg', D = R1 * 2, c = R1, n = G.items.length;
-  gunRowEl.style.setProperty('--mr', R1 + 'px');
+const WINGROW = { el: document.getElementById('wingRow'), r0: 74, r1: 106, mid: 90, each: 50, gap: 4,
+  items: [{ label: 'WINGS', on: () => !!WING.out, pick: () => wingSet(!WING.out) }] };
+function arcRow(G) {
+  const R0 = G.r0, R1 = G.r1, NS = 'http://www.w3.org/2000/svg', D = R1 * 2, c = R1, n = G.items.length;
+  G.el.style.setProperty('--mr', R1 + 'px');
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 ' + D + ' ' + D); svg.setAttribute('width', D); svg.setAttribute('height', D);
   // SCREEN Y POINTS DOWN, so a maths angle maps with its sine NEGATED -- wrong, and the row mirrors under the stick.
@@ -16312,11 +16512,13 @@ function gunRowBuild() {
     t.setAttribute('x', px(r, a)); t.setAttribute('y', py(r, a)); t.textContent = m.label;
     svg.appendChild(path); svg.appendChild(t); m.el = [path, t];
   });
-  gunRowEl.appendChild(svg);
-  gunRowPaint();
+  G.el.appendChild(svg);
+  arcPaint(G);
 }
-function gunRowPaint() { for (const m of GUNROW.items) if (m.el) for (const e of m.el) e.classList.toggle('sel', m.on()); }
-gunRowBuild();
+function arcPaint(G) { for (const m of G.items) if (m.el) for (const e of m.el) e.classList.toggle('sel', m.on()); }
+function gunRowPaint() { arcPaint(GUNROW); }
+arcRow(GUNROW); arcRow(WINGROW);
+addEventListener('keydown', e => { if (e.key && e.key.toLowerCase() === 'v' && !e.repeat) wingSet(!WING.out); });
 addEventListener('keydown', e => { if (e.key && e.key.toLowerCase() === 'g' && !e.repeat) gunSet(!GUN.out); });
 document.getElementById('charB').addEventListener('pointerdown', e => {
   e.preventDefault();
@@ -16365,6 +16567,17 @@ const TAILUI = [
   ['SK.coastAfter',  'Fade after flat', 0,  5,   0.1,  's'],
   ['LAND.bail',      'Bails on landing', 0, 1,   1,    ''],
   ['MOVES.useBack',  'Backward clips in fakie', 0, 1, 1, ''],
+  ['Wings and double jump (r142)', ''],
+  ['JUMP2.on',       'Double jump (a tap in the air)', 0, 1, 1, ''],
+  ['JUMP2.k',        'Double jump height (x the jump)', 0.3, 1.5, 0.05, ''],
+  ['JUMP2.flip',     'Double jump flips', 0, 1, 1, ''],
+  ['WING.pull',      'Wings: pull back to climb (0 = push up)', 0, 1, 1, ''],
+  ['WING.cruise',    'Wings cruise m/s', 8, 36, 1, ''],
+  ['WING.turn',      'Wings turn rate', 0.5, 4, 0.1, ''],
+  ['WING.pitchRate', 'Wings pitch rate', 0.4, 4, 0.1, ''],
+  ['WING.lie',       'Wings body lie', 30, 100, 1, '', 'deg'],
+  ['WING.bank',      'Wings bank', 0, 1.4, 0.05, ''],
+  ['WING.camFollow', 'Wings camera follow', 0.5, 8, 0.25, ''],
   ['Lean, camera, style (r42)', ''],
   ['RIG.hipLean',    'Lean at the hips (0 = whole body)', 0, 1, 0.05, ''],
   ['CAM.spring',     'Camera eases into turns', 0, 1, 1, ''],
@@ -16548,7 +16761,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, WPP, WPT, DEC, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
+const UIOBJ = { WING, JUMP2, WORLD, WPP, WPT, DEC, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -16725,7 +16938,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { WINGROW, arcPaint, WING, WG, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,

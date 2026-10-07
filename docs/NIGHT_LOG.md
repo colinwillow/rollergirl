@@ -636,3 +636,18 @@ her body round ... her legs need to match."*
 - Heading, stance and push do not change while the trigger is held -- only what is drawn.
 - `npm run sim gun`: five aim cases (barrel 0.00 deg off, body did the turn, spine 0.0, legs right), the release keeps the turn
   with no half-turn jump, a small turn eases back.
+
+## r142 -- the double jump and the wing pack
+
+*"A jetpack that's more like a wing ... she flies forward like Superman ... the button above the left stick ... and a double
+jump: the second tap in the air propels you upward and she does a flip."*
+
+- **Double jump**: tap the right stick again in the air -- once per jump, a fresh kick upward and a front flip.
+- **WINGS** (the new segment on the left stick's ring, or `v`): from the ground she pops up and takes off; in the air she flies at
+  once. Left stick flies her: left/right turns (she banks), pull back to climb, push forward to dive (flip it on the panel). Let go
+  and she levels out. Jets hold her at cruise speed; diving builds speed, climbing spends it. Touch down anywhere and the wings
+  fold and she rolls away; tap WINGS again and she drops.
+- Placeholder wings: a pack, three pink panels a side that unfold one after another, a jet at each tip, airflow trails off the
+  tips. His model goes in later.
+- `npm run sim wing`: takeoff, cruise, turns both ways, climb and dive, levelling, the landing fold, folding in the air, the
+  double jump and its limits, and jump -> double -> wings.
