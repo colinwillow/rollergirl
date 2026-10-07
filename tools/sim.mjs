@@ -6134,6 +6134,21 @@ CASES.spillway = async () => {
     const G = S.gap, a = rg.spwP(E, 36, 38, 0); go(a[0], a[2], G.T.yaw, 15, T[1].y); let air = 0, land = null; const b = rg.spwP(E, 36 + 9, 38, 0);
     const r2 = ride(5, () => { rg.stick.L.x = rg.stick.L.y = 0; if (land) { P.vel.set(0, 0, 0); return; } if (!P.grounded) air = 1; if (air && P.grounded && !land) land = P.pos.clone(); }); void b;
     say('L4 the gap: coasting in at 15 m/s, onto the landing', air && land && land.y > T[1].y + 0.3 && !r2.bail, `${land ? 'down at ' + land.x.toFixed(1) + ',' + land.y.toFixed(2) + ',' + land.z.toFixed(1) : 'never down'}${cl(r2)}`); }
+  // r134: THE LIP RAILS -- a terrace's edge grinds end to end (the centre's second terrace, west of the chute)
+  { const plen = q => q.segs.reduce((a, g) => a + g.len, 0), Pth = S.paths.filter(q => q.name === 'terrace 2 lip').sort((a, b) => plen(b) - plen(a))[0], o = grindAll(Pth, 10, 30);
+    say(`the lip rails: terrace 2's longest run (${fix(plen(Pth), 0)} m) grinds end to end`, o.reached && !o.r.bail, o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off); }
+  // r134: THE WEST WING'S HALF PIPE and THE INTAKE: pump each pair with the thumb along her travel, and reach both copings
+  const pumpPair = (ax, az, bx, bz, y, need, maxT) => { reset(); const mx = (ax + bx) / 2, mz = (az + bz) / 2, ux = (bx - ax) / Math.hypot(bx - ax, bz - az), uz = (bz - az) / Math.hypot(bx - ax, bz - az);
+    place(mx, y + 0.3, mz, Math.atan2(ux, uz), 4); const q = rg.groundAt(mx, mz, y + 0.6, 1); if (q.hit) P.pos.y = q.floor; let top = y, bail = 0, vmax = 0;
+    run(maxT, () => { const az2 = rg.cam.az = P.hSpeed > 0.5 ? Math.atan2(P.vel.x, P.vel.z) : rg.cam.az, fx = Math.sin(az2), fz = Math.cos(az2);
+      const al = (P.vel.x * ux + P.vel.z * uz) >= 0 ? 1 : -1, dx = ux * al + 0.12 * ((mx - P.pos.x) - ux * ((mx - P.pos.x) * ux + (mz - P.pos.z) * uz)), dz = uz * al + 0.12 * ((mz - P.pos.z) - uz * ((mx - P.pos.x) * ux + (mz - P.pos.z) * uz)), dl = Math.hypot(dx, dz);
+      rg.stick.L.y = P.grounded ? -((dx * fx + dz * fz) / dl) : 0; rg.stick.L.x = P.grounded ? ((dx * -fz + dz * fx) / dl) : 0; city();
+      if (P.bailT > 0) bail = 1; top = Math.max(top, P.pos.y); vmax = Math.max(vmax, P.speed); });
+    return { top: top - y, bail, vmax }; };
+  { const Wp = S.westPipe, W = rg.SPWF.W, a = rg.spwP(W, Wp.u, Wp.v0 + 2, 0), b = rg.spwP(W, Wp.u, Wp.v1 - 2, 0), o = pumpPair(a[0], a[2], b[0], b[2], T[1].y, 0, 25);
+    say('the west half pipe: pumped, over both XL copings', o.top > rg.KSZ.XL.H + 0.5 && !o.bail, `top ${fix(o.top, 1)} m over the terrace, ${fix(o.vmax, 1)} m/s${o.bail ? ' BAIL' : ''}`); }
+  { const I = S.intake, o = pumpPair(I.x0 + 10, I.z, I.x1 - 10, I.z, 0, 0, 25);
+    say('THE INTAKE: pumped, over both XXL copings', o.top > rg.KSZ.XXL.H + 0.5 && !o.bail, `top ${fix(o.top, 1)} m, ${fix(o.vmax, 1)} m/s${o.bail ? ' BAIL' : ''}`); }
   return ok;
 };
 

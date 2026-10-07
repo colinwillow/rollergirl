@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r133</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r134</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r133';
+const BUILD = 'r134';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3713,7 +3713,19 @@ function spwDam() {
         for (let v = t.v0 + 0.5; v < t.v1 - 0.6; v += 4) { const q = Math.min(t.v1 - 0.5, v + 4), a = spwP(F, u, v, 0), b = spwP(F, u, q, 0);
           s3Wall([a[0], a[2]], [b[0], b[2]], t.y, t.y + 0.5, 0.35, k.trim); spwBox(F, u - 0.35, u + 0.35, v, q, t.y, t.y + 0.5, 'canyon parapet', true);
           if (!pts.length) pts.push([a[0], t.y + 0.55, a[2]]); pts.push([b[0], t.y + 0.55, b[2]]); }
-        SPW.rails.push({ pts, name: 'canyon rail', bare: 1, gems: 4 }); } });
+        SPW.rails.push({ pts, name: 'canyon rail', bare: 1, gems: 4 }); }
+      // THE LIP RAILS (r134): *"no dead edges"* -- a knee-high parapet along the terrace's south edge, its top a rail the
+      // length of the terrace, broken only where a line crosses the lip: the chute, the staircase's landings, the drain,
+      // the fish ladder's turns, the penstock. Riding off a terrace is a thing you do down a line, not by accident.
+      { const [u0, u1] = spwU(F, t.v0 + 0.4), g = [], c = SPW.chute.cut, St = SPW.stair;
+        if (F.key === 'C') { g.push([70 - c - 0.8, 70 + c + 0.8], [70 + St.x - St.w / 2 - 0.5, 70 + St.x + St.w / 2 + 0.5], [79, 85]); if (i === 0) g.push([70 + St.x2 - St.w / 2 - 0.5, 70 + St.x2 + St.w / 2 + 0.5]); }
+        if (F.key === 'W' && i === 0) g.push([34.5, 45.5]);
+        if (F.key === 'E') { if (i === 0 || i === 2) g.push([18, 26]); if (i === 1) g.push([76, 84]); }
+        spwParapet(F, t.v0 + 0.4, t.y, u0 + 0.3, u1 - 0.3, g, 'terrace ' + (i + 1) + ' lip');
+        // a line of light along the riser's top edge, under the lip
+        for (let u = u0; u < u1 - 0.1; u += 8) { const q = Math.min(u1, u + 8), a = spwP(F, u, t.v0 - 0.02, t.y - 0.4), b = spwP(F, q, t.v0 - 0.02, t.y - 0.4);
+          if (F.key === 'C' && Math.abs((u + q) / 2 - 70) < c + 1) continue;
+          slQuad('neon', [a[0], a[1] - 0.06, a[2]], [b[0], b[1] - 0.06, b[2]], [b[0], b[1] + 0.06, b[2]], [a[0], a[1] + 0.06, a[2]], [-F.nx, 0, -F.nz], { tint: k.neonC }); } } });
     // THE FACE: 35 deg from the top terrace to the crest, 2 m strips, rideable; its body stepped half a metre under the surface
     { const n = Math.ceil((Fc.v1 - Fc.v0) / 2), s = (Fc.y1 - Fc.y0) / (Fc.v1 - Fc.v0);
       for (let i = 0; i < n; i++) { const v0 = Fc.v0 + (Fc.v1 - Fc.v0) * i / n, v1 = Fc.v0 + (Fc.v1 - Fc.v0) * (i + 1) / n, y0 = Fc.y0 + (v0 - Fc.v0) * s, y1 = Fc.y0 + (v1 - Fc.v0) * s;
@@ -4006,6 +4018,35 @@ function spwStreet() {
   P('ledge', 'S', 20, 38, -Math.PI / 2, { h: 0.5, len: 10, w: 1.2 });
   const s = spwP(E, 12, 42, y); CITY.spots['spillway street'] = [s[0], y, s[2], Math.atan2(E.ux, E.uz)];
 }
+// r134: THE WEST WING'S PARK (terrace 2): a quarter pipe XL across the terrace against the riser and another at the lip, so
+// the terrace is a half pipe coping to coping; a spine to transfer over; a pyramid with rails; his buildings against the
+// risers of every terrace on both wings and the centre, where no line runs. And THE INTAKE on the plaza east of the hall: a
+// pair of XXL quarter pipes facing each other, 7.2 m copings, the biggest vert in the world.
+function spwWestPark() {
+  const W = SPWF.W, E = SPWF.E, C = SPWF.C, T = SPW.tiers, t = T[1], y = t.y, Lx = KSZ.XL.lip + KITW.deck;
+  const yawN = Math.atan2(W.nx, W.nz), yawS = yawN + Math.PI;
+  const P = (F, kind, size, u, v, yy, yaw, o) => { const c = spwP(F, u, v, yy); return kitPiece(kind, size, { x: c[0], y: yy, z: c[2], yaw }, o || {}); };
+  P(W, 'qp', 'XL', 30, t.v1 - Lx - 0.1, y, yawN, { w: 16 }); P(W, 'qp', 'XL', 30, t.v0 + 0.8 + Lx, y, yawS, { w: 16 });
+  SPW.westPipe = { u: 30, v0: t.v0 + 0.8 + Lx, v1: t.v1 - Lx - 0.1 };
+  P(W, 'spine', 'M', 55, 44, y, yawN + Math.PI / 2, {});
+  P(W, 'frustum', 'M', 60, 56, y, yawN, { len: 5, w: 5, banks: [1, 1, 1, 1], rails: 1 });
+  P(W, 'rail', 'M', 70, 48, y, yawN + Math.PI / 2, { h: 0.8, len: 10 });
+  // THE INTAKE
+  SPW.intake = { x0: 70, x1: 110, z: -30, w: 16 };
+  kitPiece('qp', 'XXL', { x: 70, y: 0, z: -30, yaw: -Math.PI / 2 }, { w: 16 }); kitPiece('qp', 'XXL', { x: 110, y: 0, z: -30, yaw: Math.PI / 2 }, { w: 16 });
+  ORB.lanes.push({ pts: [SLV(82, 0.02, -30), SLV(98, 0.02, -30)], hw: 7, v: 14, acc: 24, name: 'intake surge' });
+  // buildings against the risers (art + a box each), clear of every line
+  const bld = (F, f, u, v, w, d, h) => { const c = spwP(F, u, v, 0), yy = F === C ? null : null; void yy;
+    const t2 = T.find(q => v >= q.v0 && v < q.v1), base = t2 ? t2.y : 0; skyArt(f, c[0], base, c[2], Math.atan2(-F.nx, -F.nz) + Math.PI);
+    spwBox(F, u - w / 2, u + w / 2, v - d / 2, v + d / 2, base, base + h, 'terrace building'); };
+  bld(W, 'BUILDING_01', 50, 62.5, 10, 9.8, 12.6); bld(W, 'BUILDING_02', 64, 62.6, 11.4, 9.7, 14.6); bld(W, 'BUILDING_13', 77, 62, 15.6, 10.9, 10.8);
+  bld(W, 'BUILDING_05', 18, 27.6, 20.3, 11.6, 12.3); bld(W, 'BUILDING_16', 68, 26.6, 31.9, 13.6, 11.9);
+  bld(W, 'BUILDING_14', 24, 89, 24.3, 24.6, 18.5); bld(W, 'BUILDING_09', 62, 94, 14.3, 14.3, 34.4);
+  bld(E, 'BUILDING_07', 50, 24.2, 9.1, 18.3, 17.8); bld(E, 'BUILDING_08', 70, 25.3, 21.6, 16.3, 15.8);
+  bld(E, 'BUILDING_14', 60, 88, 24.3, 24.6, 18.5); bld(E, 'BUILDING_04', 36, 95, 12.3, 12.3, 26.6);
+  bld(C, 'BUILDING_04', 115, 27.5, 12.3, 12.3, 26.6); bld(C, 'BUILDING_09', 125, 94, 14.3, 14.3, 34.4); bld(C, 'BUILDING_12', 90, 95, 11.3, 10.6, 31.1);
+  const s = spwP(W, 30, 48, y); CITY.spots['spillway west park'] = [s[0], y, s[2], yawN]; CITY.spots['spillway intake'] = [90, 0, -30, Math.PI / 2];
+}
 // THE ART: his pack round the dam -- towers on the plaza, markets by the harbour, waterfalls off the crest's ends into the sea,
 // gardens and far islands over the reservoir, skyline clusters on rock islets in the sea
 function spwArt() {
@@ -4041,7 +4082,7 @@ function spillwayWorld() {
   const KC = { ...KCOL }, Tn = {}; for (const q in KSZ) Tn[q] = KSZ[q].tint;
   Object.assign(KCOL, PARKD.pal.kcol); for (const q in PARKD.pal.size) if (KSZ[q]) KSZ[q].tint = PARKD.pal.size[q];
   try {
-    spwDam(); spwDrain(); spwPlaza(); spwChute(); spwYard(); spwStairs(); spwRails(); spwLaunch(); spwIslands(); spwLighthouse(); spwStreet(); spwArt();
+    spwDam(); spwDrain(); spwPlaza(); spwChute(); spwYard(); spwStairs(); spwRails(); spwLaunch(); spwIslands(); spwLighthouse(); spwStreet(); spwWestPark(); spwArt();
     // stops
     const T = SPW.tiers, St = SPW.stair, H = SPW.hall;
     SPAWN.set(0, SPW.crest.y, 148); SPAWN.h = Math.PI;
@@ -4054,7 +4095,7 @@ function spillwayWorld() {
     CITY.spots['spillway harbour'] = [0, SPW.prom.y, -88, Math.PI / 2];
     { const f = SPW.fish.foot; CITY.spots['spillway fish ladder'] = [f[0], 0, f[1], Math.atan2(SPWF.E.ux, SPWF.E.uz) + Math.PI]; }
     { const E = SPWF.E, p = spwP(E, E.L - 6, -4, 0); CITY.spots['spillway east lift'] = [p[0], 0, p[2], Math.atan2(E.nx, E.nz)]; }
-    SPW.go.push('spillway crest', 'spillway chute', 'spillway landing', 'spillway hall roof', 'spillway harbour', 'spillway plaza', 'spillway terrace 1', 'spillway terrace 2', 'spillway terrace 3', 'spillway fish ladder', 'spillway east lift', 'spillway street', 'spillway islands', 'spillway drain', 'spillway lighthouse', 'spillway lantern');
+    SPW.go.push('spillway crest', 'spillway chute', 'spillway landing', 'spillway hall roof', 'spillway harbour', 'spillway plaza', 'spillway terrace 1', 'spillway terrace 2', 'spillway terrace 3', 'spillway fish ladder', 'spillway east lift', 'spillway street', 'spillway west park', 'spillway intake', 'spillway islands', 'spillway drain', 'spillway lighthouse', 'spillway lantern');
   } finally { Object.assign(KCOL, KC); for (const q in Tn) KSZ[q].tint = Tn[q]; }
   triBuild(); solidBuild();
   kitRailsDraw();

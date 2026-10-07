@@ -132,6 +132,14 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
     block) -- find it by key.
   - **NOT VERIFIABLE HERE:** how any of it looks (46 art placements, two water planes, the neon, no GPU), and the chute's
     speed between gates (34 m/s against the 22 the gates hold inside them) is a phone decision.
+  - **r134: THE LIP RAILS, THE WEST PARK, THE INTAKE.** Every terrace's south edge is a parapet with a rail on it (*"no dead
+    edges"*), broken only where a line crosses the lip -- a list per facet in `spwDam`, and a new line crossing a lip has to
+    add its gap there or it grinds into a wall. The west wing's second terrace is a half pipe XL coping to coping; the plaza
+    gets two XXL quarter pipes 40 m apart (`SPW.intake`) -- **a pair's toes face INWARD**, which is `yaw -PI/2` for the one at
+    the low x and `+PI/2` for the other (backwards, the flat is outside both and the pump bot reads top 0.0). His buildings
+    stand against every riser where no line runs; one stood on the crest pad's arc (`launchSolve` found no clear arc and the
+    row read *never on it*), so a building goes in only after the pad rows still pass. `docs/spillway_elevation.svg` is the
+    side elevation, sections of `groundAt` along z.
   - **r133: his props and decals dress it too** (`wppLoad`/`wppBuild`/`decBuild` run in world 5 as in world 0; both passes
     are generic over the collider -- clutter at the foot of every tall box, decals on flat floor, tags on the risers), the
     sluice gates are 24 m long (she still tops 33 on the face; the kicker takes her at 19), and the chip says `NO WP PROPS`.

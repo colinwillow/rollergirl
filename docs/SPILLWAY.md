@@ -10,8 +10,8 @@ his floating islands over the reservoir.
 Everything is placed in FACET coordinates (`u` along the dam, `v` toward the reservoir, `spwP(F, u, v, y)` converts), so the
 wings' terraces, risers, parapets, rails and lifts are the centre's code run in a turned frame.
 
-**Line map:** `docs/spillway_map.svg` -- drawn off the BUILT world (every rail, lane, pad, piece and island as the collider has
-them), not off the pitch. **Harness:** `npm run sim spillway`, 24 rows, every one through the shipped physics. **Export:**
+**Line map:** `docs/spillway_map.svg` and **side elevation:** `docs/spillway_elevation.svg` -- both drawn off the BUILT world
+(every rail, lane, pad, piece and island as the collider has them; the sections are `groundAt` along z), not off the pitch. **Harness:** `npm run sim spillway`, 24 rows, every one through the shipped physics. **Export:**
 `npm run export:spillway` -> `exports/rollergirl_spillway.glb` (the picture, grouped dam / plaza / harbour / reservoir) and
 `exports/rollergirl_spillway_collision.glb` (`deck_` floors, `bld_` boxes, lanes, launchers, spots, water).
 
@@ -77,6 +77,19 @@ promenade, his TOWER_E on it (lantern deck at 24 m, measured), a lift up its sou
 HELIX -- a booster rail two and a half turns round the tower down to the mole, a QP L at its end to catch her. *Harness: the
 lift, the helix end to end (10 s), the causeway home.*
 
+**THE WEST PARK (r134).** ➤ `spillway west park`. The west wing's second terrace: a quarter pipe XL against the riser and
+another at the lip, so the whole terrace is a half pipe coping to coping; a spine M to transfer over, a pyramid with rails, a
+flat rail. *Harness: pumped over both copings.*
+
+**THE INTAKE (r134).** ➤ `spillway intake`. East of the turbine hall on the plaza, two XXL quarter pipes 40 m apart facing
+each other, 7.2 m copings, a surge strip between them: the biggest vert in the game. *Harness: pumped over both copings.*
+
+**THE LIP RAILS (r134).** Every terrace's south edge carries a knee-high parapet with a rail on top, the length of the dam,
+broken only where a line crosses the lip (the chute, the staircase's landings, the drain, the fish ladder's turns, the
+penstock). *"No dead edges"*: riding off a terrace is a thing you do down a line. *Harness: terrace 2's 78 m run end to end.*
+A line of light runs along every riser's top edge under the lip. His buildings stand against the risers of every terrace on
+both wings and the centre, where no line runs.
+
 **The lifts.** An inclined car at each wing's open end climbs the line of the dam from the plaza to the crest, stopping beside
 every terrace (12 / 24 / 36 / 60); she rolls off onto the terrace's end through a gap in its parapet. **The pads:** plaza ->
 terrace 2 on each wing, terrace 3 -> the crest, the crest -> the islands. **The crest rail** runs the length of the crest road.
@@ -88,17 +101,18 @@ terrace 2 on each wing, terrace 3 -> the crest, the crest -> the islands. **The 
 - `spwRing` -- a round parapet with gaps and a rail on top. `spwParapet`, `spwStrip`, `spwBody`, `spwRiser` -- the facet frame's
   strips, bodies and faces. `spwRailPts` -- a filleted polyline in facet coordinates with heights by arc length.
 
-## What the harness rode clean (24 of 24)
+## What the harness rode clean (27 of 27)
 
 L1, L8 x3, L2, L3, the crest rail, the harbour ledge, the east lift, three pads, L5 (the pad, four hops, the drop), L6, L7
-(lift, helix, causeway), L4 (the street, the gap), plus every ➤ stop standing her on a floor.
+(lift, helix, causeway), L4 (the street, the gap), the lip rails, the west half pipe, the intake, plus every ➤ stop standing
+her on a floor.
 
 ## Not done, said plainly
 
 - **Nothing has been looked at on a GPU.** The art placements (46), the water planes, the neon and the lighting are unverified.
 - The sluice gates hold the chute near 25 m/s only inside each gate; between gates she accelerates to ~34. A tuning
   decision for the phone: longer gates or a lower `gov` in `SPW.gates`.
-- The terrace street is one terrace of one wing; the other wing's terraces are bare apart from the staircase and the pads.
+- The west wing's first and third terraces, and the centre's, carry buildings and rails but no pieces of their own.
 - His weirdport props and decals run here as in world 0 (r133): clutter at the foot of every tall box, decals on flat
   floor, tags on the risers -- unverified by eye like everything else.
 - The chute's walls are not wall-rideable (`WALL` is SK8 Sky only); they are quarter pipes.
