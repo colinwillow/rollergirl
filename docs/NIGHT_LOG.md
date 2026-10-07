@@ -621,3 +621,18 @@ Painted surfaces, District colour, Painted surface brightness, Paving slab size 
   turned so the barrel points down the camera. A charged ball, a reticle, an impact flash; it breaks the Works' windows.
 - `npm run sim gun`. Placeholder until her export has weapon joints and her own gun clips.
 
+
+## r141 -- the kit ring and the swivel
+
+*"The blaster button -- the same style weirdport does it, wrapped round the stick. And when you initiate a shot she needs to swivel
+her body round ... her legs need to match."*
+
+- **The BLASTER key is now an arc segment on a ring round the right stick's resting ring** (weirdport's arc row): outline when
+  holstered, filled when out. A table, so the next item is one line.
+- **Holding the trigger, her whole body swivels until the blaster points down the aim** (the spine twist only takes up the
+  slack), and her legs pick her forward or backward skating clips by which way she is travelling against the way she now faces.
+  In fakie aiming where she is going she turns round and skates forward; riding forward aiming behind she turns and skates
+  backward. Let go facing more than a quarter turn round and she stays turned (her stance flips); a small turn eases back.
+- Heading, stance and push do not change while the trigger is held -- only what is drawn.
+- `npm run sim gun`: five aim cases (barrel 0.00 deg off, body did the turn, spine 0.0, legs right), the release keeps the turn
+  with no half-turn jump, a small turn eases back.

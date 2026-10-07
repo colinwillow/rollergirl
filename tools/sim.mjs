@@ -2784,6 +2784,37 @@ CASES.gun = () => {
   }
   // and it comes back off: a frame with nothing applied leaves the spine where the pose put it
   rg.gunUntwist(); P.gAim = 0; G.twist = 0;
+  // ---- r141: THE SWIVEL -- the whole body turns toward the aim and the legs pick forward or backward skating ----
+  { const keepP = { faceH: P.faceH, heading: P.heading, stance: P.stance, lock: P.stanceLock, gr: P.grounded, vel: P.vel.clone(), grind: P.grind, mel: P.mel, wall: P.wall, shove: P.shoveDir };
+    P.faceH = fy; P.heading = fy; P.grind = null; P.mel = null; P.wall = null; P.bailT = 0; P.grounded = true; P.stanceLock = 1;
+    const frame = () => { model.rotation.y = G.body; model.updateMatrixWorld(true); rg.gunUntwist(); rg.gunPose(1 / 60); model.updateMatrixWorld(true);
+      rg.gunSwivel(1 / 60); rg.gunTwist(1 / 60); model.updateMatrixWorld(true); };
+    const run = (st, travel, off, n = 150) => {
+      P.stance = st; P.vel.set(Math.sin(fy + travel) * 6, 0, Math.cos(fy + travel) * 6);
+      rg.cam.az = fy + off * D; G.body = 0; G.twist = 0; G.swT = 0; G.legBack = null; P.gAim = 1; P.gFireT = 0;
+      for (let i = 0; i < n; i++) frame();
+      const d = bdir(); return { err: wrap(Math.atan2(d.x, d.z) - rg.cam.az) / D, body: G.body / D, tw: G.twist / D, back: G.legBack };
+    };
+    for (const [st, tr, off, wantBack, what] of [[1, 0, 0, false, 'riding forward, aiming ahead'], [1, 0, 90, false, 'riding forward, aiming 90 deg left'],
+        [1, 0, 180, true, 'riding forward, aiming BEHIND'], [1, 0, -120, true, 'riding forward, aiming 120 deg right'],
+        [-1, Math.PI, 180, false, 'FAKIE, aiming where she is going (his case)']]) {
+      const r = run(st, tr, off);
+      say(`${what}: barrel on the aim, the BODY did the turn, legs ${wantBack ? 'backward' : 'forward'}`,
+          Math.abs(r.err) < 1.5 && Math.abs(r.tw) < 3 && r.back === wantBack,
+          `barrel ${fix(r.err, 2)} deg off, body turned ${fix(r.body, 1)} deg, spine ${fix(r.tw, 1)} deg, legs ${r.back ? 'back' : 'fwd'}`);
+    }
+    // his case continued: let go -- the turn is KEPT as her stance, and nothing on screen jumps
+    run(-1, Math.PI, 180); const face0 = P.faceH + G.body, h0 = P.heading;
+    P.gAim = 0; let worstJ = 0, last = face0;
+    for (let i = 0; i < 120; i++) { frame(); const f = P.faceH + G.body; worstJ = Math.max(worstJ, Math.abs(wrap(f - last))); last = f; }
+    say('released: the turn is kept as her stance, no half-turn jump on screen', P.stance === 1 && Math.abs(wrap(P.heading - h0 - Math.PI)) < 1e-6 && worstJ < 10 * D && Math.abs(G.body) < 2 * D && G.legBack === null,
+        `stance ${P.stance}, heading turned ${fix(wrap(P.heading - h0) / D, 0)} deg, worst frame ${fix(worstJ / D, 2)} deg, body ${fix(G.body / D, 2)} deg, legs ${G.legBack === null ? 'by stance' : G.legBack}`);
+    // and a small turn simply eases back
+    run(1, 0, 60); P.gAim = 0; for (let i = 0; i < 120; i++) frame();
+    say('released from a small turn: she eases back, stance unchanged', P.stance === 1 && Math.abs(G.body) < 1 * D, `stance ${P.stance}, body ${fix(G.body / D, 2)} deg`);
+    G.body = 0; G.swT = 0; G.legBack = null; G.twist = 0; rg.gunUntwist(); model.rotation.y = 0;
+    P.faceH = keepP.faceH; P.heading = keepP.heading; P.stance = keepP.stance; P.stanceLock = keepP.lock; P.grounded = keepP.gr; P.vel.copy(keepP.vel);
+    P.grind = keepP.grind; P.mel = keepP.mel; P.wall = keepP.wall; P.shoveDir = keepP.shove; P.gAim = 0; }
   // ---- the trigger, through the shipped step ----
   const R = rg.stick.R, stepN = (n, f) => { for (let i = 0; i < n; i++) { if (f) f(i); rg.gunStep(1 / 60); } };
   const reset = () => { P.gAim = 0; P.gArm = 0; P.gChg = 0; P.gFireT = 0; R.down = 0; R.x = 0; R.y = 0; rg.BOLTS.length = 0; };

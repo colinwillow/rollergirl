@@ -100,6 +100,27 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE KIT RING AND THE SWIVEL (r141, `GUNROW`, `gunRowBuild`, `gunSwivel`, `GUN.swivel`, `gun.body`, `gun.legBack`).**
+  *"The blaster button ... the same style weirdport does it, wrapped around the stick. And when you initiate a shot she needs to
+  swivel her body round so she's skating whatever direction the blaster is going -- her legs need to match."*
+  - **The BLASTER key is gone; it is an annular sector on a ring (r 74-106) round the right stick's RESTING ring** (92 px in
+    from each edge, `bindStick`'s `home`) -- weirdport's `buildArcRow` (m53/m173), a table (`GUNROW.items`), so a second thing to
+    carry is one line and the arc divides again. The root is `pointer-events: none`; only the path takes a press, on
+    `pointerdown` with `stopPropagation`, above the pads (z 6). Unfilled pink outline, filled while the gun is out.
+  - **THE SWIVEL IS A TURN OF THE DRAWN BODY ONLY** (`girl.model.rotation.y += gun.body`, set before the mixer so `centreOffset`
+    keeps her hips on the axis): heading, stance and push are untouched while the trigger is held, so skating does not change
+    under the left thumb. `gunSwivel` runs after `gunPose` and before `gunTwist`: the barrel yaw is measured, the turn that
+    puts it on `cam.az` is eased in (`ease` 0.12 s) and lands NEXT frame; the spine twist takes this frame's residual, so at
+    rest the twist is ~0 and the body does the whole turn (the sighted pose's 42 deg bias included).
+  - **THE LEGS**: `gun.legBack` picks forward or backward skating clips by her TRAVEL against `faceH + gun.body`, with hysteresis
+    (`back` 1.75 / `fwd` 1.40 rad); null when there is no swivel, so the stance rule decides everything else. `girlAnimMoves`
+    reads it. There are no left/right skates yet: sideways she takes the nearer of the two.
+  - **LET GO MORE THAN A QUARTER TURN ROUND AND THE TURN IS KEPT** (`hold` 0.35 s after the trigger or the shot): stance flipped,
+    heading and `faceH` +PI, `shoveDir` negated, `gun.body` -PI, and `girl.lastFace` +PI or the trail reads a half turn in one
+    frame. Only on the ground, off a rail/wall/strike/bail, and only for a skin with backward clips (`stanceLock`); in the air it
+    is held to the landing; otherwise it eases back to zero. `npm run sim gun` drives all of it on her real skeleton.
+  - **NOT VERIFIABLE HERE**: how the ring looks on his phone, and how a body turned 90 deg off its travel looks on forward clips.
+
 - **THE BLASTER, BORROWED FROM WEIRDPORT (r140, `GUN`, `gun`, `gunMount`, `gunPose`, `gunTwist`/`gunUntwist`, `gunStep`, `gunFire`,
   `stepBolts`, `gunFrame`, the BLASTER key, `npm run sim gun`).** *"Take out a blaster ... press forward on the right stick which charges
   the shot, let go to shoot, turn the camera, which is the aimer, with left and right on the right stick ... we don't have a weapon

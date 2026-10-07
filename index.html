@@ -120,11 +120,19 @@
   #tailP .wbtn small{display:block;font:500 11px system-ui,sans-serif;letter-spacing:0;opacity:.7;margin-top:3px}
   #tailB{right:calc(110px + env(safe-area-inset-right))}
   #goB{right:calc(158px + env(safe-area-inset-right))}
-  /* r140: THE BLASTER KEY sits just above the right pad's zone (68% of the screen from the bottom), where the thumb that fires
-     it already lives -- weirdport's kit keys over the right stick. Lit while the gun is out. */
-  #gunB{top:auto;right:calc(18px + env(safe-area-inset-right));bottom:calc(68% + 10px);width:84px;
-    font:800 12px system-ui,sans-serif;letter-spacing:.08em;background:#ff6fa533;color:#ffd0e2;border-bottom-color:#a0305faa}
-  #gunB.on{background:#ff6fa5d9;color:#fff}
+  /* r141: THE KIT RING -- weirdport's arc row (`buildArcRow`, m53/m173): annular sectors on a ring round the RIGHT stick's
+     home, one per item, unfilled until lit. *"The same style weirdport does it -- wrapped around the stick."* Centred on the
+     stick's resting ring (92 px in from each edge, `bindStick`'s `home`), so it is a square of side 2 x r1 hung off that point;
+     `pointer-events: none` on the root means only the PATHS take touches. Above the pads (z 6), so a press on a segment is
+     never also a stick. */
+  #kitRow{position:fixed;z-index:6;pointer-events:none;--mr:106px;
+    right:calc(92px - var(--mr));bottom:calc(92px - var(--mr));width:calc(var(--mr) * 2);height:calc(var(--mr) * 2)}
+  #kitRow svg{overflow:visible;filter:drop-shadow(0 0 1.5px #1b1033) drop-shadow(0 2px 0 #1b103399)}
+  #kitRow path{fill:#1b103355;stroke:#ff6fa5;stroke-width:2.5;pointer-events:all;cursor:pointer;touch-action:none}
+  #kitRow path.sel{fill:#ff6fa5}
+  #kitRow text{font:800 10px system-ui,sans-serif;letter-spacing:.1em;fill:#ffd0e2;text-anchor:middle;dominant-baseline:central;
+    pointer-events:none;user-select:none}
+  #kitRow text.sel{fill:#1b1033}
   /* THE RETICLE: only while the trigger is held. It tightens as the charge fills and goes hot at full. */
   #gunRet{position:fixed;left:0;top:0;width:34px;height:34px;border-radius:50%;pointer-events:none;z-index:6;display:none;
     border:3px solid #7ff3ff;box-shadow:0 0 0 2px #1b103399,0 0 12px #2ec8ff;box-sizing:border-box}
@@ -194,7 +202,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r140</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r141</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -205,7 +213,7 @@
 <button class="key" id="tailB" aria-label="settings">&#9881;</button>
 <button class="key" id="goB" aria-label="go somewhere">&#10148;</button>
 <button class="key" id="worldB" aria-label="switch level">LEVEL</button>
-<button class="key" id="gunB" aria-label="blaster">BLASTER</button>
+<div id="kitRow" aria-label="kit"></div>
 <div id="gunRet"></div>
 <div id="tailP"></div>
 <button id="newer">build ready &middot; tap</button>
@@ -220,7 +228,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r140';
+const BUILD = 'r141';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -364,6 +372,14 @@ const GUN = {
   poseHL: 0.06, outHL: 0.09,    // the pose blend, and the gun coming up / going down
   range: 60, boltV: 44, boltLife: 2.4, ball0: 0.45, ball1: 1.9, boltR: 0.17, hitK: 0.6,
   twist: { on: 1, bones: ['mixamorig_Spine', 'mixamorig_Spine1', 'mixamorig_Spine2'], max: 110 * Math.PI / 180, ease: 0.05, carry: 0 },
+  // r141: THE SWIVEL. *"When you initiate a shot she needs to swivel her body round so she's skating whatever direction the
+  // blaster is going ... her legs need to match."* While the trigger is held (and `hold` s after) her WHOLE body turns until the
+  // barrel is on the aim -- the spine twist then only covers what the ease has not caught yet. It is a turn of the DRAWN body
+  // only: her heading, stance and push are untouched, so skating does not change under the thumb. The legs follow by picking
+  // her forward or backward skating clips by where she is TRAVELLING relative to the way she now faces (`back`/`fwd` radians,
+  // hysteresis). Let go facing more than a quarter turn round and the turn is KEPT -- the stance flips, the same three lines as
+  // the swivel tap -- so she does not spin back. There are no left/right skates yet; sideways she uses the nearer of the two.
+  swivel: { on: 1, ease: 0.12, hold: 0.35, back: 1.75, fwd: 1.40, minV: 1.0 },
 };
 
 // THE ROSTER. ONE CHARACTER AT A TIME -- a switch is a menu action, not a parade, so there is
@@ -13856,7 +13872,7 @@ function girlAnimMoves(dt) {
     } else add(G || m.air || m.fwd.push[0], 1);    // a finished flip hands back to the air pose (or the grab)
   } else {
     girl.bail = null;
-    const back = p.stance < 0 && MOVES.useBack > 0.5, loco = back ? m.back : m.fwd, v = p.speed;
+    const back = MOVES.useBack > 0.5 && (gun.legBack !== null && m.back ? gun.legBack : p.stance < 0), loco = back ? m.back : m.fwd, v = p.speed;     // r141: the swivel's legs
     const still = 1 - smooth(MOVES.idleV, MOVES.idleV + 1.2, v);
     if (still > 0.001) {
       const list = back ? m.idleBack : m.idleFwd;
@@ -15648,7 +15664,8 @@ function bodyAlign(dt) {
 }
 // ---------- r140: the blaster (see `GUN`) ----------
 const gun = { parts: null, zap: null, group: null, mount: null, muzzle: new THREE.Vector3(), tracks: null,
-              w: [1, 0, 0], tIdle: 0, idleLen: 1, shootLen: 1, out: 0, twist: 0, twD: [], twB: [], cm: 0, ret: null };
+              w: [1, 0, 0], tIdle: 0, idleLen: 1, shootLen: 1, out: 0, twist: 0, twD: [], twB: [], cm: 0, ret: null,
+              body: 0, swT: 0, legBack: null };
 let gunP = null;
 // WHAT A WEAPON FILE CONTAINS: the name of its own mount, and every mesh under it with the transform RELATIVE TO THAT MOUNT --
 // which IS the authored placement. The file is `Armature(0.01) > weapon_root_right > mesh`; cloning the whole scene onto a
@@ -15791,6 +15808,34 @@ function gunTwist(dt) {
     b.updateMatrixWorld(true);
   }
 }
+// r141: THE SWIVEL (see `GUN.swivel`). Measured like the twist -- after the pose, before the twist -- so the turn that puts the
+// barrel on the aim is the difference of two yaws; it lands on `girl.model.rotation.y` NEXT frame (that is set before the mixer,
+// where `centreOffset` keeps her hips on the axis) and the twist covers this frame's residual exactly.
+function gunSwivel(dt) {
+  const p = player, S = GUN.swivel;
+  const ok = S.on && gun.out > 0.5 && !(p.bailT > 0) && !p.grind && !p.wall && !p.mel;
+  if (ok && (p.gAim || p.gFireT > 0)) gun.swT = S.hold; else gun.swT = Math.max(0, gun.swT - dt);
+  let want = 0;
+  if (ok && gun.swT > 0) { const b = gunBarrel(); want = b === null ? gun.body : wrapAngle(gun.body + wrapAngle(cam.az - b)); }
+  else if (Math.abs(gun.body) > Math.PI / 2 && p.stanceLock && p.grounded && !p.grind && !p.wall && !p.mel && !(p.bailT > 0)) {
+    // KEEP THE TURN: she is facing the other way round now, so that is her stance. Heading, body and the drawn offset all move
+    // by a half turn together, so nothing on screen jumps; the trail's yaw rate is told, or it reads a half turn in one frame.
+    setStance(-p.stance, 'shot');
+    p.heading = wrapAngle(p.heading + Math.PI); p.faceH = wrapAngle(p.faceH + Math.PI); p.shoveDir = -(p.shoveDir || 1);
+    if (girl.lastFace !== undefined) girl.lastFace = wrapAngle(girl.lastFace + Math.PI);
+    gun.body = wrapAngle(gun.body - Math.PI);
+  } else if (!p.grounded && Math.abs(gun.body) > Math.PI / 2 && p.stanceLock) want = gun.body;      // in the air: hold it to the landing
+  gun.body = wrapAngle(gun.body + wrapAngle(want - gun.body) * (1 - Math.exp(-Math.LN2 * dt / S.ease)));
+  if (Math.abs(gun.body) < 1e-3 && !gun.swT) gun.body = 0;
+  // THE LEGS: forward or backward clips by her travel against the way she now FACES (`faceH` + the swivel). Off when there is
+  // no swivel to answer for, so the ordinary stance rule decides everything else.
+  if (!gun.body && !gun.swT) { gun.legBack = null; return; }
+  const v = Math.hypot(p.vel.x, p.vel.z), face = p.faceH + gun.body;
+  const rel = Math.abs(wrapAngle((v > S.minV ? Math.atan2(p.vel.x, p.vel.z) : p.heading + (p.stance < 0 ? Math.PI : 0)) - face));
+  if (gun.legBack === null) gun.legBack = rel > (S.back + S.fwd) / 2;
+  else if (rel > S.back) gun.legBack = true;
+  else if (rel < S.fwd) gun.legBack = false;
+}
 // ...AND IT COMES BACK OFF BEFORE THE MIXER, OR IT COMPOUNDS (City's c128: "the spine just started rotating"). A relative edit
 // is safe only if something rewrites the bone from scratch every frame, and a bone no playing clip keys is not rewritten.
 function gunUntwist() {
@@ -15820,7 +15865,7 @@ function gunStep(dt) {
 function gunSet(on) {
   GUN.out = on ? 1 : 0;
   if (GUN.out) gunLoad();
-  const b = document.getElementById('gunB'); if (b) b.classList.toggle('on', !!GUN.out);
+  gunRowPaint();
   toast(GUN.out ? 'BLASTER' : 'HOLSTERED');
 }
 // ---- the shot ----
@@ -15962,7 +16007,7 @@ function poseGirl(dt) {
   // WHICH WAY HER EXPORT FACES IS THE ONE THING NO OFFLINE CHECK HERE CAN SETTLE, so it is
   // applied every frame rather than baked in at load: `rg.RIG.spin = Math.PI` turns her
   // round on the phone, with no rebuild and no push.
-  girl.model.rotation.y = RIG.spin + ((girl.who && girl.who.spin) || 0);
+  girl.model.rotation.y = RIG.spin + ((girl.who && girl.who.spin) || 0) + gun.body;     // r141: + the swivel
   if (girl.hipsLocal) {
     centreOffset(girl.hipsLocal, girl.model.scale.x, girl.model.rotation.y, RIG.centre, _cv);
     girl.model.position.x = _cv.x; girl.model.position.z = _cv.z;
@@ -15971,6 +16016,7 @@ function poseGirl(dt) {
   girl.mixer.update(dt);
   hipLeanApply();
   gunPose(dt);      // r140: Zap's gun pose over spine-up, then the spine turned so the barrel is on the aim
+  gunSwivel(dt);    // r141: the whole body turned toward it (next frame), the twist taking up what is left
   gunTwist(dt);
   footGround(dt);
   // THE TAIL RUNS AFTER THE MIXER, because it reads the pose the animation just put her in --
@@ -16242,7 +16288,35 @@ async function wearChar(i, onProg) {
 // roster is blind without it: "did that take" must not be a question you answer by
 // recognising her.
 // r140: THE BLASTER KEY. A tap takes it out or puts it away; `g` on a keyboard does the same.
-document.getElementById('gunB').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); gunSet(!GUN.out); });
+// r141: THE KIT RING (weirdport's `buildArcRow`). A ROW IS A TABLE: a second thing to carry is one line in `GUNROW`, and the
+// arc simply divides again. Every number is a ring radius or a bearing; nothing here is placed in pixels by eye.
+const GUNROW = { r0: 74, r1: 106, mid: 90, each: 50, gap: 4,
+  items: [{ label: 'BLASTER', on: () => !!GUN.out, pick: () => gunSet(!GUN.out) }] };
+const gunRowEl = document.getElementById('kitRow');
+function gunRowBuild() {
+  const G = GUNROW, R0 = G.r0, R1 = G.r1, NS = 'http://www.w3.org/2000/svg', D = R1 * 2, c = R1, n = G.items.length;
+  gunRowEl.style.setProperty('--mr', R1 + 'px');
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + D + ' ' + D); svg.setAttribute('width', D); svg.setAttribute('height', D);
+  // SCREEN Y POINTS DOWN, so a maths angle maps with its sine NEGATED -- wrong, and the row mirrors under the stick.
+  const px = (r, a) => (c + r * Math.cos(a * Math.PI / 180)).toFixed(2), py = (r, a) => (c - r * Math.sin(a * Math.PI / 180)).toFixed(2);
+  G.items.forEach((m, i) => {
+    // LEFT TO RIGHT ON SCREEN IS DESCENDING ANGLE, so the table reads the way it is drawn
+    const hi = G.mid + n * G.each / 2 - i * G.each - G.gap / 2, lo = hi - G.each + G.gap;
+    const d = 'M' + px(R1, lo) + ' ' + py(R1, lo) + 'A' + R1 + ' ' + R1 + ' 0 0 0 ' + px(R1, hi) + ' ' + py(R1, hi) +
+              'L' + px(R0, hi) + ' ' + py(R0, hi) + 'A' + R0 + ' ' + R0 + ' 0 0 1 ' + px(R0, lo) + ' ' + py(R0, lo) + 'Z';
+    const path = document.createElementNS(NS, 'path'); path.setAttribute('d', d);
+    // `pointerdown`, NOT `click`: a click is synthesised after the touch ends, and a tap here must never reach the pad behind it
+    path.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); m.pick(); });
+    const t = document.createElementNS(NS, 'text'), a = (lo + hi) / 2, r = (R0 + R1) / 2;
+    t.setAttribute('x', px(r, a)); t.setAttribute('y', py(r, a)); t.textContent = m.label;
+    svg.appendChild(path); svg.appendChild(t); m.el = [path, t];
+  });
+  gunRowEl.appendChild(svg);
+  gunRowPaint();
+}
+function gunRowPaint() { for (const m of GUNROW.items) if (m.el) for (const e of m.el) e.classList.toggle('sel', m.on()); }
+gunRowBuild();
 addEventListener('keydown', e => { if (e.key && e.key.toLowerCase() === 'g' && !e.repeat) gunSet(!GUN.out); });
 document.getElementById('charB').addEventListener('pointerdown', e => {
   e.preventDefault();
@@ -16651,7 +16725,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { GUN, gun, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
