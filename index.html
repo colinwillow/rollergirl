@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r134</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r135</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r134';
+const BUILD = 'r135';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3774,7 +3774,7 @@ function spwPlaza() {
     ORB.water.push({ x0: Tl.x0, x1: Tl.x1, z0: Tl.v0, z1: Tl.v1, y: Tl.y, col: k.water, col2: 0xb8f4ff, splash: true, name: 'tailrace' }); }
   // THE PROMENADE: a 2 m quay along the sea, ramps up to it from the yard, the harbour ledge rail along its edge
   { const Pr = SPW.prom; slBox('stone', -X, 0, Pr.v0, X, Pr.y, Pr.v1, { top: 'paving', bev: 0.06, solid: true, tag: 'spillway promenade', tint: k.paving, base: 0, skip: 'y' });
-    for (const x of [-70, 70, 125]) acRamp({ x, y: 0, z: Pr.v1, yaw: 0 }, Pr.y, 8, { ang: 16, k: 'concrete', tint: k.conc });
+    for (const x of [-152, -70, 70, 125]) acRamp({ x, y: 0, z: Pr.v1, yaw: 0 }, Pr.y, 8, { ang: 16, k: 'concrete', tint: k.conc });      // r135: -152 is where the drain's exit line meets the quay
     // THE HARBOUR LEDGE: a knee-high wall along the sea edge (a quay has one, and the sea is a put-back), its top the rail
     for (const [x0, x1] of [[-X + 2, -134.5], [-125.5, X - 2]]) { slBox('stone', x0, Pr.y, Pr.v0, x1, Pr.y + 0.5, Pr.v0 + 0.7, { top: 'stone', bev: 0.04, solid: true, tag: 'harbour ledge', tint: k.trim, base: Pr.y });
       SPW.rails.push({ pts: [[x0 + 1, Pr.y + 0.55, Pr.v0 + 0.35], [x1 - 1, Pr.y + 0.55, Pr.v0 + 0.35]], name: 'harbour ledge', bare: 1, boost: 12, maxV: 18, gems: 12 }); }
@@ -3795,6 +3795,7 @@ function spwChute() {
   const Ch = SPW.chute, C = []; for (let v = Ch.lead; v >= Ch.end - 1e-6; v -= 1.5) C.push([0, spwChuteYs(v) + 0.02, v]);
   const T = SPW.tiers, base = (x, z) => { const v = z; if (v < 0) return 0; const t = T.find(q => v >= q.v0 && v < q.v1); if (t) return t.y; if (v < SPW.face.v1) return spwChuteY(v); return SPW.crest.y; };
   SPW.chuteC = C; SPW.chuteGeo = kChute(C, { hw: Ch.hw, r: Ch.r, sweep: Ch.sweep, deck: Ch.deck, base });
+  for (let i = 4; i < C.length - 2; i += 4) gem(C[i][0], C[i][1] + 0.9, C[i][2]);      // r135: a trail of gems down the line
   // the kicker at the end: XL, 34 deg, flush with the channel's width, lip 3.2 m up at v -40.5
   SPW.kick = kitPiece('kicker', 'XL', { x: 0, y: 0, z: Ch.end, yaw: Math.PI }, { h: Ch.kick.h, angle: Ch.kick.angle, w: Ch.kick.w });
   // THE SLUICE GATES: governed lanes, neon chevrons on the floor so the speed limit is a thing you can see
@@ -3958,6 +3959,7 @@ function spwDrain() {
   for (let v = 24; v >= -44 - 1e-6; v -= 1.5) C.push(spwP(W, u, v, sm(v)));
   const base = (x, z) => { const q = groundAt(x, z, 40, 0); return q.hit ? q.floor : 0; };
   SPW.drainC = C; kChute(C, { hw: 2.4, r: 2.6, sweep: 80, deck: 1.2, base });
+  for (let i = 4; i < C.length - 2; i += 4) gem(C[i][0], C[i][1] + 0.9, C[i][2]);
   const fx = -W.nx, fz = -W.nz, yaw = Math.atan2(fx, fz), e = spwP(W, u, -44, 0), o = spwP(W, u, -62, 0);
   ORB.lanes.push({ pts: [SLV(...spwP(W, u, -22, 0.02)), SLV(e[0], 0.02, e[2])], hw: 2.2, v: 26, acc: 36, name: 'drain surge' });
   for (let v = -22; v > -43; v -= 2.6) { const c = spwP(W, u, v, 0.06), c1 = spwP(W, u, v - 1.2, 0.06), c2 = spwP(W, u, v - 0.5, 0.06);
@@ -4056,7 +4058,7 @@ function spwArt() {
   skyArt('MARKET_WEST', -95, 0, -72, Math.PI); solidAdd(-95, -72, 14, 13.5, 0, 47, 0, { top: false, tag: 'market' });
   skyArt('MARKET_EAST', 100, 0, -76, Math.PI); solidAdd(100, -76, 9.5, 8.6, 0, 36, 0, { top: false, tag: 'market' });
   // buildings along the promenade's west end and the plaza's east edge
-  for (const [f, x, z, w, d, h, yaw] of [['BUILDING_14', -140, -70, 24.3, 24.6, 18.5, 0], ['BUILDING_05', -60, -78, 20.3, 11.6, 12.3, 0], ['BUILDING_16', 150, -5, 31.9, 13.6, 11.9, 1.57], ['BUILDING_11', 120, 8, 26.3, 20.3, 12, 0]]) {
+  for (const [f, x, z, w, d, h, yaw] of [['BUILDING_14', -122, -72, 24.3, 24.6, 18.5, 0], ['BUILDING_05', -60, -78, 20.3, 11.6, 12.3, 0], ['BUILDING_16', 150, -5, 31.9, 13.6, 11.9, 1.57], ['BUILDING_11', 120, 8, 26.3, 20.3, 12, 0]]) {
     skyArt(f, x, 0, z, yaw); solidAdd(x, z, w / 2, d / 2, 0, h, yaw, { top: true, tag: 'building' }); }
   // THE OVERFLOW: waterfalls off both ends of the crest, past the lifts, into the sea
   for (const F of [E, W]) { const p = spwP(F, F.m0 ? F.L + 11 : -11, Cr.v1 - 6, 0); skyArt('WATERFALL_BIGSOUTHFALL', p[0], Cr.y - 0.5, p[2], Math.atan2(F.ux, F.uz)); }
@@ -5019,7 +5021,7 @@ function solidAt(x, y, z, m, pred) {
 // Only faces at least `minH` tall above her and `minW` long (a lamp post is not a wall), and only in SK8 Sky unless `all`.
 const WALL = { on: 1, all: 0, v: 8.5, into: 2.2, minH: 2.2, minW: 2.5, climbK: 0.9, grav: 0.45, drag: 0.08, min: 3.0, off: 0.06,
   pop: 6.5, popUp: 5, overIn: 3.2, cool: 0.45 };
-const wallOn = () => WALL.on > 0.5 && (WALL.all > 0.5 || WORLD.zones === 3);
+const wallOn = () => WALL.on > 0.5 && (WALL.all > 0.5 || WORLD.zones === 3 || WORLD.zones === 5);      // r135: the spillway's risers and canyon walls ride too
 function wallTry(b, nx, nz, nlx) {
   const p = player, K = WALL;
   if ((p.wallCool || 0) > 0 || p.bailT > 0 || p.grind || p.wall) return false;

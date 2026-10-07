@@ -6114,8 +6114,10 @@ CASES.spillway = async () => {
       say('L5 the island drop: off the last island down onto the top terrace', o.reached && o.done && !o.r.bail, `${o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off}, ${o.done ? 'on the terrace' : 'ends ' + at()}`); } }
   // L6 THE DRAIN: off the west wing's first terrace, down the drain, the surge, round the loop, out onto the plaza
   { const s = rg.CITY.spots['spillway drain']; go(s[0], s[2], s[3], 3, s[1]); let top = 0, inv = 0, outp = 0; const O = S.drainOut;
-    const r = ride(14, (t) => { if (t < 1.2) fwd(); else { rg.stick.L.x = rg.stick.L.y = 0; } if (P.grind && P.grind.rail.path === S.loop) { top = 1; const up = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq); if (up.y < -0.5) inv = 1; }
+    const dtr = []; const r = ride(14, (t, i) => { if (t < 1.2) fwd(); else { rg.stick.L.x = rg.stick.L.y = 0; } if (P.grind && P.grind.rail.path === S.loop) { top = 1; const up = new THREE.Vector3(0, 1, 0).applyQuaternion(P.bq); if (up.y < -0.5) inv = 1; }
+      if (process.env.SPWTR && i % 15 === 0) dtr.push(`${fix(t, 2)}s ${at()} v${fix(P.speed, 1)}${P.grounded ? '' : ' air'}${P.wall ? ' WALL' : ''}${P.grind ? ' grind' : ''}`);
       if (top && P.grounded && !P.grind && P.pos.y < 0.3 && Math.hypot(P.pos.x - O[0], P.pos.z - O[1]) < 20) outp = 1; });
+    if (dtr.length) console.log('    ' + dtr.join('\n    '));
     say('L6 THE DRAIN: terrace, chute, the surge, the loop (upside down), out on the plaza', top && inv && outp && r.clean, `${fix(r.vmax, 1)} m/s top, ${top ? 'on the loop' : 'NEVER ON THE LOOP'}${inv ? ', inverted' : ''}, ${outp ? 'out' : 'ends ' + at()}${cl(r)}`); }
   // L7 THE LIGHTHOUSE: the lift to the lantern deck, the helix down to the mole, the causeway back
   { const Lf = S.lightLift, M = S.mole, dk = M.y + 24; let tw = 0; for (let k = 0; k < 4000; k++) { const [, y] = Lf.fn(S.t + k * 0.05); if (y < M.y + 0.4) { tw = k * 0.05; break; } }
@@ -6149,6 +6151,9 @@ CASES.spillway = async () => {
     say('the west half pipe: pumped, over both XL copings', o.top > rg.KSZ.XL.H + 0.5 && !o.bail, `top ${fix(o.top, 1)} m over the terrace, ${fix(o.vmax, 1)} m/s${o.bail ? ' BAIL' : ''}`); }
   { const I = S.intake, o = pumpPair(I.x0 + 10, I.z, I.x1 - 10, I.z, 0, 0, 25);
     say('THE INTAKE: pumped, over both XXL copings', o.top > rg.KSZ.XXL.H + 0.5 && !o.bail, `top ${fix(o.top, 1)} m, ${fix(o.vmax, 1)} m/s${o.bail ? ' BAIL' : ''}`); }
+  // r135: WALL RIDES are on here (the risers are 12 m faces): ride at the second riser at an angle and she rides it, and comes down on the terrace
+  { const v0 = T[1].v0; go(20, v0 - 14, 0.5, 14, T[0].y); let rode = 0, down = 0; const r = ride(5, () => { if (rode) { rg.stick.L.x = rg.stick.L.y = 0; } else { rg.cam.az = rg.cam.steerAz = 0.5; rg.stick.L.x = 0; rg.stick.L.y = -1; } if (P.wall) rode = 1; if (rode && on(T[0].y, 0.3)) down = 1; });
+    say('a riser is a wall ride: at 14 m/s and 30 degrees into it she rides the face, then lands on the terrace', rode && down && !r.bail, `${rode ? 'rode it' : 'NEVER ON THE WALL'}, ${down ? 'back on the terrace' : 'ends ' + at()}${cl(r)}`); }
   return ok;
 };
 

@@ -90,6 +90,10 @@ penstock). *"No dead edges"*: riding off a terrace is a thing you do down a line
 A line of light runs along every riser's top edge under the lip. His buildings stand against the risers of every terrace on
 both wings and the centre, where no line runs.
 
+**WALL RIDES (r135).** On here, as in SK8 Sky: a 12 m riser or a building's face ridden at speed and an angle is a wall
+ride (`WALL.v` 8.5 m/s, `into` 2.2). *Harness: 14 m/s at 30 degrees into the second riser, rides it, lands on the terrace.*
+A trail of gems runs down the chute and the drain.
+
 **The lifts.** An inclined car at each wing's open end climbs the line of the dam from the plaza to the crest, stopping beside
 every terrace (12 / 24 / 36 / 60); she rolls off onto the terrace's end through a gap in its parapet. **The pads:** plaza ->
 terrace 2 on each wing, terrace 3 -> the crest, the crest -> the islands. **The crest rail** runs the length of the crest road.
@@ -101,11 +105,11 @@ terrace 2 on each wing, terrace 3 -> the crest, the crest -> the islands. **The 
 - `spwRing` -- a round parapet with gaps and a rail on top. `spwParapet`, `spwStrip`, `spwBody`, `spwRiser` -- the facet frame's
   strips, bodies and faces. `spwRailPts` -- a filleted polyline in facet coordinates with heights by arc length.
 
-## What the harness rode clean (27 of 27)
+## What the harness rode clean (28 of 28)
 
 L1, L8 x3, L2, L3, the crest rail, the harbour ledge, the east lift, three pads, L5 (the pad, four hops, the drop), L6, L7
-(lift, helix, causeway), L4 (the street, the gap), the lip rails, the west half pipe, the intake, plus every ➤ stop standing
-her on a floor.
+(lift, helix, causeway), L4 (the street, the gap), the lip rails, the west half pipe, the intake, a riser wall ride, plus every ➤ stop
+standing her on a floor.
 
 ## Not done, said plainly
 
@@ -115,4 +119,4 @@ her on a floor.
 - The west wing's first and third terraces, and the centre's, carry buildings and rails but no pieces of their own.
 - His weirdport props and decals run here as in world 0 (r133): clutter at the foot of every tall box, decals on flat
   floor, tags on the risers -- unverified by eye like everything else.
-- The chute's walls are not wall-rideable (`WALL` is SK8 Sky only); they are quarter pipes.
+- The chute's walls are quarter pipes (80 degrees), not wall rides; the risers and the buildings are.

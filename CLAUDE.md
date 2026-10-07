@@ -132,6 +132,10 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
     block) -- find it by key.
   - **NOT VERIFIABLE HERE:** how any of it looks (46 art placements, two water planes, the neon, no GPU), and the chute's
     speed between gates (34 m/s against the 22 the gates hold inside them) is a phone decision.
+  - **r135: WALL RIDES ARE ON HERE (`wallOn`), AND THE FIRST THING THEY FOUND WAS A BUILDING ON A LINE.** The drain's
+    exit ran into BUILDING_14's north face: with walls as walls she bonked off it and the row read *out*; as a wall ride she
+    rode it to 16 m and flew off its roof into the sea. A building at the end of a line is on the line. Moved, and the quay
+    ramp put where that line actually meets the promenade (x -152). Gems run down both chutes.
   - **r134: THE LIP RAILS, THE WEST PARK, THE INTAKE.** Every terrace's south edge is a parapet with a rail on it (*"no dead
     edges"*), broken only where a line crosses the lip -- a list per facet in `spwDam`, and a new line crossing a lip has to
     add its gap there or it grinds into a wall. The west wing's second terrace is a half pipe XL coping to coping; the plaza
