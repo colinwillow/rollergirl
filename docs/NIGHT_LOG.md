@@ -552,3 +552,9 @@ rails. ➤ stop: `weirdport street`. Step 1 of 4; next is a prop and building li
 His painted props, cut out of his city file into a 1.9 MB library (`npm run wpprops`), load before the park builds. The
 slice's lamps, trees, palms, planter bushes, benches and crates draw his instead (colliders untouched -- the old builders run
 muted), and ~870 pieces of his weeds, litter, leaves, bags and boxes are laid along the foot of every wall. Step 2 of 4.
+
+## r128 -- WEIRDPORT KIT BUILDINGS + DRAINPIPES
+
+Every canal-street building in the main world is assembled from his weirdport building kit instead (2.9 MB library cut from
+his buildings file: 15 styles, walls/windows/doors/shopfronts/corners/parapets/roofs/floors), on the same collider, with
+procedural drainpipes and AC units on the roofs. Panel: Buildings 1/0 (reload). Step 3 of 4.

@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r127</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r128</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r127';
+const BUILD = 'r128';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -226,7 +226,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_props.glb":"1ea211af","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
+const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"147e1d14","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_kit.glb":"2cdf7243","models/wpprops/wp_props.glb":"1ea211af","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -5235,7 +5235,7 @@ async function wpCityLoad() {
 // his instead -- muted, so colliders and the slice's random sequence do not move. Then `wppClutter` lays his weeds, litter
 // and leaves along the foot of every wall in the world, the "fully debris and clutter" half, with no colliders at all.
 // Everything is merged per material per `cell` metres (one draw per material per cell, culled like the slice).
-const WPP = { file: 'models/wpprops/wp_props.glb', swap: 1, lib: null, failed: 0, put: [], meshes: [], n: 0, tris: 0, wait: 12,
+const WPP = { file: 'models/wpprops/wp_props.glb', kitFile: 'models/wpprops/wp_kit.glb', swap: 1, kit: 1, styles: [], kitN: 0, pipes: 0, lib: null, failed: 0, put: [], meshes: [], n: 0, tris: 0, wait: 12,
   cell: 128, cellMin: 6000, bushK: 0.55, lampS: 0.75, lampHead: [5.45, 1.7], benchYaw: 0, H: {},
   clutter: { on: 1, max: 440, step: 1.7, p: 0.42, minH: 2.2, n: 0,
     kinds: [['plant_weed_small', 3], ['plant_weed_leafy', 3], ['plant_weed_tall_a', 2], ['plant_weed_tall_b', 2], ['plant_weed_spiky', 2],
@@ -5258,15 +5258,24 @@ function ktxOn() {
 async function wppLoad() {
   try {
     await ktxOn();
-    const g = await Promise.race([loadGLB(WPP.file), new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), WPP.wait * 1000))]);
-    const lib = {}; g.scene.updateMatrixWorld(true);
-    for (const node of g.scene.children) {
-      const u = node.userData || {}, f = u.fam || node.name.replace(/^wp_/, ''), parts = [];
-      node.traverse(o => { if (o.isMesh && o.geometry) parts.push({ geo: o.geometry, mat: o.material }); });
-      if (!parts.length) continue;
-      let lo = Infinity, hi = -Infinity; for (const P of parts) { P.geo.computeBoundingBox(); lo = Math.min(lo, P.geo.boundingBox.min.y); hi = Math.max(hi, P.geo.boundingBox.max.y); }
-      lib[f] = { parts, s: u.sMed || 1, h: hi - lo }; WPP.H[f] = (hi - lo) * (u.sMed || 1);
-    }
+    const to = new Promise((_, rej) => setTimeout(() => rej(new Error('timed out')), WPP.wait * 1000));
+    const kitP = WPP.kit ? Promise.race([loadGLB(WPP.kitFile), to]).catch(e => { console.warn('[wpp] the building kit did not arrive', e); WPP.kitFailed = 1; return null; }) : Promise.resolve(null);
+    const [g, gk] = await Promise.all([Promise.race([loadGLB(WPP.file), to]), kitP]);
+    const lib = {};
+    // every part keeps its matrix relative to its node -- a window's glass and a door sit off the wall's origin, and his AC
+    // unit carries its scale on the node
+    const take = (root, keyOf) => { root.updateMatrixWorld(true);
+      for (const node of root.children) {
+        const u = node.userData || {}, f = keyOf(node, u), parts = [];
+        if (!f) continue;
+        node.traverse(o => { if (o.isMesh && o.geometry) parts.push({ geo: o.geometry, mat: o.material, local: o.matrixWorld.clone() }); });
+        if (!parts.length) continue;
+        let lo = Infinity, hi = -Infinity; for (const P of parts) { P.geo.computeBoundingBox(); lo = Math.min(lo, P.geo.boundingBox.min.y); hi = Math.max(hi, P.geo.boundingBox.max.y); }
+        lib[f] = { parts, s: u.sMed || 1, h: hi - lo }; WPP.H[f] = (hi - lo) * (u.sMed || 1);
+      } };
+    take(g.scene, (n, u) => u.fam || n.name.replace(/^wp_/, ''));
+    if (gk) { take(gk.scene, (n, u) => u.kind === 'ac' ? 'wk:ac' : u.style ? 'wk:' + u.style + ':' + u.piece : null);
+      WPP.styles = [...new Set(Object.keys(lib).filter(k => /^wk:[^:]+:/.test(k)).map(k => k.split(':')[1]))].filter(st => !/police|firehouse/.test(st)); }
     const seen = new Set();
     for (const L of Object.values(lib)) for (const P of L.parts) { const m = P.mat; if (seen.has(m)) continue; seen.add(m);
       wpTint(m); if (m.map) m.map.anisotropy = Math.min(8, renderer.capabilities && renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1);
@@ -5275,7 +5284,8 @@ async function wppLoad() {
     console.log('[wpp] ' + Object.keys(lib).length + ' prop kinds');
   } catch (e) { WPP.failed = 1; console.warn('[wpp] the prop library did not arrive -- the procedural props stand', e);
     // a harness can hand in a stand-in library (`npm run sim wpp`): headless there is no KTX2 and no draco worker
-    if (typeof window !== 'undefined' && window.__wppFake) { WPP.lib = window.__wppFake(THREE); for (const f in WPP.lib) WPP.H[f] = WPP.lib[f].h * WPP.lib[f].s; WPP.failed = 0; } }
+    if (typeof window !== 'undefined' && window.__wppFake) { WPP.lib = window.__wppFake(THREE); for (const f in WPP.lib) WPP.H[f] = WPP.lib[f].h * WPP.lib[f].s; WPP.failed = 0;
+      WPP.styles = [...new Set(Object.keys(WPP.lib).filter(k => /^wk:[^:]+:/.test(k)).map(k => k.split(':')[1]))]; } }
 }
 // HIS WEEDS AND LITTER ALONG THE FOOT OF EVERY WALL. Every box taller than `minH` that stands ON the floor beside it is a wall;
 // its four faces are walked every `step` metres, and a point is kept when the floor right outside is flat, at the box's own
@@ -5326,12 +5336,15 @@ function wppBuild() {
   if (!WPP.lib) return;
   wppClutter();
   const B = new Map(), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), T = new THREE.Vector3();
+  const add = (geo, mat, m, cell, cast) => { const k = mat.uuid + '|' + cell + '|' + (cast ? 1 : 0); let b = B.get(k); if (!b) B.set(k, b = { m: mat, cast, L: [], t: 0 });
+    b.L.push([geo, m]); b.t += (geo.index ? geo.index.count : geo.attributes.position.count) / 3; };
   for (const p of WPP.put) {
+    if (p.m) M.copy(p.m); else M.compose(T.set(p.x, p.y, p.z), Q.setFromAxisAngle(UP, p.yaw), S.setScalar(p.s));
+    const px = p.m ? p.m.elements[12] : p.x, pz = p.m ? p.m.elements[14] : p.z, cell = Math.floor(px / WPP.cell) + ',' + Math.floor(pz / WPP.cell);
+    if (p.g) { add(p.g, p.mat, M.clone(), cell, true); continue; }
     const L = WPP.lib[p.f]; if (!L) continue;
-    M.compose(T.set(p.x, p.y, p.z), Q.setFromAxisAngle(UP, p.yaw), S.setScalar(p.s));
-    const cell = Math.floor(p.x / WPP.cell) + ',' + Math.floor(p.z / WPP.cell), cast = !WPP.nocast.test(p.f);
-    for (const P of L.parts) { const k = P.mat.uuid + '|' + cell + '|' + (cast ? 1 : 0); let b = B.get(k); if (!b) B.set(k, b = { m: P.mat, cast, L: [], t: 0 }); b.L.push([P.geo, M.clone()]);
-      b.t += (P.geo.index ? P.geo.index.count : P.geo.attributes.position.count) / 3; }
+    const cast = !WPP.nocast.test(p.f) && !/^wk:.*:(floor|roof)$/.test(p.f);
+    for (const P of L.parts) add(P.geo, P.mat, P.local ? M.clone().multiply(P.local) : M.clone(), cell, cast);
   }
   // a cell with only a few of a material is not worth a draw of its own: those join one leftover mesh per material (the slice's rule)
   for (const [k, b] of [...B]) { if (b.t >= WPP.cellMin) continue; B.delete(k);
@@ -5363,7 +5376,7 @@ function wppBuild() {
     scene.add(me); WPP.meshes.push(me); WPP.tris += ni / 3;
   }
   WPP.n = WPP.put.length;
-  console.log('[wpp] ' + WPP.n + ' props (' + WPP.clutter.n + ' clutter from ' + WPP.clutter.cand + ' wall spots), ' + WPP.meshes.length + ' meshes, ' + Math.round(WPP.tris / 1000) + 'k tris');
+  console.log('[wpp] ' + WPP.kitN + ' kit pieces, ' + WPP.pipes + ' drainpipes; ' + WPP.n + ' placements (' + WPP.clutter.n + ' clutter from ' + WPP.clutter.cand + ' wall spots), ' + WPP.meshes.length + ' meshes, ' + Math.round(WPP.tris / 1000) + 'k tris');
 }
 
 // ---- HYDRANTS ------------------------------------------------------------------------------------------
@@ -7949,7 +7962,103 @@ function slWindowGrid(x0, x1, z, nz, y0, y1, o) {   // windows along a facade at
   }
 }
 // a building: a plaster block with a cornice, windows on its face toward the street, a shopfront at the street
-function slBuilding(x0, x1, z0, z1, top, face, o) {   // face: 'z' (looks +z, front at z1) or 'Z' (looks -z, front at z0)
+// ---- r128: HIS KIT BUILDINGS STAND WHERE THESE DID (`wkBuilding`, `wkPipe`) -----------------------------------------------
+// *"Fully procedurally generated buildings with piping systems ... ivy and accessories."* Step three. With his kit library in
+// (`wp_kit.glb`, cut from his sixty buildings by `npm run wpprops`), every `slBuilding` is assembled from his pieces instead:
+// the old builder runs MUTED (its box collider, its roof tank and every `slr()` draw exactly as before), and his walls, corners,
+// parapets, floors and roof go on the same footprint, snapped to his 3 m bay -- each wall stretched along its run to fit the
+// footprint exactly and each floor stretched to fit the height, so the shell IS the collider's box. The street face gets his
+// door in its middle bay and wide shopfronts (with their shutters) when the street is a shop; the other faces are windows and
+// blank wall by a hash of the building. The shop's awning, sign and glow are the canal street's own and are drawn on top.
+// Then his drainpipes (`wkPipe`) and his AC units on the roof. `WPP.kit` 0 is the canal street as it was.
+function slBuilding(x0, x1, z0, z1, top, face, o) {
+  if (!(WPP.lib && WPP.kit && WPP.styles.length && !SLMUTE)) return slBuilding0(x0, x1, z0, z1, top, face, o);
+  wppMuted(() => slBuilding0(x0, x1, z0, z1, top, face, o));
+  wkBuilding(x0, x1, z0, z1, top, face, o || {});
+}
+const WKB = { winFront: 0.8, winBack: 0.3, winBack0: 0.15, ac: 0.7 };
+const _wkM = new THREE.Matrix4(), _wkR = new THREE.Matrix4(), _wkS = new THREE.Matrix4();
+// a piece at (ox, y, oz) of the building's own frame, its outside turned to `psi`, stretched `sa` along its run and `sv` up;
+// then through the slice's turned frame (`SLX`) into the world
+function wkPut(key, ox, y, oz, psi, sa, sv, sd) {
+  if (!WPP.lib[key]) return 0;
+  const m = new THREE.Matrix4().makeTranslation(ox, y, oz).multiply(_wkR.makeRotationY(psi)).multiply(_wkS.makeScale(sa, sv, sd || 1));
+  if (SLX) m.premultiply(_wkM.makeRotationY(SLX.a).premultiply(new THREE.Matrix4().makeTranslation(SLX.tx, 0, SLX.tz)));
+  WPP.put.push({ f: key, m }); WPP.kitN++; return 1;
+}
+// his style may not have every piece (`wall_wide` is in ten of fifteen): fall back along what the bay can be, then to brick
+function wkKey(st, piece) {
+  for (const pc of [piece].concat({ wall_wide: ['wall_window', 'wall_solid'], wall_door_C: ['wall_wide', 'wall_window', 'wall_solid'], wall_window: ['wall_solid'] }[piece] || []))
+    for (const s2 of [st, 'brick', 'mustard']) if (WPP.lib['wk:' + s2 + ':' + pc]) return 'wk:' + s2 + ':' + pc;
+  return null;
+}
+function wkBuilding(x0, x1, z0, z1, top, face, o) {
+  const sy = o.street === undefined ? SLC.Q : o.street, H = top - sy; if (H < 2) return;
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, h = k => wppH(cx * 1.3 + k * 7.1, cz * 0.7 - k * 3.3, 70 + k);
+  const st = WPP.styles[Math.floor(h(0) * WPP.styles.length) % WPP.styles.length];
+  const nx = Math.max(1, Math.round((x1 - x0) / 3)), nz = Math.max(1, Math.round((z1 - z0) / 3)), nf = Math.max(1, Math.round(H / 3));
+  const w = (x1 - x0) / nx, d = (z1 - z0) / nz, fh = H / nf, sv = fh / 3, street = face === 'z' ? 'pz' : 'mz';
+  // the four faces: where each run starts, which way along it goes, and which way its outside looks
+  const F = { pz: { o: [x0, z1], a: [1, 0], psi: 0, n: nx, len: w }, mx: { o: [x0, z0], a: [0, 1], psi: -Math.PI / 2, n: nz, len: d },
+              mz: { o: [x1, z0], a: [-1, 0], psi: Math.PI, n: nx, len: w }, px: { o: [x1, z1], a: [0, -1], psi: Math.PI / 2, n: nz, len: d } };
+  let fi = 0;
+  for (const [nm, f] of Object.entries(F)) { fi++;
+    for (let k = 0; k < nf; k++) { const y = sy + k * fh;
+      wkPut(wkKey(st, 'corner'), f.o[0], y, f.o[1], f.psi, 1, sv);
+      for (let i = 0; i < f.n; i++) {
+        const r = h(fi * 97 + k * 13 + i), mid = i === Math.floor((f.n - 1) / 2);
+        let pc = 'wall_window';
+        // a window is 130 triangles and a blank bay 10, so the faces nobody skates past are mostly blank (`WKB.win`)
+        if (nm === street) pc = k === 0 ? (mid ? 'wall_door_C' : o.shop ? 'wall_wide' : r < 0.6 ? 'wall_window' : 'wall_wide') : (r < WKB.winFront ? 'wall_window' : 'wall_solid');
+        else pc = r < (k === 0 ? WKB.winBack0 : WKB.winBack) ? 'wall_window' : 'wall_solid';
+        wkPut(wkKey(st, pc), f.o[0] + f.a[0] * f.len * i, y, f.o[1] + f.a[1] * f.len * i, f.psi, f.len / 3, sv);
+      }
+    }
+    // the parapet round the roof, on the collider's top
+    wkPut(wkKey(st, 'corner_parapet'), f.o[0], top, f.o[1], f.psi, 1, 1);
+    for (let i = 0; i < f.n; i++) wkPut(wkKey(st, 'wall_parapet'), f.o[0] + f.a[0] * f.len * i, top, f.o[1] + f.a[1] * f.len * i, f.psi, f.len / 3, 1);
+  }
+  // floors you see through the windows, and the roof (a slab runs x 0..3, z -3..0 from its origin)
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+    const ox = x0 + i * w, oz = z0 + (j + 1) * d;
+    for (let k = 0; k < nf; k++) wkPut(wkKey(st, 'floor'), ox, sy + k * fh + 0.02, oz, 0, w / 3, 1, d / 3);
+    wkPut(wkKey(st, 'roof'), ox, top, oz, 0, w / 3, 1, d / 3);
+  }
+  // the shop's awning and sign, the canal street's own, on his wall
+  if (o.shop) slShop(x0, x1, face === 'z' ? z1 : z0, face === 'z' ? 1 : -1, sy, o.shop);
+  if (o.poster) slDecal('decal', o.poster, [x0 + 1.6, sy + 1.6, (face === 'z' ? z1 : z0) + (face === 'z' ? 0.16 : -0.16)], [face === 'z' ? 1 : -1, 0, 0], [0, 1, 0], 1.2);
+  // HIS DRAINPIPES: one down the street face by its end corner, one down the back; AC units on the roof
+  const nzF = face === 'z' ? 1 : -1, fz = face === 'z' ? z1 : z0, bz = face === 'z' ? z0 : z1;
+  wkPipe(x1 - 0.45, fz, nzF, top, sy, h(5));
+  if (h(6) < 0.7) wkPipe(x0 + 0.45, bz, -nzF, top, sy, h(7));
+  if (WPP.lib['wk:ac'] && nx * nz >= 2 && h(8) < WKB.ac) { const n = 1;
+    for (let k = 0; k < n; k++) { const ax = x0 + 1.4 + h(9 + k) * Math.max(0, x1 - x0 - 2.8), az = z0 + 1.4 + h(12 + k) * Math.max(0, z1 - z0 - 2.8);
+      wkPut('wk:ac', ax, top, az, Math.floor(h(15 + k) * 4) * Math.PI / 2, 0.8, 0.8, 0.8); } }
+}
+// A DRAINPIPE, procedural: a gooseneck off the parapet, straight down the wall on brackets, a shoe kicking out at the foot.
+// One tube in his post-metal (the lamp posts' material, so it takes his tint), weathered by a vertex colour picked per pipe.
+const WKPIPE = { r: 0.075, off: 0.22, every: 2.2, cols: [[0.62, 0.42, 0.3], [0.55, 0.58, 0.6], [0.42, 0.5, 0.44], [0.7, 0.66, 0.58]] };
+function wkPipe(px, fz, nz, top, sy, hv) {
+  const L = WPP.lib['brk_lightpost_intact']; if (!L) return;
+  const mat = L.parts[0].mat, P = (x, y, z) => { if (SLX) { const q = slXp(x, z); x = q[0]; z = q[1]; } return new THREE.Vector3(x, y, z); };
+  const z0 = fz + nz * WKPIPE.off;
+  const pts = [P(px, top + 0.55, fz - nz * 0.35), P(px, top + 0.55, fz + nz * 0.05), P(px, top + 0.15, z0), P(px, top - 0.4, z0),
+    P(px, sy + 0.5, z0), P(px, sy + 0.18, z0 + nz * 0.08), P(px, sy + 0.08, z0 + nz * 0.32)];
+  const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.3), Math.max(12, Math.round(top - sy) + 8), WKPIPE.r, 6, false);
+  const c = WKPIPE.cols[Math.floor(hv * WKPIPE.cols.length)], col = new Float32Array(g.attributes.position.count * 4);
+  for (let i = 0; i < g.attributes.position.count; i++) { col[i * 4] = c[0]; col[i * 4 + 1] = c[1]; col[i * 4 + 2] = c[2]; col[i * 4 + 3] = 0.85; }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 4));
+  WPP.put.push({ g, mat, m: new THREE.Matrix4() }); WPP.pipes++;
+  // brackets every `every` metres: a strap from the wall round the pipe
+  for (let y = sy + 1.2; y < top - 0.6; y += WKPIPE.every) {
+    const b = new THREE.BoxGeometry(0.2, 0.06, WKPIPE.off + 0.08).translate(0, 0, nz * (WKPIPE.off / 2));
+    const bc = new Float32Array(b.attributes.position.count * 4).fill(0.4); b.setAttribute('color', new THREE.BufferAttribute(bc, 4));
+    const q = P(px, y, fz), a = SLX ? SLX.a : 0;
+    WPP.put.push({ g: b, mat, m: new THREE.Matrix4().makeTranslation(q.x, q.y, q.z).multiply(new THREE.Matrix4().makeRotationY(a)) });
+  }
+}
+
+function slBuilding0(x0, x1, z0, z1, top, face, o) {   // face: 'z' (looks +z, front at z1) or 'Z' (looks -z, front at z0)
   o = o || {};
   const tint = o.tint || 0xf2d2b6, fz = face === 'z' ? z1 : z0, nz = face === 'z' ? 1 : -1, sy = o.street === undefined ? SLC.Q : o.street;
   slBox('plaster', x0, 0, z0, x1, top, z1, { bev: 0.08, tint, base: sy, skip: 'y', solid: true, tag: 'slice bld' });
@@ -14967,6 +15076,9 @@ const TAILUI = [
   ['LOOK.style',     'Look 0 dusk 1 robits 2 weirdport (reload)', 0, 2, 1, ''],
   ['WORLD.zones',    'World 0 park 1 his zones 2 ramp kit 3 sk8 sky 4 weirdport (reload)', 0, 4, 1, ''],
   ['WORLD.fallY',    'Zones: fall back below (m)', -120, -5, 1, ''],
+  ['WPP.kit',        'Buildings: 1 weirdport kit 0 canal street (reload)', 0, 1, 1, ''],
+  ['WPP.swap',       'Props: 1 weirdport 0 procedural (reload)', 0, 1, 1, ''],
+  ['WPP.clutter.on', 'Weirdport clutter along walls (reload)', 0, 1, 1, ''],
   ['LEVEL.slopeFix', 'Zones: rebuild sloped decks (reload)', 0, 1, 1, ''],
   ['LOOK.exposure',  'Exposure',       0.5, 2,   0.05, ''],
   ['LOOK.envI',      'Sky light on her', 0, 2,   0.05, ''],
@@ -15088,7 +15200,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
+const UIOBJ = { WORLD, WPP, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -15264,7 +15376,7 @@ window.rg = { SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtm
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
-  WORLD, WPC, WPP, wppLoad, wppBuild, wppClutter, wppAt, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
+  WORLD, WPC, WPP, wkBuilding, wkPipe, wkKey, wppLoad, wppBuild, wppClutter, wppAt, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
   STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   HRING, hubRing, vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,

@@ -77,8 +77,8 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   whole. No draco (custom attributes), WebP textures. `models/props/prop_hydrant.glb` is his hydrant.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
   SkeletonUtils. From the city repo. Since r126 also weirdport's KTX2Loader (+ WorkerPool, ktx-parse, zstddec) and `basis/`.
-- `models/wpcity/` (r126, world 4) and `models/wpprops/wp_props.glb` (r127, `npm run wpprops`) — his weirdport city and the
-  prop library cut from it.
+- `models/wpcity/` (r126, world 4), `models/wpprops/wp_props.glb` (r127) and `wp_kit.glb` (r128) — his weirdport city, and the
+  prop and building-kit libraries `npm run wpprops` cuts from it. Re-run that after every export of his city.
 - `handoff/` — **the level-building brief for his Blender session (r83)**: `LEVEL_BUILDING.md`, `rollergirl_blender.py`,
   and `rollergirl_kit_library.glb/.json` (regenerate with `npm run export:lib`; it IS committed, unlike `exports/`). Since r91
   the library carries the combos as `combo_<key>` groups, and `rollergirl_combo_tests.json` is what `npm run sim combos` measured.
@@ -99,6 +99,29 @@ way round. Measuring components made a six-frame stride and a static clip look i
 honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
+
+- **HIS KIT BUILDINGS STAND WHERE THE CANAL STREET'S DID (r128, `wkBuilding`, `wkPut`, `wkKey`, `wkPipe`, `WKB`, `WKPIPE`,
+  `models/wpprops/wp_kit.glb`).** Step three. `npm run wpprops` now cuts a SECOND library out of his buildings file: one node
+  per STYLE x PIECE (15 styles, 118 pieces -- walls with their glass and door children, wide shopfronts with their shutters,
+  corners, parapets, roof and floor slabs) plus his AC unit, 2.9 MB, KTX2, his tint colours in the vertex colours. In his file
+  every piece is a node on a shared mesh in the piece's OWN frame -- a wall runs +X 0..3, outside face at z 0, inside toward -Z;
+  a slab runs x 0..3, z -3..0 -- so the cut needs no decoding and the children (glass, doors) keep their offsets (`part.local`).
+  - **`slBuilding` IS A WRAPPER NOW, the r127 rule one builder up**: the original runs MUTED (its box, its roof tank and every
+    `slr()` draw unchanged) and `wkBuilding` assembles his pieces on the same footprint, snapped to his 3 m bay and STRETCHED
+    along each run and up each floor so the shell is exactly the collider's box. `npm run sim wpp` checks the signature is
+    still identical and that every kit wall lies on a `slice bld` box face (0 of 4520 off).
+  - **Faces**: `pz`/`mz`/`px`/`mx`, each a start corner, a run direction and an outward yaw (`psi` 0 / pi / pi/2 / -pi/2 maps the
+    piece's +Z out). The street face gets his door mid-bay and wide shopfronts under a shop; the canal street's awning, sign and
+    glow (`slShop`) and poster are drawn on top, unmuted. Styles by hash; police and firehouse are left out.
+  - **A WINDOW IS 130 TRIANGLES AND A BLANK BAY 10.** All windows was ~850k triangles; `WKB.winBack` .3 / `winBack0` .15 on
+    the faces off the street brings the kit to ~340k (1721 windows). With r127's props that is about +480k over the muted
+    builders' own ~206k. `WKB` is the dial if the phone struggles; `WPP.kit` 0 / `WPP.swap` 0 / `WPP.clutter.on` 0 are on the
+    panel (reload) and put the canal street back piece by piece.
+  - **THE DRAINPIPES ARE PROCEDURAL (`wkPipe`)**: a gooseneck over the parapet, straight down on brackets every 2.2 m, a shoe at
+    the foot -- one tube in his lamp posts' `WK_M_post_metal` with a weathering vertex colour, so his tint paints it. One on the
+    street face by its end corner, usually one on the back.
+  - **NOT DONE**: his anti-tiling (`wk_detile`) needs partner textures that are not in the cut; his ivy, murals and clutter
+    are baked per building in his file and do not transfer to new footprints. Nothing is breakable.
 
 - **HIS WEIRDPORT PROPS IN THE MAIN WORLD (r127, `WPP`, `wppLoad`, `wppBuild`, `wppClutter`, `SLMUTE`, `npm run wpprops`,
   `npm run sim wpp`).** Step two of four. `models/wpprops/wp_props.glb` (1.9 MB) is CUT out of his city's visual by

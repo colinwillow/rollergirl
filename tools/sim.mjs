@@ -58,6 +58,10 @@ if (process.argv[2] === 'wpp') {
       if (/bench|lightpost/.test(f)) { const g = new T.BoxGeometry(0.2, 1, 0.2); g.setAttribute('color', new T.BufferAttribute(new Float32Array(g.attributes.position.count * 4).fill(0.7), 4));
         parts.push({ geo: g, mat: mats.wk || (mats.wk = new T.MeshStandardMaterial({ name: 'wk', vertexColors: true })) }); }
       L[f] = { parts, s: 1, h: 0.4 }; }
+    // r128: the building kit, two styles of every piece the generator asks for, and an AC unit
+    for (const st of ['brick', 'mustard']) for (const pc of ['wall_solid', 'wall_window', 'wall_door_C', 'wall_wide', 'wall_parapet', 'corner', 'corner_parapet', 'roof', 'floor'])
+      L['wk:' + st + ':' + pc] = { parts: [{ geo: new T.BoxGeometry(3, 3, 0.25).translate(1.5, 1.5, -0.125), mat: mats.wall || (mats.wall = new T.MeshStandardMaterial({ name: 'wall' })), local: new T.Matrix4() }], s: 1, h: 3 };
+    L['wk:ac'] = { parts: [{ geo: new T.BoxGeometry(0.3, 0.2, 0.2), mat: mats.prop, local: new T.Matrix4().makeScale(5.6, 5.6, 5.6) }], s: 1, h: 0.2 };
     return L; };
 }
 
@@ -3110,7 +3114,8 @@ CASES.score = () => {
 // piece on a floor at its own height, out of every solid, out of the water.
 const wppSig = () => { let h = 0; for (const B of rg.SOLID.all) h = (h * 31 + Math.round(B.cx * 100) + Math.round(B.cz * 7) + Math.round(B.y1 * 13) + Math.round(B.hx * 50)) | 0;
   return { solids: rg.SOLID.all.length, hash: h, rails: rg.RAILS.length, glows: rg.SLC.glows.length, spots: Object.keys(rg.CITY.spots).length }; };
-CASES.wppbase = async () => { console.log('SIG ' + JSON.stringify(wppSig())); return true; };
+const sceneTris = () => { let t = 0; rg.scene.traverse(o => { if (!o.isMesh || !o.geometry || /^wpp:/.test(o.name)) return; const g = o.geometry; t += (g.index ? g.index.count : g.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1); }); return Math.round(t); };
+CASES.wppbase = async () => { console.log('SIG ' + JSON.stringify(wppSig())); if (process.env.WPPCOUNT) console.log('TRIS ' + sceneTris()); return true; };
 CASES.wpp = async () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(50)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
@@ -3135,6 +3140,16 @@ CASES.wpp = async () => {
   say('all clutter on its floor', !off, `${off} of ${clut.length} off it`);
   say('no clutter in the water', !wet, `${wet}`);
   say('merged into few meshes', W.meshes.length > 0 && W.meshes.length < 80, `${W.meshes.length} meshes`);
+  // r128: his kit buildings where the canal street's stood, and every wall on the collider's own box
+  if (process.env.WPPCOUNT) { console.log('MYTRIS ' + sceneTris() + ' base ' + ((r.stdout || '').split('\n').find(l => l.startsWith('TRIS ')) || '')); const c = {}; for (const p of W.put) { const k = (p.f || 'pipe').replace(/^wk:[^:]+:/, 'wk:'); c[k] = (c[k] || 0) + 1; } console.log('COUNT ' + JSON.stringify(c)); }
+  say('kit buildings assembled, with drainpipes', W.kitN > 500 && W.pipes > 10, `${W.kitN} pieces, ${W.pipes} drainpipes, styles ${W.styles.join(' ')}`);
+  { let off = 0, n = 0; const bld = rg.SOLID.all.filter(B => B.tag === 'slice bld');
+    for (const p of W.put) { if (!p.m || !/wall_(solid|window|wide|door)/.test(p.f || '')) continue; n++;
+      const e = p.m.elements, x = e[12] + e[0] * 1.5, z = e[14] + e[2] * 1.5, y = e[13] + 1.5;      // the middle of the wall's run, on its outside face
+      const near = bld.some(B => { const dx = x - B.cx, dz = z - B.cz, lx = dx * B.c - dz * B.s, lz = dx * B.s + dz * B.c;
+        return y > B.y0 - 0.1 && y < B.y1 + 0.1 && Math.abs(Math.max(Math.abs(lx) - B.hx, Math.abs(lz) - B.hz)) < 0.05 && Math.abs(lx) < B.hx + 0.05 && Math.abs(lz) < B.hz + 0.05; });
+      if (!near) off++; }
+    say('every kit wall lies on a building box face', n > 0 && !off, `${off} of ${n} off a face`); }
   return ok;
 };
 
