@@ -94,6 +94,23 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE COASTER PARK: FOUR ISLANDS IN THE SKY, BOOSTER COASTERS BETWEEN THEM, A BRAKE RUN AT EVERY END (r121, `CPK`,
+  `cpLine`, `buildCoaster`, `coasterRails`, `npm run sim coaster`).** Gate (alien, arch, the halo's wire in), vert (half pipe L),
+  core (tower), wheel (eight DYN cabins round a 22 m wheel), 50-62 m over the north park. Tracks gate-vert (loop),
+  vert-core (helix), core-wheel (loop), wheel-gate (camelback), and the big drop wheel -> Great Pyramid top.
+  - **A PATH WITH `ups` WAS NEVER LINKED (`railEndless`)**, so a coaster could not hand off to anything at its ends. The
+    orb tower's loop -> brake hand-off (r118) only ever passed because the sim runs with `GRIND.intent` 0 and the AIR CATCH
+    grabbed the brake. In the game (intent on) she would have flown off the loop's end at 16 m/s. `railPath(..., { joins: 1 })`
+    lets an `ups` path's ends link; the coaster tracks and `orb loop` both set it.
+  - **A BRAKE MADE OF `drag` STALLS A SLOW START**: on at 8 m/s, 12 m of drag 0.75 took her to zero before the booster.
+    A brake is a booster with a LOW target (`brake.v` 6, `drop.v` 2.5 on the pyramid's 10 m top): it slows a fast arrival
+    and still carries a slow start out. Arriving at 16 m/s on a 13 m island she flew out through the next track's gap.
+  - **The ends are offset 5 m sideways (`lat`)** from the line between island centres, or a track arrives straight into
+    the alien, the tower, the half pipe or the wheel standing in the middle. Parapet gaps are cut where each end crosses the rim.
+  - **The first 12 m of each line are LEVEL (`cpLine`'s `flat`)**: a brake on a slope is a brake gravity argues with.
+  - **`parkd`'s "nothing else stands in the district" now ignores solids whose BOTTOM is 30 m up**: the islands float over
+    the park district's outline, and that row counted every parapet box 50 m over it. The park's tallest piece is 14.4 m.
+
 - **DOWNTOWN GOES UP: TERRACES, BANKS ONTO THEM, BRIDGES ACROSS (r120, `DTN.ter`, `dtFacade`, kinds `up`/`tqp`,
   `downtownRails`).** The long blocks (`ter: 1`) are a podium to 3.6 m with the tower set back 4 m off the street face.
   The terrace is the podium's top. The `up` module is a bank L along the sidewalk onto a platform level with the terrace.

@@ -3841,7 +3841,9 @@ CASES.parkd = async () => {
   // (the dressing stands round it, outside the fence -- inside the floor he drew is the park's alone)
   const foreign = {}, inOut = (x, z) => { let c = false; const Q = S.floor; for (let i = 0, j = Q.length - 1; i < Q.length; j = i++) { const [xi, zi] = Q[i], [xj, zj] = Q[j];
     if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
-  for (const b of rg.SOLID.all) if (!/^kit /.test(b.tag) && [[0, 0], [b.hx, b.hz], [-b.hx, b.hz], [b.hx, -b.hz], [-b.hx, -b.hz]].some(([u, v]) => inOut(b.cx + u * b.c + v * b.s, b.cz - u * b.s + v * b.c)))
+  // (r121: the AIR over it is not the park -- the coaster park's islands float 50-62 m over it, and the mega vert, the tallest
+  // thing in it, is 14.4 m. A solid whose bottom is 30 m up is somebody else's sky, not something in the district.)
+  for (const b of rg.SOLID.all) if (!/^kit /.test(b.tag) && b.y0 < 30 && [[0, 0], [b.hx, b.hz], [-b.hx, b.hz], [b.hx, -b.hz], [-b.hx, -b.hz]].some(([u, v]) => inOut(b.cx + u * b.c + v * b.s, b.cz - u * b.s + v * b.c)))
     foreign[b.tag || '(untagged)'] = (foreign[b.tag || '(untagged)'] || 0) + 1;
   say('  nothing else stands in the district', !Object.keys(foreign).length, Object.keys(foreign).length ? JSON.stringify(foreign) : `inside the floor he drew, x ${fix(S.x0, 0)}..${fix(S.x1, 0)} z ${fix(S.z0, 0)}..${fix(S.z1, 0)}`);
   // THE SEAM: the apron just outside the park's floor is there, and the floor just inside is the park's (never a hole, never a step)
@@ -4667,6 +4669,60 @@ CASES.downtown = () => {
   { const bad = []; for (const n of D.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
       run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
     say('every downtown ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${D.stops.length} stops`); }
+  return ok;
+};
+// r121: THE COASTER PARK -- four islands in the sky over the north park, linked by booster coasters (two loops, a helix, a
+// camelback), a big drop off the wheel island onto the Great Pyramid's top, the ferris wheel's cabins as moving floors, the
+// halo's wire in through the gate's arch, and the stops.
+CASES.coaster = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const K = rg.CPK; if (!K.built) { console.log('  no coaster park'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), wa = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; P.thrown = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  const len = R => R.segs.reduce((a, s) => a + s.len, 0);
+  say(`${K.isl.length} islands, ${K.paths.length} tracks, ${K.cabins.length} cabins`, K.paths.length === 5, K.paths.map(R => `${R.name.replace('coaster ', '')} ${fix(len(R), 0)} m`).join(', '));
+  const onIsl = (p, I) => Math.abs(p.y - I.y) < 0.4 && Math.hypot(p.x - I.x, p.z - I.z) < I.r - 0.3;
+  // clear air along every track (her body over each point)
+  { const bad = []; for (const R of [...K.paths, ...K.brakes]) for (const s of R.segs) { const q = s.a, u = s.ua || new THREE.Vector3(0, 1, 0);
+      for (const d of [0.5, 1.2]) { const b = rg.solidAt(q.x + u.x * d, q.y + u.y * d, q.z + u.z * d, 0.3); if (b) bad.push(`${R.name}: ${b.tag} at ${at(q)}`); } }
+    say('every track runs through clear air', !bad.length, bad.slice(0, 4).join('; ') || 'clear'); }
+  // RIDE every track both ways, hands off, and require she lands on the island at the far end and stays there
+  for (const R of K.paths) for (const dir of [1, -1]) {
+    const L = R.cpk, A = dir > 0 ? L.pts[0].p : L.pts[L.pts.length - 1].p, Bp = dir > 0 ? L.pts[L.pts.length - 1].p : L.pts[0].p;
+    const fromI = K.isl.find(I => Math.hypot(A.x - I.x, A.z - I.z) < I.r + 1), toI = K.isl.find(I => Math.hypot(Bp.x - I.x, Bp.z - I.z) < I.r + 1);
+    reset(); const bk = K.brakes.filter(B => B.cpk === L), s0 = dir > 0 ? bk[0].segs[0] : bk[1].segs[bk[1].segs.length - 1];     // (on at the island: the brake run first)
+    place(A.x, A.y + 0.2, A.z, Math.atan2(s0.d.x * dir, s0.d.z * dir), 0); P.pos.set(A.x, A.y, A.z);
+    rg.enterGrind({ rail: s0, t: dir > 0 ? 0.05 : 0.95, dir, s: 8, side: 'left' });
+    let minUp = 1, off = null, vOff = 0, lo = 1e9, top = 0; const u = new THREE.Vector3();
+    for (let i = 0; i < 50 / DT; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); rg.bodyAlign(DT);
+      if (P.grind) { u.set(0, 1, 0).applyQuaternion(P.bq); minUp = Math.min(minUp, u.y); top = Math.max(top, P.grind.s); }
+      else if (!off) { off = P.pos.clone(); vOff = P.hSpeed; }
+      if (off) { lo = Math.min(lo, P.pos.y); if (i * DT > 0 && P.grounded && !P.grind) { /* landed */ } }
+      if (off && (i * DT) > 0) { if (P.grounded) { run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); lo = Math.min(lo, P.pos.y); }); break; } } }
+    const end = P.pos.clone(), dest = toI ? onIsl(end, toI) : (L.drop && Math.abs(end.y - (Bp.y - 1)) < 0.6);
+    const loopy = L.o.loop && dir > 0;
+    say(`${R.name.replace('coaster ', '')} ${dir > 0 ? 'forward' : 'back'}: ridden end to end, stays on ${toI ? toI.k : 'the pyramid top'}${L.o.loop ? ', upside down' : ''}`,
+      dest && (!L.o.loop || minUp < -0.9), `${off ? 'off at ' + fix(vOff, 1) + ' m/s' : 'NEVER OFF'}, ends ${at(end)}${L.o.loop ? ', up reached ' + fix(minUp) : ''}, ${fix(top, 1)} m/s top`);
+  }
+  // HANDS OFF across each island at 10 m/s, every way that is not a gap: the parapet keeps her on
+  for (const I of K.isl) { const fell = []; let n = 0;
+    for (let k = 0; k < 8; k++) { const h = k * Math.PI / 4; if (I.gaps.some(g => Math.abs(wa(h - g)) < 0.6)) continue; reset();
+      let px = null, pz; for (const f of [0.45, 0.3, 0.6]) { const qx = I.x - Math.sin(h) * I.r * f, qz = I.z - Math.cos(h) * I.r * f, g = rg.groundAt(qx, qz, I.y + 1, 0); if (g.hit && Math.abs(g.floor - I.y) < 0.05 && !rg.solidAt(qx, I.y + 0.8, qz, 0.5)) { px = qx; pz = qz; break; } }
+      if (px === null) continue; place(px, I.y + 0.3, pz, h, 10); P.pos.y = I.y; n++; let lo = 1e9; run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); lo = Math.min(lo, P.pos.y); });
+      if (lo < I.y - 3) fell.push(`${fix(h * 57.3, 0)} deg -> ${at(P.pos)}`); }
+    say(`${I.k} island: hands off at 10 m/s, ${n} ways, she stays on`, !fell.length && n >= 3, fell.join('; ') || 'stayed on'); }
+  // THE WHEEL: step onto a cabin at the bottom of its turn and ride it up
+  { const I = K.by.wheel, W = K.wheel, cab = K.cabins[0]; let t0 = -1;
+    for (let t = 0; t < 200; t += 0.05) { const q = cab.fn(t); if (q[1] < I.y + 0.6) { t0 = t; break; } }
+    reset(); rg.HT.t = t0; rg.stepCity(0); const q = cab.fn(t0); place(q[0], q[1] + 0.3, q[2], 0, 0); P.pos.set(q[0], q[1] + 0.05, q[2]);
+    let top = 0; run(W.period / 2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); });
+    say('the wheel: a cabin carries her up and round', top > I.y + 15, `t0 ${fix(t0, 1)}, top ${fix(top, 1)} (island ${I.y}), now ${at(P.pos)}`); }
+  // THE WIRE in from the donut's halo
+  { const w = rg.WIRE.made.find(m => m.b === 'coaster gate'); say('the halo\'s wire out to the gate', !!w, w ? `${fix(w.L, 0)} m` : 'not strung: ' + (rg.WIRE.skipped.find(s => s.includes('coaster')) || '?')); }
+  // the stops
+  { const bad = []; for (const k of K.stops) { const s = rg.CITY.spots[k], g = rg.groundAt(s[0], s[2], s[1] + 1, 0); if (!g.hit || Math.abs(g.floor - s[1]) > 0.2 || rg.solidAt(s[0], s[1] + 0.8, s[2], 0.4)) bad.push(k); }
+    say(`${K.stops.length} stops stand on clear deck`, !bad.length, bad.join(', ') || K.stops.join(', ')); }
   return ok;
 };
 // r113: THE AIR -- standing in a district for a while, the fog, the sky light and the rim lamp come round to its colour;

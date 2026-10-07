@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r120</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r121</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r120';
+const BUILD = 'r121';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3561,6 +3561,7 @@ function buildPark() {
   buildStation();    // r110: the deck at 210 m over the mothership, and the corkscrew up to it off the sky rail
   buildDonut();      // r115: the donut ring 72 m over the hub (before the cannons: one of them throws her into it)
   buildCannons();    // r114: launch pads in the seams that throw her onto other districts' decks
+  buildCoaster();    // r121: the coaster park, islands in the sky over the north park
   buildOrbTower();   // r118: the orb tower in the NE field, its lift, and the loop coaster off its deck
   buildSaucers();    // r116: three saucer towers in the west seam, lifts up their sides, a giant curved wall on the biggest
   buildTram();       // r109: the Crosstown tram round the hub's south side, and its express lanes
@@ -3580,6 +3581,7 @@ function buildPark() {
   launchRails();     // r106: likewise its spiral
   stationRails();    // r110: the corkscrew and the parapet's grind ring
   donutRails();      // r115: its two grind rings and the dunk down to the skyway spire
+  coasterRails();    // r121: the coaster tracks and the big drop
   orbTowerRails();   // r118: the loop and its brake run (before the wires: one ties the deck to the pyramid)
   downtownRails();   // r120: the terrace railings and the bridges across the main street
   saucerRails();     // r116: their parapets' grind rings (before the wires, which tie them to the donut and each other)
@@ -3620,7 +3622,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(DTN.built ? DTN.stops : []), ...(ORT.built ? ORT.stops : []), ...(DNT.built ? DNT.stops : []), ...(SAU.built ? SAU.stops : []), ...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(CPK.built ? CPK.stops : []), ...(DTN.built ? DTN.stops : []), ...(ORT.built ? ORT.stops : []), ...(DNT.built ? DNT.stops : []), ...(SAU.built ? SAU.stops : []), ...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -3644,7 +3646,7 @@ const samePath = (A, B) => !!A && !!B && A.path === B.path;
 function railPath(pts, o) {
   o = o || {};
   const P = { segs: [], boost: o.boost || 0, boostK: o.boostK || 0, hang: o.hang || 0, maxV: o.maxV || 0,
-    drag: o.drag, slope: o.slope, ups: o.ups || null, name: o.name || '', catchR: o.catchR || 0, catchBelow: o.catchBelow || 0 };
+    drag: o.drag, slope: o.slope, ups: o.ups || null, name: o.name || '', catchR: o.catchR || 0, catchBelow: o.catchBelow || 0, joins: o.joins || 0 };
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i].clone(), b = pts[i + 1].clone(), d = b.clone().sub(a), len = d.length();
     if (len < 1e-3) continue;
@@ -3857,7 +3859,7 @@ function stepGrind(dt) {
 // The grind itself is unchanged: speed, drag, slope and boosters all carry across a junction as across any joint.
 const RAILNET = { on: 1, linkR: 0.75, weave: 1, weaveR: 3.6, weaveDy: 1.3, bend: 2.6, minR: 0.6, stickK: 1.6, stickMin: 0.35, brMargin: 0.3,   // how much a BRANCH must beat carrying straight on by
   minDot: -0.15, weaveNames: /^(slice|hub|sky)/, dbg: [], joins: 0, branches: 0, woven: [] };
-const railEndless = P => !P.segs.length || !!P.ups || !!P.hang;
+const railEndless = P => !P.segs.length || ((!!P.ups || !!P.hang) && !P.joins);     // r121: `joins` -- a coaster with `ups` whose ENDS meet its brake runs (and nothing else)
 const _ve = new THREE.Vector3();
 function railNear(P, q) {
   let best = null;
@@ -9619,7 +9621,8 @@ const WIRE = { on: 1, built: 0, clear: 5, inset: 6, sag: 0.025, sagMax: 5, boost
   list: [['peak', 'plunge 1', { rail: 'sky rail', at: [-9, -275] }], ['sky', 'plunge 2'], ['garage roof', 'spire'], ['launch deck', 'nimbus top'], ['skyway spire', 'transit deck'], ['acro sky', 'roof line'],
     ['great pyramid', 'transit deck'], ['rooftop park', 'stack 1'], ['stack 2', 'transit deck'], ['stack 4', 'nimbus top'],
     ['the donut', 'saucer a', { rail: 'donut halo', at: [-33.1, 12.7] }], ['saucer a', 'saucer b'], ['saucer a', 'saucer c'],   // r116: the donut's halo to the saucers
-    ['the heights', 'saucer c', { rail: 'heights high line', at: [-191, -126], from: [-197, -68] }], ['sky', 'saucer a', { rail: 'sky rail', at: [-232, -38], from: [-131, 49] }]],   // r118: the orb tower onto the network   // r117: the saucers tied into the lines already in the sky
+    ['the heights', 'saucer c', { rail: 'heights high line', at: [-191, -126], from: [-197, -68] }], ['sky', 'saucer a', { rail: 'sky rail', at: [-232, -38], from: [-131, 49] }],
+    ['the donut', 'coaster gate', { rail: 'donut halo', at: [0, 40] }]],   // r121: the halo out to the coaster park   // r118: the orb tower onto the network   // r117: the saucers tied into the lines already in the sky
   paths: [], made: [], skipped: [] };
 function wireEnd(A, B, sh) {     // from deck A toward B, shifted `sh` sideways: the last clean point on A's deck, and how far that runs
   const dx = B[0] - A[0], dz = B[2] - A[2], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ox = A[0] - uz * sh, oz = A[2] + ux * sh, g0 = groundAt(A[0], A[2], A[1] + 1, 0.5), y = g0.hit ? g0.floor : A[1];     // (a ➤ spot can stand a little over its deck)
@@ -9839,6 +9842,137 @@ function donutRails() {
   D.holeR = railLoop(ring(D.hole + 0.35), { name: 'donut hole' }); railDraw(D.holeR, { mat: 'boost', posts: false });
   D.dunkR = railPath(K.pts, { name: 'donut dunk', boost: K.boost, boostK: K.boostK, maxV: K.maxV }); railDraw(D.dunkR, { mat: 'boost', postMax: 4 }); gemsAlong(D.dunkR, 16, 0.9, 14);
 }
+// ===== r121: THE COASTER PARK -- *"we can put in a roller coaster park somewhere"* (his fourth sheet: a theme park of
+// coasters, a ferris wheel, a giant alien at the gate, a vert zone, sky islands with waterfalls). Four floating islands over
+// the north skate park, 50-62 m up, where the sky is empty: THE GATE (a giant alien over an arch, the donut's halo wired in),
+// THE VERT (a half pipe L), THE CORE (a coaster tower with a saucer on it) and THE WHEEL (a ferris wheel whose cabins are
+// moving floors -- stand on the bottom one and it takes you round). Between them, BOOSTER COASTERS: a loop, a climbing
+// helix, a second loop and a camelback, and THE BIG DROP off the wheel island down onto the Great Pyramid's top, ridden up
+// the same way from there.
+//   A track is a path generated between two islands' edges (`cpTrack`): straight, a feature in the middle (a vertical loop
+// shifted sideways so it clears itself, a full helix turn tangent to the line, or camel humps), straight again. Heights are
+// laid on afterwards by arc length, so a climb or a drop is spread over the whole track and a loop sits on its own base.
+const CPK = { on: 1, built: 0, stops: [], boost: 16, boostK: 4, maxV: 24, par: 0.9,
+  isl: [ { k: 'gate', x: 0, z: 132, y: 50, r: 13, tint: 0xfff0f6, rock: 0xd9b8e8 },
+         { k: 'vert', x: -62, z: 178, y: 56, r: 16, tint: 0xf0f4ff, rock: 0xb8c8e8 },
+         { k: 'core', x: -5, z: 222, y: 62, r: 12, tint: 0xf4fff0, rock: 0xc8e8b8 },
+         { k: 'wheel', x: 58, z: 182, y: 50, r: 13, tint: 0xfff6e6, rock: 0xe8c8b8 } ],
+  tracks: [ ['gate', 'vert', { loop: 9 }], ['vert', 'core', { helix: 9 }], ['core', 'wheel', { loop: 10 }], ['wheel', 'gate', { camel: 2, amp: 5 }] ],
+  drop: { from: 'wheel', to: [128.6, 249.2], hump: 4, v: 2.5 },     // (`v`: its brake on the pyramid's 10 m top sets her down at a walk)
+  wheel: { R: 11, period: 40, cabins: 8, cr: 1.5 }, gap: 1.6, inset: 2.5, ride: 1.0, lat: 5, brake: { len: 12, v: 6, k: 3.2 } };
+// the line between two points over islands: [{p, up}] in order, heights by arc length
+function cpLine(P0, P1, o) {
+  const dx = P1[0] - P0[0], dz = P1[2] - P0[2], L = Math.hypot(dx, dz), f = [dx / L, dz / L], sd = [-f[1], f[0]], pts = [];
+  const add = (x, z, extra, up, frozen) => pts.push({ x, z, extra: extra || 0, up, frozen });
+  const M = L / 2, step = 1.2;
+  for (let u = 0; u < (o.loop || o.helix ? M : L) - 0.01; u += step) add(P0[0] + f[0] * u, P0[2] + f[1] * u);
+  if (o.loop) { const R = o.loop, N = Math.ceil(2 * Math.PI * R / 1.2), sh = 3;
+    for (let i = 0; i <= N; i++) { const ph = 2 * Math.PI * i / N, w = sh * i / N;
+      add(P0[0] + f[0] * (M + R * Math.sin(ph)) + sd[0] * w, P0[2] + f[1] * (M + R * Math.sin(ph)) + sd[1] * w, R * (1 - Math.cos(ph)), [-f[0] * Math.sin(ph), Math.cos(ph), -f[1] * Math.sin(ph)], 1); }
+    for (let u = M + step; u < L - 0.01; u += step) { const w = sh * (1 - (u - M) / (L - M)); add(P0[0] + f[0] * u + sd[0] * w, P0[2] + f[1] * u + sd[1] * w); } }
+  else if (o.helix) { const r = o.helix, C = [P0[0] + f[0] * M + sd[0] * r, P0[2] + f[1] * M + sd[1] * r], N = Math.ceil(2 * Math.PI * r / 1.2);
+    for (let i = 1; i <= N; i++) { const ph = 2 * Math.PI * i / N, x = C[0] - sd[0] * r * Math.cos(ph) + f[0] * r * Math.sin(ph), z = C[1] - sd[1] * r * Math.cos(ph) + f[1] * r * Math.sin(ph);
+      const ix = (C[0] - x) / r, iz = (C[1] - z) / r, k = 0.34; add(x, z, 0, [ix * k, 1, iz * k]); }
+    for (let u = M + step; u < L - 0.01; u += step) add(P0[0] + f[0] * u, P0[2] + f[1] * u); }
+  add(P1[0], P1[2]);
+  // heights: linear by arc length, ignoring the loop's own arc (it stands on one base), plus camel humps
+  let s = 0; const ss = [0]; for (let i = 1; i < pts.length; i++) { s += pts[i].frozen && pts[i - 1].frozen ? 0 : Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z); ss.push(s); }
+  const F = o.flat || 0;     // (level at both ends for the brake runs: a brake on a slope is a brake gravity argues with)
+  return pts.map((q, i) => { const t = Math.max(0, Math.min(1, (ss[i] - F) / (s - 2 * F))); q.ss = ss[i]; q.se = s - ss[i]; let y = P0[1] + (P1[1] - P0[1]) * t + q.extra;
+    if (o.camel && t > 0.12 && t < 0.88) y += (o.amp || 5) * Math.sin(Math.PI * o.camel * (t - 0.12) / 0.76) ** 2;
+    if (o.hump && t > 0.1 && t < 0.6) y += o.hump * Math.sin(Math.PI * (t - 0.1) / 0.5);
+    const up = q.up ? new THREE.Vector3(...q.up).normalize() : new THREE.Vector3(0, 1, 0);
+    return { p: SLV(q.x, y, q.z), up, ss: q.ss, se: q.se }; });
+}
+function buildCoaster() {
+  if (!CPK.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 12121; triBuild(); solidBuild();
+  const K = CPK, by = {}; for (const I of K.isl) by[I.k] = I;
+  // the track ends first: each island's parapet is broken where a track (or the halo's wire) crosses it
+  K.lines = []; const endAt = (I, toward) => { const dx = toward[0] - I.x, dz = toward[1] - I.z, l = Math.hypot(dx, dz), r = I.r - K.inset; return [I.x + dx / l * r, I.y + K.ride, I.z + dz / l * r]; };
+  for (const I of K.isl) I.gaps = [];
+  const gapAt = (I, p) => I.gaps.push(Math.atan2(p[0] - I.x, p[2] - I.z));
+  // OFFSET to one side of the line between the islands' middles: arriving along that line runs her into whatever stands there
+  const lateral = (A, B, lat) => { const dx = B.x - A.x, dz = B.z - A.z, l = Math.hypot(dx, dz), sx = -dz / l * lat, sz = dx / l * lat; return [endAt(A, [B.x + sx, B.z + sz]), endAt(B, [A.x + sx, A.z + sz])]; };
+  for (const [a, b, o] of K.tracks) { const A = by[a], B = by[b], [P0, P1] = lateral(A, B, o.lat != null ? o.lat : K.lat); gapAt(A, P0); gapAt(B, P1); K.lines.push({ name: `coaster ${a} - ${b}`, pts: cpLine(P0, P1, { ...o, flat: K.brake.len }), o }); }
+  { const A = by[K.drop.from], T = K.drop.to, g = groundAt(T[0], T[1], 40, 0), P0 = endAt(A, T), P1 = [T[0], (g.hit ? g.floor : 22) + K.ride, T[1]];
+    gapAt(A, P0); K.lines.push({ name: 'coaster big drop', pts: cpLine(P0, P1, { hump: K.drop.hump, flat: K.brake.len }), o: {}, drop: 1 }); }
+  by.gate.gaps.push(Math.PI);      // the gate faces the donut: the halo's wire comes in through the arch
+  for (const I of K.isl) {
+    const { x, z, y, r } = I, n = Math.max(40, Math.round(2 * Math.PI * r / 1.4)), gw = A => I.gaps.some(g => Math.abs(wrapAngle(A - g)) < K.gap / r + 0.06);
+    acDisc('paving', x, z, 0, r, y, n, { solid: true, tint: I.tint, base: y - 1.2 });
+    acWallRing('stone', x, z, r, y - 1.6, y, n, 1, { tint: 0xe8e2f2 });
+    slGeo('neon', new THREE.TorusGeometry(r + 0.05, 0.16, 4, n).rotateX(Math.PI / 2), slMat(x, y - 0.8, z), { tint: 0xff6fd0 });
+    // the rock it floats on, apex down, and a glow under it
+    for (const [s, dx, dz, hh] of [[0.95, 0, 0, r * 1.5], [0.5, r * 0.35, -r * 0.3, r * 1.1], [0.42, -r * 0.4, r * 0.2, r * 0.9]]) {
+      const g = new THREE.ConeGeometry(r * s, hh, 9, 3); g.rotateX(Math.PI);
+      const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const yy = p.getY(i); if (yy > hh / 2 - 0.01) continue; const k = 0.75 + 0.5 * slr(); p.setXYZ(i, p.getX(i) * k, yy + (slr() - 0.5) * 0.8, p.getZ(i) * k); }
+      slGeo('stone', g, slMat(x + dx, y - 1.6 - hh / 2, z + dz), { tint: I.rock, base: y - 1.6 - hh }); }
+    slGlow(x, y - r, z, r * 2.2, 0x9b7bff, 0.25);
+    // the parapet, broken at every gap
+    const pr = r - 0.35, hl = pr * Math.tan(Math.PI / n) + 0.06;
+    for (let i = 0; i < n; i++) { const A = 2 * Math.PI * (i + 0.5) / n; if (gw(A)) continue; const cx = x + pr * Math.sin(A), cz = z + pr * Math.cos(A);
+      solidAdd(cx, cz, hl, 0.35, y, y + K.par, A, { top: false, tag: 'coaster parapet' });
+      slGeo('stone', new THREE.BoxGeometry(hl * 2, K.par, 0.7), slMat(cx, y + K.par / 2, cz, A), { tint: 0xfbf6ff }); }
+    // palms in planters round the edge, clear of the gaps
+    for (let k = 0; k < 5; k++) { const A = 2 * Math.PI * (k + 0.25) / 5 + 0.3; if (gw(A) || I.gaps.some(g => Math.abs(wrapAngle(A - g)) < 0.5)) continue;
+      const p = acRP(x, z, r - 2.4, A, y); slPlanter(p[0], y, p[2], 1.6, 1.6, 0.5); slPalm(p[0], y + 0.5, p[2], 4.5 + slr() * 2, slr() < 0.5 ? 0xff9ad2 : 0xc9a2ff); }
+  }
+  // THE GATE: an arch over the south gap and a giant alien behind it
+  { const I = by.gate, a = acRP(I.x, I.z, I.r - 1.2, Math.PI, I.y);
+    for (const s of [-1, 1]) { slBox('stone', a[0] + s * 3.2 - 0.5, I.y, a[2] - 0.5, a[0] + s * 3.2 + 0.5, I.y + 6.5, a[2] + 0.5, { bev: 0.06, tint: 0xb98bff, solid: true, tag: 'coaster arch', base: I.y }); }
+    slGeo('neon', new THREE.TorusGeometry(3.2, 0.45, 8, 24, Math.PI), slMat(a[0], I.y + 6.5, a[2]), { tint: 0xff6fd0 });
+    slDecal('sign', 'cosmic', [a[0], I.y + 8.6, a[2] - 0.6], [-1, 0, 0], [0, 1, 0], 2.4);
+    const ax = I.x, az = I.z + 7.5, ay = I.y;
+    slGeo('neon', new THREE.SphereGeometry(4.2, 24, 16), slMat(ax, ay + 9.5, az, 0, 1, 0.9, 1), { smooth: true, tint: 0xd86bff });
+    for (const s of [-1, 1]) { slGeo('stone', new THREE.SphereGeometry(1.25, 16, 12), slMat(ax + s * 1.7, ay + 9.8, az - 3.5, 0, 1, 1.25, 0.6), { smooth: true, tint: 0x1a1030 });
+      slTube('neon', [[ax + s * 1.4, ay + 13, az], [ax + s * 2.4, ay + 15, az + 0.5], [ax + s * 2.8, ay + 16.2, az + 0.3]], 0.18, { tint: 0xd86bff });
+      slGeo('neon', new THREE.SphereGeometry(0.6, 12, 8), slMat(ax + s * 2.8, ay + 16.6, az + 0.3), { smooth: true, tint: 0xff9af0 }); }
+    for (let k = 0; k < 6; k++) { const A = k / 6 * Math.PI * 2 + 0.3, pts = []; for (let t = 0; t <= 1.001; t += 0.2) pts.push([ax + Math.sin(A) * (2.5 + t * 3.5), ay + 7 - t * 6.6 + Math.sin(t * 3) * 0.6, az + Math.cos(A) * (2.5 + t * 3.5)]);
+      slTube('neon', pts, 0.5 - 0.0 * k, { tint: 0xc65cf0 }); }
+    cylSolid(ax, az, 3.6, ay, ay + 13, 12, 'coaster alien');
+    slGlow(ax, ay + 9.5, az, 14, 0xd86bff, 0.4); }
+  // THE VERT: a half pipe L across the island
+  { const I = by.vert, Ks = { ...KCOL }; Object.assign(KCOL, PARKD.pal.kcol);
+    try { kitPiece('halfpipe', 'L', { x: I.x, y: I.y, z: I.z, yaw: 0 }, { flat: 6, len: 10 }); } finally { Object.assign(KCOL, Ks); }     // (its channel runs east-west: the tracks arrive from the east, along it)
+    I.hp = { yaw: 0 }; }
+  // THE CORE: a tower with a saucer on it, solid to her
+  { const I = by.core; slGeo('plaster', new THREE.CylinderGeometry(1.6, 2.4, 18, 16), slMat(I.x, I.y + 9, I.z), { smooth: true, tint: 0xe6dcf6 });
+    for (let yy = 3; yy < 17; yy += 3.5) slGeo('neon', new THREE.TorusGeometry(2.4 - 0.8 * yy / 18 + 0.06, 0.1, 4, 18).rotateX(Math.PI / 2), slMat(I.x, I.y + yy, I.z), { tint: 0x3ff0e0 });
+    slGeo('stone', new THREE.CylinderGeometry(6, 2.2, 2.2, 28), slMat(I.x, I.y + 19, I.z), { smooth: true, tint: 0xf4ecff });
+    slGeo('neon', new THREE.TorusGeometry(6.05, 0.2, 4, 40).rotateX(Math.PI / 2), slMat(I.x, I.y + 19.6, I.z), { tint: 0xff6fd0 });
+    slGeo('neon', new THREE.SphereGeometry(1.4, 16, 10), slMat(I.x, I.y + 21, I.z), { smooth: true, tint: 0x7ff0ff }); slGlow(I.x, I.y + 21, I.z, 9, 0x7ff0ff, 0.6);
+    cylSolid(I.x, I.z, 2.4, I.y, I.y + 18, 12, 'coaster core'); }
+  // THE WHEEL: legs, a turning rim with spokes (drawn, turned in `ORB.anim`), and its cabins as moving floors
+  { const I = by.wheel, W = K.wheel, cy = I.y + W.R + 2.2, g = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color: 0xf2ecff, roughness: 0.5, metalness: 0.3, emissive: 0x6a2a8a, emissiveIntensity: 0.25 });
+    g.add(new THREE.Mesh(new THREE.TorusGeometry(W.R, 0.22, 6, 64), mat), new THREE.Mesh(new THREE.TorusGeometry(W.R - 1.2, 0.12, 6, 64), mat));
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, s = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, W.R, 5), mat); s.position.set(Math.cos(a) * W.R / 2, Math.sin(a) * W.R / 2, 0); s.rotation.z = a - Math.PI / 2; g.add(s); }
+    const hub = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 10), new THREE.MeshBasicMaterial({ color: 0x7ff0e8 })); g.add(hub);
+    g.position.set(I.x, cy, I.z); g.traverse(o => { if (o.material) o.material.userData = { noHole: true }; }); scene.add(g);
+    ORB.anim.push((dt, t) => { g.rotation.z = HT.t * 2 * Math.PI / W.period; });
+    for (const s of [-1, 1]) for (const d of [-1, 1]) slTube('metal', [[I.x + s * 5.5, I.y, I.z + d * 1.4], [I.x, cy, I.z + d * 0.9]], 0.22, { tint: 0xd8d2e6 });
+    K.cabins = [];
+    for (let k = 0; k < W.cabins; k++) { const ph = k / W.cabins * 2 * Math.PI, m = skrLiftMesh(W.cr + 0.3, 0xfff0fa, k % 2 ? 0xff6fd0 : 0x3ff0e0);
+      const p = { x: I.x, y: I.y, z: I.z, cr: W.cr, mesh: m, kind: 'cabin', fn: (t) => { const a = -Math.PI / 2 + ph + t * 2 * Math.PI / W.period; return [I.x + Math.cos(a) * W.R, cy + Math.sin(a) * W.R - 2.2, I.z]; } };
+      DYN.list.push(p); K.cabins.push(p); }
+    I.cy = cy; }
+  for (const I of K.isl) { CITY.spots['coaster ' + I.k] = I.k === 'gate' ? [I.x, I.y, I.z - 5, 0] : I.k === 'wheel' ? [I.x - 6, I.y, I.z - 5, -Math.PI / 2] : I.k === 'vert' ? [I.x + 9, I.y, I.z - 7, -Math.PI / 4] : [I.x + 6, I.y, I.z - 5, 0]; K.stops.push('coaster ' + I.k); }
+  K.by = by; K.built = 1;
+}
+function coasterRails() {
+  if (!CPK.built) return;
+  const K = CPK;
+  // each line is three paths end to end (`railLink` joins them): a BRAKE RUN off each island, level, a booster whose target is a
+  // ROLL (`brake.v`) -- it slows a fast arrival and still carries a slow start out to the main booster (drag alone stalled her) -- so
+  // she arrives at a roll rather than at 16 m/s across a 13 m island and out through the next track's gap -- and the booster between
+  K.brakes = [];
+  K.paths = K.lines.map(L => { const n = L.pts.length; let i1 = 1, i2 = n - 2; while (i1 < n - 2 && L.pts[i1].ss < K.brake.len) i1++; while (i2 > i1 + 1 && L.pts[i2].se < K.brake.len) i2--;
+    const R = railPath(L.pts.slice(i1, i2 + 1).map(q => q.p), { name: L.name, boost: K.boost, boostK: K.boostK, maxV: K.maxV, ups: L.pts.slice(i1, i2 + 1).map(q => q.up), joins: 1 });
+    for (const [j, sl] of [L.pts.slice(0, i1 + 1), L.pts.slice(i2)].entries()) { const B = railPath(sl.map(q => q.p), { name: L.name + ' brake', boost: L.drop && j ? K.drop.v : K.brake.v, boostK: K.brake.k, drag: 0, maxV: K.maxV }); railDraw(B, { mat: 'orange', posts: false }); K.brakes.push(B); B.cpk = L; }
+    railDraw(R, { mat: 'boost', posts: false }); gemsAlong(R, 10, 0.9, 6);
+    slTube('metal', L.pts.map(q => { const v = q.p.clone().addScaledVector(q.up, -0.4); return [v.x, v.y, v.z]; }), 0.16, { tint: 0x9b8cff }); R.cpk = L; return R; });
+}
+
 // ===== r116: THE SAUCERS -- *"saucer-topped towers"* (his reference sheet). Three stalks in the west seam, each carrying a
 // saucer deck with a lift up its side from the street: A at 72 m (level with the donut), B at 84 m, the biggest, with a GIANT
 // CURVED WALL round its north half (an XXL quarter pipe swept through 150 degrees), and C at 55 m with a volcano on it. They
@@ -10008,7 +10142,7 @@ function buildOrbTower() {
 function orbTowerRails() {
   if (!ORT.built) return;
   const C = ORT.coast;
-  C.rail = railPath(C.pts, { name: 'orb loop', boost: C.boost, boostK: C.boostK, ups: C.ups, maxV: C.maxV }); railDraw(C.rail, { mat: 'boost', posts: false });
+  C.rail = railPath(C.pts, { name: 'orb loop', boost: C.boost, boostK: C.boostK, ups: C.ups, maxV: C.maxV, joins: 1 });     // (r121: `joins`, or the loop never handed her to the brake -- the test only passed by the air catch) railDraw(C.rail, { mat: 'boost', posts: false });
   C.brakeR = railPath(C.bp, { name: 'orb brake', drag: C.brake.drag, maxV: C.maxV }); railDraw(C.brakeR, { mat: 'orange', posts: false });
   // the coaster's spine under the rail: a fat tube offset down its own up vector
   const sp = C.pts.map((p, i) => p.clone().addScaledVector(C.ups[i], -0.38)).concat(C.bp.slice(1).map(p => p.clone().add(SLV(0, -0.38, 0))));
@@ -14444,7 +14578,7 @@ window.rg = { SK, AIR, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, A
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

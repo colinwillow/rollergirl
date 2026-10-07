@@ -467,3 +467,21 @@ From the street-side reference: the jumps at the building bases lead up onto the
   z -196. Grind a terrace railing and push the stick across the street to take one. Hands-off you stay on the railing.
 
 New ➤ stop: `downtown terrace`.
+
+## r121 — THE COASTER PARK (islands in the sky)
+
+From the coaster reference sheet. Four floating islands over the north park, 50–62 m up, each with its own attraction and
+tied together by booster coasters you grind:
+
+- **The gate** (0, 132, 50): a neon arch and a giant alien. The donut halo's high wire comes in through the arch (89 m).
+- **The vert** (-62, 178, 56): a half pipe L across the island.
+- **The core** (-5, 222, 62): a tower with a saucer on top.
+- **The wheel** (58, 182, 50): a ferris wheel. Its eight cabins are moving floors, so step on one at the bottom and it
+  carries you 22 m up and round.
+- **The tracks**: gate → vert has a 9 m vertical loop. Vert → core has a banked helix. Core → wheel has a 10 m loop.
+  Wheel → gate is a camelback. Ride them both ways; on the loops you go upside down.
+- **The big drop**: off the wheel island, over a hump and down onto the Great Pyramid's top. Ride it back up from there.
+- **Brake runs**: every track starts and ends on 12 m of level orange rail that eases you to a roll (a walk onto the
+  pyramid). You get off on the island instead of flying off the far side.
+
+➤ stops: `coaster gate`, `coaster vert`, `coaster core`, `coaster wheel`.
