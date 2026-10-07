@@ -94,6 +94,24 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE STATION: 210 m UP, AND THE ONLY WAY THERE IS A BOOSTER BRANCH OFF THE SKY RAIL (r110, `STN`, `buildStation`,
+  `stationRails`, `skrBranchPts`, `npm run sim station`).** A deck r 22 at (-163, 210, -60) over the mothership; THE
+  CORKSCREW, 710 m, 2.2 turns at a 28% grade, R 54.5, is ridden UP off the sky rail with the stick (booster 18) and DOWN
+  from the deck (38 s, never over 19 m/s).
+  - **`skrBranchPts` IS THE GEOMETRY ALONE**, so the builder can cut the parapet's gap off the line before the rails phase;
+    `skrBranch` wraps it with the rail. Its height may CLIMB from J (the grade is checked on `Math.abs(drop)`).
+  - **J IS WHERE THE CIRCLE CROSSES THE RAIL POLYLINE**, bisected. It used to be `off` metres along the polyline from the
+    foot of the perpendicular, which is the crossing only on a straight rail: on the curve by the mothership J sat 4.4 m off
+    the circle, the first segment ran radially BACK up the rail, and no stick could take the branch (dot -0.6). The
+    obelisk drop and the Launch spiral moved slightly and still pass.
+  - **A PAD ON THE MOTHERSHIP WAS THE FIRST PLAN AND IT IS NOT THERE**: the `ufo` case's dish ride steers round the dish for
+    10 s and would be thrown 90 m up by any pad in it; the deck ring is 1.5 m wide; the porch is the beam's.
+  - **`slQuad` READS ITS WINDING OFF THE OTHER HALF WHEN THE FIRST IS DEGENERATE.** `acDisc` from r0 = 0 puts two corners of
+    every quad on the centre, so the winding check saw a zero cross product, never flipped, and the floor faced DOWN --
+    thrown out by `triAdd`. The station's deck was not in the collider at all (she fell 175 m through it). Any disc from its
+    centre built before r110 was the same; the Pantheon and the agora start at r0 > 0.
+  - Its circle has to clear the dish (`U.R`) at the dish's height: `|R - dShip| > U.R`. At (-163,-60) it is 13 m.
+
 - **THE CROSSTOWN: A TRAM IS A ROW OF MOVING-FLOOR DISCS, AND THE CARRY IS ONCE A FRAME (r109, `TRAM`, `tramLine`, `tramAt`,
   `tramS`, `buildTram`, `stepTram`, `npm run sim tram`).** 358 m of line at grade round the hub's south side (Shores gate ->
   Orbital gate -> the Mothership beam's foot), three cars out and back, two express lanes (`crosstown express west/east`).

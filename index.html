@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r109</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r110</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r109';
+const BUILD = 'r110';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3530,6 +3530,7 @@ function buildPark() {
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
   buildSlice();      // r52: the slice -- one street of the painting built to a look, west through the west gate
+  buildStation();    // r110: the deck at 210 m over the mothership, and the corkscrew up to it off the sky rail
   buildTram();       // r109: the Crosstown tram round the hub's south side, and its express lanes
   buildBlend();      // r108: the seams between districts dressed by their mixed cultures, and skate spots in them
   triBuild();
@@ -3545,6 +3546,7 @@ function buildPark() {
   worksRails();      // r103
   pyramidRails();    // r105: after the sky rail, which the obelisk drop branches off
   launchRails();     // r106: likewise its spiral
+  stationRails();    // r110: the corkscrew and the parapet's grind ring
   garageRails();     // r107: its ramps' lanes, its rail onto the Table
   acroRails();       // r92
   cityRails();
@@ -3581,7 +3583,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -7125,7 +7127,9 @@ function slTri(k, a, b, c, o) {
 // a quad facing where it is told (`n`); winding fixed here so no generator ever gets one wrong
 function slQuad(k, a, b, c, d, n, o) {
   o = o || {};
-  if (n) { const cr = [(b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]), (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]), (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])];
+  if (n) { const X = (p, q, r) => [(q[1] - p[1]) * (r[2] - p[2]) - (q[2] - p[2]) * (r[1] - p[1]), (q[2] - p[2]) * (r[0] - p[0]) - (q[0] - p[0]) * (r[2] - p[2]), (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])];
+    // r110: a quad with two corners on one point (a disc's centre) has a zero-area first half, so its winding is read off the other
+    let cr = X(a, b, c); if (Math.abs(cr[0]) + Math.abs(cr[1]) + Math.abs(cr[2]) < 1e-9) cr = X(a, c, d);
     if (cr[0] * n[0] + cr[1] * n[1] + cr[2] * n[2] < 0) { const t = b; b = d; d = t; if (o.uv4) o = Object.assign({}, o, { uv4: [o.uv4[0], o.uv4[3], o.uv4[2], o.uv4[1]] }); } }
   const U = o.uv4;
   slTri(k, a, b, c, U ? Object.assign({}, o, { uv3: [U[0], U[1], U[2]] }) : o);
@@ -9262,15 +9266,22 @@ function pyramidRails() {
 //   tg   a straight off the circle at the tangent that heads AT the point tg, down to yEnd there
 //   end  (an angle round O, the heading convention) -- the last quarter turn spirals INWARD to `rEnd` from O, so it can
 //        finish over a deck that the circle itself goes round
-function skrBranch(O, o) {
+// r110: the GEOMETRY alone (no rail made), so a builder can cut a gap or place a deck off it before the rails phase; its
+// height may run UP from the sky rail as well as down (the grade is checked on its size either way)
+function skrBranchPts(O, o) {
   const P = SKR.pts, n = P.length; let bi = 0, bd = 1e9;
   for (let i = 0; i < n; i++) { const d = Math.hypot(P[i].x - O.x, P[i].z - O.z); if (d < bd) { bd = d; bi = i; } }
   const a = P[bi], b = P[(bi + 1) % n], tl = Math.hypot(b.x - a.x, b.z - a.z), tx = (b.x - a.x) / tl, tz = (b.z - a.z) / tl;
   const along = (O.x - a.x) * tx + (O.z - a.z) * tz, Nx = a.x + tx * along, Nz = a.z + tz * along, dn = Math.hypot(O.x - Nx, O.z - Nz);
   const R = dn / Math.cos(o.kick * D2R), off = Math.sqrt(R * R - dn * dn), side = Math.sign(tx * (O.z - Nz) - tz * (O.x - Nx));   // O right (+1) or left of travel
-  // J on the rail polyline: walk it from the foot of the perpendicular
-  let J = null; { let s = 0, i = bi; const want = along + off; let px = a.x, pz = a.z, py = a.y, acc = 0;
-    while (!J && s < 60) { const q = P[(i + 1) % n], L = Math.hypot(q.x - px, q.z - pz); if (acc + L >= want) { const f = (want - acc) / L; J = SLV(px + (q.x - px) * f, py + (q.y - py) * f, pz + (q.z - pz) * f); } else { acc += L; px = q.x; pz = q.z; py = q.y; i = (i + 1) % n; } s++; } }
+  // J on the rail polyline: walk it downstream from the foot of the perpendicular to where it CROSSES the circle (r110). The old
+  // walk measured `off` along the polyline, which is the circle's crossing only on a straight rail -- on a curve J landed off
+  // the circle (4.4 m, for the station's corkscrew) and the first segment ran radially, back the way the rail came.
+  let J = null; void off; { const f0 = clamp(along / tl, 0, 1); let px = a.x + (b.x - a.x) * f0, pz = a.z + (b.z - a.z) * f0, py = a.y + (b.y - a.y) * f0, i = bi, s = 0;
+    while (!J && s < 120) { const q = P[(i + 1) % n];
+      if (Math.hypot(q.x - O.x, q.z - O.z) >= R) { let lo = 0, hi = 1; for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (Math.hypot(px + (q.x - px) * m - O.x, pz + (q.z - pz) * m - O.z) < R) lo = m; else hi = m; }
+        J = SLV(px + (q.x - px) * hi, py + (q.y - py) * hi, pz + (q.z - pz) * hi); }
+      else { px = q.x; pz = q.z; py = q.y; i = (i + 1) % n; } s++; } }
   if (!J) return null;
   const phi0 = Math.atan2(J.x - O.x, J.z - O.z), sg = side > 0 ? -1 : 1, Tg = o.tg;
   let phiE = o.end;
@@ -9280,7 +9291,7 @@ function skrBranch(O, o) {
       if (hx * (Tg.x - px) + hz * (Tg.z - pz) > 0) phiE = cand; } }
   const inQ = Tg ? 0 : (o.inQ || Math.PI / 2);                      // the inward turn, when it ends on a deck (longer = less inward at the end)
   let sweep = ((phiE - phi0) * sg) % (2 * Math.PI); if (sweep < 0) sweep += 2 * Math.PI;
-  const drop = J.y - o.yEx; while (sweep - inQ < Math.PI / 2 || drop / (R * (sweep - inQ)) > o.grade) sweep += 2 * Math.PI;
+  const drop = J.y - o.yEx; while (sweep - inQ < Math.PI / 2 || Math.abs(drop) / (R * (sweep - inQ)) > o.grade) sweep += 2 * Math.PI;
   const pts = [], nS = Math.ceil(R * sweep / 1.5), sw0 = sweep - inQ;
   for (let i = 0; i <= nS; i++) { const f = i / nS, ang = sweep * f, ph = phi0 + sg * ang;
     // the inward part is eased: it stops closing in as it arrives, so it ENDS heading round, not in
@@ -9289,9 +9300,69 @@ function skrBranch(O, o) {
   pts[0] = J.clone();
   if (Tg) { const E = pts[pts.length - 1], sl = Math.hypot(Tg.x - E.x, Tg.z - E.z), m = Math.ceil(sl / 2);
     for (let i = 1; i <= m; i++) { const f = i / m; pts.push(SLV(E.x + (Tg.x - E.x) * f, o.yEx + (o.yEnd - o.yEx) * f, E.z + (Tg.z - E.z) * f)); } }
-  const path = railPath(pts, { name: o.name, maxV: o.maxV });
+  return { pts, R, J, dn, sweep, side, nS };
+}
+function skrBranch(O, o) {
+  const g = skrBranchPts(O, o); if (!g) return null;
+  const path = railPath(g.pts, { name: o.name, maxV: o.maxV });
   railDraw(path, { mat: 'orange', postMax: 6 }); gemsAlong(path, 14, 0.9, 10);
-  return { path, pts, R, J, dn, sweep, side, nS };
+  return { path, ...g };
+}
+// ===== r110: THE STATION -- *"more and more vertical, like a cube."* The highest floor in the world: a deck 44 m across at
+// 210 m, hanging over the mothership. A bowl on it, a grind ring round its parapet, a beacon -- and THE CORKSCREW, the only
+// way up or down: one BOOSTER rail that leaves the sky rail (stick toward it as you pass, the obelisk drop's rule) and
+// climbs round the station's axis, 1.3 turns at a 28% grade, 135 m, onto the deck through a gap in the parapet. Ridden the
+// other way it is the descent: off the deck, round and down, and back onto the sky rail -- so the sky rail, the station
+// and everywhere the sky rail goes are one line. It is `skrBranchPts` CLIMBED: the same circle, leaving the sky rail at
+// `kick` degrees, with its height running up instead of down. Its radius clears the mothership's dish by 15 m.
+//   It is built right after the slice -- the sky rail's points exist by then and the collider is still open, so the
+//   parapet's gap can be cut exactly where the corkscrew crosses the rim.
+const STN = { on: 1, built: 0, stops: [], x: -163, z: -60, y: 210, r: 22, par: 1.0, bowl: { size: 'L', rc: 7 },
+  cork: { kick: 35, grade: 0.28, boost: 18, boostK: 3, maxV: 24, rEnd: 17, end: 0, lift: 0.8 } };
+function buildStation() {
+  if (!STN.on || WORLD.zones || !PARKD.on || !SKR.built || !SKR.pts) return;
+  _slseed = 11010;
+  const S = STN, y = S.y, k = { cream: 0xf4ecf8, lav: 0xd9cdf2, rock: 0x8d7ca8, rock2: 0x7a6a98, neon: 0x3ff0e0, pink: 0xff6fd0, sun: 0xffc84a };
+  // THE CORKSCREW'S LINE FIRST -- the parapet's gap comes off it
+  const C = S.cork, g = skrBranchPts({ x: S.x, z: S.z }, { kick: C.kick, grade: C.grade, end: C.end, rEnd: C.rEnd, inQ: Math.PI, yEx: y + C.lift, yEnd: y + 0.95 });
+  S.g = g; if (!g) return;
+  let gA = null; for (const p of g.pts) { const r = Math.hypot(p.x - S.x, p.z - S.z); if (r > S.r - 4 && r < S.r + 3) { const A = Math.atan2(p.x - S.x, p.z - S.z); if (gA === null) gA = [A, A]; else { gA[0] = Math.min(gA[0], A); gA[1] = Math.max(gA[1], A); } } }
+  if (gA && gA[1] - gA[0] > Math.PI) gA = null;     // (wrapped the seam -- left whole rather than cut wrong)
+  S.gap = gA ? [gA[0] - 0.14, gA[1] + 0.14] : null;
+  const inGap = A => S.gap && A > S.gap[0] && A < S.gap[1];
+  // THE DECK: a disc, its rim neon, the rock hanging under it
+  acDisc('paving', S.x, S.z, 0, S.r, y, 48, { solid: true, tint: k.cream, base: y - 1 });
+  acWallRing('stone', S.x, S.z, S.r, y - 1.4, y, 48, 1, { tint: k.lav });
+  acDisc('stone', S.x, S.z, 0, S.r, y - 1.4, 48, { tint: k.rock });
+  slGeo('neon', new THREE.TorusGeometry(S.r + 0.02, 0.12, 4, 64).rotateX(Math.PI / 2), slMat(S.x, y - 0.7, S.z), { tint: k.pink });
+  let rr = S.r - 1, yy = y - 1.4; for (const [dr, dy, c] of [[3, 6, k.rock], [4, 8, k.rock2], [5, 9, k.rock], [5, 10, k.rock2]]) { slGeo('stone', new THREE.CylinderGeometry(rr, rr - dr, dy, 12), slMat(S.x, yy - dy / 2, S.z), { tint: c }); rr -= dr; yy -= dy; }
+  slGeo('neon', new THREE.ConeGeometry(2.2, 7, 6).rotateX(Math.PI), slMat(S.x, yy - 3.5, S.z), { tint: 0xb98bff }); slGlow(S.x, yy - 5, S.z, 8, 0xb98bff, 0.7);
+  solidAdd(S.x, S.z, S.r * 0.7, S.r * 0.7, yy, y - 1.4, 0, { top: false, tag: 'station rock' });
+  // THE PARAPET: a solid ring with the corkscrew's gap, and on top of it a grind ring (broken by the gap)
+  const n = 48, ring = [];
+  for (let i = 0; i < n; i++) { const A = 2 * Math.PI * (i + 0.5) / n; if (inGap(wrapAngle(A))) continue;
+    const hl = (S.r - 0.25) * Math.tan(Math.PI / n) + 0.06, cx = S.x + (S.r - 0.25) * Math.sin(A), cz = S.z + (S.r - 0.25) * Math.cos(A);
+    solidAdd(cx, cz, hl, 0.25, y, y + S.par, A, { top: false, tag: 'station parapet' });     // hx runs along (cos yaw, -sin yaw): the tangent at A
+    slGeo('stone', new THREE.BoxGeometry(hl * 2, S.par, 0.5), slMat(cx, y + S.par / 2, cz, A), { tint: 0xfbf2fa }); }
+  for (let i = 0; i <= 192; i++) { const A = 2 * Math.PI * i / 192; ring.push([S.x + (S.r - 0.25) * Math.sin(A), y + S.par + 0.05, S.z + (S.r - 0.25) * Math.cos(A), wrapAngle(A)]); }
+  S.ringRuns = []; { let cur = []; for (const p of ring) { if (inGap(p[3])) { if (cur.length > 2) S.ringRuns.push(cur); cur = []; } else cur.push(p); } if (cur.length > 2) S.ringRuns.push(cur); }
+  // THE BOWL in the middle
+  const K2 = { ...KCOL }; Object.assign(KCOL, PARKD.pal.kcol);
+  try { S.bowlP = kitPiece('bowl', S.bowl.size, { x: S.x, y, z: S.z, yaw: 0 }, { rc: S.bowl.rc }); } finally { Object.assign(KCOL, K2); }
+  // a beacon on a mast at the rim, opposite the gap
+  { const A = S.gap ? (S.gap[0] + S.gap[1]) / 2 + Math.PI : 0, mx = S.x + (S.r - 2) * Math.sin(A), mz = S.z + (S.r - 2) * Math.cos(A);
+    slGeo('metal', new THREE.CylinderGeometry(0.25, 0.45, 14, 8), slMat(mx, y + 7, mz), { smooth: true, tint: 0xd8d2e6 });
+    slGeo('neon', new THREE.SphereGeometry(0.9, 12, 8), slMat(mx, y + 14.6, mz), { smooth: true, tint: k.pink }); slGlow(mx, y + 14.6, mz, 9, k.pink, 0.8);
+    solidAdd(mx, mz, 0.45, 0.45, y, y + 14, 0, { top: false, tag: 'station mast' }); }
+  CITY.spots['the station'] = [S.x + S.r - 4, y, S.z, -Math.PI / 2];
+  S.stops = ['the station'];
+  S.built = 1;
+}
+function stationRails() {
+  if (!STN.built) return;
+  const S = STN, g = S.g;
+  S.corkRail = railPath(g.pts, { name: 'station corkscrew', boost: S.cork.boost, boostK: S.cork.boostK, maxV: S.cork.maxV }); railDraw(S.corkRail, { mat: 'boost', postMax: 6 }); gemsAlong(S.corkRail, 16, 0.9, 12);
+  S.rims = S.ringRuns.map(run => { const R = railPath(run.map(p => SLV(p[0], p[1], p[2])), { name: 'station rim' }); railDraw(R, { mat: 'boost', postMax: 2 }); return R; });
 }
 // ===== r106: THE LAUNCH -- *"big fucking jumps ... the sky rail ... everything so integrated."* The open south-west field
 // under the sky rail, south of the Heights. A tower with a deck at 36 m; the sky rail spirals down onto it (stick toward
@@ -13720,7 +13791,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

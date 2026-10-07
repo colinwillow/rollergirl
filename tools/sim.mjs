@@ -4429,6 +4429,62 @@ CASES.blend = () => {
     say('every seam spot rolls through: over the funbox, off the kicker', !bad.length, bad.join('; ') || `${B.spotList.length} spots, both lanes`); }
   return ok;
 };
+// r110: THE STATION -- the deck at 210 m: the corkscrew joined to the sky rail, its line clear of the mothership and everything
+// else, the stop, the parapet holding her in, UP the corkscrew off the sky rail with the stick (and hands off she carries on
+// past it), DOWN it from the deck onto the sky rail, the bowl, the parapet's grind ring.
+CASES.station = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.STN; if (!S.built || !S.corkRail) { console.log('  the station was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), K = rg.SKR, U = rg.UFO, g = S.g;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  const away = () => { const Tr = rg.HT.trains.filter(tr => tr.path === K.path); Tr.forEach((tr, i) => tr.s = K.path.len * (0.15 + 0.5 * i)); };
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, top: -99, vmax: 0 }; let kq = 0, done = 0; run(sec, (t, i) => { if (done) return; if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (process.env.ST && kq++ % (+process.env.ST) === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', P.grind ? 'GR ' + P.grind.rail.path.name : '', fix(P.speed, 1));
+      if (P.bailT > 0) r.bail = 1; r.top = Math.max(r.top, P.pos.y); r.vmax = Math.max(r.vmax, P.speed);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); if (stop && stop()) done = 1; }); r.clean = !r.bail && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) : ''}`;
+  const segs = S.corkRail.segs, len = segs.reduce((a, q) => a + q.len, 0), p0 = segs[0].a;
+  let dSky = 1e9; for (const q of K.path.segs) { const dx = q.b.x - q.a.x, dz = q.b.z - q.a.z, l2 = dx * dx + dz * dz, t = Math.max(0, Math.min(1, ((p0.x - q.a.x) * dx + (p0.z - q.a.z) * dz) / l2)); dSky = Math.min(dSky, Math.hypot(q.a.x + dx * t - p0.x, q.a.y + (q.b.y - q.a.y) * t - p0.y, q.a.z + dz * t - p0.z)); }
+  say(`deck r ${S.r} at ${S.y} m; corkscrew ${fix(len, 0)} m, ${fix(g.sweep / 2 / Math.PI, 2)} turns, R ${fix(g.R, 1)}`, dSky < 0.1 && S.gap && segs[segs.length - 1].b.y > S.y, `starts ${fix(dSky, 3)} m from the sky rail, gap ${S.gap ? 'cut' : 'NONE'}, ends at ${at(segs[segs.length - 1].b)}`);
+  // its line: nothing solid on it, and round the mothership's dish with room to spare
+  { const bad = new Map(); let ship = 1e9; for (const q of segs) { for (const dy of [0.5, 1.2, 2.0]) { const b = rg.solidAt(q.a.x, q.a.y + dy, q.a.z, 0.2); if (b && !/^station/.test(b.tag)) bad.set(b.tag, at(q.a)); }
+      if (Math.abs(q.a.y - U.y) < 12) ship = Math.min(ship, Math.hypot(q.a.x - U.x, q.a.z - U.z) - U.R); }
+    say('nothing solid on the corkscrew, and it clears the mothership', !bad.size && ship > 8, `${[...bad].map(([k, v]) => `${k} at ${v}`).join('; ') || 'clear'}, ${fix(ship, 1)} m off the dish at its height`); }
+  { const bad = []; for (const n of S.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('the Station ➤ stop stands her on the deck', !bad.length, bad.join('; ') || `${S.stops.length} stop`); }
+  // the parapet holds her in (rolled at it away from the gap)
+  { reset(); const A = S.gap ? (S.gap[0] + S.gap[1]) / 2 + Math.PI : 0; place(S.x + 8 * Math.sin(A), S.y + 0.3, S.z + 8 * Math.cos(A), A, 8);
+    const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; }); const d = Math.hypot(P.pos.x - S.x, P.pos.z - S.z);
+    say('the parapet holds her on the deck', d < S.r && Math.abs(P.pos.y - S.y) < 0.3 && r.clean, `ends ${fix(d, 1)} m out at ${at(P.pos)}${cl(r)}`); }
+  // UP: grinding the sky rail toward J, the stick toward the branch takes the corkscrew and the booster climbs her onto the deck
+  const J = g.J, ri = (() => { let b = 0, bd = 1e9; K.path.segs.forEach((q, i) => { const d = Math.hypot(q.a.x - J.x, q.a.z - J.z); if (d < bd) { bd = d; b = i; } }); return b; })();
+  const sky = (stick) => { away(); reset(); const q = K.path.segs[(ri - 30 + K.path.segs.length) % K.path.segs.length], h = Math.atan2(q.b.x - q.a.x, q.b.z - q.a.z);
+    place(q.a.x, q.a.y + 0.4, q.a.z, h, 18); P.pos.set(q.a.x, q.a.y + 0.4, q.a.z); P.grounded = false; P.vel.y = -1;
+    let on = 0, deck = null, past = 0;
+    const r = ride(60, () => { if (stick && P.grind) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - g.side * 75 * Math.PI / 180; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;
+      if (P.grind && P.grind.rail.path === S.corkRail) on = 1; if (!on && P.grind && P.grind.rail.path === K.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) > 30 && Math.hypot(P.pos.x - q.a.x, P.pos.z - q.a.z) > 40) past = 1;
+      if (on && !deck && P.grounded && !P.grind && Math.abs(P.pos.y - S.y) < 0.3) deck = P.pos.clone(); if (on && !P.grind && P.pos.y < S.y - 5 && !P.grounded) on = 2; }, () => deck || past || on === 2);
+    return { r, on, deck, past }; };
+  { const o = sky(true); say('off the sky rail, stick out: UP the corkscrew onto the station', o.on === 1 && o.deck && o.r.clean, `${o.on ? 'on the corkscrew' : 'NEVER TOOK IT'}${o.on === 2 ? ' and FELL OFF it' : ''}, ${o.deck ? 'on the deck at ' + at(o.deck) : 'never on the deck -- ends ' + at(P.pos) + ', top ' + fix(o.r.top)}${cl(o.r)}`); }
+  { const o = sky(false); say('hands off, she carries straight on along the sky rail', !o.on && o.past, o.on ? 'TOOK THE CORKSCREW' : o.past ? 'carried on' : `ends ${at(P.pos)}`); }
+  // DOWN: from its end on the deck, a swipe down onto it, all the way round and onto the sky rail
+  { away(); reset(); const e = segs[segs.length - 1], h = Math.atan2(e.a.x - e.b.x, e.a.z - e.b.z); place(e.b.x - Math.sin(h) * 1.5, S.y + 0.3, e.b.z - Math.cos(h) * 1.5, h, 4); P.pos.y = S.y;
+    rg.GRIND.intent = 1; rg.ledgeClear(); run(0.15, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.rightFlick(0, 60);
+    let on = 0, skyAt = null, tOn = 0;
+    const r = ride(80, (t) => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === S.corkRail) { if (!on) tOn = t; on = 1; } if (on && P.grind && P.grind.rail.path === K.path && !skyAt) skyAt = [t - tOn, P.pos.clone()]; }, () => skyAt || (on && !P.grind && P.pos.y < S.y - 20));
+    say('the swipe down onto the corkscrew: 135 m down onto the sky rail', on && skyAt && r.clean, `${on ? 'on it' : 'NEVER ON IT'}, ${skyAt ? 'on the sky rail after ' + fix(skyAt[0], 1) + ' s at ' + at(skyAt[1]) + ', fastest ' + fix(r.vmax, 1) : 'never on the sky rail -- ends ' + at(P.pos)}${cl(r)}`); }
+  // the bowl and the parapet's ring
+  { reset(); place(S.x - 7, S.y + 0.3, S.z, Math.PI / 2, 9); let hi = 0, side = 0, sw = 0;
+    const r = ride(6, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.pos.y > S.y - 2) { const sd = Math.sign(P.pos.x - S.x); if (sd !== side && Math.abs(P.pos.x - S.x) > 4) { sw++; side = sd; } hi = Math.max(hi, P.pos.y - S.y); } });
+    say('the station bowl: across it wall to wall', sw >= 2 && r.clean && P.pos.y > S.y - 5, `${sw} walls, highest ${fix(hi)} over the deck, ends ${at(P.pos)}${cl(r)}`); }
+  { reset(); const R = S.rims.reduce((m, q) => q.segs.length > m.segs.length ? q : m), q = R.segs[5], h = Math.atan2(q.b.x - q.a.x, q.b.z - q.a.z);
+    place(q.a.x, q.a.y + 0.4, q.a.z, h, 7); P.pos.set(q.a.x, q.a.y + 0.4, q.a.z); P.grounded = false; P.vel.y = -1; let d = 0;
+    run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && S.rims.includes(P.grind.rail.path)) d += P.speed * DT; });
+    say('the parapet\'s grind ring', d > 15, `${fix(d, 0)} m on it`); }
+  return ok;
+};
 // r109: THE CROSSTOWN -- the line clear of everything, the three platforms, boarding at the middle (from the side) and at
 // the east end (along it) and being carried off, a moving tram knocking a skater off the track, both express lanes.
 CASES.tram = () => {

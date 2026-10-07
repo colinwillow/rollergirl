@@ -243,3 +243,29 @@ the hub's east gate** (Neon Shores' causeway), south past the **Orbital gate**, 
 
 The belt was mapped before anything was placed: the hub's outer bank on one side, the lagoon at x 112 and the Orbital
 ramps at z −106 on the other. Nothing else in the world stands on the line or the lanes (tested).
+
+---
+
+## r110 — THE STATION (210 m up, over the Mothership)
+
+**➤ stop:** `the station` · **Sim:** `node tools/sim.mjs station` (9 rows)
+
+The highest floor in the world: a round deck 44 m across at **210 m**, floating over the Mothership on a hanging rock
+with a glowing crystal under it. A bowl on top, a grind ring round its parapet, a beacon on a mast.
+
+**THE CORKSCREW** is the way up and the way down: one **booster rail**, 710 m long, wrapped 2.2 times round the
+station's axis at a 28% grade, from the sky rail up through a gap in the parapet.
+
+- **Up:** ride the sky rail past the Mothership and push the stick toward it as you reach the branch (the same move as
+  the obelisk drop and the Launch spiral). The booster climbs you 135 m onto the deck.
+- **Down:** swipe down onto it from the deck and you're carried round and down onto the sky rail, 38 s, never over
+  19 m/s. Hands off on the sky rail, you go straight past it.
+
+Its circle clears the Mothership's dish by 13 m at the dish's height. Nothing else is on its line (tested).
+
+**Two fixes underneath, both general:**
+- A sky-rail branch's junction is now found where its circle actually **crosses** the rail. On a curving stretch it
+  used to land off the circle and the first piece of rail pointed backwards; the obelisk drop and the Launch spiral
+  still pass.
+- A floor drawn as a disc from its exact centre (`acDisc` from radius 0) was facing down, so it didn't exist to the
+  physics. It does now.
