@@ -94,6 +94,30 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE SAUCERS: DECKS ON STALKS, LIFTS FOUND, WIRES OFF THE DONUT (r116, `SAU`, `buildSaucers`, `saucerRails`,
+  `npm run sim saucers`).** A (72 m), B (84 m, a 150 deg XXL curved wall round its north half), C (55 m, a volcano), all in the
+  west seam. Linked by three `WIRE.list` entries: the donut halo to A (a rail-mode wire, like r113's peak branch), A-B, A-C.
+  - **THE LIFT'S BEARING IS SEARCHED**: open, flat street under its foot and a clear column to the deck, starting from
+    `lift0`. B's lift is off to the EAST on purpose. Due south (the default) put its parapet gap exactly where anything
+    coming down the wall crosses the deck, and a 17 m/s ride off the wall fell out of the gap to 43 m.
+  - **A WIRE THAT STARTS ON A RAIL ON A PARAPET STARTS INSIDE THAT PARAPET'S BOX**: `solidAt` with its 0.35 m margin met
+    the donut's parapet under the halo and refused the wire ("donut parapet at 0 m"). The first 1.5 m of a rail-mode
+    wire is exempt from the solid test.
+  - **A ➤ SPOT KEEPS SEAM DRESSING 38 m AWAY (`BLEND.keep` + 12) WHATEVER ITS HEIGHT**, so a deck spot 72 m up still
+    blocked a seam skate spot on the street. Two saucers moved until `blend` had its 4 spots back. Its prop count then
+    fell to 95, so that row now asks for over 80 props.
+  - **`wires`' BRANCH ROWS HAD TO LEARN A RING.** "Past the branch" was a projection on the wire's direction, which a ring
+    curves away from, so the hands-off row on the halo could never pass. It now means "went within 6 m of the branch,
+    then 25 m on along the parent". The stick side is read from her heading AT the branch, not at the start.
+  - **THE FULL SIM MOVED TWO OF THEM, AND NEITHER FAULT WAS ON THE SAUCERS' OWN CASE:**
+    - B first stood at (-130, 138). Its deck, 84 m up, overhung the PARK DISTRICT's outline (x >= -120 for z 104..251), and
+      `parkd` counts any solid inside that outline at any height.
+    - C stood at (-120, -80), right over the Mothership's BEAM foot (-124.8, -85.2): the beam lifted her into C's underside.
+    - C's lift foot also sat on the Crosstown TRAM's line at z -99, and the lift search had only been told about lanes.
+    So: B (-150, 140), C (-190, -60). Probe `UFO.beam`, the tram line and `SHEET.floor` before placing anything in the west seam.
+  - On a saucer, hands off at 12 m/s every way but out of the lift's gap stays on (parapet 0.9 m, solid). Out of the gap
+    when the lift is down is a 50-80 m fall, as at the Launch deck.
+
 - **THE DONUT: ONE PROFILE REVOLVED, BECAUSE 72 m UP THERE IS NO GROUND (r115, `DNT`, `buildDonut`, `donutRails`,
   `donutAim`, `npm run sim donut`).** A ring half pipe over the hub (deck 72, floor 68.4, hole 12 m, outer ~36 m). The whole
   cross-section, from the inner deck through both transitions to the outer deck, is one `[r, y, tint]` list revolved with

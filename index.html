@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r115</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r116</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r115';
+const BUILD = 'r116';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3560,6 +3560,7 @@ function buildPark() {
   buildStation();    // r110: the deck at 210 m over the mothership, and the corkscrew up to it off the sky rail
   buildDonut();      // r115: the donut ring 72 m over the hub (before the cannons: one of them throws her into it)
   buildCannons();    // r114: launch pads in the seams that throw her onto other districts' decks
+  buildSaucers();    // r116: three saucer towers in the west seam, lifts up their sides, a giant curved wall on the biggest
   buildTram();       // r109: the Crosstown tram round the hub's south side, and its express lanes
   buildBlend();      // r108: the seams between districts dressed by their mixed cultures, and skate spots in them
   triBuild();
@@ -3577,6 +3578,7 @@ function buildPark() {
   launchRails();     // r106: likewise its spiral
   stationRails();    // r110: the corkscrew and the parapet's grind ring
   donutRails();      // r115: its two grind rings and the dunk down to the skyway spire
+  saucerRails();     // r116: their parapets' grind rings (before the wires, which tie them to the donut and each other)
   wireRails();       // r111: the high wires between districts' decks (after every deck is in the collider)
   garageRails();     // r107: its ramps' lanes, its rail onto the Table
   acroRails();       // r92
@@ -3614,7 +3616,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(DNT.built ? DNT.stops : []), ...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(DNT.built ? DNT.stops : []), ...(SAU.built ? SAU.stops : []), ...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -9408,7 +9410,8 @@ function stationRails() {
 // logged and left out rather than run through something.
 const WIRE = { on: 1, built: 0, clear: 5, inset: 6, sag: 0.025, sagMax: 5, boost: 16, boostK: 2.5, maxV: 22, shifts: [0, 2, -2, 4, -4, 6, -6],
   list: [['peak', 'plunge 1', { rail: 'sky rail', at: [-9, -275] }], ['sky', 'plunge 2'], ['garage roof', 'spire'], ['launch deck', 'nimbus top'], ['skyway spire', 'transit deck'], ['acro sky', 'roof line'],
-    ['great pyramid', 'transit deck'], ['rooftop park', 'stack 1'], ['stack 2', 'transit deck'], ['stack 4', 'nimbus top']],
+    ['great pyramid', 'transit deck'], ['rooftop park', 'stack 1'], ['stack 2', 'transit deck'], ['stack 4', 'nimbus top'],
+    ['the donut', 'saucer a', { rail: 'donut halo', at: [-33.1, 12.7] }], ['saucer a', 'saucer b'], ['saucer a', 'saucer c']],   // r116: the donut's halo to the saucers
   paths: [], made: [], skipped: [] };
 function wireEnd(A, B, sh) {     // from deck A toward B, shifted `sh` sideways: the last clean point on A's deck, and how far that runs
   const dx = B[0] - A[0], dz = B[2] - A[2], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ox = A[0] - uz * sh, oz = A[2] + ux * sh, g0 = groundAt(A[0], A[2], A[1] + 1, 0.5), y = g0.hit ? g0.floor : A[1];     // (a ➤ spot can stand a little over its deck)
@@ -9449,7 +9452,8 @@ function wireRails() {
       // clear: nothing solid round the bar or over it, no floor up at it -- except the deck under each end
       let bad = 0;
       for (let i = 0; i <= n && !bad; i++) { const q = pts[i], f = i / n, nearEnd = f * L < a.run + 1 || (1 - f) * L < b.run + 1;
-        for (const dy of [0.25, 1.0, 2.0]) { const o = solidAt(q.x, q.y + dy, q.z, 0.35); if (o) { bad = 1; why = why || `shift ${sh}: ${o.tag} at ${Math.round(f * L)} m`; } }
+        for (const dy of [0.25, 1.0, 2.0]) { const o = !(opt && opt.rail && f * L < 1.5) && solidAt(q.x, q.y + dy, q.z, 0.35); if (o) {   // (a wire off a rail on a parapet starts over that parapet)
+           bad = 1; why = why || `shift ${sh}: ${o.tag} at ${Math.round(f * L)} m`; } }
         if (!nearEnd) { const g = groundAt(q.x, q.z, q.y + 2.2, 0); if (g.hit && g.floor > q.y - 0.4) { bad = 1; why = why || `shift ${sh}: a floor at ${Math.round(f * L)} m`; } } }
       // and no other rail within reach of either end: a swipe there must find THIS rail, not the one beside it (the sky rail
       // crosses the Orbital peak's island, and the station's swipe-on grabbed the wire instead)
@@ -9626,6 +9630,91 @@ function donutRails() {
   D.halo = railLoop(ring(D.Ro - 0.35), { name: 'donut halo' }); railDraw(D.halo, { mat: 'boost', posts: false });
   D.holeR = railLoop(ring(D.hole + 0.35), { name: 'donut hole' }); railDraw(D.holeR, { mat: 'boost', posts: false });
   D.dunkR = railPath(K.pts, { name: 'donut dunk', boost: K.boost, boostK: K.boostK, maxV: K.maxV }); railDraw(D.dunkR, { mat: 'boost', postMax: 4 }); gemsAlong(D.dunkR, 16, 0.9, 14);
+}
+// ===== r116: THE SAUCERS -- *"saucer-topped towers"* (his reference sheet). Three stalks in the west seam, each carrying a
+// saucer deck with a lift up its side from the street: A at 72 m (level with the donut), B at 84 m, the biggest, with a GIANT
+// CURVED WALL round its north half (an XXL quarter pipe swept through 150 degrees), and C at 55 m with a volcano on it. They
+// are tied into everything by high wires (`WIRE.list`): the donut's halo to A (stick out off the halo), A up to B, A down
+// to C -- so the donut, the saucers, the skyway and the spire are one line in the sky.
+//   A saucer is a disc deck (a floor), a solid parapet ring with a grind ring on it (broken where the lift docks), a cone
+// underneath and a stalk to the ground (a ring of solid boxes). The lift's side is FOUND: the first bearing whose foot is
+// open, flat street and whose column is clear of everything to the deck.
+const SAU = { on: 1, built: 0, stops: [], made: [], stalk: 2.6, par: 0.9, lift: { r: 2.6, period: 26 },
+  list: [
+    { key: 'a', x: -125, z: 48, y: 72, r: 14, park: 'none', col: 0xf4ecff, neon: 0x3ff0e0, rim: 0xb98bff },
+    { key: 'b', x: -150, z: 140, y: 84, r: 21, park: 'wall', col: 0xfff0f4, neon: 0xff6fd0, rim: 0xffb04a, lift0: Math.PI / 2, wall: { size: 'XXL', a0: -75, a1: 75 } },   // (its lift off to the side: whatever comes down the wall crosses the deck due south)
+    { key: 'c', x: -190, z: -60, y: 55, r: 16, park: 'volcano', col: 0xeefcf4, neon: 0x8dff3a, rim: 0x3fa0ff } ] };
+function buildSaucers() {
+  if (!SAU.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 11616; triBuild(); solidBuild();
+  for (const Q of SAU.list) {
+    const { x, z, y, r } = Q, n = Math.max(32, Math.round(2 * Math.PI * r / 1.6)), LR = SAU.lift.r, ld = r + LR + 0.15;
+    // the lift's bearing: open, flat street at its foot, and a clear column all the way up
+    let la = null;
+    for (let k = 0; k < 24 && la === null; k++) { const A = (Q.lift0 != null ? Q.lift0 : Math.PI) + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 12, px = x + ld * Math.sin(A), pz = z + ld * Math.cos(A); let ok = true;
+      for (let i = 0; i < 9 && ok; i++) { const qx = px + (i ? (LR + 0.6) * Math.cos(i * Math.PI / 4) : 0), qz = pz + (i ? (LR + 0.6) * Math.sin(i * Math.PI / 4) : 0), g = groundAt(qx, qz, 1.5, 0);
+        if (!g.hit || Math.abs(g.floor) > 0.06 || inWater(qx, 0.05, qz) || laneAt(qx, 0.1, qz)) ok = false;
+        for (let yy = 0.5; yy < y + 2 && ok; yy += 2) if (solidAt(qx, yy, qz, 0.2)) ok = false; }
+      if (ok) la = A; }
+    if (la === null) { console.warn('[saucers] no lift bearing for', Q.key); continue; }
+    Q.la = la; Q.gap = [la - 0.32, la + 0.32];
+    const inGap = A => Math.abs(wrapAngle(A - la)) < 0.32, inWall = A => Q.wall && wrapAngle(A) > Q.wall.a0 * D2R - 0.05 && wrapAngle(A) < Q.wall.a1 * D2R + 0.05;
+    // THE DECK, its rim, the cone under it and a neon belt
+    acDisc('paving', x, z, 0, r, y, n, { solid: true, tint: Q.col, base: y - 1 });
+    acWallRing('stone', x, z, r, y - 1.6, y, n, 1, { tint: 0xe8e2f2 });
+    slGeo('stone', new THREE.CylinderGeometry(r, r * 0.3, 6, n, 1, true), slMat(x, y - 4.6, z), { tint: 0xd9d0ea });
+    slGeo('stone', new THREE.CircleGeometry(r * 0.3, n).rotateX(Math.PI / 2), slMat(x, y - 7.6, z), { tint: 0xc9bfe0 });
+    slGeo('neon', new THREE.TorusGeometry(r + 0.04, 0.16, 4, n).rotateX(Math.PI / 2), slMat(x, y - 0.8, z), { tint: Q.neon });
+    for (let k = 0; k < 6; k++) { const A = k / 6 * 2 * Math.PI; slGlow(x + r * 0.6 * Math.sin(A), y - 7, z + r * 0.6 * Math.cos(A), 6, Q.neon, 0.6); }
+    // THE STALK, with neon bands, solid to her
+    const sb = SAU.stalk; slGeo('plaster', new THREE.CylinderGeometry(sb, sb * 1.35, y - 7.6, 16), slMat(x, (y - 7.6) / 2, z), { smooth: true, tint: 0xe4dcf2 });
+    for (let yy = 6; yy < y - 9; yy += 8) slGeo('neon', new THREE.TorusGeometry(sb * (1.35 - 0.35 * yy / (y - 7.6)) + 0.05, 0.1, 4, 16).rotateX(Math.PI / 2), slMat(x, yy, z), { tint: yy % 16 ? Q.neon : Q.rim });
+    cylSolid(x, z, sb * 1.2, 0, y - 7.6, 16, 'saucer stalk');
+    // THE PARAPET with the lift's gap, and a grind ring on it in runs between the gaps
+    const pr = r - 0.35, hl = pr * Math.tan(Math.PI / n) + 0.06;
+    for (let i = 0; i < n; i++) { const A = 2 * Math.PI * (i + 0.5) / n; if (inGap(A) || inWall(A)) continue; const cx = x + pr * Math.sin(A), cz = z + pr * Math.cos(A);
+      solidAdd(cx, cz, hl, 0.35, y, y + SAU.par, A, { top: false, tag: 'saucer parapet' });
+      slGeo('stone', new THREE.BoxGeometry(hl * 2, SAU.par, 0.7), slMat(cx, y + SAU.par / 2, cz, A), { tint: 0xfbf6ff }); }
+    const ring = []; for (let i = 0; i <= 4 * n; i++) { const A = 2 * Math.PI * i / (4 * n); ring.push([x + pr * Math.sin(A), y + SAU.par + 0.05, z + pr * Math.cos(A), A]); }
+    Q.ringRuns = []; { let cur = []; for (const p of ring) { if (inGap(p[3]) || inWall(p[3])) { if (cur.length > 2) Q.ringRuns.push(cur); cur = []; } else cur.push(p); } if (cur.length > 2) Q.ringRuns.push(cur); }
+    if (Q.ringRuns.length > 1 && !inGap(0) && !inWall(0)) { const a = Q.ringRuns.shift(), b = Q.ringRuns.pop(); Q.ringRuns.push(b.concat(a.slice(1))); }   // the run that wraps the seam is one run
+    // THE PARK
+    const K2 = { ...KCOL }; Object.assign(KCOL, PARKD.pal.kcol);
+    try {
+      if (Q.park === 'volcano') kitPiece('volcano', 'M', { x, y, z: z - 5, yaw: 0 }, { h: 2.4, top: 1.8, angle: 26, rail: 0 });
+      if (Q.park === 'wall') { const W = Q.wall, S = { ...KSZ[W.size], tint: 0xffd6e8 }, rq = S.H / (1 - Math.cos(S.sweep)), lip = rq * Math.sin(S.sweep), dk = 1.6, rc = r - 0.7 - dk - lip, a0 = W.a0 * D2R, a1 = W.a1 * D2R;
+        KIT_KINDS.qpIn({ x, y, z, yaw: 0 }, S, { rc, a0, a1, deck: dk, fill: false });
+        Object.assign(W, { rc, lip, H: S.H, dk });
+        // its back, its ends, and a parapet along its top deck -- 91 m up, the deck behind the coping is the edge of the world
+        const yt = y + S.H, rb = rc + lip + dk, m = Math.max(12, Math.round((a1 - a0) * rb / 1.4));
+        for (let i = 0; i < m; i++) { const A = a0 + (a1 - a0) * i / m, B = a0 + (a1 - a0) * (i + 1) / m, M = (A + B) / 2;
+          slQuad('stone', acRP(x, z, rb, A, y), acRP(x, z, rb, B, y), acRP(x, z, rb, B, yt + SAU.par), acRP(x, z, rb, A, yt + SAU.par), [Math.sin(M), 0, Math.cos(M)], { tint: 0xffc2dc, base: y });
+          const cx = x + (rb - 0.35) * Math.sin(M), cz = z + (rb - 0.35) * Math.cos(M); solidAdd(cx, cz, (rb - 0.35) * Math.tan((B - A) / 2) + 0.06, 0.35, yt, yt + SAU.par, M, { top: false, tag: 'saucer wall parapet' }); }
+        acDiscSector(x, z, rb - 0.7, rb, yt + SAU.par, a0, a1, m, 0xfff4fb);
+        for (const A of [a0, a1]) { const prof = [[rc, 0]]; for (let i = 1; i <= 16; i++) { const a = S.sweep * i / 16; prof.push([rc + rq * Math.sin(a), rq * (1 - Math.cos(a))]); } prof.push([rb, S.H], [rb, 0]);
+          for (let i = 1; i < prof.length - 1; i++) slTri('stone', acRP(x, z, prof[0][0], A, y), acRP(x, z, prof[i][0], A, y + prof[i][1]), acRP(x, z, prof[i + 1][0], A, y + prof[i + 1][1]), { tint: 0xffc2dc }); slTri('stone', acRP(x, z, rc, A, y), acRP(x, z, rb, A, y + S.H), acRP(x, z, rb, A, y), { tint: 0xffc2dc }); }
+        W.ringA = [a0, a1]; }
+    } finally { Object.assign(KCOL, K2); }
+    // THE LIFT
+    { const lx = x + ld * Math.sin(la), lz = z + ld * Math.cos(la), L = SAU.lift, m = skrLiftMesh(LR + 0.4, 0xece8f6, Q.neon), P0 = L.period;
+      const p = { x: lx, y: 0.25, z: lz, cr: LR, mesh: m, kind: 'lift', fn: (t) => { const u = ((t + Q.y) % P0) / P0, e0 = u < 0.18 ? 0 : u < 0.5 ? (u - 0.18) / 0.32 : u < 0.68 ? 1 : 1 - (u - 0.68) / 0.32, e = e0 * e0 * (3 - 2 * e0); return [lx, 0.25 + (y - 0.25) * e, lz]; } };
+      DYN.list.push(p); Object.assign(Q, { lift: p, lx, lz }); }
+    // THE STOPS: on the deck (its middle for A and C; on the flat south half for B), and at the lift's foot
+    const nm = 'saucer ' + Q.key, dz = Q.park === 'wall' ? -r * 0.4 : 0;
+    CITY.spots[nm] = Q.park === 'volcano' ? [x, y, z + r - 6.5, 0] : [x, y, z + dz, 0];
+    CITY.spots[nm + ' lift'] = [x + (ld + 6) * Math.sin(la), 0, z + (ld + 6) * Math.cos(la), la + Math.PI];
+    SAU.stops.push(nm); SAU.made.push(Q);
+  }
+  SAU.built = SAU.made.length ? 1 : 0;
+}
+// a flat ring sector (top of a curved parapet), drawn only
+function acDiscSector(cx, cz, r0, r1, y, a0, a1, m, tint) {
+  for (let i = 0; i < m; i++) { const A = a0 + (a1 - a0) * i / m, B = a0 + (a1 - a0) * (i + 1) / m;
+    slQuad('stone', acRP(cx, cz, r0, A, y), acRP(cx, cz, r0, B, y), acRP(cx, cz, r1, B, y), acRP(cx, cz, r1, A, y), [0, 1, 0], { tint }); }
+}
+function saucerRails() {
+  if (!SAU.built) return;
+  for (const Q of SAU.made) Q.rims = Q.ringRuns.map(run => { const R = railPath(run.map(p => SLV(p[0], p[1], p[2])), { name: 'saucer ' + Q.key + ' rim' }); railDraw(R, { mat: 'boost', postMax: 2 }); return R; });
 }
 // ===== r106: THE LAUNCH -- *"big fucking jumps ... the sky rail ... everything so integrated."* The open south-west field
 // under the sky rail, south of the Heights. A tower with a deck at 36 m; the sky rail spirals down onto it (stick toward
@@ -14055,7 +14144,7 @@ window.rg = { SK, AIR, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, A
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

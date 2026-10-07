@@ -4416,7 +4416,7 @@ CASES.blend = () => {
   // the weights are each district's own at its centre: the gradient has its peaks where the districts are
   { const bad = B.d.filter((q, i) => { const w = rg.blendW(q.x, q.z); return w.indexOf(Math.max(...w)) !== i; }); say('each district is its own colour at its centre', !bad.length, bad.map(q => q.key).join(', ') || `${B.d.length} of ${B.d.length}`); }
   { const c = {}; for (const p of B.placed) c[p[2]] = (c[p[2]] || 0) + 1;
-    say(`${B.placed.length} props in the seams, ${B.spotList.length} seam spots`, B.placed.length > 100 && B.spotList.length >= 4 && Object.keys(c).length >= 5, JSON.stringify(c)); }
+    say(`${B.placed.length} props in the seams, ${B.spotList.length} seam spots`, B.placed.length > 80 && B.spotList.length >= 4 && Object.keys(c).length >= 5, JSON.stringify(c)); }
   // nothing dressed where a stop or a pad stands, or on the steer run
   { const bad = []; for (const [x, z] of [...B.placed, ...B.spotList.map(s => [s.x, s.z])]) { for (const [n, sp] of Object.entries(rg.CITY.spots)) if (Math.hypot(x - sp[0], z - sp[2]) < B.keep - 6) bad.push(`${n} ${fix(Math.hypot(x - sp[0], z - sp[2]), 1)} m`);
       for (const L of rg.ORB.launch) if (Math.hypot(x - L.x, z - L.z) < 10) bad.push(`pad ${L.name || ''}`); }
@@ -4489,6 +4489,43 @@ CASES.donut = () => {
     const h = Math.atan2(q0.a.x - q0.b.x, q0.a.z - q0.b.z); place(q0.b.x, q0.b.y + 0.4, q0.b.z, h, 8); P.pos.set(q0.b.x, q0.b.y + 0.4, q0.b.z); P.grounded = false; P.vel.y = -1;
     let on = 0, top = 0, halo = 0; run(40, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === D.dunkR) on = 1; top = Math.max(top, P.pos.y); if (on && P.grind && P.grind.rail.path === D.halo) halo = 1; });
     say('up the dunk on its booster, onto the halo', on && (halo || P.pos.y > D.fy - 0.5 && Math.hypot(P.pos.x - D.x, P.pos.z - D.z) < D.Ro), `${on ? 'on it' : 'NEVER ON IT'}, highest ${fix(top, 1)}, ${halo ? 'onto the halo' : 'ends ' + at(P.pos)}`); }
+  return ok;
+};
+// r116: THE SAUCERS -- three decks on stalks: each lift carries her from the street onto its deck, a hands-off ride across
+// each deck stays on it (the parapet), the giant curved wall on B sends her up and back down onto B, and C's volcano rides.
+CASES.saucers = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.SAU; if (!S.built) { console.log('  no saucers'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), wa = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; P.thrown = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  say(`${S.made.length} saucers`, S.made.length === S.list.length, S.made.map(Q => `${Q.key} ${Q.y} m r ${Q.r}, lift at ${fix(Q.la * 57.3, 0)} deg`).join('; '));
+  for (const Q of S.made) {
+    // THE LIFT: wait for it at the bottom, stand on it, ride up, roll off toward the middle
+    { reset(); const L = Q.lift; let t0 = -1; for (let t = 0; t < 400; t += 0.1) { const a = L.fn(t), b = L.fn(t + 0.6); if (a[1] < 0.3 && b[1] < 0.3 && L.fn(t + 2)[1] < 0.3) { t0 = t; break; } }
+      rg.HT.t = t0; rg.stepCity(0); place(Q.lx, 0.6, Q.lz, Q.la + Math.PI, 0); P.pos.y = 0.25;
+      let top = 0, on = 0; for (let i = 0; i < 40 / DT && !on; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); top = Math.max(top, P.pos.y); if (P.pos.y > Q.y - 0.4) on = i * DT; }
+      // at the top: roll in toward the middle (the lift waits there a few seconds)
+      if (on) { run(0.6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.cam.az = Q.la + Math.PI; run(1.2, () => { rg.stick.L.x = 0; rg.stick.L.y = -0.8; city(); }); run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); }
+      const r = Math.hypot(P.pos.x - Q.x, P.pos.z - Q.z);
+      say(`saucer ${Q.key}: the lift up from the street, and off onto the deck`, on && Math.abs(P.pos.y - Q.y) < 0.3 && r < Q.r - 1, `${on ? 'up at ' + fix(on, 1) + ' s' : 'NEVER UP (top ' + fix(top, 1) + ')'}, ends ${at(P.pos)} (r ${fix(r, 1)})`); }
+    // HANDS OFF across the deck, every way but out of the lift's gap: the parapet keeps her on
+    { const fell = []; let n = 0;
+      for (let k = 0; k < 8; k++) { const h = k * Math.PI / 4; if (Math.abs(wa(h - Q.la)) < 0.8) continue; reset();
+        let px = null, pz; for (const f of [0.3, 0.5, 0.65]) { const qx = Q.x - Math.sin(h) * Q.r * f, qz = Q.z - Math.cos(h) * Q.r * f, g = rg.groundAt(qx, qz, Q.y + 1, 0); if (g.hit && Math.abs(g.floor - Q.y) < 0.05) { px = qx; pz = qz; break; } }
+        if (px === null) continue;
+        place(px, Q.y + 0.3, pz, h, 12); P.pos.y = Q.y; n++; let lo = 1e9; run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); lo = Math.min(lo, P.pos.y); });
+        if (lo < Q.y - 0.5) fell.push(`${fix(h * 57.3, 0)} deg -> ${at(P.pos)}`); }
+      say(`saucer ${Q.key}: hands off at 12 m/s across the deck, ${n} ways, she stays on`, !fell.length && n >= 4, fell.join('; ') || 'stayed on'); }
+  }
+  // THE GIANT WALL on B: straight at it from the south deck, up it and back down onto B
+  { const Q = S.made.find(q => q.park === 'wall');
+    for (const v of [16, 19]) { reset(); place(Q.x, Q.y + 0.3, Q.z - Q.r * 0.6, 0, v); P.pos.y = Q.y; let top = 0, lo = 1e9; run(8, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); lo = Math.min(lo, P.pos.y); });
+      const r = Math.hypot(P.pos.x - Q.x, P.pos.z - Q.z);
+      say(`saucer b: into the giant wall at ${v} m/s, up it and back onto b`, top > Q.y + Q.wall.H * 0.5 && lo > Q.y - 0.5 && r < Q.r, `up to ${fix(top - Q.y, 1)} m over the deck (the wall is ${fix(Q.wall.H, 1)}), ends ${at(P.pos)}`); } }
+  // C's volcano: over it
+  { const Q = S.made.find(q => q.park === 'volcano'); reset(); place(Q.x, Q.y + 0.3, Q.z + Q.r - 3, Math.PI, 9); P.pos.y = Q.y; let top = 0, lo = 1e9; run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); lo = Math.min(lo, P.pos.y); });
+    say('saucer c: over the volcano', top > Q.y + 1.5 && lo > Q.y - 0.5, `up to ${fix(top - Q.y, 1)} m, ends ${at(P.pos)}`); }
   return ok;
 };
 // r113: THE AIR -- standing in a district for a while, the fog, the sky light and the rim lamp come round to its colour;
@@ -4595,14 +4632,20 @@ CASES.wires = () => {
     reset(); const K = rg.RAILS.filter(q => q.path && q.path.name === m.rail), J = m.ea, wx = m.eb.x - J.x, wz = m.eb.z - J.z, wl = Math.hypot(wx, wz);
     // a segment ~30 m back from J, ridden so that she arrives travelling the way the wire leaves
     let q0 = null, bd = 1e9; for (const q of K) { const d = Math.abs(Math.hypot(q.a.x - J.x, q.a.z - J.z) - 30), ahead = ((J.x - q.a.x) * wx + (J.z - q.a.z) * wz) / wl; if (ahead > 20 && d < bd) { bd = d; q0 = q; } }
+    // r116: off a RING (the donut's halo) nothing is 20 m behind the branch along the wire -- the wire leaves square to it -- so
+    // the start is ~30 m back ALONG the ring instead, ridden forward
+    let ringFw = false; if (!q0) { let j = 0, bj = 1e9; K.forEach((q, i) => { const d = Math.hypot(q.a.x - J.x, q.a.z - J.z); if (d < bj) { bj = d; j = i; } });
+      let acc = 0, i = j; while (acc < 30) { i = (i - 1 + K.length) % K.length; acc += K[i].len; } q0 = K[i]; ringFw = true; }
     if (!q0) { say(`off the ${m.rail} onto the ${m.a} - ${m.b} wire`, false, 'no rail behind the branch'); continue; }
-    const fw = (q0.b.x - q0.a.x) * wx + (q0.b.z - q0.a.z) * wz > 0, s0 = fw ? q0.a : q0.b, s1 = fw ? q0.b : q0.a, h = Math.atan2(s1.x - s0.x, s1.z - s0.z);
+    const fw = ringFw || (q0.b.x - q0.a.x) * wx + (q0.b.z - q0.a.z) * wz > 0, s0 = fw ? q0.a : q0.b, s1 = fw ? q0.b : q0.a, h = Math.atan2(s1.x - s0.x, s1.z - s0.z);
     rg.HT.trains.filter(tr => tr.path === q0.path).forEach((tr, i) => tr.s = tr.path.len * (0.25 + 0.5 * i));
     place(s0.x, s0.y + 0.4, s0.z, h, 16); P.pos.set(s0.x, s0.y + 0.4, s0.z); P.grounded = false; P.vel.y = -1;
-    const side = Math.sign(Math.sin(h) * wz - Math.cos(h) * wx) || 1;     // the wire leaves to her right (+1) or left
-    let took = 0, land = null, past = 0;
+    let hj = h; { let bj = 1e9; for (const q of K) { const d = Math.hypot((q.a.x + q.b.x) / 2 - J.x, (q.a.z + q.b.z) / 2 - J.z); if (d < bj) { bj = d; hj = Math.atan2(q.b.x - q.a.x, q.b.z - q.a.z) + (fw ? 0 : Math.PI); } } }   // her heading AT the branch
+    const side = Math.sign(Math.sin(hj) * wz - Math.cos(hj) * wx) || 1;     // the wire leaves to her right (+1) or left
+    let took = 0, land = null, past = 0, nearJ = 0;
     const r = ride(30, () => { if (stick && P.grind) { rg.cam.az = Math.atan2(P.grind.rail.d.x * P.grind.dir, P.grind.rail.d.z * P.grind.dir) - side * Math.PI / 2; rg.stick.L.x = 0; rg.stick.L.y = -1; } else rg.stick.L.x = rg.stick.L.y = 0;     // square out to its side: the branch is only ~18 deg off the rail
-      if (P.grind && P.grind.rail.path === m.path) took = 1; if (!took && P.grind && P.grind.rail.path === q0.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) > 25 && ((P.pos.x - J.x) * wx + (P.pos.z - J.z) * wz) > 0) past = 1;
+      if (P.grind && P.grind.rail.path === m.path) took = 1; if (!took && P.grind && P.grind.rail.path === q0.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) < 6) nearJ = 1;
+      if (!took && P.grind && P.grind.rail.path === q0.path && Math.hypot(P.pos.x - J.x, P.pos.z - J.z) > 25 && nearJ) past = 1;     // (went by the branch, and on: along a straight rail or round a ring)
       if (took && !P.grind && P.grounded && !land) land = P.pos.clone(); }, () => land || past);
     const there = land && Math.hypot(land.x - m.eb.x, land.z - m.eb.z) < 14;
     if (stick) say(`off the ${m.rail}, stick out: onto the wire to ${m.b}`, took && there && r.clean, `${took ? 'on the wire' : 'NEVER TOOK IT'}, ${land ? 'down at ' + at(land) : 'never down -- ends ' + at(P.pos)}${cl(r)}`);

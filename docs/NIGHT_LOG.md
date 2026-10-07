@@ -380,3 +380,23 @@ outer wall, with a deck on each side and a parapet on each edge. Both parapets h
 - **The dunk also works upward.** Catch it low and the booster carries you all the way back up onto the halo.
 
 The ➤ key's first stop is `the donut`, and the cannon is `donut cannon`.
+
+---
+
+## r116 — THE SAUCERS
+
+**Sim:** `node tools/sim.mjs saucers` (10 rows); the three new wires are ridden both ways in `wires`
+
+**Three saucer-topped towers in the west seam**, between the hub and the Acropolis/Heights, each with a lift up the side
+from the street (stand on the disc at its foot):
+
+- **Saucer A** (-125, 48), 72 m: level with the donut. Clear deck, the hub of the three wires.
+- **Saucer B** (-150, 140), 84 m, the big one (21 m across): **a giant curved wall** around its north half, a 7.2 m
+  quarter pipe swept through 150°. Hit it at 19 m/s and you air over the coping and come back down onto the saucer.
+- **Saucer C** (-190, -60), 55 m: a volcano on the deck.
+
+**Wires tie them together and to the donut:** grind the donut's halo and push the stick out on the west side to branch onto
+a 91 m wire across to saucer A; A climbs to B (49 m), and A drops to C (123 m). All are boosters, rideable both ways.
+So the line in the sky is now: plaza cannon → donut → halo → saucer A → B or C, or the dunk → skyway spire → sky helix → plaza.
+
+The ➤ key has `saucer a/b/c` (the decks) and `saucer a/b/c lift` (the lift feet).
