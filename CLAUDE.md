@@ -132,6 +132,10 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
     block) -- find it by key.
   - **NOT VERIFIABLE HERE:** how any of it looks (46 art placements, two water planes, the neon, no GPU), and the chute's
     speed between gates (34 m/s against the 22 the gates hold inside them) is a phone decision.
+  - **r136: THE CENTRE'S CREST IS ONLY x +-42 WIDE AT v 144.** Rollers typed along z 144 from x -66 ran off the mitre onto the
+    WEST WING, whose crest curves north -- at (-64, 142) the wing is its FACE, 1 m lower, and the row read *INSIDE 1.64*.
+    Past the mitre a world z is a different facet's v. And a rainbow rail's rise is a climb: 1.4 m stalls a 7 m/s grind at
+    the top (`sqrt(2 g rise)`), 0.8 does not.
   - **r135: WALL RIDES ARE ON HERE (`wallOn`), AND THE FIRST THING THEY FOUND WAS A BUILDING ON A LINE.** The drain's
     exit ran into BUILDING_14's north face: with walls as walls she bonked off it and the row read *out*; as a wall ride she
     rode it to 16 m and flew off its roof into the sea. A building at the end of a line is on the line. Moved, and the quay

@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r135</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r136</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r135';
+const BUILD = 'r136';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -4048,6 +4048,14 @@ function spwWestPark() {
   bld(E, 'BUILDING_14', 60, 88, 24.3, 24.6, 18.5); bld(E, 'BUILDING_04', 36, 95, 12.3, 12.3, 26.6);
   bld(C, 'BUILDING_04', 115, 27.5, 12.3, 12.3, 26.6); bld(C, 'BUILDING_09', 125, 94, 14.3, 14.3, 34.4); bld(C, 'BUILDING_12', 90, 95, 11.3, 10.6, 31.1);
   const s = spwP(W, 30, 48, y); CITY.spots['spillway west park'] = [s[0], y, s[2], yawN]; CITY.spots['spillway intake'] = [90, 0, -30, Math.PI / 2];
+  // r136: THE CREST ROAD -- a pump track of rollers along its west half toward the chute, and THE RAINBOW: a rail arched
+  // across the chute's mouth, 3 m over the road, so the top of the world has a grind and a drop-in of its own
+  const Cy = SPW.crest.y, Cz = 144;
+  // (the centre facet's crest is only x +-42 wide at v 144 -- past the mitre the wing's crest curves north and z 144 is its face)
+  for (let x = -40; x <= -18; x += 7.3) kitPiece('roller', 'S', { x, y: Cy, z: Cz, yaw: Math.PI / 2 }, { len: 5, w: 4, h: 0.6 });
+  SPW.rainbow = kitPiece('rainbow', 'M', { x: -9.8, y: Cy, z: 147, yaw: Math.PI / 2 }, { len: 19.6, h: 3.0, rise: 0.8 });
+  SPW.crestRun = { x0: -48, x1: -12, z: Cz };
+  { const Wf = SPWF.W, q = spwP(Wf, 6, -4, 0); CITY.spots['spillway west lift'] = [q[0], 0, q[2], Math.atan2(Wf.nx, Wf.nz)]; }
 }
 // THE ART: his pack round the dam -- towers on the plaza, markets by the harbour, waterfalls off the crest's ends into the sea,
 // gardens and far islands over the reservoir, skyline clusters on rock islets in the sea
@@ -4097,7 +4105,7 @@ function spillwayWorld() {
     CITY.spots['spillway harbour'] = [0, SPW.prom.y, -88, Math.PI / 2];
     { const f = SPW.fish.foot; CITY.spots['spillway fish ladder'] = [f[0], 0, f[1], Math.atan2(SPWF.E.ux, SPWF.E.uz) + Math.PI]; }
     { const E = SPWF.E, p = spwP(E, E.L - 6, -4, 0); CITY.spots['spillway east lift'] = [p[0], 0, p[2], Math.atan2(E.nx, E.nz)]; }
-    SPW.go.push('spillway crest', 'spillway chute', 'spillway landing', 'spillway hall roof', 'spillway harbour', 'spillway plaza', 'spillway terrace 1', 'spillway terrace 2', 'spillway terrace 3', 'spillway fish ladder', 'spillway east lift', 'spillway street', 'spillway west park', 'spillway intake', 'spillway islands', 'spillway drain', 'spillway lighthouse', 'spillway lantern');
+    SPW.go.push('spillway crest', 'spillway chute', 'spillway landing', 'spillway hall roof', 'spillway harbour', 'spillway plaza', 'spillway terrace 1', 'spillway terrace 2', 'spillway terrace 3', 'spillway fish ladder', 'spillway east lift', 'spillway west lift', 'spillway street', 'spillway west park', 'spillway intake', 'spillway islands', 'spillway drain', 'spillway lighthouse', 'spillway lantern');
   } finally { Object.assign(KCOL, KC); for (const q in Tn) KSZ[q].tint = Tn[q]; }
   triBuild(); solidBuild();
   kitRailsDraw();

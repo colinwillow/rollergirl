@@ -6154,6 +6154,10 @@ CASES.spillway = async () => {
   // r135: WALL RIDES are on here (the risers are 12 m faces): ride at the second riser at an angle and she rides it, and comes down on the terrace
   { const v0 = T[1].v0; go(20, v0 - 14, 0.5, 14, T[0].y); let rode = 0, down = 0; const r = ride(5, () => { if (rode) { rg.stick.L.x = rg.stick.L.y = 0; } else { rg.cam.az = rg.cam.steerAz = 0.5; rg.stick.L.x = 0; rg.stick.L.y = -1; } if (P.wall) rode = 1; if (rode && on(T[0].y, 0.3)) down = 1; });
     say('a riser is a wall ride: at 14 m/s and 30 degrees into it she rides the face, then lands on the terrace', rode && down && !r.bail, `${rode ? 'rode it' : 'NEVER ON THE WALL'}, ${down ? 'back on the terrace' : 'ends ' + at()}${cl(r)}`); }
+  // r136: the crest's pump track and THE RAINBOW over the chute's mouth
+  { const R = S.crestRun; go(R.x0, R.z, Math.PI / 2, 8, S.crest.y); let far = 0; const r = ride(8, () => { if (far) { P.vel.set(0, 0, 0); return; } fwd(); if (P.pos.x > R.x1) far = 1; });
+    say('the crest road: over the rollers hands on, clean, still on the road', far && r.clean && on(S.crest.y, 0.9), `ends ${at()}${cl(r)}`); }
+  { const o = grindAll(S.rainbow.rails[0], 9, 8); say('THE RAINBOW: across the chute\'s mouth end to end', o.reached && !o.r.bail, o.reached ? 'end in ' + fix(o.tE, 1) + ' s' : 'CAME OFF at ' + o.off); }
   return ok;
 };
 
