@@ -100,6 +100,12 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE FULL SUITE FOUND TWO THINGS THE r142 CASES COULD NOT (r143).** A hub-ring building (r125) stood on the slice Nexus's top
+  platform -- `slice` had been red since r125, because r125 ran `hub`, `solid`, `inside` and `zfight` and not `slice` -- and the
+  ring now keeps the Nexus clear (`HRING.keep`). And `trail` failed only after `gun`: the speed-skate rows left `boostFx` on,
+  and `trailAmount` reads it. **A case must reset every latch it reads, and a district that dresses over another district's
+  ground needs that district's case run, not only its own.**
+
 - **THE DOUBLE JUMP AND THE WING PACK (r142, `JUMP2`, `jump2`, `WING`, `WG`, `wingSet`/`wingStart`/`wingEnd`/`wingFly`/`wingFrame`,
   `WINGROW`, `arcRow`, `npm run sim wing`).** *"A jetpack that's more like a wing -- two wings come out of her backpack, three segments
   each, a little jet on the end ... she flies forward like Superman ... continuously flying ... particles off the tips like airflow

@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r142</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r143</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -237,7 +237,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r142';
+const BUILD = 'r143';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -12114,7 +12114,10 @@ const HRING = { on: 1, front: 83.45, back: 95.4, gate: 13.5, end: 68.5, wMin: 9,
   posters: ['push', 'sameplanet', 'further', 'goodlines', 'flow', 'curiosity', 'humans'], built: [], skipped: [],
   // world boxes kept clear: the Acropolis hub run crosses the west bank at z 40-50 on its way down to the hub deck (it read
   // 12.7-14.2 m over x -86..-82 when probed against the first ring, through buildings 35 and 36)
-  keep: [{ name: 'acro hub run', x0: -100, x1: -78, z0: 30, z1: 64 }] };
+  keep: [{ name: 'acro hub run', x0: -100, x1: -78, z0: 30, z1: 64 },
+    // r142: and the slice's Nexus (`NEX`), which reaches over the west bank's deck: the ring's building at (-89, 18) stood on its top
+    // platform, and `npm run sim slice`'s "up the bank onto the top platform" had read a wall since r125
+    { name: 'slice nexus', x0: NEX.x0 - 1, x1: NEX.x1 + 1, z0: NEX.z0 - 1, z1: NEX.z1 + 1.5 }] };
 function hubRing() {
   if (!HRING.on || WORLD.zones) return;
   const H = PARK.wallR * (1 - Math.cos(PARK.wallSweep)), R = HRING, seed0 = _slseed; _slseed = 125001;

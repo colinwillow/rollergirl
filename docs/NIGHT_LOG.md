@@ -651,3 +651,9 @@ jump: the second tap in the air propels you upward and she does a flip."*
   tips. His model goes in later.
 - `npm run sim wing`: takeoff, cruise, turns both ways, climb and dive, levelling, the landing fold, folding in the air, the
   double jump and its limits, and jump -> double -> wings.
+
+## r143 -- the full suite green again
+
+- A hub-ring building (r125) stood on the slice Nexus's top platform at (-89, 18): riding up the bank there met a wall. The ring now
+  keeps the Nexus clear (`HRING.keep`). `npm run sim slice` had read it since r125.
+- `npm run sim trail` failed only in the full run: the blaster case's speed-skate rows left the boost's look on. Both cases tidy up.

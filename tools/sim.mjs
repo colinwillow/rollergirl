@@ -2891,7 +2891,7 @@ CASES.gun = () => {
   say('the speed skate stands down while the gun is out', !P.speedSk, `speedSk ${!!P.speedSk}`);
   GUN.out = 0; P.rUpT = 0; for (let i = 0; i < 40; i++) rg.speedStep(1 / 60); GUN.out = 1;
   say('...and comes back when it is put away', !!P.speedSk, `speedSk ${!!P.speedSk}`);
-  reset(); P.rUpT = 0; P.speedSk = 0;
+  reset(); P.rUpT = 0; P.speedSk = 0; P.boostFx = 0; P.boostT = 0;      // the speed skate keeps the boost's look alive -- leave none behind
   GUN.out = saveOut; GUN.failed = saveF; G.out = 0; if (G.mount) G.mount.removeFromParent(); G.group = null; G.mount = null; G.twB = []; G.tracks = null; G.twist = 0;
   girl.model = keep.model; girl.ready = keep.ready; girl.who = keep.who;
   return ok;
@@ -2964,7 +2964,7 @@ CASES.trail = () => {
   if (!(fin && c === 26 && wid(12) > 0.05 && wid(0) < wid(12) * 0.5 && col[12 * 8 + 3] > col[3])) ok = false;
   if (rg.trailBuild(hist, now, { x: 0, y: 2, z: -5 }, 0, pos, col) !== 0) { console.log('  drawn with nothing earned'); ok = false; }
   const keep = { g: P.grounded, v: P.vel.clone(), hs: P.hSpeed, f: P.flip };
-  const amt = (gr, hs, spin) => { P.grounded = gr; P.hSpeed = hs; P.flip = null; P.bailT = 0; rg.girl.yawRate = spin; return rg.trailAmount(); };
+  const amt = (gr, hs, spin) => { P.grounded = gr; P.hSpeed = hs; P.flip = null; P.bailT = 0; P.mel = null; P.dashT = 0; P.boostFx = 0; P.diveFx = 0; rg.girl.yawRate = spin; return rg.trailAmount(); };
   const a1 = amt(true, 5, 0), a2 = amt(true, 20, 0), a3 = amt(false, 4, 10), a4 = amt(false, 4, 0);
   console.log(`  earned: rolling 5 m/s ${fix(a1)}, 20 m/s ${fix(a2)}, spinning in the air ${fix(a3)}, still in the air ${fix(a4)}`);
   if (!(a1 < 0.01 && a2 > 0.99 && a3 > 0.99 && a4 < 0.01)) ok = false;
