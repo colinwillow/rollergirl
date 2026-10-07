@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r132</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r133</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r132';
+const BUILD = 'r133';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3614,7 +3614,7 @@ const SPW = { on: 1, built: 0, go: [], rails: [], paths: [], lifts: [], t: 0, g:
   // THE CHUTE: a 6 m flat, 3 m radius walls swept 80 deg, a 1.5 m deck on each wall; `cut` is the corridor cut out of the dam
   chute: { hw: 3, r: 3, sweep: 80, deck: 1.5, cut: 0, lead: 150, end: -30, kick: { h: 3.2, angle: 34, w: 6 }, lip: 6 },
   // the sluice gates: governed lanes down the chute (v ranges, speed, slack), the stilling basin before the kicker
-  gates: [[100, 84, 22, 3], [66, 50, 22, 3], [32, 16, 22, 3], [-6, -26, 20, 2]],
+  gates: [[104, 80, 22, 3], [70, 46, 22, 3], [36, 12, 22, 3], [-6, -26, 20, 2]],
   stair: { x: -40, x2: 40, w: 20, xl: -25.5 },      // the MEGA staircase: at x -40 up all three risers, and a second pair on the plaza at +40
   hall: { x0: 6, x1: 40, v0: -84, v1: -56, h: 10, win: [8, 16, 6, 10] },
   land: { x0: -20, x1: 6, v0: -56, h: 6, bank: 16, flat: 6 },
@@ -15572,7 +15572,7 @@ function hud(dt) {
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
-      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (!WORLD.zones && WPP.failed ? ' · NO WP PROPS' : '') + (WPT.on && WPT.failed && WORLD.zones !== 4 ? ' · NO WP TEX' + (WPT.n ? ' ' + WPT.n + '/6' : '') : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
+      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + ((!WORLD.zones || WORLD.zones === 5) && WPP.failed ? ' · NO WP PROPS' : '') + (WPT.on && WPT.failed && WORLD.zones !== 4 ? ' · NO WP TEX' + (WPT.n ? ' ' + WPT.n + '/6' : '') : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
       (HYD.failed ? ' · NO HYDRANT GLB' : '') + (performance.now() - (CITY.goAt || -1e9) < 3000 ? ' · → ' + CITY.goMsg : '') + (player.grind && player.grind.rail && player.grind.rail.path.name !== 'park' ? ' ' + player.grind.rail.path.name : '');
     if (gemsB) { gemsB.textContent = GEM.got; gemsN.textContent = GEM.list.length; } }
 }
@@ -16048,12 +16048,12 @@ tailLoad();
 // not need to be playable. The CITY and the GIRL are the two there is no game without.
 async function init() {
   setBoot(WORLD.zones === 5 ? 'building the spillway' : WORLD.zones === 4 ? 'loading weirdport city' : WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : WORLD.zones === 3 ? 'building sk8 sky' : 'building the park', 0.05);
-  if (!WORLD.zones) { setBoot('loading weirdport props', 0.04); await Promise.all([wppLoad(), wptLoad()]); }      // r127: before the park builds, so its props can be his
+  if (!WORLD.zones || WORLD.zones === 5) { setBoot('loading weirdport props', 0.04); await Promise.all([wppLoad(), wptLoad()]); }      // r127: before the park builds, so its props can be his (r133: the spillway too)
   else if (WORLD.zones !== 4) await wptLoad();      // r129: his painted surfaces, before anything asks `detailTex`
   if (WORLD.zones === 2 || (!WORLD.zones && PARKD.on)) await schematicLoad();      // r73: the park his schematic describes, built with the kit (r90: and the main world's park district)
   buildPark();
-  if (!WORLD.zones) { try { wppBuild(); } catch (e) { console.warn('[wpp] build', e); WPP.failed = 2; } }
-  if (!WORLD.zones) { try { decBuild(); } catch (e) { console.warn('[dec] build', e); } }      // r130
+  if (!WORLD.zones || WORLD.zones === 5) { try { wppBuild(); } catch (e) { console.warn('[wpp] build', e); WPP.failed = 2; } }
+  if (!WORLD.zones || WORLD.zones === 5) { try { decBuild(); } catch (e) { console.warn('[dec] build', e); } }      // r130
   // r64: HIS ZONES' COLLIDERS ARE STARTED NOW AND WAITED FOR BEFORE SHE DROPS IN -- there is no floor without them
   const zonesCol = WORLD.zones === 1 ? levelImports(LEVEL.zones) : WORLD.zones === 4 ? wpCityLoad() : null;
   if (WORLD.zones === 4) { SPAWN.set(WPC.spawn[0], WPC.spawn[1], WPC.spawn[2]); SPAWN.h = WPC.spawn[3]; CITY.spots['weirdport street'] = WPC.spawn.slice(); if (!LEVEL.go.includes('weirdport street')) LEVEL.go.unshift('weirdport street'); }

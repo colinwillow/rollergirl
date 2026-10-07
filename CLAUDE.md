@@ -132,6 +132,9 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
     block) -- find it by key.
   - **NOT VERIFIABLE HERE:** how any of it looks (46 art placements, two water planes, the neon, no GPU), and the chute's
     speed between gates (34 m/s against the 22 the gates hold inside them) is a phone decision.
+  - **r133: his props and decals dress it too** (`wppLoad`/`wppBuild`/`decBuild` run in world 5 as in world 0; both passes
+    are generic over the collider -- clutter at the foot of every tall box, decals on flat floor, tags on the risers), the
+    sluice gates are 24 m long (she still tops 33 on the face; the kicker takes her at 19), and the chip says `NO WP PROPS`.
 - **SHE COMES TO REST, A HELD BRAKE HOLDS, AND HER ROLLING POSE IS A RIDING FRAME (r131, `SK.creep/restV/restG`,
   `SK.brakeHold/brakeFlip`, `holdClip`, `MOVES.rollFrom`, `npm run sim rest`).** *"There's almost no way to stop her -- she's always
   slightly sliding ... if I just hold down she just goes the other way ... on an elevator she's always sliding around, there's no

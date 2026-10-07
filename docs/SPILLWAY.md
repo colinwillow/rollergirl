@@ -99,5 +99,6 @@ L1, L8 x3, L2, L3, the crest rail, the harbour ledge, the east lift, three pads,
 - The sluice gates hold the chute near 25 m/s only inside each gate; between gates she accelerates to ~34. A tuning
   decision for the phone: longer gates or a lower `gov` in `SPW.gates`.
 - The terrace street is one terrace of one wing; the other wing's terraces are bare apart from the staircase and the pads.
-- No weirdport props or decals on the plaza yet (`wppBuild` / `decBuild` run in world 0 only).
+- His weirdport props and decals run here as in world 0 (r133): clutter at the foot of every tall box, decals on flat
+  floor, tags on the risers -- unverified by eye like everything else.
 - The chute's walls are not wall-rideable (`WALL` is SK8 Sky only); they are quarter pipes.
