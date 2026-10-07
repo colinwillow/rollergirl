@@ -4389,6 +4389,35 @@ CASES.links = () => {
 // r104: THE DRAIN -- in off the street through the mouth and along the channel under the tunnel roof, dropped in off the
 // plateau, the half pipe pumped, up the bank onto the plateau, down the branch into its half bowl, and the tunnel's roof a
 // ceiling (a vert air under it does not come out through the top).
+CASES.blend = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const B = rg.BLEND; if (!B.dressed) { console.log('  the seams were not dressed'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT);
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; rg.GRIND.intent = 0; };
+  // the shader: what detailPatch splices in, run against a stand-in of three's chunks -- the uniforms are bound and the
+  // ground blend is in the fragment shader (a GL compile is not possible here; `glslangValidator` passed it offline)
+  { const m = rg.detailPatch(new THREE.MeshStandardMaterial()), sh = { uniforms: {}, vertexShader: '#include <begin_vertex>', fragmentShader: 'void main(){\n#include <map_fragment>\n#include <normal_fragment_maps>\n}' };
+    m.onBeforeCompile(sh, {}); const f = sh.fragmentShader, open = (f.match(/\{/g) || []).length, close = (f.match(/\}/g) || []).length;
+    say(`the ground blend: ${B.d.length} districts in the detail shader`, sh.uniforms.bD && sh.uniforms.bD.value.length === 16 && /uniform vec4 bD\[16\]/.test(f) && /bC\[i\] \* w_/.test(f) && open === close && rg.blendW(0, 0).length === B.d.length,
+      `${open} { against ${close} }, strength ${B.k}`); }
+  // the weights are each district's own at its centre: the gradient has its peaks where the districts are
+  { const bad = B.d.filter((q, i) => { const w = rg.blendW(q.x, q.z); return w.indexOf(Math.max(...w)) !== i; }); say('each district is its own colour at its centre', !bad.length, bad.map(q => q.key).join(', ') || `${B.d.length} of ${B.d.length}`); }
+  { const c = {}; for (const p of B.placed) c[p[2]] = (c[p[2]] || 0) + 1;
+    say(`${B.placed.length} props in the seams, ${B.spotList.length} seam spots`, B.placed.length > 100 && B.spotList.length >= 6 && Object.keys(c).length >= 5, JSON.stringify(c)); }
+  // nothing dressed where a stop or a pad stands, or on the steer run
+  { const bad = []; for (const [x, z] of [...B.placed, ...B.spotList.map(s => [s.x, s.z])]) { for (const [n, sp] of Object.entries(rg.CITY.spots)) if (Math.hypot(x - sp[0], z - sp[2]) < B.keep - 6) bad.push(`${n} ${fix(Math.hypot(x - sp[0], z - sp[2]), 1)} m`);
+      for (const L of rg.ORB.launch) if (Math.hypot(x - L.x, z - L.z) < 10) bad.push(`pad ${L.name || ''}`); }
+    say('nothing dressed on a ➤ stop or a launch pad', !bad.length, bad.slice(0, 4).join('; ') || 'clear'); }
+  // every seam spot skates: through it along its own axis, over the funbox, past the ledge and the bar
+  { const bad = []; for (const S of B.spotList) for (const lane of [0, 11]) { reset(); const fx = Math.sin(S.yaw), fz = Math.cos(S.yaw), rx = Math.cos(S.yaw), rz = -Math.sin(S.yaw);
+      place(S.x - fx * 14 + rx * lane, 0.3, S.z - fz * 14 + rz * lane, S.yaw, 10); let air = 0;     // (the spot is checked open 18 m round its middle)
+      const r = { bail: 0, deep: 0 }; let kq = 0; run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (process.env.BT && S === B.spotList[0] && kq++ % 6 === 0) console.log('    ', fix((P.pos.x - S.x) * fx + (P.pos.z - S.z) * fz, 2), fix(P.pos.y, 2), P.grounded ? 'G' : 'a', fix(P.speed, 1)); if (P.bailT > 0) r.bail = 1; if (!P.grounded) air = 1;
+        const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y); });
+      const past = (P.pos.x - S.x) * fx + (P.pos.z - S.z) * fz; if (r.bail || r.deep > 0.12 || past < 2) bad.push(`${S.key}@${fix(S.x, 0)},${fix(S.z, 0)} ${lane ? 'kicker' : 'funbox'}: ${r.bail ? 'BAIL ' : ''}${r.deep > 0.12 ? 'INSIDE ' + fix(r.deep) + ' ' : ''}past ${fix(past, 1)}`); }
+    say('every seam spot rolls through: over the funbox, off the kicker', !bad.length, bad.join('; ') || `${B.spotList.length} spots, both lanes`); }
+  return ok;
+};
 CASES.garage = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };

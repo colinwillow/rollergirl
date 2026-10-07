@@ -200,3 +200,25 @@ the **Table's top deck**: from there it's down into the pyramid valley and up th
 
 Measured: hands off at the first ramp's foot, the lane takes you up a level; following the route, up all five ramps
 onto the roof; the roof bowl wall to wall; the rail off the corner onto the Table.
+
+---
+
+## r108 — THE BLEND (every seam between districts)
+
+**Sim:** `node tools/sim.mjs blend` (5 rows) · **Panel:** `District colour blend`
+
+The districts stop being islands. Two layers, both reading one table of 14 district centres (`BLEND.d`: where each is,
+how far its culture reaches, its colour, its culture):
+
+- **THE GROUND DRIFTS.** Every flat floor in the world is tinted by a gaussian mix of the nearby districts' colours, in
+  the detail shader (`detailPatch`): lavender round the hub, mint toward the park, warm stone toward the Acropolis,
+  terracotta along the canal, steel by the Works and the Drain, rose round the Stack, gold out by the pyramids. It is a
+  HUE shift at constant brightness, so the textures and the lighting are untouched. Ramps and walls keep their own colour.
+- **THE SEAMS ARE DRESSED.** The ground between districts (not a district's own core, not the hub, not inside the park's
+  fence, not the lagoon) gets 106 props picked by the same weights, so walking from the Acropolis toward the canal the
+  cypresses and braziers thin out as the benches and planters thicken: greek, neon, canal, iron, tower, desert and alien.
+- **SEAM SPOTS.** Six little skate spots out in the gaps between districts (a funbox, a ledge, a flat bar and a kicker,
+  tinted in the local culture's colour), so crossing between areas has something on the way.
+
+Nothing is placed on a ➤ stop, a launch pad, a conveyor, the water, or the steer test's run, and every spot is ridden
+through both lanes in the sim.

@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r107</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r108</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r107';
+const BUILD = 'r108';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3530,6 +3530,7 @@ function buildPark() {
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
   buildSlice();      // r52: the slice -- one street of the painting built to a look, west through the west gate
+  buildBlend();      // r108: the seams between districts dressed by their mixed cultures, and skate spots in them
   triBuild();
   solidBuild();
   buildRails();      // AFTER the collider: each post is measured down to the ground under it
@@ -7592,6 +7593,29 @@ function sliceLayers() {
 // relief. Built once at load and shared by every material it patches.
 const DETAIL = { on: 1, k: 0.75, nrm: 0.6, floorT: 4.0, wallT: 3.0, paveT: 5.0 };
 const DETAIL_U = new THREE.Vector4(DETAIL.k, DETAIL.nrm, 1 / DETAIL.floorT, 1 / DETAIL.wallT), DETAIL_P = { value: 1 / DETAIL.paveT };
+// r108: THE BLEND -- *"blur the gradient between them, so you're always in one giant place; the culture changes as you move
+// across the map."* Every district has an influence: a centre, a reach, a ground colour and a culture. The ground's colour
+// drifts between them in the shader (`detailPatch`, ground-level up-facing fragments only, a normalised gaussian blend so
+// there is never a line), and `buildBlend` dresses the open ground between them with props mixed by the same weights.
+const BLEND = { on: 1, k: 0.34, cell: 12, p: 0.5, keep: 26, spots: 9, spotGap: 120,
+  clear: [[-300, -82, -125, -8]],     // kept bare: the run `npm run sim steer` measures the steering frame along (r106)
+  d: [{ key: 'hub', x: 0, z: 8, r: 70, col: 0xe6dcff, cult: 'neon' }, { key: 'park', x: -10, z: 175, r: 95, col: 0xc6f2e6, cult: 'neon' },
+      { key: 'acro', x: -205, z: 150, r: 100, col: 0xf6e2bc, cult: 'greek' }, { key: 'slice', x: -160, z: 0, r: 70, col: 0xf8cca8, cult: 'canal' },
+      { key: 'works', x: -295, z: 0, r: 60, col: 0xbcc4d2, cult: 'iron' }, { key: 'heights', x: -205, z: -150, r: 75, col: 0xc2d4f6, cult: 'tower' },
+      { key: 'launch', x: -215, z: -235, r: 60, col: 0xe2d0f8, cult: 'tower' }, { key: 'mothership', x: -150, z: -60, r: 55, col: 0xb6f6d2, cult: 'alien' },
+      { key: 'orbital', x: 0, z: -195, r: 105, col: 0xb8f0dc, cult: 'neon' }, { key: 'drain', x: 175, z: -245, r: 60, col: 0xcdd2dc, cult: 'iron' },
+      { key: 'stack', x: 230, z: -150, r: 85, col: 0xf8c4de, cult: 'tower' }, { key: 'shores', x: 215, z: 30, r: 115, col: 0xd6c6fa, cult: 'neon' },
+      { key: 'pyramids', x: 155, z: 250, r: 85, col: 0xf6d698, cult: 'desert' }, { key: 'garage', x: 255, z: 200, r: 42, col: 0xd2ccdc, cult: 'iron' }],
+  dressed: 0, spotList: [] };
+const BLEND_D = Array.from({ length: 16 }, () => new THREE.Vector4(0, 0, 1, 0)), BLEND_C = Array.from({ length: 16 }, () => new THREE.Vector3(1, 1, 1)), BLEND_K = new THREE.Vector2(0, 0);
+function blendSet() {
+  const n = Math.min(16, BLEND.d.length);
+  BLEND.d.slice(0, 16).forEach((q, i) => { BLEND_D[i].set(q.x, q.z, 1 / q.r, 0); const c = new THREE.Color(q.col); BLEND_C[i].set(c.r, c.g, c.b); });
+  BLEND_K.set(BLEND.on ? BLEND.k : 0, n);
+}
+blendSet();
+// the weights the shader uses, for anything in JS that wants the same answer (the dressing, the sim)
+function blendW(x, z) { return BLEND.d.map(q => { const dx = (x - q.x) / q.r, dz = (z - q.z) / q.r; return Math.exp(-(dx * dx + dz * dz)); }); }
 let DETAILTEX = null;
 function texMeanLum(t) {        // the mean LINEAR luminance of an sRGB DataTexture, so the shader can normalise by it
   const d = t.image.data, lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
@@ -7608,10 +7632,10 @@ function detailPatch(mat) {
   mat.userData.detail = 1;
   mat.onBeforeCompile = (sh, r) => {
     if (prev) prev.call(mat, sh, r);
-    Object.assign(sh.uniforms, { dF: { value: T.f.map }, dFN: { value: T.f.nrm }, dW: { value: T.w.map }, dWN: { value: T.w.nrm }, dP: { value: T.p.map }, dPN: { value: T.p.nrm }, dK: { value: DETAIL_U }, dPT: DETAIL_P, dM: { value: T.m } });
+    Object.assign(sh.uniforms, { dF: { value: T.f.map }, dFN: { value: T.f.nrm }, dW: { value: T.w.map }, dWN: { value: T.w.nrm }, dP: { value: T.p.map }, dPN: { value: T.p.nrm }, dK: { value: DETAIL_U }, dPT: DETAIL_P, dM: { value: T.m }, bD: { value: BLEND_D }, bC: { value: BLEND_C }, bK: { value: BLEND_K } });
     sh.vertexShader = 'varying vec3 vDW;\nvarying vec3 vDN;\n' + sh.vertexShader.replace('#include <begin_vertex>',
       '#include <begin_vertex>\n  vDW = (modelMatrix * vec4(transformed, 1.0)).xyz; vDN = normalize(mat3(modelMatrix) * objectNormal);');
-    sh.fragmentShader = 'uniform sampler2D dF, dFN, dW, dWN, dP, dPN;\nuniform vec4 dK;\nuniform float dPT;\nuniform vec3 dM;\nvarying vec3 vDW;\nvarying vec3 vDN;\n' + sh.fragmentShader
+    sh.fragmentShader = 'uniform sampler2D dF, dFN, dW, dWN, dP, dPN;\nuniform vec4 dK;\nuniform float dPT;\nuniform vec3 dM;\nuniform vec4 bD[16];\nuniform vec3 bC[16];\nuniform vec2 bK;\nvarying vec3 vDW;\nvarying vec3 vDN;\n' + sh.fragmentShader
       .replace('#include <map_fragment>', `#include <map_fragment>
   vec3 dn_ = normalize(vDN), aw_ = abs(dn_);
   float fl_ = smoothstep(0.5, 0.72, aw_.y), pv_ = smoothstep(0.965, 0.99, aw_.y), wx_ = aw_.x * aw_.x / max(aw_.x * aw_.x + aw_.z * aw_.z, 1e-4);
@@ -7621,6 +7645,12 @@ function detailPatch(mat) {
     const vec3 L = vec3(0.2126, 0.7152, 0.0722);
     float lum = mix(dot(cW, L) * dM.y, mix(dot(cF, L) * dM.x, dot(cP, L) * dM.z, pv_), fl_);
     diffuseColor.rgb *= mix(1.0, clamp(lum, 0.4, 1.6), dK.x);
+  }
+  if (bK.x > 0.001 && vDW.y < 0.8 && dn_.y > 0.9) {
+    vec3 bA_ = vec3(0.0); float bS_ = 0.0;
+    for (int i = 0; i < 16; i++) { if (float(i) >= bK.y) break; vec2 q_ = (vDW.xz - bD[i].xy) * bD[i].z; float w_ = exp(-dot(q_, q_)); bA_ += bC[i] * w_; bS_ += w_; }
+    if (bS_ > 0.001) { vec3 c_ = bA_ / bS_; float l_ = max(dot(c_, vec3(0.2126, 0.7152, 0.0722)), 0.05);
+      diffuseColor.rgb *= mix(vec3(1.0), c_ / l_, bK.x * smoothstep(0.02, 0.35, bS_)); }
   }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (dK.y > 0.001) {
@@ -9393,6 +9423,61 @@ function garageRails() {
     SLV((G.x0 + T.x) / 2, (y + T.h) / 2 + 2, (G.z1 + T.z) / 2 - 2), SLV(T.x + T.t + 4, T.h + 2.2, T.z - 4), SLV(T.x + T.t - 1.5, T.h + 0.95, T.z - 1.5)], false, 'centripetal');
   const n = Math.ceil(C.getLength() / 1.5);
   G.rail = railPath(C.getSpacedPoints(n), { name: 'garage rail', maxV: 22 }); railDraw(G.rail, { mat: 'orange', postMax: 14 }); gemsAlong(G.rail, 8, 0.9, 6);
+}
+// r108: THE SEAMS DRESSED. Every 12 m cell of open ground BETWEEN districts (no district's weight over `core`) may take a
+// small cluster of props, its culture drawn at random by the districts' own weights -- so walking from the Acropolis toward
+// the hub the cypresses thin out and the neon palms come in, and nowhere is there a line. A few cells with real room become
+// SEAM SPOTS: a funbox, a ledge, a flat bar and a kicker, so the ground between districts is street to skate, not plaza.
+// Run after the slice, with the collider built so far, so "open" is asked of the real ground; `buildPark` builds it again.
+function buildBlend() {
+  if (!BLEND.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 10808;
+  triBuild(); solidBuild();
+  const B = BLEND, C = B.cell, rnd = () => slr(), core = 0.6;
+  const keep = [...Object.values(CITY.spots).map(s => [s[0], s[2], B.keep]), ...ORB.launch.map(L => [L.x, L.z, 16])];
+  const kept = (x, z, m) => keep.some(([kx, kz, r]) => Math.hypot(x - kx, z - kz) < r + (m || 0)) || B.clear.some(([x0, z0, x1, z1]) => x > x0 - (m || 0) && x < x1 + (m || 0) && z > z0 - (m || 0) && z < z1 + (m || 0));
+  const flat = (x, z) => { const g = groundAt(x, z, 1.5, 0); if (!g.hit || Math.abs(g.floor) > 0.06 || g.ny < 0.995) return false; for (const y of [0.5, 2, 4.5]) if (solidAt(x, y, z, 0.4)) return false; return !laneAt(x, 0.1, z) && !inWater(x, 0.05, z); };     // not a conveyor, and not the lagoon (its bed is at grade)
+  const open = (x, z, r) => { for (let dx = -r; dx <= r + 1e-6; dx += 3) for (let dz = -r; dz <= r + 1e-6; dz += 3) if (dx * dx + dz * dz <= r * r + 1 && !flat(x + dx, z + dz)) return false; return true; };
+  const pick = (x, z) => { const w = blendW(x, z), s = w.reduce((a, b) => a + b, 0); if (s < 1e-4) return null; let u = rnd() * s; for (let i = 0; i < w.length; i++) { u -= w[i]; if (u <= 0) return B.d[i]; } return B.d[B.d.length - 1]; };
+  const box = (x, z, h, y1) => solidAdd(x, z, h, h, 0, y1, 0, { tag: 'seam prop', top: false });
+  const P = { neon: [0x7ff7ff, 0xff8ad8, 0xc9a2ff], greek: [0xf4e8d2], desert: [0xffb86a], alien: [0x7dffb0, 0xb98bff] };
+  const prop = (q, x, z) => { const c = q.cult, r = rnd();
+    if (c === 'greek') { if (r < 0.5) acCypress(x, 0, z, 6 + rnd() * 3); else if (r < 0.8) acColumn(x, 0, z, 2 + rnd() * 4, 0.5); else acBrazier(x, 0, z); }
+    else if (c === 'neon') { if (r < 0.45) { slPlanter(x, 0, z, 1.8, 1.8, 0.6); slPalm(x, 0.6, z, 4.5 + rnd() * 2, P.neon[(rnd() * 3) | 0]); } else if (r < 0.8) slLamp(x, 0, z); else { slShroom(x, 0, z, 1.6 + rnd(), P.neon[(rnd() * 3) | 0]); box(x, z, 0.3, 1.4); } }
+    else if (c === 'canal') { if (r < 0.4) { slBench(x, 0, z, ((rnd() * 4) | 0) * Math.PI / 2); slLamp(x + 2.2, 0, z); } else { slPlanter(x, 0, z, 2.2, 1.2, 0.7); slLamp(x, 0, z + 2); } }
+    else if (c === 'iron') { if (r < 0.5) { for (let i = 0; i < 3; i++) { const cx = x + (rnd() - 0.5) * 2.4, cz = z + (rnd() - 0.5) * 2.4, sz = 0.7 + rnd() * 0.5; slCrate(cx, 0, cz, sz, rnd() * 3); box(cx, cz, sz * 0.5, sz); } } else { slBollard(x, 0, z); slBollard(x + 1.6, 0, z); slCone(x, 0, z + 1.6); slLamp(x - 1.8, 0, z); } }
+    else if (c === 'tower') { if (r < 0.5) slLamp(x, 0, z); else { slPlanter(x, 0, z, 1.6, 1.6, 0.6); slPalm(x, 0.6, z, 4 + rnd() * 2, 0xc9a2ff); } }
+    else if (c === 'desert') { if (r < 0.55) { slPlanter(x, 0, z, 1.6, 1.6, 0.5); slPalm(x, 0.5, z, 5 + rnd() * 2.5, P.desert[0], (rnd() - 0.5) * 0.3); } else acBrazier(x, 0, z); }
+    else if (c === 'alien') { for (let i = 0; i < 3; i++) { const cx = x + (rnd() - 0.5) * 3, cz = z + (rnd() - 0.5) * 3, h = 1.2 + rnd() * 2.2;
+        slGeo('neon', new THREE.ConeGeometry(0.35 + rnd() * 0.2, h, 5), slMat(cx, h / 2, cz, rnd() * 3), { tint: P.alien[(rnd() * 2) | 0] }); box(cx, cz, 0.3, h); } slGlow(x, 1.2, z, 3.5, 0x7dffb0, 0.5); }
+    B.placed.push([x, z, c]); };
+  B.placed = []; B.spotList = [];
+  const pb = SHEET.floor ? [Math.min(...SHEET.floor.map(p => p[0])), Math.max(...SHEET.floor.map(p => p[0])), Math.min(...SHEET.floor.map(p => p[1])), Math.max(...SHEET.floor.map(p => p[1]))] : null;
+  // TWO PASSES over the same jittered cells: the SPOTS first, so no prop is already standing in one's lanes
+  const cells = [];
+  for (let x = -324 + C / 2; x < 324; x += C) for (let z = -324 + C / 2; z < 324; z += C) {
+    if (Math.hypot(x, z) > 318 || (Math.abs(x) < 95 && Math.abs(z) < 95)) continue;     // inside the world's edge; never inside the hub
+    if (Math.max(...blendW(x, z)) > core) continue;                                       // the seams only, not a district's own ground
+    if (pb && x > pb[0] - 8 && x < pb[1] + 8 && z > pb[2] - 8 && z < pb[3] + 8) continue;     // inside the park's fence is his drawing's alone
+    cells.push([x + (rnd() - 0.5) * 6, z + (rnd() - 0.5) * 6]); }
+  // 18 m open: room for the run-ups; |x|,|z| < 285 keeps them clear of the world's edge bank
+  for (const [jx, jz] of cells)
+    if (B.spotList.length < B.spots && Math.abs(jx) < 285 && Math.abs(jz) < 285 && !kept(jx, jz, 12) && !B.spotList.some(s => Math.hypot(s.x - jx, s.z - jz) < B.spotGap) && open(jx, jz, 18)) seamSpot(jx, jz, pick(jx, jz));
+  for (const [jx, jz] of cells) {
+    if (rnd() > B.p || kept(jx, jz, 0) || B.spotList.some(s => Math.hypot(s.x - jx, s.z - jz) < 26) || !open(jx, jz, 3.5)) continue;
+    const q = pick(jx, jz); if (q) prop(q, jx, jz); }
+  B.dressed = B.placed.length;
+}
+// a seam spot: four kit pieces round (x, z) in three lanes -- funbox up the middle, ledge and bar either side, a kicker
+// out on its own -- turned a random quarter, in the culture's palette
+function seamSpot(x, z, q) {
+  const yaw = ((slr() * 4) | 0) * Math.PI / 2, T = (u, w, dy) => { const f = [Math.sin(yaw), Math.cos(yaw)], r = [Math.cos(yaw), -Math.sin(yaw)]; return { x: x + f[0] * u + r[0] * w, y: 0, z: z + f[1] * u + r[1] * w, yaw: yaw + (dy || 0) }; };
+  const K2 = { ...KCOL }, tint = KSZ.S.tint; Object.assign(KCOL, PARKD.pal.kcol); KSZ.S.tint = q ? q.col : tint;
+  try { kitPiece('frustum', 'S', T(-2, 0), { len: 4, w: 4 }); kitPiece('ledge', 'S', T(-5, 6), { h: 0.5, len: 10, w: 1.2 }); kitPiece('rail', 'S', T(-5, -6), { h: 0.9, len: 10 });
+        kitPiece('kicker', 'S', T(-7, 11), { h: 0.9, angle: 28, w: 3 }); }     // in its own lane: lined up on the funbox it threw her into its face
+  finally { Object.assign(KCOL, K2); KSZ.S.tint = tint; }
+  for (const u of [-9, 9]) { const L = T(u, -12); slLamp(L.x, 0, L.z); }     // in the spot's own frame, off all three lanes
+  BLEND.spotList.push({ x, z, yaw, cult: q ? q.cult : null, key: q ? q.key : null });
 }
 function hubDress() {
   if (!HUB.on) return;
@@ -13067,6 +13152,7 @@ function frame() {
   if (WORLD.zones !== WORLD.at) { WORLD.at = WORLD.zones; try { localStorage.setItem('rg.world', String(Math.round(WORLD.zones))); } catch (e) {} }
   if (LOOK.bright) { renderer.toneMappingExposure = LOOK.exposure; scene.environmentIntensity = LOOK.envI; scene.backgroundIntensity = LOOK.bgI; }
   DETAIL_U.set(DETAIL.k, DETAIL.nrm, 1 / DETAIL.floorT, 1 / DETAIL.wallT); DETAIL_P.value = 1 / DETAIL.paveT;
+  BLEND_K.x = BLEND.on ? BLEND.k : 0;     // r108: the ground blend, live on the panel
   if (window.__shotCam) window.__shotCam(camera);     // tools/shot.mjs: a fixed lens for a screenshot
   renderer.render(scene, camera);
 }
@@ -13275,6 +13361,7 @@ const TAILUI = [
   ['DETAIL.nrm',     'Surface relief',  0, 1.5, 0.05, ''],
   ['DETAIL.floorT',  'Ramp texture size', 1, 12, 0.25, 'm'],
   ['DETAIL.paveT',   'Paving size (a slab is a quarter)', 1, 12, 0.25, 'm'],
+  ['BLEND.k',        'District colour blend', 0, 1, 0.02, ''],
   ['DETAIL.wallT',   'Wall texture size', 1, 12, 0.25, 'm'],
   ['Air turning (r55)', ''],
   ['AIR.aim',        'Stick points her (0 = spin rate)', 0, 1, 1, ''],
@@ -13323,7 +13410,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL };
+const UIOBJ = { WORLD, LEVEL, SCORE, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };
@@ -13495,7 +13582,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

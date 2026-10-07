@@ -94,6 +94,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE BLEND: ONE TABLE OF DISTRICT CENTRES DRIVES THE GROUND TINT AND THE SEAM DRESSING (r108, `BLEND`, `blendW`,
+  `blendSet`, `buildBlend`, `seamSpot`, `npm run sim blend`).** *"Blur the gradient between them so you're always in one
+  giant place -- the culture changes as you move across the map."* `BLEND.d` is 14 districts `{x, z, r, col, cult}`.
+  - **THE TINT IS IN `detailPatch`**, flat floors only (`dn_.y > 0.9`, under 0.8 m), a gaussian mix of `bC` weighted by
+    `exp(-|p - c|^2 / r^2)`, normalised to the mix's own luminance so it moves HUE not brightness. 16 uniform slots; a 17th
+    district needs the array grown in both the JS and the GLSL. `BLEND_K.x` is pushed every frame (the panel row).
+    No GL compile is possible here; the snippet was checked with `glslangValidator` offline.
+  - **THE DRESSING IS TWO PASSES OVER ONE SET OF JITTERED CELLS, SPOTS FIRST.** In one pass, a prop placed earlier in grid
+    order stood in a later spot's kicker lane (an acro column at u 0, w 11) and the ride test stopped dead.
+  - **`flat` REFUSES THE LAGOON**: its bed is at grade, so "flat ground at 0" was true under Shores' water; a spot's
+    run-up went in and the splash put her back 95 m away (read as `past -95.3`), and ~35 props stood in the water.
+  - **INSIDE THE PARK'S FENCE IS HIS DRAWING'S ALONE**: the bbox of `SHEET.floor` (+8 m) is skipped, or `parkd`'s "nothing
+    else stands in the district" fails. `SHEET.x0..z1` are the KIT world's defaults; take the bounds off `SHEET.floor`.
+  - Kept clear: every `CITY.spots` within `keep`, launch pads, conveyors, `BLEND.clear` (the steer run, r106).
+  - A spot's pieces span u -14..+14 and w -12..+12, so a spot needs `open(18)` and |x|,|z| < 285 (the world's edge bank).
+
 - **THE GARAGE (r107, `GAR`, `buildGarage`, `garageRails`, `npm run sim garage`).** NE field, x 239..271 z 184..216. Five
   slabs every 7 m, a ramp per level up alternating columns (even east going north, odd west going south), each a lane in
   `ORB.lanes` (conveyor, governed). A slab is four boxes round a HOLE over the top of the ramp coming up through it, cut
