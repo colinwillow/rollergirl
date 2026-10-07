@@ -94,6 +94,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE ORB TOWER: A COASTER THAT STARTS AND ENDS ON ITS OWN DECK, AND A BRAKE RUN IS A PLAIN RAIL WITH DRAG (r118, `ORT`,
+  `buildOrbTower`, `orbTowerRails`, `npm run sim orbtower`).** NE field (238, 252), deck 40 m, lift, an orb with turning rings
+  (`ORB.anim`). The loop is ONE booster path with `ups` (out south, a 9 m vertical loop shifted 3 m sideways, a U-turn east,
+  north) joined end to end (`railLink`) to `orb brake`, a non-boost path with `drag` 0.7 -- speed falls LINEARLY with
+  distance on a decaying rail (`dv/ds = -k`), so 14 m of it takes 15.7 m/s to 6.6 and she lands on the deck at a walk.
+  - **Open ground is the scarce thing**: `open2.mjs`-style scans found r 16 at best, and (50, 20) in the hub sits in the
+    donut dunk's swath. A ride that never touches the ground needs only AIRSPACE, which is plentiful; the case checks
+    `solidAt` over every rail point.
+  - **No wire fits the Great Pyramid's top**: it is 10 m across and already holds the obelisk drop's end and four hip
+    rails (a wire end must be 5 m from all of them). A deck PAD throws her there instead (`shPad` at deck height, landing
+    3 m east of the middle at `landV` 5) -- and the case checks she is still on the top ONE second later, not three: she
+    rolls off a 10 m top after that, and steering is the player's.
+  - **The cannons case's `run(14, ...)` keeps stepping her after it has landed** (`run` has no stop): the orbtower row
+    breaks its own loop on landing. A big deck hid that for the cannons; a small one would not.
+
 - **A BRANCH ON THE SEGMENT SHE JUST ENTERED WAS NEVER ASKED ABOUT (fixed r117, `stepGrind`'s `branch`), AND A BRANCH
   BEHIND HER CAN NEVER BE (`RAILNET.minDot`) (r117, the web: high line -> saucer C, sky rail -> saucer A, `npm run sim wires`).**
   - The branch test only looked at the segment she STARTED the frame on. At booster speed (22 m/s, ~0.37 m a frame) she

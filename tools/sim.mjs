@@ -4529,6 +4529,63 @@ CASES.saucers = () => {
     say('saucer c: over the volcano', top > Q.y + 1.5 && lo > Q.y - 0.5, `up to ${fix(top - Q.y, 1)} m, ends ${at(P.pos)}`); }
   return ok;
 };
+// r118: THE ORB TOWER -- the lift up, the deck holds her, a tap from the stop puts her on the loop, the coaster's line runs
+// through clear air the whole way, she goes upside down round the loop (her up at its centre), and the brake run sets her
+// down on the deck slowly and she stays there; plus the wires that tie the deck to the network.
+CASES.orbtower = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const T = rg.ORT; if (!T.built) { console.log('  no orb tower'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT), wa = a => Math.atan2(Math.sin(a), Math.cos(a)), C = T.coast;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; P.thrown = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; P.beamOff = 0; rg.GRIND.intent = 0; };
+  const L1 = C.rail.segs.reduce((a, s) => a + s.len, 0), L2 = C.brakeR.segs.reduce((a, s) => a + s.len, 0);
+  say('the orb tower', true, `deck ${T.y} m r ${T.r}, lift at ${fix(T.la * 57.3, 0)} deg; loop ${fix(L1, 0)} m + brake ${fix(L2, 0)} m, loop top ${fix(Math.max(...C.pts.map(p => p.y)), 1)}`);
+  // THE PAD: rolled onto from its stop, thrown onto the Great Pyramid's top, and still on it a second later
+  if (T.padL) { reset(); T.padL.cool = 0; const sp = rg.CITY.spots['orb tower pad'], tg = T.padT; place(sp[0], T.y + 0.3, sp[2], sp[3], 3); P.pos.y = T.y;
+    let up = 0, land = null, top = 0, bail = 0;
+    for (let i = 0; i < 14 / DT && !land; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); if (P.pos.y > T.y + 1) up = 1; top = Math.max(top, P.pos.y); if (P.bailT > 0) bail = 1; if (up && P.grounded) land = P.pos.clone(); }
+    let stay = null; if (land) { run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); stay = P.pos.clone(); }     // (a 10 m top: a second later she is still on it -- after that, steering is the player's)
+    const there = land && Math.abs(land.y - (tg[1] - 0.6)) < 0.35 && Math.hypot(land.x - tg[0], land.z - tg[2]) < 8;
+    say('the pad: thrown onto the Great Pyramid\'s top, and stays', there && !bail && stay && stay.y > tg[1] - 3, `${up ? 'thrown' : 'NEVER THROWN'} (${T.padL.clear === 'lift' ? 'a lift' : T.padL.clear === -1 ? 'NO CLEAR ARC' : '+' + T.padL.clear + ' m'}), top ${fix(top, 1)}, ${land ? 'down at ' + at(land) : 'never down'}, 1 s later ${stay ? at(stay) : '-'}${bail ? ' BAIL' : ''}`); }
+  else say('the pad', false, 'not built');
+  // clear air along the whole line (her body over each point), and nothing to stand on just over her
+  { const bad = []; for (const P0 of [C.rail, C.brakeR]) for (const s of P0.segs) { const q = s.a, u = s.ua || new THREE.Vector3(0, 1, 0);
+      for (const d of [0.5, 1.2]) { const x = q.x + u.x * d, y = q.y + u.y * d, z = q.z + u.z * d, b = rg.solidAt(x, y, z, 0.3); if (b) bad.push(`${b.tag} at ${at(q)}`); } }
+    say('the coaster runs through clear air', !bad.length, bad.slice(0, 4).join('; ') || `${C.rail.segs.length + C.brakeR.segs.length} points`); }
+  // THE LIFT
+  { reset(); const Lf = T.lift; let t0 = -1; for (let t = 0; t < 400; t += 0.1) { if (Lf.fn(t)[1] < 0.3 && Lf.fn(t + 0.6)[1] < 0.3 && Lf.fn(t + 2)[1] < 0.3) { t0 = t; break; } }
+    rg.HT.t = t0; rg.stepCity(0); place(T.lx, 0.6, T.lz, T.la + Math.PI, 0); P.pos.y = 0.25;
+    let top = 0, on = 0; for (let i = 0; i < 40 / DT && !on; i++) { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.stepPlayer(DT); top = Math.max(top, P.pos.y); if (P.pos.y > T.y - 0.4) on = i * DT; }
+    if (on) { run(0.6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); rg.cam.az = T.la + Math.PI; run(1.0, () => { rg.stick.L.x = 0; rg.stick.L.y = -0.8; city(); }); run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); }
+    const r = Math.hypot(P.pos.x - T.x, P.pos.z - T.z);
+    say('the lift up from the street, and off onto the deck', on && Math.abs(P.pos.y - T.y) < 0.3 && r < T.r - 0.5, `${on ? 'up at ' + fix(on, 1) + ' s' : 'NEVER UP (top ' + fix(top, 1) + ')'}, ends ${at(P.pos)} (r ${fix(r, 1)})`); }
+  // HANDS OFF across the deck: the parapet keeps her on (the pad held off -- rolling over it is a throw, tested above)
+  if (T.padL) T.padL.cool = 1e9;
+  { const fell = []; let n = 0;
+    for (let k = 0; k < 8; k++) { const h = k * Math.PI / 4; if (Math.abs(wa(h - T.la)) < 0.8) continue; reset();
+      let px = null, pz; for (const f of [0.35, 0.55]) { const qx = T.x - Math.sin(h) * T.r * f, qz = T.z - Math.cos(h) * T.r * f, g = rg.groundAt(qx, qz, T.y + 1, 0); if (g.hit && Math.abs(g.floor - T.y) < 0.05 && !rg.solidAt(qx, T.y + 0.8, qz, 0.5)) { px = qx; pz = qz; break; } }
+      if (px === null) continue;
+      place(px, T.y + 0.3, pz, h, 10); P.pos.y = T.y; n++; let lo = 1e9; run(5, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); lo = Math.min(lo, P.pos.y); });
+      if (lo < T.y - 0.5) fell.push(`${fix(h * 57.3, 0)} deg -> ${at(P.pos)}`); }
+    say(`hands off at 10 m/s across the deck, ${n} ways, she stays on`, !fell.length && n >= 4, fell.join('; ') || 'stayed on'); }
+  if (T.padL) T.padL.cool = 0;
+  // a tap from the ➤ stop: onto the loop
+  { reset(); rg.goSpot('orb tower'); const sp = rg.CITY.spots['orb tower']; place(sp[0], T.y + 0.3, sp[2], sp[3], 3); P.pos.y = T.y;
+    run(0.2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); }); P.jump = 1; let on = 0; run(2, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === C.rail) on = 1; });
+    say('a tap from the stop: onto the loop', on, on ? 'hopped on' : `missed it, ends ${at(P.pos)}`); }
+  // THE RIDE: all the way round, upside down at the loop's top, through the brake, set down on the deck
+  { reset(); place(T.x, T.y + 0.3, T.z - 3, Math.PI, 0); P.pos.y = T.y; rg.enterGrind({ rail: C.rail.segs[0], t: 0.05, dir: 1, s: 6, side: 'left' });
+    let minUp = 1, worstC = 0, loopF = 0, brake = 0, vIn = 0, land = null, vLand = 0, slow = 99; const u = new THREE.Vector3(), cyy = C.hy + C.R;
+    run(30, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); rg.bodyAlign(DT);
+      if (P.grind) { u.set(0, 1, 0).applyQuaternion(P.bq); if (P.grind.rail.path === C.rail) { minUp = Math.min(minUp, u.y); slow = Math.min(slow, P.grind.s);
+          const dy = cyy - P.pos.y, dz = C.entry - P.pos.z, d = Math.hypot(dy, dz); if (P.pos.y > C.hy + 0.6 && d > 4 && Math.abs(P.pos.x - T.x - C.shift / 2) < 3) { loopF++; worstC = Math.max(worstC, Math.acos(Math.max(-1, Math.min(1, (u.y * dy + u.z * dz) / d))) * 57.3); } }
+        if (P.grind.rail.path === C.brakeR && !brake) { brake = 1; vIn = P.grind.s; } }
+      else if (brake && !land && P.grounded) { land = P.pos.clone(); vLand = P.speed; } });
+    const r = Math.hypot(P.pos.x - T.x, P.pos.z - T.z);
+    say('round the loop, upside down, her up at its centre', minUp < -0.9 && loopF > 10 && worstC < 14, `up reached y ${fix(minUp)}, ${fix(worstC, 1)} deg worst off the centre over ${loopF} frames, slowest ${fix(slow, 1)} m/s`);
+    say('the brake run sets her down on the deck slowly, and she stays', brake && land && Math.abs(land.y - T.y) < 0.3 && vLand < 9 && Math.abs(P.pos.y - T.y) < 0.3 && r < T.r, `${brake ? 'brake at ' + fix(vIn, 1) + ' m/s' : 'NEVER BRAKED'}, ${land ? 'down at ' + at(land) + ' doing ' + fix(vLand, 1) : 'never down'}, ends ${at(P.pos)} (r ${fix(r, 1)})`); }
+  return ok;
+};
 // r113: THE AIR -- standing in a district for a while, the fog, the sky light and the rim lamp come round to its colour;
 // back at the hub they go back; with it off they are the plain sky's.
 CASES.atmo = () => {

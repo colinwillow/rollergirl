@@ -422,3 +422,18 @@ the next rail segment was skipped and could never be taken. Branches are now che
 your direction of travel can never be picked. Ride it south-east.)
 
 Saucer C's lift moved to its west side and its volcano east of the middle, so its wires leave from the flat west half.
+
+## r118 — THE ORB TOWER (and its loop)
+
+From the second reference sheet ("main plaza: tower with a glowing orb and rings", "loop tower: a giant vertical loop beside
+a tower"). One tower in the open NE field, under the sky rail, between the Garage and the Table pyramid (238, 252):
+
+- **The tower**: a 40 m deck (r 9, parapet all round) on a tapering neon-banded shaft, with a **lift** up its north side.
+- **The orb**: a glowing ball on a mast 11 m over the deck, three rings turning round it on different axes.
+- **The loop**: hop onto the flat rail beside the ➤ stop (`orb tower`). It's a booster coaster out south, round a **9 m
+  vertical loop** (59 m up at the top), a U-turn east, back north, and in over the deck's east edge through a **brake run**
+  (the orange rail) that sets you down on the deck at a walking pace. It never touches the ground.
+- **The pad**: on the deck's west side (`orb tower pad`). Roll over it and it throws you 108 m west onto the **Great
+  Pyramid's top**, and from there onto the Northway.
+
+➤ stops: `orb tower`, `orb tower lift`, `orb tower pad`.
