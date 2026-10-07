@@ -77,3 +77,24 @@ knocks you off (the Heights' rule, on the same machinery).
 
 **Getting off is a tap**, and the station decks are long on purpose: off a booster at 24 m/s a tap
 carries her twenty-odd metres before she is down, so a deck shorter than that is a 70 m fall.
+
+---
+
+## r102 — THE MOTHERSHIP (120 m over the open ground between the hub and the Heights)
+
+**➤ stops:** `mothership beam` (its foot, on the street), `mothership` (in the dish)
+**Sim:** `node tools/sim.mjs ufo` (8 rows)
+
+A saucer 64 m across hanging at **120 m** over (-150, -60). Its whole top is a **dish**: a bowl XL
+(floor 44 m across, 4.8 m walls), a volcano in the middle, a deck ring, and a rim wall with a
+**grind ring** on it.
+
+**THE TRACTOR BEAM** is the way up and the way down. A column of green light from the street
+(foot at -125, -85) to a porch sticking out of the rim: skate into its foot and it carries you up
+the side of the ship and puts you down on the porch. Roll off the porch's end into it and it lets
+you down gently — 9 m/s the whole 120 m, no bail. (It will not lift you straight back up after
+riding it down until you step out of it.)
+
+**THREE SCOUTS**: small saucers circling lower (34, 46 and 28 m) over Orbital, the hub's east side
+and the park, each dragging its own beam. Skate under one and it lifts you onto its back, and it
+carries you round until you jump. Over a roof the roof is in the way — catch them over open street.

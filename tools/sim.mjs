@@ -3801,6 +3801,8 @@ CASES.parkd = async () => {
   const K = JSON.parse(fs.readFileSync(tmp, 'utf8'));
   const A = K.pieces.slice().sort(), B = D.pieces.map(parkSig).sort();
   say('every piece the kit world builds, built here', A.length === B.length && A.join('|') === B.join('|'), `${B.length} here, ${A.length} there` + (A.join('|') === B.join('|') ? '' : ` -- first difference: ${A.find((x, i) => x !== B[i])}`));
+  // r102: the moving floors (the scout saucers circle over the park at 28 m) are not the park's -- sampled with them out of the way
+  const dynKeep = rg.DYN.list.slice(); rg.DYN.list.length = 0;
   const gf = (x, z, y) => { const q = rg.groundAt(x, z, y, 0); return q.hit ? q.floor : null; }, so = (x, y, z) => rg.solidAt(x, y, z, 0) ? 1 : 0;
   const near1 = (a, b) => a == null || b == null ? (a === b ? 0 : 99) : Math.abs(a - b), NUDGE = [[0.02, 0], [-0.02, 0], [0, 0.02], [0, -0.02]];
   let n = 0, fb = 0, lb = 0, sb = 0, worst = 0, sunk = 0; const offs = [];
@@ -3842,6 +3844,7 @@ CASES.parkd = async () => {
       const rr = Math.hypot(Math.max(0, Math.abs(x) - rg.PARK.S), Math.max(0, z - rg.PARK.S)); if (rr < rg.PARK.apronU + 0.5 || rr > rg.PARK.apronEnd - 0.5) continue;
       k++; const f = gf(x, z, 0.5); if (f == null || Math.abs(f) > 0.01) { if (!rg.SOLID.all.some(b => Math.abs(b.cx - x) < b.hx + b.hz + 1 && Math.abs(b.cz - z) < b.hx + b.hz + 1)) miss++; } }
     say('  the north apron round it is still floor', k > 500 && !miss, `${k} points, ${miss} without a floor at 0`); }
+  rg.DYN.list.push(...dynKeep);
   // THE DRESSING (`parkDress`): the gateway, the shop row behind the north fence -- and the street between them still rides
   { const tag = t => rg.SOLID.all.filter(b => b.tag === t);
     const gate = tag('park gate').length, row = tag('slice bld').filter(b => b.cz > 250).length;
@@ -4374,6 +4377,52 @@ CASES.links = () => {
 // r101: THE SKY RAIL -- one booster rail round the whole world, 60 to 91 m up. Its numbers (length, grade, pylons), nothing
 // solid on the line but the places it is meant to run along, a lap hands-off past all four stations, getting ON at each
 // (the swipe down) and OFF at each (a tap pops her onto the deck), both lifts from the street, and a train knocking her off.
+// r102: THE MOTHERSHIP -- the beam up from the street onto its porch, the dish ridden, rolled off the porch into the beam and
+// let down 120 m with no bail, the rim ring ground, and a scout saucer's beam lifting her onto its back and carrying her.
+CASES.ufo = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const U = rg.UFO; if (!U.built || !U.beam) { console.log('  the mothership was not built'); return false; }
+  const at = p => `${fix(p.x, 1)},${fix(p.y, 2)},${fix(p.z, 1)}`, city = () => rg.stepCity(DT);
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; P.beamUp = 0; };
+  const onShip = p => Math.hypot(p.x - U.x, p.z - U.z) < U.R + U.porch + 0.5 && p.y > U.floorY - 0.2;
+  say(`dish r ${U.rc} at ${U.floorY}, deck ${U.y}, ${U.list.length} scouts, beam at ${fix(U.bx, 0)},${fix(U.bz, 0)}`, U.list.length === 3 && !!U.bowl && !!U.volcano, '');
+  { const bad = []; for (const [nm, x, z, y] of [['dish floor', U.x + 12, U.z, U.floorY], ['deck ring', U.x + (U.R - 0.7), U.z, U.y], ['porch', U.x + (U.R + 2.5) * Math.sin(U.beamA), U.z + (U.R + 2.5) * Math.cos(U.beamA), U.y]]) {
+      const g = rg.groundAt(x, z, y + 0.5, 0); if (!g.hit || Math.abs(g.floor - y) > 0.06) bad.push(`${nm} ${g.hit ? fix(g.floor) : '-'} vs ${y}`); }
+    say('the dish floor, its deck ring and the porch are floors', !bad.length, bad.join('; ') || 'all three'); }
+  { const bad = []; for (const n of U.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every mothership ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${U.stops.length} stops`); }
+  // UP: skate into the beam's foot from the street
+  { reset(); const h = U.beamA + Math.PI; place(U.bx + 8 * Math.sin(U.beamA), 0.3, U.bz + 8 * Math.cos(U.beamA), h, 5); let down = null, top = 0, air = 0, bail = 0;
+    run(14, () => { if (down) return; rg.stick.L.x = rg.stick.L.y = 0; city(); top = Math.max(top, P.pos.y); if (!P.grounded) air = 1; if (P.bailT > 0) bail = 1; if (air && P.grounded && P.pos.y > 10) down = P.pos.clone(); });
+    say('skate into the beam: carried up and put down on the ship', down && onShip(down) && !bail, down ? `down at ${at(down)}, top ${fix(top)}` : `never down up there -- ${at(P.pos)}, top ${fix(top)}`); }
+  // the dish: off the porch, in, round it -- she stays on the ship
+  { reset(); const sa = Math.sin(U.beamA), ca = Math.cos(U.beamA); place(U.x + (U.R + 2) * sa, U.y + 0.3, U.z + (U.R + 2) * ca, U.beamA + Math.PI, 6); let low = 999, inn = 0, bail = 0;
+    run(10, (t) => { rg.cam.az = P.hSpeed > 0.5 ? Math.atan2(P.vel.x, P.vel.z) : rg.cam.az; rg.stick.L.x = t > 1 ? 0.35 : 0; rg.stick.L.y = P.grounded ? -0.7 : 0; city(); low = Math.min(low, P.pos.y); if (P.bailT > 0) bail = 1;
+      if (Math.hypot(P.pos.x - U.x, P.pos.z - U.z) < U.rc - 2 && P.pos.y < U.floorY + 0.3) inn = 1; });
+    say('drop into the dish and ride it: she stays on the ship', inn && low > U.floorY - 0.2 && !bail && onShip(P.pos), `${inn ? 'in the dish' : 'never in'}, lowest ${fix(low)}, ends ${at(P.pos)}`); }
+  // DOWN: off the porch's end into the beam, let down gently
+  { reset(); const sa = Math.sin(U.beamA), ca = Math.cos(U.beamA); place(U.x + (U.R + 1) * sa, U.y + 0.3, U.z + (U.R + 1) * ca, U.beamA, 5); let fast = 0, down = null, bail = 0, inb = 0;
+    let kq = 0; run(30, () => { if (down) return; rg.stick.L.x = rg.stick.L.y = 0; if (process.env.SD && kq++ % 10 === 0) console.log('   ', at(P.pos), P.grounded ? 'G' : 'a', fix(P.vel.y), P.beamUp, fix(Math.hypot(P.pos.x - U.x, P.pos.z - U.z))); city(); if (P.pos.y < U.y - 5) { fast = Math.min(fast, P.vel.y); if (Math.hypot(P.pos.x - U.bx, P.pos.z - U.bz) < U.beamR) inb = 1; }
+      if (P.bailT > 0) bail = 1; if (P.grounded && P.pos.y < 2) down = P.pos.clone(); });
+    say('roll off the porch into the beam: let down 120 m, no bail', down && !bail && inb && fast > -10, down ? `down at ${at(down)}, fastest fall ${fix(-fast, 1)} m/s` : `never down -- ${at(P.pos)}`); }
+  // the rim ring
+  { reset(); rg.GRIND.intent = 0; const R = U.rimRail, a = R.segs[10].a, b = R.segs[10].b, h = Math.atan2(b.x - a.x, b.z - a.z);
+    place(a.x, a.y + 0.4, a.z, h, 7); P.pos.set(a.x, a.y + 0.4, a.z); P.grounded = false; P.vel.y = -1; let on = 0, s = 0;
+    run(6, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (P.grind && P.grind.rail.path === R) { on = 1; s += P.speed * DT; } });
+    say('the rim ring grinds', on && s > 20, `${fix(s, 0)} m on it`); }
+  // a scout: wait on the street under its path, its beam lifts her onto its back and it carries her
+  { reset(); const S = U.list[0]; let tc = rg.HT.t + 4;
+    // a moment when its path is over open street with nothing between the street and the saucer (over a roof, the roof is in the way)
+    const open = t => { const [x, y, z] = S.fn(t); for (let k = 0; k < 6; k++) { const [x2, , z2] = S.fn(t + k); const g = rg.groundAt(x2, z2, 1, 0); if (g.hit && g.floor > 0.2) return false;
+        for (let yy = 1; yy < y - 1; yy += 1.5) for (const [dx, dz] of [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) if (rg.solidAt(x2 + dx, yy, z2 + dz, 0)) return false; } return true; };
+    while (!open(tc) && tc < rg.HT.t + 200) tc += 0.5;
+    const [x, , z] = S.fn(tc); place(x, 0.3, z, 0, 0); let top = 0, on = 0, carried = 0, x0 = null;
+    let kk = 0; run(tc - rg.HT.t + 9, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); if (process.env.SC && kk++ % 15 === 0) console.log('   ', at(P.pos), P.grounded ? 'G' : 'a', P.onDyn ? P.onDyn.kind : '-', 'S', at(S), P.beamUp); top = Math.max(top, P.pos.y); if (P.grounded && P.onDyn === S && Math.abs(P.pos.y - S.y) < 0.3) { on = 1; if (!x0) x0 = P.pos.clone(); carried = Math.max(carried, Math.hypot(P.pos.x - x0.x, P.pos.z - x0.z)); } });
+    say('a scout\'s beam lifts her onto its back and it carries her', on && carried > 8, on ? `on it, carried ${fix(carried, 1)} m at ${fix(S.y, 1)} m up` : `never on -- top ${fix(top)}, ends ${at(P.pos)}`); }
+  return ok;
+};
 CASES.skyrail = () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };

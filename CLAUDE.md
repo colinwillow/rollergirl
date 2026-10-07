@@ -94,6 +94,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE MOTHERSHIP AND THE SCOUTS -- TRACTOR BEAMS (r102, `UFO`, `buildUfo`, `ufoRails`, `stepUfo`, `npm run sim ufo`).**
+  *"Going on the alien UFOs."* A saucer at 120 m whose top is a dish (a kit bowl XL with `fill: false`, its FLOOR a fan of
+  triangles -- a kit bowl is only its walls, and up there is no ground), a rim with a grind ring, a porch out of the rim where
+  the beam meets it. Three scout saucers on the moving-floor machinery (DYN discs), each with a beam that follows it.
+  - **A BEAM IS A COLUMN THAT SETS HER VELOCITY, NOT A FLOOR.** Up: eased to `UFO.up`, her horizontal pulled to the middle; at
+    the top she is thrown onto the porch. Down: her fall held near `UFO.down`, pulled to the middle too -- eased alone she
+    settled at -11.3 (gravity and the ease balance) and drifted out of the side.
+  - **THREE LOOPS THE PROBES FOUND, EACH A STATE NOT CLEARED:** rolling off the porch read as entering from below and threw her
+    back onto the ship (UP now only starts 10 m under it); landing at the foot after riding it down started UP again (`beamOff`
+    holds until she leaves the column); and standing ON a scout re-triggered its beam every frame and popped her (a scout's beam
+    starts only from 2 m under it).
+  - **A MOVING BEAM CARRIES HER AT THE SAUCER'S OWN VELOCITY PLUS A PULL TO ITS MIDDLE** -- pulled only toward a moving point
+    she lags it and falls out of the side.
+  - **A SCOUT OVER A ROOF CANNOT LIFT YOU** -- the roof is in the way (she bonks its underside). The sim waits for a moment its
+    path is over open street.
+
 - **THE SKY RAIL: ONE BOOSTER RAIL ROUND THE WHOLE WORLD, 60-91 m UP (r101, `SKR`, `buildSkyRail`, `skyRailRails`,
   `npm run sim skyrail`).** 2 km, closed (`railLoop`), on a girder, through four stations: the Stack's summit (along its south
   edge), the Orbital peak (its island plus a platform), a deck between the Heights towers and a deck north of the park, both

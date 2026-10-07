@@ -183,7 +183,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r101</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r102</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -207,7 +207,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r101';
+const BUILD = 'r102';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3520,6 +3520,7 @@ function buildPark() {
   if (PARKD.on) { CITY.on = 0; parkDistrict(); parkApron(); }      // r90: the skate park district, where the City stood
   acroKit();         // r92: the Acropolis's kit pieces (its stone is built with the slice, below)
   stackKit();        // r100: THE STACK -- his buildings, a half pipe on every roof, each one higher
+  buildUfo();        // r102: the mothership, 120 m up
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
@@ -3533,6 +3534,7 @@ function buildPark() {
   heightsRails();    // r96: before acroRails, which builds the gem mesh
   stackRails();      // r100
   skyRailRails();    // r101: before acroRails builds the gem mesh
+  ufoRails();        // r102
   acroRails();       // r92
   cityRails();
   railWeave();       // r59: connectors between railings that stop just short of each other
@@ -3568,7 +3570,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -5067,6 +5069,7 @@ function stepCity(dt) {
   stepOrbital(dt);
   gemStep(dt);        // r83: above the gate -- an imported level's gems live in a world with no city
   stepHeights(dt);    // r96: the trains, the lifts, the air base, the ships
+  stepUfo(dt);        // r102: the tractor beams
   stepSk8(dt);        // r97: the sk8 sky's lifts and ferry
   if (!CITY.on) return;
   stepHydrants(dt);
@@ -8855,6 +8858,117 @@ function skyRailRails() {
     const ib = new THREE.InstancedMesh(band, new THREE.MeshStandardMaterial({ color: 0x1a2440, emissive: 0xff6fd0, emissiveIntensity: 0.55 }), 3);
     im.frustumCulled = ib.frustumCulled = false; scene.add(im); scene.add(ib);
     HT.trains.push({ path: SKR.path, v: SKR.boost + 4, cars: 3, carL: 8.6, gap: 0.6, s: SKR.path.len * s0, mesh: im, band: ib }); }
+}
+// ===== r102: THE MOTHERSHIP -- *"going on the alien UFOs."* A saucer 60 m across hanging 120 m over the open ground between
+// the hub and the Heights, its whole top one giant DISH: a bowl XL (floor 44 m across, walls 4.8 m, a deck ring round them),
+// a volcano in the middle, a rim wall with a grind ring on it. You get up there in its TRACTOR BEAM: a column of light from the
+// street to its rim -- skate into it and it carries you up the side of the ship and puts you down on the deck. And it is the
+// way down too: drop off the rim INTO the beam and it lets you down gently, all 120 m.
+//   The dish is static geometry -- a floor fan for the bowl's floor (a kit bowl is only its walls; the ground is its floor, and
+//   120 m up there is no ground: the Pantheon taught that), the kit bowl, the rim -- and the saucer under it is picture only.
+//   SCOUTS: three small saucers circling lower (DYN discs, the moving-floor machinery), each with its own beam that follows it:
+//   skate under one and it lifts you onto its back, and you ride it round until you jump.
+const UFO = { on: 1, built: 0, x: -150, z: -60, y: 120, rc: 22, size: 'XL', rimH: 1.1, beamA: Math.PI * 0.75, beamR: 2.6, scoutBeam: 2.6, porch: 5, up: 16, down: -8, stops: [],
+  scouts: [{ cx: -60, cz: -150, R: 70, y: 34, w: 0.07, a0: 0, r: 6.5 }, { cx: 120, cz: 40, R: 55, y: 46, w: -0.06, a0: 2, r: 6.5 }, { cx: -40, cz: 160, R: 60, y: 28, w: 0.08, a0: 4, r: 6.5 }],
+  list: [] };
+function buildUfo() {
+  if (!UFO.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 10202;
+  const U = UFO, S = KSZ[U.size], y0 = U.y - S.H, R = U.rc + S.lip + KITW.deck, Rr = R + 0.6;
+  U.deck = U.y; U.R = R; U.floorY = y0;
+  // THE DISH: the kit bowl (its walls and its deck ring), then its floor
+  const K = { ...KCOL }, Tn = {}; for (const k in KSZ) Tn[k] = KSZ[k].tint;
+  Object.assign(KCOL, { ...PARKD.pal.kcol, deck: 0xdff6ee }); KSZ[U.size].tint = 0xc8f0e4;
+  try { U.bowl = kitPiece('bowl', U.size, { x: U.x, y: y0, z: U.z, yaw: 0 }, { rc: U.rc, fill: false }); if (U.bowl) U.bowl.label = 'mothership dish';
+        U.volcano = kitPiece('volcano', 'M', { x: U.x, y: y0, z: U.z, yaw: 0 }, { top: 1.6 }); if (U.volcano) U.volcano.label = 'mothership volcano'; }
+  finally { Object.assign(KCOL, K); for (const k in Tn) KSZ[k].tint = Tn[k]; }
+  const n = 64; for (let i = 0; i < n; i++) { const a = 2 * Math.PI * i / n, b = 2 * Math.PI * (i + 1) / n;
+    kTri([U.x, y0, U.z], [U.x + U.rc * Math.sin(a), y0, U.z + U.rc * Math.cos(a)], [U.x + U.rc * Math.sin(b), y0, U.z + U.rc * Math.cos(b)], (i & 1) ? 0xb8ece0 : 0xc4f2e6); }
+  // THE RIM: a low wall round the deck ring, a grind ring on it, open where the beam meets the ship
+  const gap = 0.16;
+  for (let i = 0; i < 72; i++) { const a = (i + 0.5) / 72 * Math.PI * 2, d = Math.abs(((a - U.beamA + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI); if (d < gap) continue;
+    const hl = Rr * Math.tan(Math.PI / 72) + 0.05; solidAdd(U.x + Rr * Math.sin(a), U.z + Rr * Math.cos(a), hl, 0.3, U.y, U.y + U.rimH, a, { top: true, tag: 'mothership rim' }); }
+  // the ship under the dish: picture only -- a lathe, lights round its belly, a glowing keel
+  { const prof = [[0, y0 - 9], [8, y0 - 8.6], [18, y0 - 6.5], [27, y0 - 3.8], [Rr + 2.2, U.y - 1.6], [Rr + 2.6, U.y - 0.6], [Rr + 0.3, U.y + U.rimH]].map(([r, y]) => new THREE.Vector2(r, y - U.y));
+    slGeo('metal', new THREE.LatheGeometry(prof, 48), slMat(U.x, U.y, U.z), { smooth: true, tint: 0xc9d2e6 });
+    slGeo('neon', new THREE.TorusGeometry(Rr + 2.35, 0.22, 6, 64).rotateX(Math.PI / 2), slMat(U.x, U.y - 1.1, U.z), { tint: 0x7ff0a8 });
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; slGeo('neon', new THREE.SphereGeometry(0.9, 10, 8), slMat(U.x + 22 * Math.sin(a), y0 - 5.6, U.z + 22 * Math.cos(a)), { smooth: true, tint: k & 1 ? 0xff6fd0 : 0x3ff0e0 }); }
+    slGeo('neon', new THREE.CylinderGeometry(5, 2, 2.2, 24), slMat(U.x, y0 - 9.6, U.z), { smooth: true, tint: 0x7ff0a8 }); slGlow(U.x, y0 - 10, U.z, 14, 0x7ff0a8, 0.8);
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; slGlow(U.x + (Rr + 2.4) * Math.sin(a), U.y - 1.1, U.z + (Rr + 2.4) * Math.cos(a), 5, 0x7ff0a8, 0.5); } }
+  // THE PORCH: a deck out from the rim where the beam meets the ship -- the beam puts her down on it, and its end is where
+  // she rolls off to go down
+  { const r0 = R - 0.2, r1 = R + U.porch, rm = (r0 + r1) / 2, sa = Math.sin(U.beamA), ca = Math.cos(U.beamA);
+    slGeo('stone', new THREE.BoxGeometry(5.2, 0.8, r1 - r0).translate(0, -0.4, 0), slMat(U.x + rm * sa, U.y, U.z + rm * ca, U.beamA), { tint: 0xdff6ee });
+    slGeo('neon', new THREE.BoxGeometry(5.3, 0.12, r1 - r0 + 0.1).translate(0, -0.45, 0), slMat(U.x + rm * sa, U.y, U.z + rm * ca, U.beamA), { tint: 0x7ff0a8 });
+    solidAdd(U.x + rm * sa, U.z + rm * ca, 2.6, (r1 - r0) / 2, U.y - 0.8, U.y, U.beamA, { top: true, tag: 'mothership porch' });
+    U.porchR = [r0, r1]; }
+  // the beam's foot on the street: a ring in the ground
+  U.bx = U.x + (R + U.porch + 2.2) * Math.sin(U.beamA); U.bz = U.z + (R + U.porch + 2.2) * Math.cos(U.beamA);
+  slGeo('neon', new THREE.TorusGeometry(U.beamR + 0.3, 0.16, 6, 32).rotateX(Math.PI / 2), slMat(U.bx, 0.05, U.bz), { tint: 0x7ff0a8 });
+  CITY.spots['mothership'] = [U.x + 14 * Math.sin(U.beamA + 0.4), y0, U.z + 14 * Math.cos(U.beamA + 0.4), U.beamA + 0.4 + Math.PI];
+  CITY.spots['mothership beam'] = [U.bx + 9 * Math.sin(U.beamA), 0, U.bz + 9 * Math.cos(U.beamA), U.beamA + Math.PI];
+  U.stops = ['mothership beam', 'mothership'];
+  U.built = 1;
+}
+// after the collider: the rim's grind ring, gems round the dish, the beams, the scouts
+function ufoRails() {
+  if (!UFO.built) return;
+  const U = UFO, Rr = U.R + 0.6, pts = [];
+  for (let i = 0; i < 96; i++) { const a = i / 96 * Math.PI * 2; pts.push(SLV(U.x + Rr * Math.sin(a), U.y + U.rimH + 0.05, U.z + Rr * Math.cos(a))); }
+  U.rimRail = railLoop(pts, { name: 'mothership rim' }); railDraw(U.rimRail, { mat: 'orange', posts: false }); gemsAlong(U.rimRail, 9, 0.9, 4);
+  // THE BEAMS: a soft additive column per beam, drawn from the ground to the ship (moved every frame for a scout)
+  const beamMat = new THREE.MeshBasicMaterial({ color: 0x9dffd0, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  beamMat.userData = { noHole: true };
+  const mkBeam = (r, h) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.75, r * 1.25, h, 24, 1, true).translate(0, h / 2, 0), beamMat); m.frustumCulled = false; m.userData.noHole = true; scene.add(m); return m; };
+  U.beam = { x: U.bx, z: U.bz, top: U.y + 2.5, mesh: mkBeam(U.beamR, U.y + 3), toX: U.x, toZ: U.z };
+  U.beam.mesh.position.set(U.bx, 0, U.bz);
+  // THE SCOUTS: flat saucers on the moving-floor machinery, each dragging a beam under it
+  for (const S of U.scouts) { const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.LatheGeometry([[0, -2.6], [3, -2.2], [S.r + 1.2, -0.8], [S.r + 1.4, -0.2], [S.r, 0.02], [0, 0.02]].map(([r, y]) => new THREE.Vector2(r, y)), 32),
+      new THREE.MeshStandardMaterial({ color: 0xd2dbee, metalness: 0.6, roughness: 0.3 })); g.add(body);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(S.r + 1.3, 0.12, 4, 32), new THREE.MeshBasicMaterial({ color: 0x7ff0a8 })); ring.rotation.x = Math.PI / 2; ring.position.y = -0.5; g.add(ring);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.6, metalness: 0.2, roughness: 0.1 }));
+    dome.position.set(0, 0, 0); g.add(dome);
+    g.userData.noHole = true; g.traverse(o => { if (o.material && !o.material.userData.noHole) o.material.userData = { noHole: true }; }); scene.add(g);
+    const fn = (t) => { const a = S.a0 + t * S.w; return [S.cx + S.R * Math.cos(a), S.y + Math.sin(t * 0.8 + S.a0) * 0.6, S.cz + S.R * Math.sin(a)]; };
+    const [x, y, z] = fn(0), p = { x, y, z, cr: S.r - 0.6, mesh: { g, fans: [] }, kind: 'scout', fn, S };
+    // a dome in the middle is not something to stand on: the deck is the ring round it, so the disc is a ring floor -- kept
+    // simple, the dome is low enough (1.8) to ride over the edge of and she lands on the disc again
+    DYN.list.push(p); U.list.push(p); p.beam = mkBeam(U.scoutBeam, S.y); }
+  U.t = 0;
+}
+// THE BEAMS ACT: rising from below, she is carried up (her horizontal speed bled off) and put down on the ship; coming down
+// from above into the mothership's beam, her fall is held to `down`. One column, both directions.
+function stepUfo(dt) {
+  if (!UFO.built || !UFO.beam) return;
+  const U = UFO, p = player; U.t += dt;
+  // the scouts' beams follow them
+  for (const S of U.list) { S.beam.position.set(S.x, 0, S.z); S.beam.scale.y = Math.max(0.05, S.y / S.S.y); S.beam.material.opacity = 0.16 + 0.06 * Math.sin(U.t * 6); }
+  U.beam.mesh.material.opacity = 0.18 + 0.06 * Math.sin(U.t * 3);
+  if (p.grind || p.bailT > 0) { p.beamUp = 0; return; }
+  const col = (bx, bz, r) => (p.pos.x - bx) ** 2 + (p.pos.z - bz) ** 2 < r * r;
+  // the mothership's beam
+  const B = U.beam;
+  if (col(B.x, B.z, U.beamR)) {
+    if (p.beamUp || (!p.beamOff && p.pos.y < U.y - 10 && (p.grounded || p.vel.y > -2))) {   // UP (only from well below the ship -- a roll off the porch is going DOWN -- and not
+      // straight back up after riding it down: `beamOff` holds until she leaves the column)
+      if (!p.beamUp) { p.beamUp = 1; if (p.grounded) leaveGround(0, false); }
+      p.vel.y += (U.up - p.vel.y) * Math.min(1, 4 * dt); const k = Math.exp(-3 * dt); p.vel.x *= k; p.vel.z *= k;
+      p.vel.x += (B.x - p.pos.x) * 2 * dt; p.vel.z += (B.z - p.pos.z) * 2 * dt;
+      if (p.pos.y > B.top) { p.beamUp = 0; const dx = B.toX - p.pos.x, dz = B.toZ - p.pos.z, l = Math.hypot(dx, dz); p.vel.x = dx / l * 6; p.vel.z = dz / l * 6; p.vel.y = 2; p.heading = Math.atan2(dx, dz); U.ups = (U.ups || 0) + 1; }
+    } else if (!p.grounded && p.pos.y < U.y - 0.5) {                                                                // DOWN, held to the column's middle
+      p.beamOff = 1; if (p.vel.y < U.down) p.vel.y = Math.max(p.vel.y + (U.down - p.vel.y) * Math.min(1, 6 * dt), U.down - 1);
+      p.vel.x += ((B.x - p.pos.x) * 1.5 - p.vel.x) * Math.min(1, 3 * dt); p.vel.z += ((B.z - p.pos.z) * 1.5 - p.vel.z) * Math.min(1, 3 * dt); U.downs = (U.downs || 0) + 1; }
+  } else { p.beamOff = 0; if (p.beamUp && !U.list.some(S => col(S.x, S.z, U.scoutBeam))) p.beamUp = 0; }
+  // the scouts' beams: up only, onto the back of the saucer
+  // (the beam moves with its saucer, so she is carried at the saucer's own velocity plus a pull to the middle -- pulled only
+  // toward a point that is moving, she lags it and falls out of the side)
+  for (const S of U.list) { if (!col(S.x, S.z, U.scoutBeam) || p.pos.y > S.y + 0.5) continue;
+    if (!p.beamUp && (!(p.grounded || p.vel.y > -2) || p.pos.y > S.y - 2)) continue;      // starts only from below it: standing ON the saucer is not in its beam
+    if (!p.beamUp) { p.beamUp = 2; if (p.grounded) leaveGround(0, false); }
+    const a = S.S.a0 + HT.t * S.S.w, vx = -S.S.R * S.S.w * Math.sin(a), vz = S.S.R * S.S.w * Math.cos(a);
+    p.vel.y += (12 - p.vel.y) * Math.min(1, 4 * dt); p.vel.x += (vx + (S.x - p.pos.x) * 3 - p.vel.x) * Math.min(1, 5 * dt); p.vel.z += (vz + (S.z - p.pos.z) * 3 - p.vel.z) * Math.min(1, 5 * dt);
+    if (p.pos.y > S.y - 0.6) { p.beamUp = 0; p.vel.y = 3; p.vel.x = vx; p.vel.z = vz; U.scoutUps = (U.scoutUps || 0) + 1; } }
 }
 function hubDress() {
   if (!HUB.on) return;
@@ -12957,7 +13071,7 @@ window.rg = { SK, AIR, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, ca
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, PARKD, parkDistrict, LINKS, S3, sk8World, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,
