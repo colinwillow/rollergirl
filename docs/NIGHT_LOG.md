@@ -684,3 +684,7 @@ three ramps, L2, the tower with its crown sign, two glass pods, the dish deck; e
 ## r149 -- no bails (store reset), loops and barrel rolls in flight
 What: `UI_VER` 149 resets saved `LAND.bail`/`LAND.flipBail`; the vert-air bail needs `LAND.bail`. Flying, left flick up = loop, down = backward loop, right/left = barrel roll (`wingTrick`).
 Where: anywhere you can fly.
+
+## r150 -- double taps for the wings, a left double tap boosts in flight
+What: right double tap opens/folds the wings (flick up is a melee again); flying, left double tap = speed burst.
+Where: anywhere you can fly.

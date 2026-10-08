@@ -100,6 +100,16 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **DOUBLE TAPS, NOT FLICKS, FOR THE WINGS; A LEFT DOUBLE TAP IN FLIGHT IS A BOOST (r150, `WING.dbl`/`dblT`, `_tapR`/`_tapL`,
+  `wingBoost`, `p.wBoost`, `UI_VER` 150).** *"Sometimes I'm falling and I try to get out the wingsuit and it just melees."* The right
+  flick up in the air is the melee again (`WING.flick` 0, reset on his phone by `UI_VER` 150); a second right TAP inside `dblT`
+  (0.32 s) opens the wings from anywhere (from the ground the first tap jumped) and, flying, folds them. The first tap has already
+  done its own thing -- so jump then a QUICK tap is wings, not the double jump; a slower second tap is still the double jump.
+  Flying, a single right tap does nothing. Flying, a left double tap adds `boostV` to her speed (and to the VELOCITY -- `wingFly`
+  reads the real speed back into `wV`, so raising only `wV` was undone the next frame) and raises the cap and the jets' target by a
+  `p.wBoost` that halves every `boostHL`. **`npm run sim tap` sets `WING.dbl` 0**: its rows tap the right pad faster than `dblT`.
+  `wingfly` drives the double taps through the real pads.
+
 - **NO BAILS, FOR REAL THIS TIME, AND LOOPS AND BARREL ROLLS IN FLIGHT (r149, `UI_VER` 149, `wingTrick`, `wingTrickStep`, `p.wTrick`).**
   *"I thought we got rid of bailing -- I keep falling over."* r147 only reset `LAND.flipBail`; the panel saves EVERY row, so a
   `LAND.bail` 1 saved on his phone from testing still made every sideways landing a fall. `UI_VER` 149 drops his saved `LAND.bail`

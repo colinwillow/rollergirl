@@ -403,6 +403,7 @@ CASES.vert = () => {
 // every time. This drives the SHIPPED `bindStick` through real dispatched pointer events on the
 // real element, which nothing here could do before: the stub swallowed every listener.
 CASES.tap = async () => {
+  const keepDbl = rg.WING.dbl; rg.WING.dbl = 0;      // r150: these rows tap the right pad in quick succession; a double tap is the wings (wingfly tests it)
   // r30: EVERY ORDINARY PRESS GOES THROUGH THE REAL SEQUENCE A PHONE SENDS -- the pointer event and
   // then the TouchEvent for the same finger, with the live `touches` list. r28's stuck-stick net
   // passed every row here and released every pad on the touch that started it, because no row
@@ -560,9 +561,9 @@ CASES.tap = async () => {
     const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
     const air = () => { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 6; P.vel.y = 3; P.flip = null; };
     air(); await swipe(0, -52);
-    good = P.jump === 0 && !P.flip && P.wing === 1;     // r44: the air melee; r146: the WINGS now (with no rail to kick at)
+    good = P.jump === 0 && !P.flip && !P.wing && !!P.mel;     // r44: the air melee (r146 made it the wings; r150 gave it back)
     rg.wingSet(0);
-    console.log(`  RIGHT swipe up in the air     -> ${P.flip ? P.flip.dir + ' flip (WRONG)' : good ? 'wings' : what()}${good ? '' : '   <- WRONG'}`);
+    console.log(`  RIGHT swipe up in the air     -> ${P.flip ? P.flip.dir + ' flip (WRONG)' : P.wing ? 'wings (WRONG)' : what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     const L = document.getElementById('stkL');
     const evL = (type, x, y) => ({ type, pointerId: 77, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
@@ -584,6 +585,7 @@ CASES.tap = async () => {
       P.mel = null; P.boostT = 0; P.boostFx = 0;
       if (!good) ok = false; P.stanceLock = keepLock; }
     rg.girl.moves = keepM; P.flip = null; P.jump = 0; }
+  rg.WING.dbl = keepDbl;
   return ok;
 };
 
@@ -2805,14 +2807,30 @@ CASES.wingfly = async () => {
     run(0.05); await wait(30); R.dispatchEvent(ev('pointerup', 150 + dx, 150 + dy)); };
   const hands = () => { L.x = 0; L.y = 0; L.down = 0; };
   const air = () => { hands(); place(60, 0.1, -60, 0, 8); P.pos.y += 30; P.grounded = false; P.airT = 0.5; P.coyote = 0; P.vel.y = 1; rg.cam.az = 0; };
-  air(); await flick(0, -70);
-  say('in the air, RIGHT flick up: the wings come out', P.wing === 1 && W.out === 1, `wing ${P.wing}`);
-  run(0.5, hands); await flick(70, 0);
-  say('flying, a sideways flick does nothing', P.wing === 1, `wing ${P.wing}`);
-  await flick(0, 70);
-  say('flying, RIGHT flick down: folded', !P.wing && W.out === 0, `wing ${P.wing}`);
-  hands(); place(60, 0.1, -60, 0, 4); await flick(0, -70);
-  say('on the ground, the same flick up is not the wings', !P.wing, `wing ${P.wing}`);
+  // r150: double taps, not flicks
+  const LP = document.getElementById('stkL');
+  const evL = (type, x, y) => ({ type, pointerId: 73, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: LP });
+  const tap = async (pad, e, gap) => { await wait(gap); pad.dispatchEvent(e('pointerdown', 150, 150)); await wait(40); pad.dispatchEvent(e('pointerup', 150, 150)); };
+  await wait(400); air(); await flick(0, -70);
+  say('in the air, RIGHT flick up: NOT the wings any more (a melee)', !P.wing, `wing ${P.wing}`);
+  air(); await tap(R, ev, 400); run(0.05, hands);
+  say('in the air, one RIGHT tap: no wings (the double jump)', !P.wing, `wing ${P.wing}, dj ${P.dj}`);
+  await tap(R, ev, 100);
+  say('...a quick second tap: the wings come out', P.wing === 1 && W.out === 1, `wing ${P.wing}`);
+  run(0.5, hands); await flick(0, 70);
+  say('flying, RIGHT flick down: still flying', P.wing === 1, `wing ${P.wing}`);
+  run(1, hands); const v0 = P.vel.length(); await tap(LP, evL, 400); await tap(LP, evL, 100); run(0.3, hands);
+  const v1 = P.vel.length();
+  say('flying, LEFT double tap: a burst of speed', v1 > v0 + 5, `${fix(v0, 1)} -> ${fix(v1, 1)} m/s, boost ${fix(P.wBoost || 0, 1)}`);
+  run(4, hands);
+  say('...and it settles back to cruise', (P.wBoost || 0) < 1 && Math.abs(P.vel.length() - W.cruise) < 3, `${fix(P.vel.length(), 1)} m/s`);
+  await tap(R, ev, 400); run(0.1, hands);
+  say('flying, one RIGHT tap: still flying', P.wing === 1, `wing ${P.wing}`);
+  await tap(R, ev, 100);
+  say('...a quick second: folded', !P.wing && W.out === 0, `wing ${P.wing}`);
+  hands(); place(60, 0.1, -60, 0, 4); await tap(R, ev, 400); run(0.15, hands); await tap(R, ev, 100);
+  say('on the ground, double tap: jumps and flies', P.wing === 1, `wing ${P.wing}`);
+  rg.wingSet(0); run(4, hands);
   // the 3D aim: the stick state driven directly (bindStick's own numbers), the shipped gunStep reading it
   const keepF = GUN.failed; GUN.failed = 0; GUN.out = 0; rg.gunRowPaint();
   air(); rg.wingSet(1); run(0.5, hands);
