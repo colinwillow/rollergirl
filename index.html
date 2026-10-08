@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r152</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r153</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -238,7 +238,7 @@ import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r152';
+const BUILD = 'r153';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -4442,8 +4442,9 @@ function ctyFloor() {
 //   THE COLLIDER IS NOT HIS MESH: each tile kind is rasterised once at load onto a 0.5 m grid of three classes (road, grass,
 //   walk), and the runs become flat quads (`noDraw`). ~23k triangles for 48 tiles, against ~200k for the tiles themselves.
 //   NOTHING STANDS IN A LINE: a lamp, pole or tree within reach of a ramp's or a ribbon's path is left out.
-const CTYK = { dir: 'zones/weirdport_kit/', on: 1, wait: 30, lower: 0.2, tile: 22, rc: 44, cell: 0.5, walkY: 0.27,
-  files: { tiles: 'streets/street_tiles.glb', furn: 'props/street_furniture.glb', trees: 'props/trees.glb', carriers: 'materials/detile_carriers.glb' },
+const CTYK = { dir: 'zones/weirdport_kit/', on: 1, wait: 60, lower: 0.2, tile: 22, rc: 44, cell: 0.5, walkY: 0.27,
+  files: { tiles: 'streets/street_tiles.glb', furn: 'props/street_furniture.glb', trees: 'props/trees.glb', carriers: 'materials/detile_carriers.glb',
+           bld: 'buildings/kit_buildings.glb', props: 'props/props.glb', plants: 'props/plants.glb' },
   lib: {}, failed: [], parts: {}, grids: {}, bk: new Map(), meshes: [], tiles: [], dt: -1, n: { lamp: 0, pole: 0, tree: 0, sign: 0, wire: 0 } };
 async function ctyKitLoad() {
   if (!CTYK.on) return;
@@ -4459,8 +4460,12 @@ function ctyPart(lib, name) {
   const key = lib + '/' + name; if (CTYK.parts[key]) return CTYK.parts[key];
   const root = CTYK.lib[lib], r = root && root.getObjectByName(name); if (!r) return (CTYK.parts[key] = null);
   r.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(r.matrixWorld).invert(), out = [];
-  r.traverse(o => { if (!o.isMesh || !o.geometry.attributes.position) return; const m = Array.isArray(o.material) ? o.material[0] : o.material;
-    out.push({ geo: skyGeo(o.geometry).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)), mat: m }); });
+  r.traverse(o => { if (!o.isMesh || !o.geometry.attributes.position || /^col_/.test(o.name) || (o.userData && o.userData.collider)) return;      // r153: his col_ meshes are colliders, never drawn
+    const m = Array.isArray(o.material) ? o.material[0] : o.material, g = skyGeo(o.geometry);
+    if (lib === 'bld') { const c0 = o.geometry.attributes.color, n = g.attributes.position.count, c = new Float32Array(n * 4);      // his grime rides the vertex alpha (`wpTint`), so a building keeps RGBA
+      for (let i = 0; i < n; i++) { c[i * 4] = c0 ? c0.getX(i) : 1; c[i * 4 + 1] = c0 ? c0.getY(i) : 1; c[i * 4 + 2] = c0 ? c0.getZ(i) : 1; c[i * 4 + 3] = c0 && c0.itemSize > 3 ? c0.getW(i) : 1; }
+      g.setAttribute('color', new THREE.Float32BufferAttribute(c, 4)); }
+    out.push({ geo: g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)), mat: m }); });
   return (CTYK.parts[key] = out);
 }
 const _ckM = new THREE.Matrix4(), _ckQ = new THREE.Quaternion(), _ckP = new THREE.Vector3(), _ckS = new THREE.Vector3();
@@ -4473,7 +4478,7 @@ function ctyPut(lib, name, x, y, z, rot, s, cast) {
 function ctyKitFlush() {
   for (const [key, B] of CTYK.bk) { const g = mergeGeometries(B.gs); for (const q of B.gs) q.dispose(); B.gs = [];
     if (!g) { console.warn('[skate city] kit bucket did not merge ' + key); continue; }
-    g.computeBoundingSphere(); const m = new THREE.Mesh(g, B.mat); m.name = 'city kit:' + B.mat.name; m.receiveShadow = true; m.castShadow = !!B.cast; scene.add(m); CTYK.meshes.push(m); }
+    g.computeBoundingSphere(); const m = new THREE.Mesh(g, B.mat); m.name = 'city kit:' + B.mat.name; m.receiveShadow = true; m.castShadow = !!B.cast && !B.mat.transparent; scene.add(m); CTYK.meshes.push(m); }
   CTYK.bk.clear();
 }
 // THE COLLIDER CLASSES of a tile kind, in its own frame: 0 road, 1 grass/lot, 2 walk (kerb, sidewalk, planting)
@@ -4541,6 +4546,93 @@ function ctyKitStreets() {
   // signs at the corners of every crossing
   let si = 0; for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const [ox, oz] of [[1, 1], [-1, -1]]) { const x = sx * c + ox * 6.6, z = sz * c + oz * 6.6; if (!ctyClear(x, z, 1)) continue;
     if (ctyPut('furn', 'street_sign_' + String((si * 7) % 25).padStart(2, '0'), x, y0, z, Math.atan2(-ox, -oz), 1, true)) { solidAdd(x, z, 0.08, 0.08, y0, y0 + 2.6, 0, { top: false, tag: 'city sign' }); CTYK.n.sign++; } si++; }
+}
+// ===== r153: HIS 60 KIT BUILDINGS LINE THE BLOCKS (`CTYB`, `ctyBlocks`). The island outside the plaza is eight blocks between
+// his streets; every street FRONTAGE (the tile band's edge, |x| or |z| = 33 / 55) is walked and his buildings are stood along it,
+// FRONT TO THE STREET, a few metres apart, each one his file's own root placed whole (origin = its front-left corner, depth -z).
+//   THE FOOTPRINT AND THE COLLIDER COME FROM HIS EXTRAS: `cells` (3 m cells) and `heights` (floors per cell, 3 m a floor), so a
+//   setback is a lower roof in the collider too. One box per run of equal cells; the roof is a floor (no parapet collider yet).
+//   NOTHING STANDS IN A LINE: the ramps' and ribbons' paths are carried on into the blocks (`lines`) and kept clear, and so is a
+//   circle round each of his hero buildings. A building that does not fit is skipped and the next one is tried.
+//   THE GAPS ARE ALLEYS AND LOTS: dumpsters, crates, barrels, bags, weeds and bushes from his props and plants.
+const CTYB = { on: 1, set: 2.2, gap: [1.6, 5], lot: 0.14, max: 48, edge: 140.4, keep: 1.0, over: 1.4, list: [], props: 0, plants: 0, tris: 0 };
+function ctyBlocks() {
+  const lib = CTYK.lib.bld; if (!CTYB.on || !lib) return;
+  const c = CTYK.rc, h = CTYK.tile / 2, E = CTYB.edge, K = [];
+  for (const r of lib.children) { const ud = r.userData || {}; if (!/^kit_\d+$/.test(r.name) || !ud.cells) continue;
+    let cells, hts; try { cells = typeof ud.cells === 'string' ? JSON.parse(ud.cells) : ud.cells; hts = typeof ud.heights === 'string' ? JSON.parse(ud.heights) : (ud.heights || {}); } catch (e) { continue; }
+    if (!cells.length) continue;
+    K.push({ name: r.name, cells, hts, W: 3 * (Math.max(...cells.map(q => q[0])) + 1), D: 3 * (Math.max(...cells.map(q => q[1])) + 1) }); }
+  if (!K.length) return;
+  for (let i = K.length - 1; i > 0; i--) { const j = Math.floor(slHash(i, 53, 153) * (i + 1)); [K[i], K[j]] = [K[j], K[i]]; }
+  // keep-outs
+  const occ = [], hero = CTY.bld.map(([, x, z, w, d]) => [x, z, Math.hypot(w, d) / 2 + 2]), lines = [];
+  for (const q of CTY.ramps) if (q.end) { const ax = Math.sin(q.A) * CTY.ring.r1, az = Math.cos(q.A) * CTY.ring.r1, dx = q.end[0] - ax, dz = q.end[2] - az, L = Math.hypot(dx, dz);
+    lines.push([ax, az, q.end[0] + dx / L * 40, q.end[2] + dz / L * 40, q.w / 2 + 3]); }
+  for (const q of CTY.ribbons) { for (let i = 0; i < q.pts.length - 1; i++) lines.push([q.pts[i][0], q.pts[i][2], q.pts[i + 1][0], q.pts[i + 1][2], CTY.rw / 2 + 2]);
+    const a = q.pts[q.pts.length - 2], b = q.pts[q.pts.length - 1], dx = b[0] - a[0], dz = b[2] - a[2], L = Math.hypot(dx, dz);
+    lines.push([b[0], b[2], b[0] + dx / L * 45, b[2] + dz / L * 45, CTY.rw / 2 + 3]); }
+  CTYB.lines = lines;
+  const ov = (a0, a1, b0, b1) => a0 < b1 && a1 > b0;
+  const ok = (b, m) => { if (b[0] < -E || b[2] > E || b[1] < -E || b[3] > E) return false;
+    for (const s of [-1, 1]) { if (ov(b[0], b[2], s * c - h, s * c + h) || ov(b[1], b[3], s * c - h, s * c + h)) return false; }
+    if (ov(b[0], b[2], -c + h, c - h) && ov(b[1], b[3], -c + h, c - h)) return false;
+    for (const [x, z, r] of hero) { const qx = clamp(x, b[0], b[2]), qz = clamp(z, b[1], b[3]); if (Math.hypot(x - qx, z - qz) < r) return false; }
+    for (const [ax, az, bx, bz, r] of lines) { const n = Math.ceil(Math.hypot(bx - ax, bz - az)); for (let i = 0; i <= n; i++) { const t = i / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t;
+        if (x > b[0] - r && x < b[2] + r && z > b[1] - r && z < b[3] + r) return false; } }
+    for (const o of occ) if (ov(b[0] - m, b[2] + m, o[0], o[2]) && ov(b[1] - m, b[3] + m, o[1], o[3])) return false;
+    return true; };
+  const box = (O, a, nl, x0, x1, z0, z1) => { const P = [[x0, z0], [x1, z0], [x0, z1], [x1, z1]].map(([lx, lz]) => [O[0] + a[0] * lx + nl[0] * lz, O[1] + a[1] * lx + nl[1] * lz]);
+    return [Math.min(...P.map(q => q[0])), Math.min(...P.map(q => q[1])), Math.max(...P.map(q => q[0])), Math.max(...P.map(q => q[1]))]; };
+  const PROPS = ['dumpster', 'crate', 'debris_barrel', 'debris_trash_bin', 'debris_bag_pile', 'cardboard_box', 'debris_trash_bag', 'electric_box', 'planter', 'debris_rubble'];
+  const SOLIDP = { dumpster: [0.72, 0.55, 1.4], crate: [0.27, 0.29, 0.46], debris_barrel: [0.3, 0.3, 0.9], debris_trash_bin: [0.4, 0.44, 1.0], electric_box: [0.35, 0.25, 1.3], planter: [0.42, 0.4, 1.0] };
+  const PLANTS = ['plant_bush_round', 'plant_weed_leafy', 'plant_weed_tall_a', 'plant_weed_tall_b', 'plant_weed_spiky', 'plant_dandelion', 'plant_ground_cover', 'plant_dry_pile', 'plant_weed_small', 'plant_clover_patch'];
+  const prop = (nm, x, z, rot) => { const sz = SOLIDP[nm], ext = sz ? Math.max(sz[0], sz[1]) + 0.1 : 0.3; if (!ok([x - ext, z - ext, x + ext, z + ext], 0)) return;
+    if (!ctyPut('props', nm, x, 0, z, rot, 1, true)) return; CTYB.props++;
+    if (sz) { const co = Math.abs(Math.cos(rot)) > 0.7; solidAdd(x, z, co ? sz[0] : sz[1], co ? sz[1] : sz[0], 0, sz[2], 0, { top: true, tag: 'city prop' }); occ.push([x - ext, z - ext, x + ext, z + ext]); } };
+  const plant = (nm, x, z, rot) => { if (ok([x - 0.3, z - 0.3, x + 0.3, z + 0.3], 0) && ctyPut('plants', nm, x, 0, z, rot, 1, false)) CTYB.plants++; };
+  // the frontages: the ring road's own outer edges first (the blocks you see from the plaza), then the inner edges of the side blocks
+  const F = [];
+  for (const outer of [1, 0]) for (const s of [-1, 1]) for (const o of [-1, 1]) { if ((o * s > 0) !== !!outer) continue;
+    const F0 = s * c + o * h, segs = outer ? [[-c + h, c - h], [c + h, E], [-E, -c - h]] : [[c + h, E], [-E, -c - h]];
+    for (const [u0, u1] of segs) for (const ax of ['x', 'z']) F.push({ ax, F0, o, u0, u1 }); }
+  let pick = 0, fi = 0;
+  for (const fr of F) { fi++;
+    const th = fr.ax === 'x' ? (fr.o > 0 ? Math.PI : 0) : -fr.o * Math.PI / 2, a = [Math.cos(th), -Math.sin(th)], nl = [Math.sin(th), Math.cos(th)], au = fr.ax === 'x' ? a[0] : a[1];
+    const W2 = (u, l) => fr.ax === 'x' ? [u, l] : [l, u];
+    let cur = fr.u0 + 1.2, lastEnd = cur, gi = 0;
+    while (cur < fr.u1 - 7 && CTYB.list.length < CTYB.max) { gi++;
+      const hs = slHash(Math.round(cur * 7), fi, 1531);
+      if (hs < CTYB.lot) {      // an empty lot: a dumpster, a pile, weeds
+        const l = fr.F0 + fr.o * (CTYB.set + 3);
+        const [x, z] = W2(cur + 3.5, l); prop(slHash(gi, fi, 7) < 0.5 ? 'dumpster' : 'debris_bag_pile', x, z, th + (slHash(gi, fi, 8) - 0.5) * 0.4);
+        for (let k = 0; k < 5; k++) { const [px, pz] = W2(cur + 1 + slHash(gi, k, 9) * 5, fr.F0 + fr.o * (CTYB.set + 1 + slHash(gi, k, 10) * 6)); plant(PLANTS[(gi * 3 + k) % PLANTS.length], px, pz, slHash(k, gi, 11) * 6.28); }
+        cur += 7; continue; }
+      let placed = null;
+      for (let t = 0; t < K.length && !placed; t++) { const B = K[(pick + t) % K.length]; if (cur + B.W > fr.u1 - 0.5) continue;
+        const O = W2(cur + (au > 0 ? 0 : B.W), fr.F0 + fr.o * CTYB.set), bb = box(O, a, nl, -CTYB.over, B.W + CTYB.over, -B.D - CTYB.over, CTYB.over);
+        if (!ok(bb, CTYB.keep)) continue;
+        placed = { B, O, bb }; pick = (pick + t + 1) % K.length; }
+      if (!placed) { cur += 3; continue; }
+      const { B, O, bb } = placed; occ.push(bb);
+      ctyPut('bld', B.name, O[0], 0, O[1], th, 1, true);
+      for (const q of ctyPart('bld', B.name) || []) CTYB.tris += q.geo.index.count / 3;
+      // the collider: per row of cells, runs of equal floors
+      const rows = new Map(); for (const [cx, cy] of B.cells) { if (!rows.has(cy)) rows.set(cy, []); rows.get(cy).push(cx); }
+      for (const [cy, xs] of rows) { xs.sort((p, q) => p - q); let i = 0;
+        while (i < xs.length) { const f = B.hts[xs[i] + ',' + cy] || 1; let e = i; while (e + 1 < xs.length && xs[e + 1] === xs[e] + 1 && (B.hts[xs[e + 1] + ',' + cy] || 1) === f) e++;
+          const b = box(O, a, nl, 3 * xs[i] + 0.12, 3 * xs[e] + 3 - 0.12, -3 * cy - 3 + 0.12, -3 * cy - 0.12);
+          solidAdd((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, (b[2] - b[0]) / 2, (b[3] - b[1]) / 2, 0, 3 * f, 0, { top: true, tag: 'city kit building' }); i = e + 1; } }
+      CTYB.list.push({ name: B.name, x: O[0], z: O[1], th, W: B.W, D: B.D, cells: B.cells, hts: B.hts });
+      // the front strip: a planter, a bin or a bag pile; weeds at the corners
+      const fl = fr.F0 + fr.o * (CTYB.set * 0.5), ra = slHash(gi, fi, 21);
+      if (ra < 0.7) { const [x, z] = W2(cur + B.W * (0.2 + 0.6 * slHash(gi, fi, 22)), fl); prop(PROPS[3 + Math.floor(slHash(gi, fi, 23) * 7) % 7], x, z, th); }
+      for (const e of [0, B.W]) { const [x, z] = W2(cur + e + (e ? 0.4 : -0.4), fr.F0 + fr.o * (CTYB.set + 0.6)); plant(PLANTS[1 + (gi + e) % (PLANTS.length - 1)], x, z, ra * 6.28); }
+      const gap = CTYB.gap[0] + slHash(gi, fi, 31) * (CTYB.gap[1] - CTYB.gap[0]);
+      // an alley wide enough for a dumpster gets one, back from the street, plus a crate or two
+      if (gap > 3.4) { const [x, z] = W2(cur + B.W + gap / 2, fr.F0 + fr.o * (CTYB.set + 4 + slHash(gi, fi, 32) * 3)); prop('dumpster', x, z, th + Math.PI / 2);
+        const [x2, z2] = W2(cur + B.W + gap / 2, fr.F0 + fr.o * (CTYB.set + 1.6)); prop(slHash(gi, fi, 33) < 0.5 ? 'crate' : 'debris_trash_bag', x2, z2, th + 0.3); }
+      cur += B.W + gap; lastEnd = cur; } }
 }
 // his anti-tiling, once every file is in: it finds each material's partner texture by name across all the roots
 function ctyKitDetile() {
@@ -4638,7 +4730,7 @@ function ctyBuildings() {
 function cityWorld() {
   CITY.on = 0; SLC.built = 1; SLC.canal = { x0: -480, x1: 480, z0: -480, z1: 480 }; SLC.WY = CTY.sea; SLC.railQ = []; SLC.railC = [];
   _slseed = 6161; SKYART.dir = 'zones/kit_skate_city/'; SKYART.tex = 1024;
-  ctyFloor(); ctyRing(); ctyGarden(); ctyRibbons(); if (ctyKitOn()) ctyKitTiles(); ctyStreets(); ctyBuildings();
+  ctyFloor(); ctyRing(); ctyGarden(); ctyRibbons(); if (ctyKitOn()) ctyKitTiles(); ctyStreets(); ctyBuildings(); if (ctyKitOn()) ctyBlocks();
   const Rg = CTY.ring;
   SPAWN.set(7, Rg.y, Rg.r1 - 3.5); SPAWN.h = Math.PI;      // off the statue's line, so the first drop in clears its ledge
   CITY.spots['city plaza'] = [7, Rg.y, Rg.r1 - 3.5, Math.PI];
@@ -4661,7 +4753,7 @@ function cityWorld() {
   sliceMeshes();
   if (ctyKitOn()) { ctyKitFlush(); ctyKitDetile(); }
   CTY.built = 1;
-  console.log(`[skate city] ${ctyKitOn() ? CTYK.tiles.length + ' kit tiles, ' + JSON.stringify(CTYK.n) + ', ' + CTYK.meshes.length + ' kit meshes, ' : 'NO KIT (painted roads), '}${CTY.paths.length} rails, ring r ${Rg.r0}-${Rg.r1} at ${Rg.y}, bowl floor r ${CTY.rb.toFixed(1)}, ${CTY.bld.length} buildings`);
+  console.log(`[skate city] ${ctyKitOn() ? CTYK.tiles.length + ' kit tiles, ' + JSON.stringify(CTYK.n) + ', ' + CTYB.list.length + ' kit buildings (' + Math.round(CTYB.tris / 1000) + 'k tris), ' + CTYB.props + ' props, ' + CTYB.plants + ' plants, ' + CTYK.meshes.length + ' kit meshes, ' : 'NO KIT (painted roads), '}${CTY.paths.length} rails, ring r ${Rg.r0}-${Rg.r1} at ${Rg.y}, bowl floor r ${CTY.rb.toFixed(1)}, ${CTY.bld.length} buildings`);
 }
 // THE KIT WORLD (`WORLD.zones` 2): the floor, every piece, and nothing else
 function kitWorld() {
@@ -17567,7 +17659,7 @@ window.rg = { SKB, buildSkb, wingTrick, wingBoost, WINGROW, arcPaint, WING, WG, 
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, WPC, WPP, WPT, DEC, decBuild, wptLoad, wptFor, detailTex, detailPatch, DETAIL_Q, wkBuilding, wkPipe, wkKey, wppLoad, wppBuild, wppClutter, wppAt, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SPW, SPWF, SPWISLES, spwP, spwChuteYs, spillwayWorld, CTY, CTYK, cityWorld, ctyTiles, ctyTileGrid, ctyClear, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SPW, SPWF, SPWISLES, spwP, spwChuteYs, spillwayWorld, CTY, CTYK, CTYB, cityWorld, ctyTiles, ctyTileGrid, ctyClear, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   HRING, hubRing, vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

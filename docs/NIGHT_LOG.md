@@ -702,3 +702,9 @@ the plaza flush; a rasterised collider (road -0.2, sidewalk 0.07, grass 0); his 
 along every sidewalk, kept off the ramps' and ribbons' lines; his tint and anti-tiling shaders; a harbour wall with a rail round the
 island. `npm run sim skatecity` loads his real files and rides the road, the kerb and a street to the dead end.
 
+
+## r153 -- SKATE CITY's blocks are his 60 kit buildings
+48 of his Weirdport buildings stood whole along every street frontage round the plaza, front to the street, with alleys and empty
+lots between; colliders from his own `cells`/`heights` extras (a setback is a lower roof); dumpsters, crates, bins, planters and
+weeds from his props and plants. Kept off the ramps' and ribbons' lines and his hero buildings. `npm run sim skatecity` checks all
+eight blocks are built on, 338/338 roof cells on the drawn roof, nothing in a line, and skating into one stops at its front.

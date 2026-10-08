@@ -6412,6 +6412,32 @@ CASES.skatecity = async () => {
       say('his tiles: off the road over the kerb and sidewalk onto the plaza', r.clean && curb && P.pos.z > -28 && Math.abs(P.pos.y) < 0.05, `ends ${at()}${curb ? '' : ' NEVER ON THE SIDEWALK'}${cl(r)}`); }
     { go(44, -60, Math.PI, 8, -0.2); const r = ride(9, () => steerTo(44, -200));
       say('his tiles: a street run north to the dead end stops at the harbour wall', !r.falls && P.pos.z < -120 && P.pos.z > -rg.CTY.S && P.pos.y > -0.5, `ends ${at()}${cl(r)}`); }
+    // r153: HIS KIT BUILDINGS along the frontages: every block has some, every roof collider sits on the drawn roof, none of them
+    // stands in a line (the ramps', the ribbons', a hero building), and skating at one stops at its front
+    const BL = rg.CTYB.list;
+    if (BL.length) {
+      const blk = {}; for (const b of BL) { const k = (b.x < -44 ? 'W' : b.x > 44 ? 'E' : 'C') + (b.z < -44 ? 'N' : b.z > 44 ? 'S' : 'M'); blk[k] = (blk[k] || 0) + 1; }
+      say('his buildings: on every block round the plaza', Object.keys(blk).length === 8, `${BL.length} buildings, ${Math.round(rg.CTYB.tris / 1000)}k tris, ${rg.CTYB.props} props, ${rg.CTYB.plants} plants -- ${Object.entries(blk).map(([k, v]) => k + ' ' + v).join(', ')}`);
+      const rc = new THREE.Raycaster(), ms = rg.CTYK.meshes; let n = 0, good = 0, worst = '', wd = 0;
+      for (const b of BL) { const a = [Math.cos(b.th), -Math.sin(b.th)], nl = [Math.sin(b.th), Math.cos(b.th)];
+        for (const [cx, cy] of b.cells) { const lx = 3 * cx + 1.5, lz = -3 * cy - 1.5, x = b.x + a[0] * lx + nl[0] * lz, z = b.z + a[1] * lx + nl[1] * lz, top = 3 * (b.hts[cx + ',' + cy] || 1);
+          const g = rg.groundAt(x, z, top + 2, 4); rc.set(new THREE.Vector3(x, top + 0.6, z), new THREE.Vector3(0, -1, 0)); const hit = rc.intersectObjects(ms, false).find(q => q.face && q.face.normal.y > 0.5 && !q.object.material.transparent);
+          n++; const d = Math.max(g.hit ? Math.abs(g.floor - top) : 9, hit ? Math.abs(hit.point.y - top) : 9); if (d < 0.35) good++; else if (d > wd) { wd = d; worst = `${b.name} cell ${cx},${cy} top ${top} collider ${g.hit ? fix(g.floor) : 'none'} drawn ${hit ? fix(hit.point.y) : 'none'}`; } } }
+      say('his buildings: every roof collider sits on the drawn roof', good >= n * 0.9, `${good}/${n} cells within 0.35 m${worst ? ', worst ' + worst : ''}`);
+      let bad = ''; for (const b of BL) { const a = [Math.cos(b.th), -Math.sin(b.th)], nl = [Math.sin(b.th), Math.cos(b.th)];
+        for (const [cx, cy] of b.cells) for (const [fx, fz] of [[0.2, 0.2], [0.8, 0.8], [0.5, 0.5]]) { const lx = 3 * (cx + fx), lz = -3 * (cy + fz), x = b.x + a[0] * lx + nl[0] * lz, z = b.z + a[1] * lx + nl[1] * lz;
+          if (!bad && !rg.ctyClear(x, z, 1)) bad = `${b.name} at ${fix(x, 1)},${fix(z, 1)} in a line`;
+          if (!bad && Math.max(Math.abs(x), Math.abs(z)) < 33) bad = `${b.name} on the plaza`;
+          for (const [, hx, hz, w, d] of rg.CTY.bld) if (!bad && Math.hypot(x - hx, z - hz) < Math.max(w, d) / 2) bad = `${b.name} inside a hero building at ${hx},${hz}`;
+          for (const s of [-1, 1]) if (!bad && (Math.abs(x - s * 44) < 11 || Math.abs(z - s * 44) < 11)) bad = `${b.name} on a street at ${fix(x, 1)},${fix(z, 1)}`; } }
+      say('his buildings: none in a line, on a street, on the plaza or in a hero building', !bad, bad || 'clear');
+      // skate at the first building on the ring road's outer north frontage, square to it
+      const b0 = BL.find(b => b.z < -55 && Math.abs(b.x) < 30) || BL[0], a0 = [Math.cos(b0.th), -Math.sin(b0.th)], n0 = [Math.sin(b0.th), Math.cos(b0.th)];
+      const fx = b0.x + a0[0] * b0.W / 2 + n0[0] * 6, fz = b0.z + a0[1] * b0.W / 2 + n0[1] * 6;
+      go(fx, fz, Math.atan2(-n0[0], -n0[1]), 8, rg.groundAt(fx, fz, 2, 4).floor); let stop = 0; const r = ride(2.5, () => { steerTo(b0.x + a0[0] * b0.W / 2 - n0[0] * 20, b0.z + a0[1] * b0.W / 2 - n0[1] * 20); });
+      const depth = (P.pos.x - b0.x) * -n0[0] + (P.pos.z - b0.z) * -n0[1];      // how far past the front face she got
+      say('his buildings: skating at one stops at its front', depth < 0.6 && P.pos.y < 1, `${b0.name}: ends ${fix(depth)} m past the front face, ${at()}${cl(r)}`);
+    } else say('his buildings placed', false, 'NONE -- ' + (rg.CTYK.lib.bld ? 'no lot fit' : 'kit_buildings.glb did not arrive'));
   } else say('his tiles loaded', false, 'NO KIT -- ' + (rg.CTYK ? rg.CTYK.failed.join(',') : 'no CTYK'));
   // THE COPING: a grind round the lip stays on it for three seconds
   { const Pth = C.paths.find(p => p.name === 'city coping'), S0 = Pth.segs[0]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 9); P.grounded = false;

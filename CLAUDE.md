@@ -100,6 +100,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **HIS 60 KIT BUILDINGS LINE SKATE CITY'S BLOCKS (r153, `CTYB`, `ctyBlocks`, `npm run sim skatecity`).** *"Yes!!"* to the
+  next pass. Every street frontage (the tile band's edge, |x| or |z| = 33 / 55) is walked and his `kit_buildings.glb` roots are
+  stood along it whole, FRONT TO THE STREET (`th` turns his front, local +z, onto the street's normal), `set` 2.2 m back from the
+  tile edge, 1.6-5 m apart, an empty lot now and then. The ring road's outer frontages go first; `max` 48 caps it (254k triangles).
+  - **HIS ORIGIN IS THE FRONT-LEFT CORNER AND THE DEPTH RUNS -z**: a cell [x, y] is local x 3x..3x+3, z -3y-3..-3y.
+  - **THE COLLIDER IS HIS EXTRAS, NOT THE MESH**: `cells` and `heights` (floors, 3 m each), one box per run of equal cells in a
+    row, inset 0.12. The roof is a floor; the parapets are NOT in the collider yet (she can roll off a roof).
+  - **`col_*` meshes are his colliders and are never drawn** (`ctyPart` skips them, and `userData.collider`). A building keeps
+    RGBA vertex colour, because his grime rides the alpha in `wpTint`; the transparent buckets cast no shadow.
+  - **KEEP-OUTS**: the ramps' and the ribbons' paths carried 40-45 m on into the blocks (`CTYB.lines`), a circle round each hero
+    building, the street bands, the plaza and each other. A lot that fails tries the next building; the shuffle is seeded.
+  - Props (dumpsters in alleys, a bin or planter on the front strip; the big ones are small solids) and weeds/bushes from his
+    plants. `CTYK.wait` went to 60 s: the 14.5 MB file is waited on at boot because the colliders come out of it.
+  - Not yet: parapet colliders, his breakables, decals, the iridescent shader, building pieces.
+
 - **HIS WEIRDPORT KIT IS SKATE CITY'S STREETS (r152, `CTYK`, `ctyKitLoad`, `ctyTiles`, `ctyTileGrid`, `ctyKitTiles`, `ctyKitStreets`,
   `zones/weirdport_kit/`).** *"The Weirdport kit is done ... run the three helper scripts on everything it loads."* The ring road and
   the four streets on from it are his 22 m tiles (48: crossings at the four corners, straights, a dead end at each street's end),
