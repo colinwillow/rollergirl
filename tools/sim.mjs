@@ -6412,6 +6412,25 @@ CASES.skatecity = async () => {
       say('his tiles: off the road over the kerb and sidewalk onto the plaza', r.clean && curb && P.pos.z > -28 && Math.abs(P.pos.y) < 0.05, `ends ${at()}${curb ? '' : ' NEVER ON THE SIDEWALK'}${cl(r)}`); }
     { go(44, -60, Math.PI, 8, -0.2); const r = ride(9, () => steerTo(44, -200));
       say('his tiles: a street run north to the dead end stops at the harbour wall', !r.falls && P.pos.z < -120 && P.pos.z > -rg.CTY.S && P.pos.y > -0.5, `ends ${at()}${cl(r)}`); }
+    // r154: THE SKATE LOTS: every combo on a block (off the streets, the plaza, the hero buildings and each other), no building
+    // on any, the north ramp running straight on into the triple wave, and every street ending in a quarter pipe
+    { const LB = rg.CTYL.built, ov = (a, b, m) => a[0] < b[2] + m && a[2] > b[0] - m && a[1] < b[3] + m && a[3] > b[1] - m; let bad = '';
+      for (const [i, l] of LB.entries()) { const b = l.bb;
+        if (b[0] < -rg.CTY.S + 0.7 || b[2] > rg.CTY.S - 0.7 || b[1] < -rg.CTY.S + 0.7 || b[3] > rg.CTY.S - 0.7) bad = bad || `${l.key} off the island`;
+        for (const s of [-1, 1]) for (const ax of [0, 1]) { const lo = ax ? b[1] : b[0], hi = ax ? b[3] : b[2]; if (lo < s * 44 + 11 && hi > s * 44 - 11) bad = bad || `${l.key} at ${l.x},${l.z} on a street`; }
+        if (b[0] < 33 && b[2] > -33 && b[1] < 33 && b[3] > -33) bad = bad || `${l.key} on the plaza`;
+        for (const [, hx, hz, w, d] of rg.CTY.bld) { const r = Math.max(w, d) / 2, qx = Math.max(b[0], Math.min(hx, b[2])), qz = Math.max(b[1], Math.min(hz, b[3])); if (Math.hypot(hx - qx, hz - qz) < r * 0.75) bad = bad || `${l.key} in a hero building at ${hx},${hz}`; }
+        for (const [j, m] of LB.entries()) if (j > i && ov(b, m.bb, 0.5)) bad = bad || `${l.key} overlaps ${m.key}`;
+        for (const B of rg.CTYB.list) { const a = [Math.cos(B.th), -Math.sin(B.th)], nl = [Math.sin(B.th), Math.cos(B.th)], P4 = [[0, 0], [B.W, 0], [0, -B.D], [B.W, -B.D]].map(([lx, lz]) => [B.x + a[0] * lx + nl[0] * lz, B.z + a[1] * lx + nl[1] * lz]);
+          const bb = [Math.min(...P4.map(q => q[0])), Math.min(...P4.map(q => q[1])), Math.max(...P4.map(q => q[0])), Math.max(...P4.map(q => q[1]))]; if (ov(b, bb, 0)) bad = bad || `${B.name} built on ${l.key}`; } }
+      say('the skate lots: every combo on a block, clear of streets, plaza, heroes, each other and the buildings', LB.length >= 18 && !bad, `${LB.length} combos, ${rg.CTYL.qps.filter(Boolean).length} dead-end QPs${bad ? ' -- ' + bad : ''}`); }
+    { const q = C.ramps[0], p0 = [Math.sin(q.A) * (Rg.r1 - 3), Rg.y, Math.cos(q.A) * (Rg.r1 - 3)]; go(p0[0], p0[2], q.A, 5, Rg.y); let up = 0;
+      const r = ride(8, () => { steerTo(0, -200); if (P.pos.z < -62 && P.pos.z > -72 && P.grounded && P.pos.y > 2.2) up = 1; }, () => up);
+      say('the north park: down the north ramp and straight up onto the euro gap\'s deck', up && !r.falls, `${up ? 'on the deck at ' + at() : 'NEVER ON IT, ends ' + at()}${cl(r)}`); }
+    // the raised bowls: up the bank onto the deck from the side she comes from
+    for (const l of rg.CTYL.built.filter(q => q.bank)) { const fx = Math.sin(l.yaw), fz = Math.cos(l.yaw), Lb = rg.KSZ[l.bank].H / Math.tan(25 * Math.PI / 180), sx = l.x - fx * (Lb + 6), sz = l.z - fz * (Lb + 6);
+      go(sx, sz, l.yaw, 9, 0); let up = 0; const r = ride(4, () => { steerTo(l.x + fx * 40, l.z + fz * 40); if (P.pos.y > rg.KSZ[l.bank].H - 0.3) up = 1; }, () => up);
+      say(`the ${l.key} at ${l.x},${l.z}: up its bank onto the deck`, up && !r.falls, `${up ? 'up at ' + at() : 'never up, ends ' + at()}${cl(r)}`); }
     // r153: HIS KIT BUILDINGS along the frontages: every block has some, every roof collider sits on the drawn roof, none of them
     // stands in a line (the ramps', the ribbons', a hero building), and skating at one stops at its front
     const BL = rg.CTYB.list;

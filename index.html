@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r153</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r154</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -238,7 +238,7 @@ import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r153';
+const BUILD = 'r154';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -4547,6 +4547,47 @@ function ctyKitStreets() {
   let si = 0; for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const [ox, oz] of [[1, 1], [-1, -1]]) { const x = sx * c + ox * 6.6, z = sz * c + oz * 6.6; if (!ctyClear(x, z, 1)) continue;
     if (ctyPut('furn', 'street_sign_' + String((si * 7) % 25).padStart(2, '0'), x, y0, z, Math.atan2(-ox, -oz), 1, true)) { solidAdd(x, z, 0.08, 0.08, y0, y0 + 2.6, 0, { top: false, tag: 'city sign' }); CTYK.n.sign++; } si++; }
 }
+// ===== r154: THE SKATE LOTS (`CTYL`, `ctyLots`). *"This layout is super basic, super plain -- there's no skate ramps anywhere?!"*
+// Right: r151-r153 built a city with one bowl in it. Every block now carries skating, from the r91 TESTED COMBOS (each one ridden
+// end to end by `npm run sim combos`), placed so the lines out of the plaza run straight into them:
+//   NORTH PARK   the north ramp lands heading north and runs straight on into the euro gap and the stair sets, a volcano bowl
+//                and a pump track on its left, a drum bowl and the funbox gaps on its right, a quarter pipe L at the far end
+//   SOUTH PARK   the south ramp runs into the mini ramp; a pump track, an A-frame, a corkscrew and a euro gap beside it
+//   EAST / WEST  each ribbon lands straight into a line: funbox gaps then an A-frame (east), a euro gap then stair sets (west)
+//   THE CORNERS  a bowl, a pump track or a corkscrew behind the buildings near the harbour, an alley kept open to it
+//   A RAISED BOWL GETS A BANK UP TO ITS DECK on the side she comes from: a bowl's coping 2.4-3.6 m up with no way on is a wall
+//   DEAD ENDS    every street ends in a quarter pipe L across the road, its deck on the harbour wall -- not in a wall
+// A lot is a keep-out for `ctyBlocks`, so no building lands on one. Combos use the r90 park palette and the detail pass.
+const CTYL = { on: 1, margin: 2.5, lots: [], qps: [], built: [] };
+function ctyLots() {
+  if (!CTYL.on) return;
+  const P = Math.PI, H = P / 2, def = k => COMBO_DEFS.find(q => q.key === k);
+  // every one is turned so the way IN faces the way she arrives: the r91 combos are entered along +u (bank, stairs, funbox, bowl
+  // deck) except the wave and spine ones, which are entered from the side and so are not used here
+  const L = [ // [combo, x, z, yaw, stop name, bank up to a raised bowl's deck]
+    ['euro_gap', 0, -62, P, 'city north park'], ['stair_sets', 0, -93, P], ['volcano_bowl', -19, -62, P, 0, 'M'], ['drum_bowl', 19, -64, P, 0, 'L'],
+    ['funbox_gaps', 20, -97, P], ['pump_track', -19.5, -93, P],
+    ['mini_spine', 0, 62, 0, 'city south park'], ['aframe', 19, 58, 0], ['corkscrew', 19, 92, 0], ['pump_track', -19.5, 60, 0], ['euro_gap', -19.5, 98, 0],
+    ['funbox_gaps', 88, -20, H, 'city east lot'], ['aframe', 112, -20, H],
+    ['euro_gap', -88, -13, -H, 'city west lot'], ['stair_sets', -114, -13, -H],
+    ['drum_bowl', 122, -108, P, 'city ne bowl', 'L'], ['volcano_bowl', -122, -108, P, 'city nw bowl', 'M'], ['pump_track', 122, 104, 0, 'city se pump'], ['corkscrew', -124, 110, 0, 'city sw corkscrew']];
+  for (const [k, x, z, yaw, stop, bank] of L) { const d = def(k); if (!d) continue;
+    const C = comboBuild(d, { x, y: 0, z, yaw }), fx = Math.sin(yaw), fz = Math.cos(yaw), [u0, u1, w0, w1] = C.fp;
+    let ub = u0; if (bank) { const Lb = KSZ[bank].H / Math.tan(25 * D2R); kitPiece('bank', bank, { x: x - fx * Lb, y: 0, z: z - fz * Lb, yaw }, { w: 8 }); ub = -Lb; }
+    const P4 = [[ub, w0], [u1, w0], [ub, w1], [u1, w1]].map(([u, w]) => [x + u * fx + w * fz, z + u * fz - w * fx]);
+    const bb = [Math.min(...P4.map(q => q[0])), Math.min(...P4.map(q => q[1])), Math.max(...P4.map(q => q[0])), Math.max(...P4.map(q => q[1]))];
+    CTYL.lots.push(bb); CTYL.built.push({ key: k, x, z, yaw, bb, C, bank });
+    if (stop) { const back = (bank ? -ub : 0) + 5; CITY.spots[stop] = [x - fx * back, 0, z - fz * back, yaw]; CTY.go.push(stop); } }
+  // a quarter pipe L at the north park's far end, so the line comes back
+  CTYL.qps.push(kitPiece('qp', 'L', { x: 0, y: 0, z: -118, yaw: P }, { w: 8 }), kitPiece('qp', 'L', { x: 0, y: 0, z: 118, yaw: 0 }, { w: 8 }));
+  // the alleys to the corner lots, from the street frontage in (kept open, nothing drawn)
+  CTYL.lots.push([116, -108, 128, -55], [-128, -108, -116, -55], [116, 55, 128, 104], [-128, 55, -116, 110]);
+  // THE DEAD ENDS: a quarter pipe L across each street's end, its back on the harbour wall's inner face
+  const S = KSZ.L, wall = CTY.S - 0.7, toe = wall - S.lip - KITW.deck - 0.05, y = -CTYK.lower;
+  for (const s of [-1, 1]) for (const e of [-1, 1]) {
+    const a = kitPiece('qp', 'L', { x: s * CTYK.rc, y, z: e * toe, yaw: e > 0 ? 0 : P }, { w: 10 }), b = kitPiece('qp', 'L', { x: e * toe, y, z: s * CTYK.rc, yaw: e > 0 ? H : -H }, { w: 10 });
+    CTYL.qps.push(a, b); }
+}
 // ===== r153: HIS 60 KIT BUILDINGS LINE THE BLOCKS (`CTYB`, `ctyBlocks`). The island outside the plaza is eight blocks between
 // his streets; every street FRONTAGE (the tile band's edge, |x| or |z| = 33 / 55) is walked and his buildings are stood along it,
 // FRONT TO THE STREET, a few metres apart, each one his file's own root placed whole (origin = its front-left corner, depth -z).
@@ -4566,7 +4607,7 @@ function ctyBlocks() {
   if (!K.length) return;
   for (let i = K.length - 1; i > 0; i--) { const j = Math.floor(slHash(i, 53, 153) * (i + 1)); [K[i], K[j]] = [K[j], K[i]]; }
   // keep-outs
-  const occ = [], hero = CTY.bld.map(([, x, z, w, d]) => [x, z, Math.hypot(w, d) / 2 + 2]), lines = [];
+  const occ = CTYL.lots.map(b => [b[0] - CTYL.margin, b[1] - CTYL.margin, b[2] + CTYL.margin, b[3] + CTYL.margin]), hero = CTY.bld.map(([, x, z, w, d]) => [x, z, Math.hypot(w, d) / 2 + 2]), lines = [];
   for (const q of CTY.ramps) if (q.end) { const ax = Math.sin(q.A) * CTY.ring.r1, az = Math.cos(q.A) * CTY.ring.r1, dx = q.end[0] - ax, dz = q.end[2] - az, L = Math.hypot(dx, dz);
     lines.push([ax, az, q.end[0] + dx / L * 40, q.end[2] + dz / L * 40, q.w / 2 + 3]); }
   for (const q of CTY.ribbons) { for (let i = 0; i < q.pts.length - 1; i++) lines.push([q.pts[i][0], q.pts[i][2], q.pts[i + 1][0], q.pts[i + 1][2], CTY.rw / 2 + 2]);
@@ -4730,7 +4771,11 @@ function ctyBuildings() {
 function cityWorld() {
   CITY.on = 0; SLC.built = 1; SLC.canal = { x0: -480, x1: 480, z0: -480, z1: 480 }; SLC.WY = CTY.sea; SLC.railQ = []; SLC.railC = [];
   _slseed = 6161; SKYART.dir = 'zones/kit_skate_city/'; SKYART.tex = 1024;
-  ctyFloor(); ctyRing(); ctyGarden(); ctyRibbons(); if (ctyKitOn()) ctyKitTiles(); ctyStreets(); ctyBuildings(); if (ctyKitOn()) ctyBlocks();
+  ctyFloor(); ctyRing(); ctyGarden(); ctyRibbons(); if (ctyKitOn()) ctyKitTiles(); ctyStreets(); ctyBuildings();
+  const nK = MESH.pos.length, KC = { ...KCOL }, Tn = {}; for (const q in KSZ) Tn[q] = KSZ[q].tint;      // r154: the lots, in the park palette
+  Object.assign(KCOL, PARKD.pal.kcol); for (const q in PARKD.pal.size) if (KSZ[q]) KSZ[q].tint = PARKD.pal.size[q];
+  try { ctyLots(); } finally { Object.assign(KCOL, KC); for (const q in Tn) KSZ[q].tint = Tn[q]; }
+  if (ctyKitOn()) ctyBlocks();
   const Rg = CTY.ring;
   SPAWN.set(7, Rg.y, Rg.r1 - 3.5); SPAWN.h = Math.PI;      // off the statue's line, so the first drop in clears its ledge
   CITY.spots['city plaza'] = [7, Rg.y, Rg.r1 - 3.5, Math.PI];
@@ -4747,13 +4792,15 @@ function cityWorld() {
     const P = R.closed ? railLoop(R.pts.map(V), { name: R.name }) : railPath(R.pts.map(V), { name: R.name }); CTY.paths.push(P);
     if (R.gems) gemsAlong(P, R.gems, 0.9, R.gems / 2); }
   for (const top of SLC.railQ) { const P = railPath(top.map(V), { name: 'city ribbon' }); CTY.paths.push(P); gemsAlong(P, 9, 0.9, 4); }
+  kitRailsDraw();
   railLink();
   ORB.built = 1; splashMake(m => scene.add(m));
   gemBuild();
+  { const m = kitFlush(nK, 'city kit pieces'); if (m) m.material = detailPatch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0.0 })); }
   sliceMeshes();
   if (ctyKitOn()) { ctyKitFlush(); ctyKitDetile(); }
   CTY.built = 1;
-  console.log(`[skate city] ${ctyKitOn() ? CTYK.tiles.length + ' kit tiles, ' + JSON.stringify(CTYK.n) + ', ' + CTYB.list.length + ' kit buildings (' + Math.round(CTYB.tris / 1000) + 'k tris), ' + CTYB.props + ' props, ' + CTYB.plants + ' plants, ' + CTYK.meshes.length + ' kit meshes, ' : 'NO KIT (painted roads), '}${CTY.paths.length} rails, ring r ${Rg.r0}-${Rg.r1} at ${Rg.y}, bowl floor r ${CTY.rb.toFixed(1)}, ${CTY.bld.length} buildings`);
+  console.log(`[skate city] ${ctyKitOn() ? CTYK.tiles.length + ' kit tiles, ' + JSON.stringify(CTYK.n) + ', ' + CTYB.list.length + ' kit buildings (' + Math.round(CTYB.tris / 1000) + 'k tris), ' + CTYB.props + ' props, ' + CTYB.plants + ' plants, ' + CTYL.built.length + ' skate lots, ' + CTYK.meshes.length + ' kit meshes, ' : 'NO KIT (painted roads), '}${CTY.paths.length} rails, ring r ${Rg.r0}-${Rg.r1} at ${Rg.y}, bowl floor r ${CTY.rb.toFixed(1)}, ${CTY.bld.length} buildings`);
 }
 // THE KIT WORLD (`WORLD.zones` 2): the floor, every piece, and nothing else
 function kitWorld() {
@@ -17659,7 +17706,7 @@ window.rg = { SKB, buildSkb, wingTrick, wingBoost, WINGROW, arcPaint, WING, WG, 
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, WPC, WPP, WPT, DEC, decBuild, wptLoad, wptFor, detailTex, detailPatch, DETAIL_Q, wkBuilding, wkPipe, wkKey, wppLoad, wppBuild, wppClutter, wppAt, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SPW, SPWF, SPWISLES, spwP, spwChuteYs, spillwayWorld, CTY, CTYK, CTYB, cityWorld, ctyTiles, ctyTileGrid, ctyClear, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SPW, SPWF, SPWISLES, spwP, spwChuteYs, spillwayWorld, CTY, CTYK, CTYB, CTYL, cityWorld, ctyTiles, ctyTileGrid, ctyClear, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   HRING, hubRing, vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

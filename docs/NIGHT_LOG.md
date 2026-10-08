@@ -708,3 +708,9 @@ island. `npm run sim skatecity` loads his real files and rides the road, the ker
 lots between; colliders from his own `cells`/`heights` extras (a setback is a lower roof); dumpsters, crates, bins, planters and
 weeds from his props and plants. Kept off the ramps' and ribbons' lines and his hero buildings. `npm run sim skatecity` checks all
 eight blocks are built on, 338/338 roof cells on the drawn roof, nothing in a line, and skating into one stops at its front.
+
+## r154 -- SKATE CITY gets its skate parks
+19 tested combos on the blocks before the buildings: a north park the north ramp runs straight into (euro gap, stair sets,
+volcano and drum bowls up banks, funbox gaps, pump track, QP), a south park (mini ramp, A-frame, corkscrew, pump track, euro gap,
+QP), lines where both ribbons land, a bowl/pump track/corkscrew in every corner behind the buildings with an alley to it, and a QP
+L at every street's dead end against the harbour wall. `npm run sim skatecity` checks placement and rides the north line and every bank.

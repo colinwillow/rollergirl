@@ -100,6 +100,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **SKATE CITY HAD ONE BOWL IN IT, AND THAT WAS THE WHOLE COMPLAINT (r154, `CTYL`, `ctyLots`).** *"This layout is super basic,
+  super plain -- there's no skate ramps anywhere?!"* Right: r151-r153 built a city and forgot the skating. 19 lots of the r91
+  TESTED COMBOS now fill the blocks, placed BEFORE the buildings (a lot is a keep-out for `ctyBlocks`, `CTYL.margin`):
+  north park (the north ramp runs straight up the euro gap's bank, then stair sets, a volcano bowl, a drum bowl, funbox gaps, a
+  pump track, a QP L at the end), south park (mini ramp, A-frame, corkscrew, pump track, euro gap, QP L), the east ribbon lands
+  into funbox gaps then an A-frame, the west into a euro gap then stair sets, and each corner has a bowl / pump track / corkscrew
+  behind the buildings with an ALLEY kept open to it. Every street's dead end is a QP L across the road, deck on the harbour wall.
+  - **A COMBO IS ENTERED ALONG +u OR FROM THE SIDE, AND ONLY THE FIRST KIND CAN TAKE A LINE STRAIGHT IN.** The triple wave and the
+    spine transfer are entered from the side: put on the north ramp's run-out, she met the back of the wave's end wall and
+    stopped dead at z -59.7. They are left out; read a combo's `entries` (handoff JSON) before aiming a line at it.
+  - **A RAISED BOWL NEEDS A BANK UP TO ITS DECK**: its coping is 2.4-3.6 m above the street and the combo was tested from the deck.
+    A bank (25 deg, `bank` per lot) on the side she arrives from; `npm run sim skatecity` rides up every one.
+  - Kit pieces use the r90 park palette and the detail pass (sk8World's recipe); their rails go through `kitRailsDraw` after
+    `triBuild`, and `kitFlush(nK)` takes only what the lots added to `MESH`.
+
 - **HIS 60 KIT BUILDINGS LINE SKATE CITY'S BLOCKS (r153, `CTYB`, `ctyBlocks`, `npm run sim skatecity`).** *"Yes!!"* to the
   next pass. Every street frontage (the tile band's edge, |x| or |z| = 33 / 55) is walked and his `kit_buildings.glb` roots are
   stood along it whole, FRONT TO THE STREET (`th` turns his front, local +z, onto the street's normal), `set` 2.2 m back from the
