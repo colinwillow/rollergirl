@@ -100,6 +100,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **HIS HERO BUILDINGS ARE THEIR OWN COLLIDERS NOW (r157, `CTYH`, `ctyHeroCol`, `SKYART.col`).** *"They have ramps on them, they
+  have grind rails, and there's just a giant box collider around them -- you float at the top."* r151's placeholder box (his catalog's
+  footprint and height) stood until the art landed and then FOR EVER. Now `skyIngest` hands each file to `SKYART.col[f]` BEFORE its
+  parts are disposed, and `ctyHeroCol` builds the collider from the drawn triangles, placed exactly as drawn: every face with
+  `ny >= wall` (0.1) is a floor through `triAdd` (decks, ramps, stairs, rail tops -- so the swipe-down lip finder can grind them);
+  every near-vertical face is sampled every `step` m into `cell` m columns, each column cut into height spans at gaps over `gap`, and
+  each span is a `top: false` solid `trim` under its own top, merged along x. Undersides are ignored. The placeholder box is spliced
+  out and its two roof triangles moved to a degenerate far point (nothing else's raw index shifts), then `triBuild(); solidBuild()`.
+  - **HIS MESHES ARE MERGED PER MATERIAL, SO A MESH NAME IS A MATERIAL.** `HQ_Camo_Core` is 20k triangles of the building itself;
+    a dressing skip by name would have thrown walls away. `CTYH.skip` takes only foliage and flat decals.
+  - **His plinths/forecourts are inside the catalog footprint**: from the street she rolls 1-3 m onto the base slab and stops dead at
+    the facade (`npm run sim skatecity`, 5 buildings: placeholder gone, 15-41 distinct roof heights, a drop from 45 m lands).
+  - **Not verified**: whether his building ramps can be ridden from where they start (a radial probe found no street-level climb
+    over 1.6 m -- they likely start on plinths or decks), how his rails grind (as lips, via the swipe down), and the phone cost of
+    ~75k more floor triangles.
+
 - **HOLD DOWN IN THE AIR IS A DROP-IN NOW, AND THE WINGS TWIST HER ROUND (r156, `AIR.drop*`, `dropFind`, `dropFalls`, `p.dropTo`,
   `WING.spinAt/spinT`, `girl.wingSpin`).** *"Press and hold down ... a raycast arrow downward or in the general area, and if there's
   a ramp or just a decline it aligns her to it and gains downward velocity -- Tony Hawk did this."* The right pad held down in the

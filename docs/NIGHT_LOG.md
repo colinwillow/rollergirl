@@ -722,3 +722,8 @@ Kit textures cut to 512 px at load, the kit's source meshes dropped after the me
 Right pad held down in the air with no ramp straight below looks ahead along her line for a ramp or decline falling away from
 her, aims her at it and dives her down it (DROP IN). A quick swipe down is still the grind. Wings opened in fakie twist her round
 to her line over 0.55 s instead of snapping (WING TWIST). Try it off the back deck of the hub half pipe.
+
+## r157 -- Skate City's hero buildings are their own colliders
+The placeholder box round each of his five hero buildings is taken out the moment the art lands; his decks, ramps and stairs are
+floors and his walls are walls, built from the drawn triangles. Ride up to SkateHQ, the SciFi tower, the skate park, Kickflip and
+Cosmic Fuel and onto them.

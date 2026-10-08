@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r156</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r157</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -238,7 +238,7 @@ import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r156';
+const BUILD = 'r157';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3169,7 +3169,7 @@ function kitRailsDraw(into) {      // r90: `into` collects them to be merged by 
 //   A BLEND material (ivy, moss) is a CUTOUT -- a merged mesh cannot sort against itself.
 //   Loaded after she drops in, `conc` at a time, the tower first; the chip says NO SKY ART n/m for any that never arrive.
 const SKYART = { dir: 'zones/zone_skyline/assets_skyline/', place: [], tex: 512, texBig: 1024, big: /sticker|graffiti|logo/i, conc: 2,
-  failed: [], loaded: [], want: 0, mats: new Map(), keep: new Set(), bk: new Map(), mesh: new Map(), onLoad: {}, flushT: 0, tris: 0, farFog: 0.55 };
+  failed: [], loaded: [], want: 0, mats: new Map(), keep: new Set(), bk: new Map(), mesh: new Map(), onLoad: {}, col: {}, flushT: 0, tris: 0, farFog: 0.55 };
 function skyArt(f, x, y, z, yaw, o) { SKYART.place.push({ f, x, y, z, yaw: yaw || 0, s: (o && o.s) || 1, far: !!(o && o.far), clip: o && o.clip != null ? o.clip : null }); }
 // r100: `clip` (file metres): every triangle wholly above it is left out -- a roof the game rides is cleared of the planters,
 // huts and masts the pack stands on it, which would otherwise be in the middle of a half pipe
@@ -3209,6 +3209,7 @@ function skyGeo(g0) {
 const _skM = new THREE.Matrix4(), _skQ = new THREE.Quaternion(), _skP = new THREE.Vector3(), _skS = new THREE.Vector3();
 function skyIngest(f, root) {
   root.updateMatrixWorld(true);
+  if (SKYART.col[f]) { try { SKYART.col[f](root); } catch (e) { console.warn('[sky art] collider for ' + f + ' failed: ' + (e && e.message)); } }      // r157: before the parts are disposed
   const P = SKYART.place.filter(q => q.f === f), parts = []; root.traverse(o => { if (o.isMesh && o.geometry && o.geometry.attributes.position) parts.push(o); });
   for (const o of parts) {
     const m = skyMat(Array.isArray(o.material) ? o.material[0] : o.material), base = skyGeo(o.geometry).applyMatrix4(o.matrixWorld);
@@ -4775,16 +4776,76 @@ function ctyStreets() {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const cx = sx * (R.a - 9), cz = sz * (R.a - 9); slPalm(cx, 0, cz, 7, undefined, 0.15); slPalm(cx + sx * 3.5, 0, cz - sz * 2, 6, 0xffb8e8, 0.1);
     slPlanter(sx * (R.a - 15), 0, sz * (R.a - 6.5), 5, 1.4, 0.45); slBench(sx * (R.a - 7), 0, sz * (R.a - 15), sx > 0 ? -Math.PI / 2 : Math.PI / 2); }
 }
-// HIS BUILDINGS: art (loaded after she is skating) on a box collider each, turned to face the plaza. A placeholder collider
-// -- the box is his catalog's footprint and height -- until each building gets the colliders its decks and stairs deserve.
+// HIS BUILDINGS: art (loaded after she is skating), turned to face the plaza. Until the art lands each stands on a placeholder
+// box of his catalog's footprint and height; r157: the moment it lands the box is taken out and THE ART IS THE COLLIDER
+// (`ctyHeroCol`) -- his decks, ramps and stairs are floors, his walls are walls, and the space round them is air.
 function ctyBuildings() {
   for (const [f, x, z, w, d, h] of CTY.bld) { const yaw = Math.atan2(-x, -z);
     skyArt(f, x, 0, z, yaw);
-    solidAdd(x, z, w / 2, d / 2, 0, h, yaw, { top: true, tag: 'city building' });
+    const t0 = _triRaw.length, m0 = _triM.length, box = solidAdd(x, z, w / 2, d / 2, 0, h, yaw, { top: true, tag: 'city building' });
+    const ph = { box, t0, t1: _triRaw.length, m0 };
+    SKYART.col[f] = root => ctyHeroCol(f, root, x, z, yaw, ph);
     // a stand-in until the art lands (and for good if it never does): a plain block the colour of the plaza
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0xe2d4e0, roughness: 0.9 }));
     m.position.set(x, h / 2, z); m.rotation.y = yaw; m.castShadow = m.receiveShadow = true; m.name = 'city stand-in ' + f; scene.add(m);
     skyOnLoad(f, () => { m.visible = false; }); }
+}
+// r157: *"The hero buildings were built with ramps on them and grind rails, and there's just a giant box collider around them,
+// so you float at the top -- you can't get anywhere near them."* The art's own triangles, placed exactly as they are drawn:
+//   FLOORS  every face that looks up enough to stand on goes into the triangle collider, the same `triAdd` every ramp uses,
+//           so a deck is a floor, a ramp is a ramp and the top of a rail is a lip the swipe down can grind (r71)
+//   WALLS   every near-vertical face (|ny| under `wall`) is sampled every `step` m and binned in `cell` m columns; each
+//           column's samples are cut into height spans wherever they gap by more than `gap`, and each span is a solid with
+//           no floor (`top: false`), its top `trim` under the face's own top so a deck's edge never pokes up through the deck.
+//           Columns that agree are merged along x. A wall is solid all the way up; the air beside it is air.
+//   SKIPPED trees, pines, ivy, plants (a thicket of floors and walls) and the flat decals laid on walls -- murals, tags,
+//           signs (`CTYH.skip`). His meshes are merged PER MATERIAL, so a name is a material, not an object: `HQ_Camo_Core` is
+//           20k triangles of the building itself, so anything not plainly foliage or a decal stays in.
+// The placeholder's box and its two roof triangles go (the triangles are moved off to a degenerate point, so nothing else's
+// index into the raw list shifts), and the grids are built again.
+const CTYH = { wall: 0.1, step: 0.25, cell: 0.5, gap: 0.7, trim: 0.15, minH: 0.3, merge: 0.3,
+  skip: /tree|pine|needle|ivy|plant|gfx|tag\d|mural|dec_|sign/i,      // his meshes are merged PER MATERIAL, so a name is a material: only foliage and flat decals
+  n: {} };
+const _chM = new THREE.Matrix4(), _chA = new THREE.Vector3(), _chB = new THREE.Vector3(), _chC = new THREE.Vector3();
+function ctyHeroCol(f, root, x, z, yaw, ph) {
+  const H = CTYH, M = new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(UP, yaw), new THREE.Vector3(1, 1, 1));
+  const cols = new Map(); let floors = 0, walls = 0, skipped = 0;
+  root.traverse(o => { if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    if (H.skip.test(o.name || '')) { skipped++; return; }
+    _chM.multiplyMatrices(M, o.matrixWorld);
+    const P = o.geometry.attributes.position, I = o.geometry.index, n = I ? I.count : P.count;
+    for (let i = 0; i + 2 < n; i += 3) {
+      _chA.fromBufferAttribute(P, I ? I.getX(i) : i).applyMatrix4(_chM); _chB.fromBufferAttribute(P, I ? I.getX(i + 1) : i + 1).applyMatrix4(_chM); _chC.fromBufferAttribute(P, I ? I.getX(i + 2) : i + 2).applyMatrix4(_chM);
+      const ux = _chB.x - _chA.x, uy = _chB.y - _chA.y, uz = _chB.z - _chA.z, vx = _chC.x - _chA.x, vy = _chC.y - _chA.y, vz = _chC.z - _chA.z;
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, nl = Math.hypot(nx, ny, nz); if (nl < 1e-9) continue;
+      const k = ny / nl;
+      if (k >= H.wall) { triAdd(_chA.x, _chA.y, _chA.z, _chB.x, _chB.y, _chB.z, _chC.x, _chC.y, _chC.z); floors++; continue; }
+      if (k <= -H.wall) continue;      // an underside: nothing stands on it and the walls round it are walls already
+      walls++;
+      const e = Math.max(Math.hypot(ux, uy, uz), Math.hypot(vx, vy, vz), Math.hypot(_chC.x - _chB.x, _chC.y - _chB.y, _chC.z - _chB.z)), m = Math.max(1, Math.ceil(e / H.step));
+      for (let a = 0; a <= m; a++) for (let b = 0; a + b <= m; b++) {
+        const sx = _chA.x + (ux * a + vx * b) / m, sy = _chA.y + (uy * a + vy * b) / m, sz = _chA.z + (uz * a + vz * b) / m;
+        const key = Math.floor(sx / H.cell) + ',' + Math.floor(sz / H.cell); let c = cols.get(key); if (!c) cols.set(key, c = []); c.push(sy); } } });
+  // each column cut into spans, then runs along x of agreeing spans merged into one box
+  const rows = new Map();
+  for (const [key, ys] of cols) { ys.sort((p, q) => p - q); const [i, k] = key.split(',').map(Number);
+    let lo = ys[0], hi = ys[0];
+    const out = () => { if (hi - lo >= H.minH) { let r = rows.get(k); if (!r) rows.set(k, r = []); r.push([i, lo, hi]); } };
+    for (let j = 1; j < ys.length; j++) { if (ys[j] - hi > H.gap) { out(); lo = ys[j]; } hi = ys[j]; } out(); }
+  let boxes = 0;
+  for (const [k, r] of rows) { r.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    const used = new Array(r.length).fill(0);
+    for (let s0 = 0; s0 < r.length; s0++) { if (used[s0]) continue; used[s0] = 1; let [i0, lo, hi] = r[s0], i1 = i0;
+      for (let t = s0 + 1; t < r.length; t++) { if (used[t] || r[t][0] > i1 + 1) continue; if (r[t][0] !== i1 + 1) continue;
+        if (Math.abs(r[t][1] - lo) < H.merge && Math.abs(r[t][2] - hi) < H.merge) { used[t] = 1; i1 = r[t][0]; lo = Math.min(lo, r[t][1]); hi = Math.max(hi, r[t][2]); } }
+      const top = Math.max(lo + 0.1, hi - H.trim);
+      solidAdd((i0 + i1 + 1) / 2 * H.cell, (k + 0.5) * H.cell, (i1 - i0 + 1) / 2 * H.cell, H.cell / 2, lo, top, 0, { top: false, tag: 'city hero wall' }); boxes++; } }
+  // the placeholder goes
+  const bi = SOLID.all.indexOf(ph.box); if (bi >= 0) SOLID.all.splice(bi, 1);
+  for (let o = ph.t0; o < ph.t1; o += 12) { _triRaw[o] = _triRaw[o + 3] = _triRaw[o + 6] = 1e5; _triRaw[o + 1] = _triRaw[o + 4] = _triRaw[o + 7] = -1e5; _triRaw[o + 2] = _triRaw[o + 5] = _triRaw[o + 8] = 1e5; }
+  triBuild(); solidBuild();
+  H.n[f] = { floors, walls, boxes, skipped };
+  console.log(`[skate city] ${f}: the art is the collider -- ${floors} floor triangles, ${boxes} wall boxes from ${walls} wall faces, ${skipped} dressing meshes left out`);
 }
 function cityWorld() {
   CITY.on = 0; SLC.built = 1; SLC.canal = { x0: -480, x1: 480, z0: -480, z1: 480 }; SLC.WY = CTY.sea; SLC.railQ = []; SLC.railC = [];
@@ -17787,7 +17848,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { SKB, buildSkb, wingTrick, wingBoost, WINGROW, arcPaint, WING, WG, wingFold, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { CTYH, ctyHeroCol, SKYART, skyIngest, SOLID, SKB, buildSkb, wingTrick, wingBoost, WINGROW, arcPaint, WING, WG, wingFold, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,

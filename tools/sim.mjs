@@ -6487,6 +6487,34 @@ CASES.skatecity = async () => {
   // the plaza walls: skating at the outer parapet from the deck does not go through it
   { go(0, -Rg.r1 + 4, Math.PI * 0.75, 8, Rg.y); const r = ride(2.5, () => steerTo(-Rg.r1 * 1.5, -Rg.r1 * 1.5));
     say('the parapet: skating at it from the deck stays on the deck', P.pos.y > Rg.y - 0.3 && Math.hypot(P.pos.x, P.pos.z) < Rg.r1 + 0.2, `ends ${at()}${cl(r)}`); }
+  // r157: HIS HERO BUILDINGS ARE THEIR OWN COLLIDERS. Each file through the real loader (meshopt, textures cut) and the shipped
+  // `skyIngest`, which hands it to `ctyHeroCol`: the placeholder box must be gone, the roof must not be one flat lid any more,
+  // skating at the building from the street must be stopped by a wall or carried up a ramp (never through), and a drop onto it
+  // from above must land on something.
+  { const { GLTFLoader } = await import(pathToFileURL(path.resolve('vendor/GLTFLoader.js')).href);
+    const { MeshoptDecoder } = await import(pathToFileURL(path.resolve('vendor/meshopt_decoder.module.js')).href);
+    const L = new GLTFLoader(); L.setMeshoptDecoder(MeshoptDecoder);
+    for (const [f, hx, hz, w, d, h] of C.bld) {
+      const yaw = Math.atan2(-hx, -hz), c = Math.cos(yaw), sn = Math.sin(yaw), W = (lx, lz) => [hx + lx * c + lz * sn, hz - lx * sn + lz * c];
+      const g0 = rg.groundAt(hx, hz, 80, 90), lid0 = g0.hit ? g0.floor : NaN;
+      const g = await new Promise((res, rej) => L.parse(glbNoTex(rg.SKYART.dir + f + '.glb'), '', res, rej)); rg.skyIngest(f, g.scene);
+      const n = rg.CTYH.n[f] || {}, box = rg.SOLID.all.some(b => b.tag === 'city building' && Math.abs(b.cx - hx) < 0.1 && Math.abs(b.cz - hz) < 0.1);
+      const hs = new Set(); let lid = 0, pts = 0;
+      for (let lx = -w / 2 + 0.7; lx < w / 2; lx += 1.3) for (let lz = -d / 2 + 0.7; lz < d / 2; lz += 1.3) { const [x, z] = W(lx, lz), q = rg.groundAt(x, z, 80, 90); if (!q.hit) continue; pts++; hs.add(Math.round(q.floor * 4)); if (Math.abs(q.floor - h) < 0.05) lid++; }
+      say(`${f}: the art is its collider (${n.floors} floors, ${n.boxes} wall boxes)`, !box && n.floors > 300 && n.boxes > 20 && hs.size >= 4 && lid < pts * 0.3,
+          `placeholder ${box ? 'STILL THERE' : 'gone'}, roof was one lid at ${fix(lid0, 1)}, now ${hs.size} heights over ${pts} points, ${lid} at the old lid`);
+      // from the street, square at its front, 8 m/s: a wall stops her or a ramp takes her up -- never through
+      const [sx, sz] = W(0, -d / 2 - 9), [tx, tz] = W(0, d / 2 + 4); go(sx, sz, Math.atan2(tx - sx, tz - sz), 8, rg.groundAt(sx, sz, 2, 4).floor);
+      const r = ride(3, () => steerTo(tx, tz));
+      const lzEnd = (P.pos.x - hx) * sn + (P.pos.z - hz) * c, inside = lzEnd > -d / 4 && lzEnd < d / 2 - 1.5 && P.pos.y < 1.5;      // his plinths and forecourts are part of the footprint: what must not happen is reaching its middle
+      say(`${f}: skating at its front from the street`, !inside, `ends ${at()} at ${fix(P.speed, 1)} m/s, ${fix(lzEnd + d / 2, 1)} m into a ${fix(d, 1)} m deep footprint${cl(r)}`);
+      // dropped onto it from above at five points: she lands, and stands, on something
+      let land = 0, tried = 0, worst = '';
+      for (const [lx, lz] of [[0, 0], [-w / 3, -d / 3], [w / 3, -d / 3], [-w / 3, d / 3], [w / 3, d / 3]]) { const [x, z] = W(lx, lz); tried++;
+        reset(); place(x, 45, z, 0, 0); P.grounded = false; P.vel.set(0, 0, 0); let got = null; run(4, () => { rg.stick.L.x = rg.stick.L.y = 0; if (!got && P.grounded) got = P.pos.clone(); });
+        if (got && Math.hypot(P.pos.x - got.x, P.pos.z - got.z) < 3) land++; else worst = `at ${fix(lx, 1)},${fix(lz, 1)} ${got ? 'slid ' + fix(Math.hypot(P.pos.x - got.x, P.pos.z - got.z), 1) + ' m' : 'never landed'}`; }
+      say(`${f}: dropped onto it from 45 m, she lands and stays`, land >= 4, `${land} of ${tried}${worst ? ' -- ' + worst : ''}`);
+    } }
   return ok;
 };
 CASES.spillway = async () => {
