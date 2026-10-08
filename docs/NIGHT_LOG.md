@@ -674,3 +674,5 @@ hold the right thumb still 0.25 s: the blaster comes out (and goes back on landi
 offset aims it in 3D -- up to 65 deg either side and 55 deg up/down. Release fires along it; the reticle walks the same line.
 `npm run sim wingfly`.
 
+## r147 -- no falls
+`LAND.flipBail` 0: landing an unfinished flip no longer knocks her down. UI_VER 147 resets the saved row.

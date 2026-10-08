@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r146</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r147</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -237,7 +237,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r146';
+const BUILD = 'r147';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -804,7 +804,7 @@ const LAND = {
   // multiple if I have enough airtime ... if you don't complete the flip, maybe you fall over."* Once a flip is round, another
   // flick starts the next (`chain`). A chained flip never takes less than `chainMin` -- so flicked too late it CANNOT finish --
   // and is refused only when the ground is under `chainLate` away. Landing any flip short of `flipDone` is a fall (`flipBail`).
-  chain: 1, chainMin: 0.5, chainLate: 0.12, flipBail: 1,
+  chain: 1, chainMin: 0.5, chainLate: 0.12, flipBail: 0,      // r147: *"not really loving the fall"* -- off; she lands whatever
   bailT: 3.2,              // a bail's whole length: going down, and getting back up
   // OFF BY DEFAULT (r23): *"let's get rid of the falling over -- she lands no matter how you land,
   // forward or backward."* A sideways landing takes whichever end is nearer, and an unfinished flip
@@ -16851,8 +16851,8 @@ const UI_DEF = {}; for (const k of TAILKEYS) UI_DEF[k] = uiGet(k);
 // in this file never reaches a phone that has saved once. (Shredworld lost five builds to exactly this.) The store carries
 // a version, and the rows named for each later version are DROPPED from an older store and take the file's new default;
 // everything else he tuned is kept. **Bump `UI_VER` and name the row in the same commit that changes its default.**
-const UI_VER = 144;
-const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'], 98: ['CTRL.map', 'VERT.flickBoost', 'VERT.swipeXfer'], 144: ['WING.pull'] };
+const UI_VER = 147;
+const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'], 98: ['CTRL.map', 'VERT.flickBoost', 'VERT.swipeXfer'], 144: ['WING.pull'], 147: ['LAND.flipBail'] };
 function tailSave() {
   try { const o = { mode: TAIL.mode, ver: UI_VER, lookStyle: LOOK.at === undefined ? LOOK.style : LOOK.at };
     for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}

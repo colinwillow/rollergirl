@@ -100,6 +100,11 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **NO MORE FALLS (r147, `LAND.flipBail` 0, `UI_VER` 147).** *"Not really loving the fall -- let's quiet that so she no longer
+  falls."* The one fall left in the game was r124's: landing a flip that is not round. Off now, so every landing is a landing
+  (an unfinished flip unwinds via `flipRes`). `LAND.bail` and `AIR.land` were already off. The mechanism stays on the panel
+  (`Land a flip not round = fall`); `UI_VER` 147 drops his saved 1 so the new default reaches the phone.
+
 - **THE RIGHT PAD OPENS THE WINGS, AND IN FLIGHT THE BLASTER AIMS IN 3D (r146, `WING.flick`, `GUN.fly`, `gunFly`, `p.gDir`,
   `twistApply`, `npm run sim wingfly`).** *"In the air you click up on the right stick -- that's how you take your glider out, and
   clicking down while you're flying puts it away ... press and hold in the middle of the stick, the gun comes out, it charges, you
