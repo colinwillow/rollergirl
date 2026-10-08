@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r154</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r155</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -238,7 +238,7 @@ import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r154';
+const BUILD = 'r155';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -3175,9 +3175,9 @@ function skyClipGeo(g, y) { const P = g.attributes.position, I = g.index.array, 
   const n = g.clone(); n.setIndex(k); return n; }
 // r100: more than one callback per file (SK8 SKY's stand-in and THE STACK's both hang off the same tower)
 function skyOnLoad(f, fn) { const o = SKYART.onLoad[f]; SKYART.onLoad[f] = o ? () => { o(); fn(); } : fn; }
-function skyTex(t) {
+function skyTex(t, lim0) {
   const im = t && t.image; if (!im || !im.width || typeof document === 'undefined') return t;
-  const lim = SKYART.big.test(t.name || '') ? SKYART.texBig : SKYART.tex; if (im.width <= lim && im.height <= lim) return t;
+  const lim = lim0 || (SKYART.big.test(t.name || '') ? SKYART.texBig : SKYART.tex); if (im.width <= lim && im.height <= lim) return t;
   const k = lim / Math.max(im.width, im.height), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k));
   const x = c.getContext && c.getContext('2d'); if (!x) return t;
   x.drawImage(im, 0, 0, c.width, c.height);
@@ -4442,7 +4442,7 @@ function ctyFloor() {
 //   THE COLLIDER IS NOT HIS MESH: each tile kind is rasterised once at load onto a 0.5 m grid of three classes (road, grass,
 //   walk), and the runs become flat quads (`noDraw`). ~23k triangles for 48 tiles, against ~200k for the tiles themselves.
 //   NOTHING STANDS IN A LINE: a lamp, pole or tree within reach of a ramp's or a ribbon's path is left out.
-const CTYK = { dir: 'zones/weirdport_kit/', on: 1, wait: 60, lower: 0.2, tile: 22, rc: 44, cell: 0.5, walkY: 0.27,
+const CTYK = { dir: 'zones/weirdport_kit/', on: 1, wait: 60, tex: 512, lower: 0.2, tile: 22, rc: 44, cell: 0.5, walkY: 0.27,
   files: { tiles: 'streets/street_tiles.glb', furn: 'props/street_furniture.glb', trees: 'props/trees.glb', carriers: 'materials/detile_carriers.glb',
            bld: 'buildings/kit_buildings.glb', props: 'props/props.glb', plants: 'props/plants.glb' },
   lib: {}, failed: [], parts: {}, grids: {}, bk: new Map(), meshes: [], tiles: [], dt: -1, n: { lamp: 0, pole: 0, tree: 0, sign: 0, wire: 0 } };
@@ -4450,11 +4450,26 @@ async function ctyKitLoad() {
   if (!CTYK.on) return;
   const to = new Promise(r => setTimeout(() => r('timeout'), CTYK.wait * 1000));
   const one = async (k, f) => { try { const g = await Promise.race([typeof window !== 'undefined' && window.__ctyKit ? window.__ctyKit(k, f) : loadGLB(CTYK.dir + f), to]);
-      if (g === 'timeout' || !g) throw new Error('timeout'); const r = g.scene || g; r.updateMatrixWorld(true); wpDress(r); CTYK.lib[k] = r; }
+      if (g === 'timeout' || !g) throw new Error('timeout'); const r = g.scene || g; r.updateMatrixWorld(true); ctyTexCap(r); wpDress(r); CTYK.lib[k] = r; }
     catch (e) { CTYK.failed.push(k); console.warn('[skate city] kit ' + f + ' did not arrive', e && e.message); } };
   await Promise.all(Object.entries(CTYK.files).map(([k, f]) => one(k, f)));
 }
 const ctyKitOn = () => !!(CTYK.on && CTYK.lib.tiles);
+// r155: A PHONE TAB DIES OF MEMORY, NOT OF AN ERROR. *"It plays for a bit and then it reset ... a problem repeatedly occurred."*
+// That is iOS killing the tab (no throw, nothing in a console). Skate City held his 1024 px textures at full size AND every
+// source mesh of nine kit files after they had been merged. Every map is cut to `CTYK.tex` once at load (shared textures once),
+// and `ctyKitTrim` drops the source geometry after the merge -- the meshes stay, empty, because his anti-tiling finds its
+// partner textures by walking their MATERIALS.
+function ctyTexCap(root) {
+  const done = new Map();
+  root.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { if (!m) continue;
+    for (const q of SKYMAPS) { const t = m[q]; if (!t) continue; if (!done.has(t)) done.set(t, skyTex(t, CTYK.tex)); m[q] = done.get(t); } } });
+}
+function ctyKitTrim() {
+  let n = 0; for (const r of Object.values(CTYK.lib)) r.traverse(o => { if (o.isMesh && o.geometry && o.geometry.attributes.position) { o.geometry.dispose(); o.geometry = new THREE.BufferGeometry(); n++; } });
+  for (const k in CTYK.parts) { for (const q of CTYK.parts[k] || []) q.geo.dispose(); delete CTYK.parts[k]; }
+  CTYK.trimmed = n;
+}
 // a piece's meshes in its own frame (root at the origin), normalised so a whole material merges
 function ctyPart(lib, name) {
   const key = lib + '/' + name; if (CTYK.parts[key]) return CTYK.parts[key];
@@ -4770,7 +4785,7 @@ function ctyBuildings() {
 }
 function cityWorld() {
   CITY.on = 0; SLC.built = 1; SLC.canal = { x0: -480, x1: 480, z0: -480, z1: 480 }; SLC.WY = CTY.sea; SLC.railQ = []; SLC.railC = [];
-  _slseed = 6161; SKYART.dir = 'zones/kit_skate_city/'; SKYART.tex = 1024;
+  _slseed = 6161; SKYART.dir = 'zones/kit_skate_city/'; SKYART.tex = 512;      // r155: was 1024; memory on a phone
   ctyFloor(); ctyRing(); ctyGarden(); ctyRibbons(); if (ctyKitOn()) ctyKitTiles(); ctyStreets(); ctyBuildings();
   const nK = MESH.pos.length, KC = { ...KCOL }, Tn = {}; for (const q in KSZ) Tn[q] = KSZ[q].tint;      // r154: the lots, in the park palette
   Object.assign(KCOL, PARKD.pal.kcol); for (const q in PARKD.pal.size) if (KSZ[q]) KSZ[q].tint = PARKD.pal.size[q];
@@ -4798,7 +4813,7 @@ function cityWorld() {
   gemBuild();
   { const m = kitFlush(nK, 'city kit pieces'); if (m) m.material = detailPatch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0.0 })); }
   sliceMeshes();
-  if (ctyKitOn()) { ctyKitFlush(); ctyKitDetile(); }
+  if (ctyKitOn()) { ctyKitFlush(); ctyKitTrim(); ctyKitDetile(); }
   CTY.built = 1;
   console.log(`[skate city] ${ctyKitOn() ? CTYK.tiles.length + ' kit tiles, ' + JSON.stringify(CTYK.n) + ', ' + CTYB.list.length + ' kit buildings (' + Math.round(CTYB.tris / 1000) + 'k tris), ' + CTYB.props + ' props, ' + CTYB.plants + ' plants, ' + CTYL.built.length + ' skate lots, ' + CTYK.meshes.length + ' kit meshes, ' : 'NO KIT (painted roads), '}${CTY.paths.length} rails, ring r ${Rg.r0}-${Rg.r1} at ${Rg.y}, bowl floor r ${CTY.rb.toFixed(1)}, ${CTY.bld.length} buildings`);
 }

@@ -100,6 +100,14 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **"A PROBLEM REPEATEDLY OCCURRED" IS iOS KILLING THE TAB FOR MEMORY, NOT A THROW (r155, `CTYK.tex`, `ctyTexCap`, `ctyKitTrim`).**
+  *"It plays for a bit and then it reset ... played it again and then I got this."* Skate City after r153/r154 held his kit's
+  textures at full 1024 px, every source mesh of nine kit files AFTER they were merged into the drawn meshes, and his hero
+  buildings at 1024. Every kit map is cut to 512 at load (`ctyTexCap`, through `skyTex`, shared textures once), the source
+  geometry is dropped after `ctyKitFlush` (`ctyKitTrim` -- the meshes stay, empty, because `weirdkit_detile.js` walks their
+  MATERIALS for partner textures), and `SKYART.tex` is 512 in this world. **Not measurable here** (no GPU, node decodes no
+  images); if it still dies, `CTYB.max` (buildings, 259k triangles) and `castShadow` on the kit meshes are the next levers.
+
 - **SKATE CITY HAD ONE BOWL IN IT, AND THAT WAS THE WHOLE COMPLAINT (r154, `CTYL`, `ctyLots`).** *"This layout is super basic,
   super plain -- there's no skate ramps anywhere?!"* Right: r151-r153 built a city and forgot the skating. 19 lots of the r91
   TESTED COMBOS now fill the blocks, placed BEFORE the buildings (a lot is a keep-out for `ctyBlocks`, `CTYL.margin`):

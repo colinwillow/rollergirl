@@ -714,3 +714,6 @@ eight blocks are built on, 338/338 roof cells on the drawn roof, nothing in a li
 volcano and drum bowls up banks, funbox gaps, pump track, QP), a south park (mini ramp, A-frame, corkscrew, pump track, euro gap,
 QP), lines where both ribbons land, a bowl/pump track/corkscrew in every corner behind the buildings with an alley to it, and a QP
 L at every street's dead end against the harbour wall. `npm run sim skatecity` checks placement and rides the north line and every bank.
+
+## r155 -- Skate City memory: the phone killed the tab
+Kit textures cut to 512 px at load, the kit's source meshes dropped after the merge, his hero buildings' textures 512.
