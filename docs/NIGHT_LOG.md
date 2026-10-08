@@ -680,3 +680,7 @@ offset aims it in 3D -- up to 65 deg either side and 55 deg up/down. Release fir
 ## r148 -- the SKB tower
 His concept painting as one building in the west field (-256, -67), ➤ stops `skb tower` and `skb deck`. Podium, two balconies,
 three ramps, L2, the tower with its crown sign, two glass pods, the dish deck; every orange railing grinds. `npm run sim skb`.
+
+## r149 -- no bails (store reset), loops and barrel rolls in flight
+What: `UI_VER` 149 resets saved `LAND.bail`/`LAND.flipBail`; the vert-air bail needs `LAND.bail`. Flying, left flick up = loop, down = backward loop, right/left = barrel roll (`wingTrick`).
+Where: anywhere you can fly.

@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r148</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r149</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -237,7 +237,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r148';
+const BUILD = 'r149';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -414,6 +414,7 @@ const JUMP2 = { on: 1, k: 0.85, flip: 1, pts: 10 };
 // THE WINGS ARE PROCEDURAL STAND-INS for his model: a pack on her back, two arms of three panels that unfold one after another, a
 // jet at each tip. They ride HER BODY's frame at her upper back (Spine2), not a bone's -- a bone's frame is the armature's 0.01.
 const WING = { on: 1, flick: 1, out: 0, open: 0, openT: 0.45, v0: 14, cruise: 20, vmin: 9, vmax: 36, thrust: 0.9, gk: 1,
+  trick: 1, loopT: 1.5, rollT: 0.8, loopPts: 300, rollPts: 150,      // r149: left flick in flight = loop (up/down) / barrel roll (sides)
   turn: 1.7, pitchRate: 1.5, climb: 55 * Math.PI / 180, dive: 70 * Math.PI / 180, levelHL: 0.7, pull: 0,      // r144: push UP to climb (his call; 1 is the airplane way)
  
   lie: 80 * Math.PI / 180, bank: 0.7, bankHL: 0.15, clip: 'in_air', camFollow: 3.0, settle: 7, trailLife: 0.55,
@@ -14386,7 +14387,7 @@ for (const t of ['touchstart', 'touchend', 'touchcancel'])
 // mirror. A flick is a fast move AND a release, so a held thumb spinning or pushing her is never
 // one; on the ground it does nothing (a tap there is the swivel, and a fired flick eats the tap).
 bindStick(document.getElementById('stkL'), stick.L, null, (dx, dy) => {
-  if (player.wing) return;      // r142: flying, the left thumb is the stick of a plane and a fast correction is not a trick
+  if (player.wing) { if (wingTrick(dx, dy)) { const s = STICKS[0]; if (s && s.pop) s.pop(); } return; }      // r149: flying, a flick is a loop / barrel roll
   // r39: ON THE GROUND THE LEFT FLICK IS THE SLIDE TACKLE (Zap's `slide_kick`), along her travel.
   // r80: ...a flick DOWN (or sideways) is; a flick UP is the BOOST.
   // r82: THE LEFT PAD IS THE MELEE -- a flick down the slide, any other way a strike that way; in the air the air strike
@@ -15313,7 +15314,7 @@ function stepAir(dt) {
     // and her heading is where her BODY was pointing, flattened onto what she landed on
     _v2.set(0, 0, 1).applyQuaternion(p.bq).addScaledVector(_N, -_v2.dot(_N));
     if (_v2.lengthSq() > 1e-4) p.heading = p.faceH = Math.atan2(_v2.x, _v2.z);
-    if (off > AIR.land) { p.bailT = AIR.bailT; p.vel.multiplyScalar(AIR.bailKeep); }
+    if (LAND.bail && off > AIR.land) { p.bailT = AIR.bailT; p.vel.multiplyScalar(AIR.bailKeep); }      // r149: no bails unless the switch is on
     if (p.stanceLock) landStance(_v2);
     p.flip = null;
     p.landOff = off; p.drift = 0;
@@ -16307,7 +16308,8 @@ const _wkq = new THREE.Quaternion(), _wkq2 = new THREE.Quaternion(), _wkq3 = new
 // is the bank of a turn to the RIGHT.
 function wingQ(out) {
   const p = player;
-  return out.setFromAxisAngle(YAX, p.heading).multiply(_wkq2.setFromAxisAngle(XAX, clamp(WING.lie - p.wPitch, 0, 2.9)))
+  const a = WING.lie - p.wPitch;
+  return out.setFromAxisAngle(YAX, p.heading).multiply(_wkq2.setFromAxisAngle(XAX, p.wTrick && p.wTrick.k === 'loop' ? a : clamp(a, 0, 2.9)))
     .multiply(_wkq3.setFromAxisAngle(YAX, p.wBank));
 }
 function wingSet(on) {
@@ -16330,7 +16332,7 @@ function wingStart() {
   if (hs > 1) p.heading = Math.atan2(p.vel.x, p.vel.z);      // she flies along where she was going, facing it
   setStance(1, 'wings');
   p.wPitch = v > 1 ? clamp(Math.asin(clamp(p.vel.y / v, -1, 1)), -WING.dive, WING.climb) : WING.climb * 0.6;
-  p.wV = Math.max(v, WING.v0); p.wBank = 0;
+  p.wV = Math.max(v, WING.v0); p.wBank = 0; p.wTrick = null;
   p.grounded = false; p.wing = 1;
   return true;
 }
@@ -16341,11 +16343,35 @@ function wingEnd() {
   WING.out = 0; arcPaint(WINGROW);
   if (!p.wing) return;
   p.wing = 0;
+  if (p.wTrick) { if (p.wTrick.k === 'loop') p.wPitch = p.wTrick.b; p.wTrick = null; }
   if (p.gTemp) { p.gTemp = 0; if (!p.gAim) { GUN.out = 0; gunRowPaint(); } }      // r146: the blaster the flight aim took out goes back
   p.gDir = null; p.gHold = 0;
   _wkq.setFromAxisAngle(YAX, p.heading);
   girl.wingRes = (girl.wingRes || new THREE.Quaternion()).copy(_wkq).invert().multiply(p.bq);
   p.bq.copy(_wkq); p.faceH = p.heading; p.drift = 0;
+}
+// r149: TRICKS IN FLIGHT -- the LEFT flick: up a loop forward, down a loop backward, right / left a barrel roll that way.
+// A loop drives the PITCH through a whole turn and the velocity is built from the pitch, so she really flies the circle; a roll
+// drives the roll about her spine. Both ease in and out (smoothstep) and end exactly where they began.
+function wingTrick(dx, dy) {
+  const p = player;
+  if (!p.wing || !WING.trick || p.wTrick) return false;
+  const up = Math.abs(dy) >= Math.abs(dx);
+  if (up) p.wTrick = { k: 'loop', s: dy < 0 ? 1 : -1, t: 0, dur: WING.loopT, b: p.wPitch };
+  else p.wTrick = { k: 'roll', s: dx > 0 ? 1 : -1, t: 0, dur: WING.rollT, b: 0 };
+  return true;
+}
+function wingTrickStep(dt) {
+  const p = player, T = p.wTrick;
+  T.t += dt;
+  const u = clamp(T.t / T.dur, 0, 1), e = u * u * (3 - 2 * u), a = T.s * 2 * Math.PI * e;
+  if (T.k === 'loop') p.wPitch = T.b + a;
+  else T.b = a;
+  if (u >= 1) {
+    if (T.k === 'loop') p.wPitch = T.b;
+    trick(T.k === 'roll' ? 'BARREL ROLL' : T.s > 0 ? 'LOOP' : 'BACKWARD LOOP', T.k === 'roll' ? WING.rollPts : WING.loopPts);
+    p.wTrick = null;
+  }
 }
 // THE FLIGHT. The stick is read raw: a plane is steered relative to itself, not to where the lens is.
 function wingFly(dt) {
@@ -16358,18 +16384,23 @@ function wingFly(dt) {
   const ty = Math.abs(sy) > 0.12 ? Math.sign(sy) * clamp((Math.abs(sy) - 0.12) / 0.58, 0, 1) : 0;
   // the speed she is ACTUALLY doing, so a wall she hit or a ceiling she scraped costs her what it cost
   const vNow = p.vel.length(); if (vNow < p.wV) p.wV = Math.max(W.vmin, vNow);
-  p.heading -= tx * W.turn * dt;      // NEGATED: heading grows +Z toward +X, which is her LEFT (the air spin's rule)
-  if (ty) p.wPitch += (W.pull > 0.5 ? ty : -ty) * W.pitchRate * dt;
-  else p.wPitch = damp(p.wPitch, 0, W.levelHL, dt);      // let go and she levels out
-  p.wPitch = clamp(p.wPitch, -W.dive, W.climb);
+  if (p.wTrick) { wingTrickStep(dt); sx = sy = 0; }
+  const tr = p.wTrick;
+  p.heading -= (tr ? 0 : tx) * W.turn * dt;      // NEGATED: heading grows +Z toward +X, which is her LEFT (the air spin's rule)
+  if (!(tr && tr.k === 'loop')) {
+    if (ty && !tr) p.wPitch += (W.pull > 0.5 ? ty : -ty) * W.pitchRate * dt;
+    else p.wPitch = damp(p.wPitch, 0, W.levelHL, dt);      // let go and she levels out
+    p.wPitch = clamp(p.wPitch, -W.dive, W.climb);
+  }
   // the jets hold `cruise`; gravity along the flight line trades height for speed both ways
   p.wV += (W.thrust * (W.cruise - p.wV) - SK.g * Math.sin(p.wPitch) * W.gk) * dt;
   p.wV = clamp(p.wV, W.vmin, W.vmax);
   const cp = Math.cos(p.wPitch);
   p.vel.set(Math.sin(p.heading) * cp * p.wV, Math.sin(p.wPitch) * p.wV, Math.cos(p.heading) * cp * p.wV);
-  p.wBank = damp(p.wBank, tx * W.bank, W.bankHL, dt);
+  p.wBank = damp(p.wBank, tr ? 0 : tx * W.bank, W.bankHL, dt);
   p.faceH = p.heading;
-  wingQ(p.bq);
+  const b0 = p.wBank; if (tr && tr.k === 'roll') p.wBank += tr.b;
+  wingQ(p.bq); p.wBank = b0;
 }
 // THE WINGS THEMSELVES: built once, in metres, in her body's frame (+X her left, +Y up, +Z her front; her back is -Z).
 const WG = { g: null, pack: null, j: [[], []], tips: [], jets: [], spine: null, model: null };
@@ -17048,8 +17079,8 @@ const UI_DEF = {}; for (const k of TAILKEYS) UI_DEF[k] = uiGet(k);
 // in this file never reaches a phone that has saved once. (Shredworld lost five builds to exactly this.) The store carries
 // a version, and the rows named for each later version are DROPPED from an older store and take the file's new default;
 // everything else he tuned is kept. **Bump `UI_VER` and name the row in the same commit that changes its default.**
-const UI_VER = 147;
-const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'], 98: ['CTRL.map', 'VERT.flickBoost', 'VERT.swipeXfer'], 144: ['WING.pull'], 147: ['LAND.flipBail'] };
+const UI_VER = 149;
+const UI_FRESH = { 84: ['CTRL.map', 'SK.turnV', 'SK.gripA', 'MOVES.pushV.0', 'MOVES.pushV.1'], 89: ['CTRL.map'], 98: ['CTRL.map', 'VERT.flickBoost', 'VERT.swipeXfer'], 144: ['WING.pull'], 147: ['LAND.flipBail'], 149: ['LAND.bail', 'LAND.flipBail'] };
 function tailSave() {
   try { const o = { mode: TAIL.mode, ver: UI_VER, lookStyle: LOOK.at === undefined ? LOOK.style : LOOK.at };
     for (const k of TAILKEYS) o[k] = uiGet(k); localStorage.setItem('rg.tail', JSON.stringify(o)); } catch (e) {}
@@ -17213,7 +17244,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { SKB, buildSkb, WINGROW, arcPaint, WING, WG, wingFold, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { SKB, buildSkb, wingTrick, WINGROW, arcPaint, WING, WG, wingFold, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,

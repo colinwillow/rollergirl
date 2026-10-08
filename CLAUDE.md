@@ -100,6 +100,17 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **NO BAILS, FOR REAL THIS TIME, AND LOOPS AND BARREL ROLLS IN FLIGHT (r149, `UI_VER` 149, `wingTrick`, `wingTrickStep`, `p.wTrick`).**
+  *"I thought we got rid of bailing -- I keep falling over."* r147 only reset `LAND.flipBail`; the panel saves EVERY row, so a
+  `LAND.bail` 1 saved on his phone from testing still made every sideways landing a fall. `UI_VER` 149 drops his saved `LAND.bail`
+  and `LAND.flipBail`, and the vert-air off-angle bail (`AIR.land`) now also needs `LAND.bail` on -- so there is one switch, and it
+  is off. `npm run sim bail` turns it on for its rows.
+  *"Flick up on the left stick when flying, a loop-de-loop; down a backwards loop; right and left barrel rolls."* The left flick in
+  flight (it was ignored since r142) starts a trick: a LOOP drives `p.wPitch` through a whole turn on a smoothstep over `loopT`
+  (1.5 s) -- the velocity is built from the pitch, so she really flies the circle, and `wingQ` stops clamping the lay while it runs
+  so her body goes over the top upside down; a ROLL adds a whole turn about her spine to `wBank` over `rollT` (0.8 s), her path
+  unchanged. Stick input is ignored during one; each scores on completion. `npm run sim wing` rows 9.
+
 - **THE SKB TOWER: ONE BUILDING FROM HIS CONCEPT PAINTING, BUILT LIKE A BLENDER SESSION (r148, `SKB`, `buildSkb`, `skbRails`,
   `npm run sim skb`, `docs/SKB_TOWER.md`).** *"If we just build buildings one by one like I do in Blender with MCP maybe it will be
   just as good."* Built with the slice's own builders in its own local frame (`slFrame(0, x, z)`, a translation: local x across

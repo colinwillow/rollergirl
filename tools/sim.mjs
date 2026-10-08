@@ -646,7 +646,7 @@ CASES.bail = () => {
   // test that cannot fail.
   // r33: AND THE PRE-ALIGN OFF TOO -- it turns her onto the floor in the last couple of metres, so a
   // body held out of square never reaches the ground out of square and no row could ever bail.
-  const was = rg.AIR.land, wasE = rg.AIR.ease, wasP = rg.AIR.preAlign; rg.AIR.land = 0.95; rg.AIR.ease = 0; rg.AIR.preAlign = 0;
+  const was = rg.AIR.land, wasE = rg.AIR.ease, wasP = rg.AIR.preAlign, wasB = rg.LAND.bail; rg.LAND.bail = 1; rg.AIR.land = 0.95; rg.AIR.ease = 0; rg.AIR.preAlign = 0;
   for (const deg of [0, 30, 50, 75, 120]) {
     place(60, 1, -60, 0, 8);
     P.pos.y = 6; rg.leaveGround(0); P.vel.set(0, 0, 8);
@@ -658,7 +658,7 @@ CASES.bail = () => {
                 ` (${fix((P.landOff || 0) * 180 / Math.PI, 0)} deg measured, ${fix(v1)} m/s left)`);
     if ((bailed === 1) !== (deg > AIRLAND)) ok = false;
   }
-  rg.AIR.land = was; rg.AIR.ease = wasE; rg.AIR.preAlign = wasP;
+  rg.AIR.land = was; rg.AIR.ease = wasE; rg.AIR.preAlign = wasP; rg.LAND.bail = wasB;
   return ok;
 };
 
@@ -2780,6 +2780,17 @@ CASES.wing = () => {
   // 8. jump, double, then the wings
   run(0.3, hands); P.jump = 1; run(0.3, hands); rg.wingSet(1); run(1, hands);
   say('jump, double jump, then the wings: flying', P.wing && !P.grounded, `wing ${P.wing}, ${fix(P.vel.length(), 1)} m/s`);
+  // 9. r149: tricks on the left flick
+  for (const [lab, dx, dy] of [['flick UP: a loop forward', 0, -1], ['flick DOWN: a loop backward', 0, 1], ['flick RIGHT: a barrel roll', 1, 0], ['flick LEFT: a barrel roll', -1, 0]]) {
+    air(80, 0, 0); rg.wingSet(1); run(2, hands); const y1 = P.pos.y, h1 = P.heading;
+    rg.wingTrick(dx, dy); const T = P.wTrick; let pMax = -9, pMin = 9, upMin = 1, back = 0, rMax = 0;
+    run(T.dur + 0.1, () => { hands(); pMax = Math.max(pMax, P.wPitch); pMin = Math.min(pMin, P.wPitch);
+      const u = new THREE.Vector3(0, 0, -1).applyQuaternion(P.bq); upMin = Math.min(upMin, u.y);      // her BACK: up in level flight
+      if (P.vel.x * Math.sin(h1) + P.vel.z * Math.cos(h1) < -2) back = 1; rMax = Math.max(rMax, Math.abs(P.wBank)); });
+    const done = !P.wTrick && P.wing, loop = dy !== 0;
+    const good = loop ? (dy < 0 ? pMax > 5.5 : pMin < -5.5) && back && Math.abs(P.wPitch) < 1 : upMin < -0.5 && Math.abs(P.wBank) < 0.5 && Math.abs(wrap(P.heading - h1)) < 0.01;
+    say(lab, done && good, `pitch ${fix(pMin * D, 0)}..${fix(pMax * D, 0)} deg, flew backward ${back}, back up min ${fix(upMin, 2)}, height ${fix(P.pos.y - y1, 1)} m, ends pitch ${fix(P.wPitch * D, 0)} bank ${fix(P.wBank * D, 0)}`);
+  }
   rg.wingSet(0); hands(); place(60, 0.1, -60, 0, 0);
   return ok;
 };
