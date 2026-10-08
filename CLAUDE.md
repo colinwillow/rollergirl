@@ -100,6 +100,21 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE SKB TOWER: ONE BUILDING FROM HIS CONCEPT PAINTING, BUILT LIKE A BLENDER SESSION (r148, `SKB`, `buildSkb`, `skbRails`,
+  `npm run sim skb`, `docs/SKB_TOWER.md`).** *"If we just build buildings one by one like I do in Blender with MCP maybe it will be
+  just as good."* Built with the slice's own builders in its own local frame (`slFrame(0, x, z)`, a translation: local x across
+  the front, z toward the viewer) on the one open lot left in the west field, front facing +z. The line through it: stairs +
+  bank up the front left -> podium 4.95 (QP XL each end, coping flush, drop in off the deck) -> R1 -> left balcony 8.15 -> R2 (the
+  painting's diagonal) -> L2 10.15 (tower side deck + front deck + SKB roof) -> R3 -> right balcony 8.15 -> drop off its open
+  front to the podium. The top-right pod and the top-left dish deck are wings-only.
+  - **A RAILING IS ALSO A WALL HERE**: a thin solid (`top: false`) 0.9 m under every grind rail, in 1 m pieces so sloped ones
+    follow their ramp. See-through railings with nothing behind them let a push up R1 sail clean off the balcony (the row read a
+    landing at local x -83).
+  - **`place()` TAKES THE HIGHEST FLOOR IN REACH**, so rows starting on a balcony or L2 under a pod stood her on the pod's roof;
+    those rows set `P.pos.y` after it. And a QP facing OUTWARD sends a drop-in away for good -- there is no wall opposite.
+  - **The lot was `npm run sim steer`'s corridor** (`BLEND.clear`'s r106 rect); the steer start moved to z -88, measured clear
+    138 m east by ray. Paint and decals are atlas PLACEHOLDERS (`smile`, `bunny`, `cat`, `sk8`, `alien`); his list is in the doc.
+
 - **NO MORE FALLS (r147, `LAND.flipBail` 0, `UI_VER` 147).** *"Not really loving the fall -- let's quiet that so she no longer
   falls."* The one fall left in the game was r124's: landing a flip that is not round. Off now, so every landing is a landing
   (an unfinished flip unwinds via `flipRes`). `LAND.bail` and `AIR.land` were already off. The mechanism stays on the panel

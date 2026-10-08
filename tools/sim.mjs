@@ -2013,7 +2013,7 @@ CASES.steer = () => {
   // r106: each row has its own start and a frame turned by A, picked off a measured clear corridor (`npm run sim` + a ray
   // probe) -- every district built since r100 has landed on the last spot. The whole test turns with A, so `travel` is
   // read relative to it.
-  const go = (phases, latch, at = [-288, -72], A = Math.PI / 4) => {
+  const go = (phases, latch, at = [-288, -88], A = Math.PI / 4) => {
     const keep = rg.CAM.steerLatch; rg.CAM.steerLatch = latch;
     place(at[0], 0, at[1], A, 10); rg.cam.az = rg.cam.steerAz = A; rg.cam.idle = 9; rg.cam.thA = null; rg.stick.L.down = 1;
     let turned = 0, last = P.heading, aim = 0;
@@ -5420,6 +5420,69 @@ CASES.tram = () => {
   // up the bank onto the middle platform
   { reset(); place(T.midX, 0.2, -115, 0, 10); let up = null; const r = ride(4, null, () => { if (P.grounded && Math.abs(P.pos.y - T.roof) < 0.1 && P.pos.z > -106.1) { up = P.pos.clone(); return true; } });
     say('up the bank onto the Orbital platform', up && r.clean, up ? `on it at ${at(up)}` : `ends ${at(P.pos)}${cl(r)}`); }
+  return ok;
+};
+// r148: THE SKB TOWER -- the line through it, ridden: stairs/bank up, R1 to the left balcony, R2 to L2, R3 down to the right
+// balcony, a drop-in off the podium into each quarter pipe, every ➤ stop on a floor, and the railings grind
+CASES.skb = () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(62)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  const S = rg.SKB; if (!S.built) { console.log('  the SKB tower was not built'); return false; }
+  const X = x => S.x + x, Z = z => S.z + z, L1 = S.y0 + S.h1, B = S.b, L2 = S.l2;
+  const at = p => `${fix(p.x - S.x, 1)},${fix(p.y, 2)},${fix(p.z - S.z, 1)} (local)`;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.grindCool = 0; rg.GRIND.intent = 0; };
+  const ride = (h, sec, stop, push = 1) => { rg.cam.az = rg.cam.steerAz = h; const r = { deep: 0, hit: 0 }; let done = 0;
+    for (let i = 0, n = Math.round(sec / DT); i < n && !done; i++) { rg.stick.L.down = 0; rg.stick.L.x = 0; rg.stick.L.y = push ? -1 : 0; rg.cam.az = rg.cam.steerAz = h; rg.stepCity(DT); rg.stepPlayer(DT);
+      if (process.env.GT && i % 6 === 0) console.log('    ', at(P.pos), P.grounded ? 'G' : 'a', fix(P.speed, 1));
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 1.5, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 1.5) r.deep = Math.max(r.deep, q.floor - P.pos.y);
+      if (stop()) done = 1; }
+    rg.stick.L.y = 0; r.done = done; return r; };
+  say(`${S.rails.length} railings registered as grind rails`, S.rails.length > 20 && rg.RAILS.filter(R => R.path && R.path.name === 'skb rail').length > 20, `${rg.RAILS.filter(R => R.path && R.path.name === 'skb rail').length} segments`);
+  { const bad = []; for (const n of S.stops) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.15) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every SKB ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${S.stops.length} stops`); }
+  // the levels are floors where they should be
+  { const bad = []; for (const [x, z, y, nm] of [[0, -3, S.y0, 'plinth'], [10, -2, L1, 'podium'], [-14, 0, B, 'left balcony'], [-4.7, -4, L2, 'tower side deck'], [0, 0.5, L2, 'front deck'], [7, -4, L2, 'SKB roof'], [16.5, -3, B, 'right balcony']]) {
+      const g = rg.groundAt(X(x), Z(z), y + 0.5, 0); if (!g.hit || Math.abs(g.floor - y) > 0.05) bad.push(`${nm} ${g.hit ? fix(g.floor) : '-'} wanted ${fix(y)}`); }
+    say('the podium, both balconies and L2 are floors at their heights', !bad.length, bad.join('; ') || 'all seven'); }
+  // up the front: the bank, and the stairs beside it
+  for (const [x, nm] of [[-13, 'the bank'], [-16, 'the stairs']]) { reset(); place(X(x), 0.2, Z(20), Math.PI, 4); let up = 0;
+    const r = ride(Math.PI, 6, () => { if (P.grounded && P.pos.y > L1 - 0.1 && P.pos.z < Z(2.5)) up = 1; return up; });
+    say(`pushing up ${nm} from the plaza onto the podium`, up && r.deep < 0.15, up ? `on the podium at ${at(P.pos)}` : `ends ${at(P.pos)}${r.deep >= 0.15 ? ' INSIDE ' + fix(r.deep) : ''}`); }
+  // R1, R2: up to the left balcony, then up to L2
+  { reset(); place(X(3), L1 + 0.1, Z(1.8), -Math.PI / 2, 5); let up = 0;
+    const r = ride(-Math.PI / 2, 5, () => { if (P.grounded && Math.abs(P.pos.y - B) < 0.1 && P.pos.x < X(-12) && P.pos.x > X(-17.5)) up = 1; return up; });
+    say('R1: along the podium front up onto the left balcony', up && r.deep < 0.15, up ? `at ${at(P.pos)}` : `ends ${at(P.pos)}`); }
+  { reset(); place(X(-15), B + 0.1, Z(-5), Math.PI / 2, 4); P.pos.y = B; let up = 0;
+    const r = ride(Math.PI / 2, 5, () => { if (P.grounded && Math.abs(P.pos.y - L2) < 0.1 && P.pos.x > X(-5.8)) up = 1; return up; });
+    say('R2: the diagonal walkway up from the left balcony to L2', up && r.deep < 0.15, up ? `at ${at(P.pos)}` : `ends ${at(P.pos)}`); }
+  // across L2 to the SKB roof, and R3 down to the right balcony
+  { reset(); place(X(-4.5), L2 + 0.1, Z(0.5), Math.PI / 2, 4); let got = 0;
+    const r = ride(Math.PI / 2, 4, () => { if (P.grounded && Math.abs(P.pos.y - L2) < 0.1 && P.pos.x > X(5)) got = 1; return got; });
+    say('across the front deck onto the SKB roof', got && r.deep < 0.15, got ? `at ${at(P.pos)}` : `ends ${at(P.pos)}`); }
+  { reset(); place(X(6), L2 + 0.1, Z(-5), Math.PI / 2, 3); P.pos.y = L2; let dn = 0;      // (place takes the highest floor in reach: the pod's roof)
+    const r = ride(Math.PI / 2, 5, () => { if (P.grounded && Math.abs(P.pos.y - B) < 0.1 && P.pos.x > X(15)) dn = 1; return dn; });
+    say('R3: down from the SKB roof onto the right balcony', dn && r.deep < 0.15, dn ? `at ${at(P.pos)}` : `ends ${at(P.pos)}`); }
+  // off the right balcony's open front, back down to the podium
+  { reset(); place(X(16.7), B + 0.1, Z(-3), 0, 3); let dn = 0;
+    const r = ride(0, 4, () => { if (P.grounded && Math.abs(P.pos.y - L1) < 0.1) dn = 1; return dn; }, 0);
+    say('off the right balcony\'s open front onto the podium', dn && r.deep < 0.15, dn ? `at ${at(P.pos)}` : `ends ${at(P.pos)}`); }
+  // a drop-in off the podium into each quarter pipe: down the face, across the plinth, and back up it
+  for (const s of [-1, 1]) { const h = s > 0 ? Math.PI / 2 : -Math.PI / 2; reset(); place(X(s * 14), L1 + 0.1, Z(1), h, 5); P.pos.y = L1; let low = 99, fast = 0;
+    const r = ride(h, 4, () => { low = Math.min(low, P.pos.y); fast = Math.max(fast, P.speed); return P.grounded && P.pos.y < 0.3 && Math.abs(P.pos.x - S.x) > 26; }, 0);
+    say(`drop in off the podium down the ${s > 0 ? 'right' : 'left'} quarter pipe`, low < S.y0 + 0.3 && fast > 9 && r.deep < 0.15, `down to ${fix(low)} at ${fix(fast, 1)} m/s${r.deep >= 0.15 ? ' INSIDE ' + fix(r.deep) : ''}`);
+    reset(); place(X(s * 44), 0.1, Z(3), h + Math.PI, 4); let top = 0, down = 0;
+    const r2 = ride(h + Math.PI, 7, () => { top = Math.max(top, P.pos.y); if (top > L1 + 0.3 && P.grounded && P.pos.y < 1) down = 1; return down; });
+    say(`pushing at the ${s > 0 ? 'right' : 'left'} quarter pipe from the plaza: air over the coping and back down`, top > L1 + 0.3 && down && r2.deep < 0.15, `top ${fix(top, 2)} (coping ${fix(L1)})${down ? ', back down' : ''}${r2.deep >= 0.15 ? ' INSIDE ' + fix(r2.deep) : ''}`); }
+  // a tap beside the podium's front railing grinds it
+  { reset(); rg.GRIND.intent = 0; place(X(8), L1 + 0.1, Z(1.6), Math.PI / 2, 7); P.jump = 1; let gr = null;
+    ride(Math.PI / 2, 2, () => { if (P.grind && !gr) gr = P.grind.rail.path.name; return !!gr; }, 0);
+    say('a tap beside the podium railing grinds it', gr === 'skb rail', gr || 'no grind'); }
+  // nothing solid in the air over any ramp at her height
+  { const bad = []; const ramps = [[-1.8, L1, -11, B, 0.6, 2.95, 'R1'], [-11, B, -6, L2, -6.5, -3.5, 'R2'], [10, L2, 14.5, B, -6.5, -3.5, 'R3']];
+    for (const [xa, ya, xb, yb, z0, z1, nm] of ramps) for (let f = 0.05; f < 1; f += 0.1) { const x = xa + (xb - xa) * f, y = ya + (yb - ya) * f, z = (z0 + z1) / 2;
+      for (const dy of [0.6, 1.4]) { const b = rg.solidAt(X(x), y + dy, Z(z), 0.25); if (b) { bad.push(`${nm} at ${fix(f, 2)}: ${b.tag}`); break; } } }
+    say('nothing solid over any ramp at her height', !bad.length, bad.slice(0, 4).join('; ') || 'clear'); }
   return ok;
 };
 CASES.garage = () => {

@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r147</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r148</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -237,7 +237,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r147';
+const BUILD = 'r148';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -4461,6 +4461,7 @@ function buildPark() {
   buildPyramids();   // r105: the pyramids and the obelisk in the north-east field
   buildLaunch();     // r106: the tower, the drop and the gap in the south-west field
   buildGarage();     // r107: the parking structure in the north-east field
+  buildSkb();        // r148: the SKB tower, his concept painting, in the west field
   buildCity();       // r45: the district -- its floors and walls go into the same collider
   buildOrbital();    // r49: the canal quarter, the plaza, the climb -- south, through the new gate
   buildShores();     // r50: Neon Shores -- east, through the east gate, from his top-down map
@@ -4495,6 +4496,7 @@ function buildPark() {
   saucerRails();     // r116: their parapets' grind rings (before the wires, which tie them to the donut and each other)
   wireRails();       // r111: the high wires between districts' decks (after every deck is in the collider)
   garageRails();     // r107: its ramps' lanes, its rail onto the Table
+  skbRails();        // r148: every orange railing on the SKB tower
   acroRails();       // r92
   cityRails();
   railWeave();       // r59: connectors between railings that stop just short of each other
@@ -4530,7 +4532,7 @@ function buildPark() {
   scene.add(plazaMesh);
   console.log(`park: ${MESH.pos.length / 9} triangles drawn` + (MESH.bad ? ` -- ${MESH.bad} REJECTED (NaN)` : ''));
   // r90: the ➤ key walks the park district first, and forgets the stops of a district that is not built
-  if (PARKD.on) { GO.unshift(...(CPK.built ? CPK.stops : []), ...(DTN.built ? DTN.stops : []), ...(ORT.built ? ORT.stops : []), ...(DNT.built ? DNT.stops : []), ...(SAU.built ? SAU.stops : []), ...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
+  if (PARKD.on) { GO.unshift(...(CPK.built ? CPK.stops : []), ...(DTN.built ? DTN.stops : []), ...(ORT.built ? ORT.stops : []), ...(DNT.built ? DNT.stops : []), ...(SAU.built ? SAU.stops : []), ...(CANNON.built ? CANNON.stops : []), ...(NW.built ? NW.stops : []), ...(STN.built ? STN.stops : []), ...(TRAM.built ? TRAM.stops : []), ...(SKB.built ? SKB.stops : []), ...(GAR.built ? GAR.stops : []), ...(LCH.built ? LCH.stops : []), ...(PYR.built ? PYR.stops : []), ...(DRN.built ? DRN.stops : []), ...(WRK.built ? WRK.stops : []), ...(UFO.built ? UFO.stops : []), ...(SKR.built ? SKR.stops : []), ...(STK.built ? STK.go : []), ...(HT.built ? HT.stops : []), ...(ACR.built ? ACR.stops : []), ...(LINKS.decks.length ? ['north causeway', 'south causeway'] : []), 'park gate', ...PARKD.stops); for (let i = GO.length - 1; i >= 0; i--) if (!CITY.spots[GO[i]]) GO.splice(i, 1); }
   MESH.pos.length = MESH.nrm.length = MESH.col.length = 0;
 }
 
@@ -11914,6 +11916,201 @@ function garageRails() {
   const n = Math.ceil(C.getLength() / 1.5);
   G.rail = railPath(C.getSpacedPoints(n), { name: 'garage rail', maxV: 22 }); railDraw(G.rail, { mat: 'orange', postMax: 14 }); gemsAlong(G.rail, 8, 0.9, 6);
 }
+// ===== r148: THE SKB TOWER -- *"Can you build this building ... if we just build buildings one by one like I do in Blender with MCP
+// maybe it will be just as good."* His concept painting, built as ONE building out of the slice's own builders, in its own local
+// frame (`slFrame`, a pure translation here: local x = across the front, left to right; z = toward the viewer; y up), on the open
+// lot in the west field. Everything in it is a line, read off the painting:
+//     ground   two QP XL at the ends whose copings are flush with the podium deck (drop in off the deck), stairs + a bank up the
+//              front left, the shutter (with the smiley), doors, service boxes, bins, a bench
+//     L1 4.95  the podium deck, railed; R1 a walled ramp along its front up to ...
+//     B  8.15  the LEFT BALCONY (bunny pier, glass pod over it); R2, the painting's diagonal walkway, up to ...
+//     L2 10.15 the tower's side deck, the deck across its front and the SKB block's roof -- one level; R3 down to ...
+//     B  8.15  the RIGHT BALCONY (mushroom pier), and off its open front back down onto the podium
+//     up top   the tower (window band, AC units, the crown sign, an orange cap, antennas), the top-right glass pod and the top-left
+//              deck with the dish -- not reachable on foot; the wings are how you get up there.
+//   Every orange railing is a grind rail (`SKB.rails`, registered after the collider). Paint and decals are PLACEHOLDERS out of
+//   the sign atlas (`smile`, `bunny`, `cat`, `sk8`, `alien`) -- the painting's own art is the next pass.
+const SKB = { on: 1, built: 0, x: -256, z: -67, y0: 0.15, h1: 4.8, b: 8.15, l2: 10.15, rails: [], stops: [] };
+function buildSkb() {
+  if (!SKB.on || WORLD.zones || !PARKD.on) return;
+  _slseed = 14848;
+  const S = SKB, TX = S.x, TZ = S.z, Y0 = S.y0, L1 = Y0 + S.h1, B = S.b, L2 = S.l2;
+  const C = { cream: 0xe9dcc2, sand: 0xd8c8a6, teal: 0x2b9f9a, tealD: 0x1f6f72, orange: 0xff8a1e, yellow: 0xffd23f, grey: 0x9aa0a4, slab: 0x8e9196,
+    purple: 0x8a5ad8, dark: 0x2a2f38 };
+  slFrame(0, TX, TZ);
+  try {
+    const box = (k, x0, y0, z0, x1, y1, z1, o) => slBox(k, x0, y0, z0, x1, y1, z1, Object.assign({ bev: 0.04 }, o));
+    const sol = (k, x0, y0, z0, x1, y1, z1, tint, o) => box(k, x0, y0, z0, x1, y1, z1, Object.assign({ tint, solid: true, tag: 'skb', base: y0 }, o));
+    // A RAILING IS ALSO A WALL: a thin solid under the grind rail (top: false, so not a floor), 0.9 m tall, in 1 m pieces so a sloped
+    // one follows its ramp -- see-through railings with nothing behind them let a push off the end of a ramp sail off a balcony
+    const rail = (pts, o) => { const top = slRailing(pts, 1.0, Object.assign({ lower: true, step: 1.6 }, o)); S.rails.push(top.map(p => [p[0] + TX, p[1], p[2] + TZ]));
+      for (let i = 0; i < pts.length - 1; i++) { const [xa, ya, za] = pts[i], [xb, yb, zb] = pts[i + 1], L = Math.hypot(xb - xa, zb - za), n = Math.max(1, Math.round(L)), yaw = Math.atan2(xb - xa, zb - za);
+        for (let j = 0; j < n; j++) { const u0 = j / n, u1 = (j + 1) / n, ym = Math.min(ya + (yb - ya) * u0, ya + (yb - ya) * u1);
+          solidAdd(xa + (xb - xa) * (u0 + u1) / 2, za + (zb - za) * (u0 + u1) / 2, 0.06, L / n / 2, ym, ym + 0.9 + Math.abs(yb - ya) / n, yaw, { top: false, tag: 'skb railing' }); } } };
+    const light = (x0, x1, y, z, nz) => { box('neon', x0, y - 0.06, z, x1, y, z + nz * 0.08, { bev: 0, tint: C.yellow, skip: '' }); slGlow((x0 + x1) / 2, y - 0.2, z + nz * 0.3, 1.6, 0xffd36a, 0.55); };
+    // a walled ramp along x, from (xa, ya) to (xb, yb), across z0..z1: the surface is a floor, the fascia teal, the underside closed
+    const ramp = (xa, ya, xb, yb, z0, z1, fill) => {
+      slQuad('concrete', [xa, ya, z0], [xb, yb, z0], [xb, yb, z1], [xa, ya, z1], [0, 1, 0], { solid: true, tint: C.grey, base: Math.min(ya, yb) - 0.4 });
+      const ua = fill != null ? fill : ya - 0.4, ub = fill != null ? fill : yb - 0.4;
+      if (fill == null) slQuad('concrete', [xa, ua, z0], [xb, ub, z0], [xb, ub, z1], [xa, ua, z1], [0, -1, 0], { tint: C.tealD });
+      for (const z of [z0, z1]) slQuad('paint', [xa, ua, z], [xb, ub, z], [xb, yb, z], [xa, ya, z], [0, 0, z === z0 ? -1 : 1], { tint: C.teal });
+      // an orange edge strip along both sides, where the paint meets the deck
+      for (const z of [z0, z1]) slTube('orange', [[xa, ya + 0.03, z], [xb, yb + 0.03, z]], 0.06);
+    };
+    // ---- THE PLINTH: the grey slab it all stands on (a kerb she rolls up) ----
+    sol('concrete', -26, 0, -10, 26, Y0, 15.5, C.slab, { top: 'paving', bev: 0.05 });
+    // ---- L1: THE PODIUM ----
+    sol('plaster', -18, Y0, -8, 18, L1, 3, C.cream, { top: 'paving' });
+    box('paint', -18.05, L1 - 0.6, 2.98, 18.05, L1 - 0.08, 3.2, { tint: C.orange, skip: 'y' });      // the orange band under the deck edge
+    box('paint', -18.05, Y0, 2.98, 18.05, Y0 + 0.45, 3.12, { tint: C.tealD, bev: 0.02 });            // a dark plinth band
+    for (const x of [-15.2, -9.5, -4.2, 4.2, 9.5, 15.2]) box('paint', x - 0.45, Y0 + 0.45, 3.0, x + 0.45, L1 - 0.6, 3.16, { tint: C.teal, bev: 0.03 });
+    for (let x = -16; x <= 16; x += 4) light(x - 0.9, x + 0.9, L1 - 0.68, 3.2, 1);
+    // the shutter, its ribs, its header and the smiley
+    box('metal', -2.5, Y0, 3.0, 2.5, Y0 + 3.7, 3.12, { tint: C.grey, bev: 0.01 });
+    for (let y = Y0 + 0.25; y < Y0 + 3.6; y += 0.26) box('metal', -2.45, y, 3.1, 2.45, y + 0.05, 3.16, { tint: 0x80868c, bev: 0, skip: 'yYz' });
+    box('paint', -2.9, Y0 + 3.7, 3.0, 2.9, Y0 + 4.15, 3.3, { tint: C.orange });
+    slDecal('decal', 'smile', [0, Y0 + 1.85, 3.2], [1, 0, 0], [0, 1, 0], 1.7);
+    // doors, each with a yellow lamp over it, service boxes, a vent grille
+    for (const x of [-7, 7]) { box('dark', x - 0.75, Y0, 3.0, x + 0.75, Y0 + 2.5, 3.1, { tint: 0x3b4d5a, bev: 0.02 }); box('paint', x - 0.9, Y0 + 2.5, 3.0, x + 0.9, Y0 + 2.65, 3.18, { tint: C.teal });
+      light(x - 0.4, x + 0.4, Y0 + 2.85, 3.1, 1); }
+    for (const [x, w, h] of [[-11.5, 0.9, 1.3], [-10.2, 0.6, 0.9], [11.2, 1.0, 1.4], [12.6, 0.7, 1.0]]) box('metal', x - w / 2, Y0 + 0.7, 3.0, x + w / 2, Y0 + 0.7 + h, 3.35, { tint: 0xb9c0c4, bev: 0.03 });
+    box('metal', 3.4, Y0 + 2.4, 3.0, 4.0, Y0 + 3.4, 3.15, { tint: 0x6c7378, bev: 0.01 });
+    // pipes down the front: grey runs and an orange one, with a crank at the top
+    for (const [x, k, t, r] of [[-12.9, 'metal', 0x8a9298, 0.09], [-12.6, 'metal', 0x8a9298, 0.06], [12.1, 'paint', C.orange, 0.1], [13.9, 'metal', 0x8a9298, 0.08]])
+      slTube(k, [[x, Y0, 3.25], [x, L1 - 0.9, 3.25], [x, L1 - 0.7, 3.05]], r, { tint: t });
+    // bins and plants at the foot of the front wall, a bench off to the right
+    for (const x of [-9.0, 9.9]) { box('paint', x - 0.45, Y0, 3.4, x + 0.45, Y0 + 1.05, 4.2, { tint: C.teal, solid: true, tag: 'skb prop' }); box('dark', x - 0.48, Y0 + 1.05, 3.38, x + 0.48, Y0 + 1.15, 4.22, { tint: 0x1d3a40 }); }
+    for (const x of [-10.6, 8.6, 14.6]) slBush(x, Y0, 3.7, 0.55);
+    slBench(21.5, Y0, 11, -Math.PI / 2);
+    // ivy over the deck edge, and the railings along it
+    slIvy(-18, 3.05, -11.5, 3.05, L1, 0, 1, 0.5, 0.8, 2.4); slIvy(-2, 3.05, 18, 3.05, L1, 0, 1, 0.35, 0.6, 2.2);
+    rail([[-1.6, L1, 2.75], [17.6, L1, 2.75]]);
+    rail([[-17.7, L1, -7.75], [17.7, L1, -7.75]]);
+    rail([[-17.75, L1, -7.6], [-17.75, L1, -1.4]]); rail([[17.75, L1, -7.6], [17.75, L1, -1.4]]);
+    // ---- THE TWO QUARTER PIPES: coping flush with the deck, so she drops in off it ----
+    const K2 = { ...KCOL }; Object.assign(KCOL, PARKD.pal.kcol, { side: 0x7d55c8, deck: 0xeceef4 });
+    try { const qpRun = KSZ.XL.lip + 0.6;
+      kitPiece('qp', 'XL', { x: TX - 18 - qpRun, y: Y0, z: TZ + 3, yaw: Math.PI / 2 }, { w: 8, deck: 0.6 });
+      kitPiece('qp', 'XL', { x: TX + 18 + qpRun, y: Y0, z: TZ + 3, yaw: -Math.PI / 2 }, { w: 8, deck: 0.6 }); }
+    finally { Object.assign(KCOL, K2); }
+    // ---- THE WAY UP: stairs and a bank side by side up the front left, a handrail down each outer edge ----
+    slStairs(-16, 14.5, -16, 3, Y0, L1, 2, { rails: false, led: C.yellow });
+    slQuad('concrete', [-15, Y0, 14.5], [-11, Y0, 14.5], [-11, L1, 3], [-15, L1, 3], [0, 1, 0], { solid: true, tint: 0xb7bac2, base: Y0 });
+    for (const x of [-17, -11]) slQuad('paint', [x, Y0, 14.5], [x, Y0, 3], [x, L1, 3], [x, L1, 3], [x < -14 ? -1 : 1, 0, 0], { tint: C.teal });
+    box('paint', -15.08, Y0, 3, -14.92, L1, 14.5, { tint: C.orange, bev: 0, skip: 'yY' }); void 0;
+    rail([[-16.85, Y0, 14.2], [-16.85, L1, 3.2]]); rail([[-11.15, Y0, 14.2], [-11.15, L1, 3.2]]);
+    // ---- R1: along the front of the podium, up to the left balcony ----
+    ramp(-1.8, L1, -11, B, 0.6, 2.95, L1);
+    rail([[-2.2, L1 + (B - L1) * 0.04, 2.8], [-10.9, B, 2.8]]); rail([[-2.6, L1 + (B - L1) * 0.09, 0.75], [-10.9, B, 0.75]]);
+    // ---- THE LEFT BALCONY, its piers (the bunny on the big one) and the glass pod over it ----
+    sol('concrete', -17.5, B - 0.4, -8, -11, B, 3, C.cream, { top: 'paving' });
+    box('paint', -17.55, B - 0.42, -8.05, -10.95, B - 0.1, 3.05, { tint: C.teal, skip: 'y' });
+    for (let x = -16.6; x < -11.5; x += 2.4) light(x - 0.7, x + 0.7, B - 0.44, 3.05, 1);
+    sol('plaster', -17, L1, -7.5, -14, B - 0.4, -4.5, C.teal);
+    slDecal('decal', 'bunny', [-15.5, L1 + 1.6, -4.48], [1, 0, 0], [0, 1, 0], 1.9);
+    sol('metal', -17.5, L1, 2.35, -17.05, B - 0.4, 2.85, 0x5e6b72);
+    rail([[-17.3, B, -7.8], [-17.3, B, 2.8]]); rail([[-17.3, B, 2.8], [-11.8, B, 2.8]]); rail([[-17.3, B, -7.8], [-11.2, B, -7.8]]);
+    rail([[-11.2, B, -3.3], [-11.2, B, 0.45]]);
+    // the pod: a teal neck, a glass box with a teal sill and an orange lid, and a railed roof with antennas and beacon balls
+    const pod = (x0, x1, z0, z1, y0, y1, neck) => {
+      sol('paint', neck[0], neck[1], neck[2], neck[3], y0, neck[4], C.teal);
+      sol('paint', x0, y0, z0, x1, y0 + 0.45, z1, C.teal);
+      for (const z of [z0, z1]) slQuad('window', [x0 + 0.2, y0 + 0.5, z], [x1 - 0.2, y0 + 0.5, z], [x1 - 0.2, y1 - 0.35, z], [x0 + 0.2, y1 - 0.35, z], [0, 0, z === z1 ? 1 : -1], { uv4: [[0, 0], [1, 0], [1, 0.5], [0, 0.5]] });
+      for (const x of [x0, x1]) slQuad('window', [x, y0 + 0.5, z0 + 0.2], [x, y0 + 0.5, z1 - 0.2], [x, y1 - 0.35, z1 - 0.2], [x, y1 - 0.35, z0 + 0.2], [x === x1 ? 1 : -1, 0, 0], { uv4: [[0, 0], [1, 0], [1, 0.5], [0, 0.5]] });
+      box('dark', x0 + 0.05, y0 + 0.45, z0 + 0.05, x1 - 0.05, y1 - 0.3, z1 - 0.05, { tint: 0x203a44, bev: 0, skip: 'yY' });
+      solidAdd((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, y0 + 0.45, y1 - 0.3, 0, { top: false, tag: 'skb pod' });
+      for (const x of [x0 + 0.1, x1 - 0.1]) for (const z of [z0 + 0.1, z1 - 0.1]) box('paint', x - 0.08, y0 + 0.45, z - 0.08, x + 0.08, y1 - 0.3, z + 0.08, { tint: C.teal, bev: 0 });
+      sol('paint', x0 - 0.2, y1 - 0.3, z0 - 0.2, x1 + 0.2, y1, z1 + 0.2, C.orange, { top: 'concrete' });
+      light(x0 + 0.4, x1 - 0.4, y0 - 0.02, z1, 1);
+      rail([[x0 - 0.05, y1, z0 - 0.05], [x1 + 0.05, y1, z0 - 0.05], [x1 + 0.05, y1, z1 + 0.05], [x0 - 0.05, y1, z1 + 0.05], [x0 - 0.05, y1, z0 - 0.05]], { step: 2.2 });
+    };
+    const B2 = B + 2.2;
+    pod(-16.5, -12, -7, -2, B2, B2 + 2.8, [-15, B, -5, -13.5, -4]);
+    const antenna = (x, y, z, h, ball) => { slGeo('metal', new THREE.CylinderGeometry(0.05, 0.08, h, 6), slMat(x, y + h / 2, z), { smooth: true, tint: 0x3a3f46 });
+      slGeo('metal', new THREE.CylinderGeometry(0.14, 0.14, 0.25, 8), slMat(x, y + h * 0.35, z), { smooth: true, tint: 0x2a2f36 });
+      if (ball) { slGeo('paint', new THREE.SphereGeometry(0.18, 10, 8), slMat(x, y + h + 0.1, z), { smooth: true, tint: ball }); slGlow(x, y + h + 0.1, z, 1.2, ball, 0.8); } };
+    antenna(-15.8, B2 + 2.8, -6.3, 2.4, 0xff4040); antenna(-12.8, B2 + 2.8, -6.2, 1.6);
+    // ---- R2: the painting's diagonal walkway, from the left balcony up to the tower's side deck ----
+    ramp(-11, B, -6, L2, -6.5, -3.5);
+    rail([[-10.9, B, -6.35], [-6.1, L2, -6.35]]); rail([[-10.9, B, -3.65], [-6.1, L2, -3.65]]);
+    // ---- THE TOWER ----
+    const TOP = L1 + 14.5;
+    sol('plaster', -3.5, L1, -7, 3.5, TOP, -0.5, C.cream);
+    // the window band under the front deck: glass, teal mullions, an orange sill
+    slQuad('window', [-3.1, L1 + 0.7, -0.45], [3.1, L1 + 0.7, -0.45], [3.1, L2 - 0.75, -0.45], [-3.1, L2 - 0.75, -0.45], [0, 0, 1], { uv4: [[0, 0], [1, 0], [1, 0.5], [0, 0.5]] });
+    for (const x of [-3.2, -1.05, 1.05, 3.2]) box('paint', x - 0.12, L1 + 0.6, -0.5, x + 0.12, L2 - 0.6, -0.3, { tint: C.teal, bev: 0 });
+    box('paint', -3.6, L1 + 0.35, -0.5, 3.6, L1 + 0.65, -0.2, { tint: C.orange }); box('paint', -3.6, L2 - 0.75, -0.5, 3.6, L2 - 0.5, -0.25, { tint: C.teal });
+    // above the deck: teal sides, a cream centre panel, the AC units, the crown sign, vines
+    for (const x of [-3.5, 2.3]) box('paint', x, L2, -0.52, x + 1.2, TOP, -0.36, { tint: C.teal, bev: 0.02 });
+    for (const s of [-1, 1]) box('paint', s > 0 ? 3.48 : -3.66, L1, -6.8, s > 0 ? 3.66 : -3.48, TOP, -0.7, { tint: C.teal, bev: 0.02, skip: 'yY' });
+    box('metal', -2.3, L2 + 2.2, -0.5, 2.3, L2 + 3.3, 0.15, { tint: 0xc9ced2, bev: 0.04 });
+    for (const x of [-1.5, 0, 1.5]) slGeo('dark', new THREE.CylinderGeometry(0.45, 0.45, 0.05, 16), slMat(x, L2 + 2.75, 0.16, 0, 1, 1, 1, Math.PI / 2), { tint: 0x2a2f36 });
+    slDecal('decal', 'cat', [0, L2 + 6.1, -0.42], [1, 0, 0], [0, 1, 0], 3.6);
+    slIvy(-3.5, -0.4, 3.5, -0.4, TOP, 0, 1, 0.6, 1.0, 3.2); slIvy(-3.6, -0.6, -3.6, -6.9, L2 + 4, -1, 0, 0.4, 0.8, 2.4);
+    // pipes up its right side
+    for (const [z, t, r] of [[-1.2, C.orange, 0.11], [-1.6, 0x8a9298, 0.08], [-2.0, 0x8a9298, 0.06]]) slTube(t === C.orange ? 'paint' : 'metal', [[3.75, L1, z], [3.75, TOP - 1, z], [3.4, TOP - 0.6, z]], r, { tint: t });
+    // the cap: an orange band, a teal crown block with a window strip, an orange lid, antennas
+    sol('paint', -3.9, TOP, -7.4, 3.9, TOP + 0.5, -0.1, C.orange, { top: 'concrete' });
+    sol('paint', -2.4, TOP + 0.5, -6, 2.4, TOP + 2.7, -1.5, C.teal);
+    slQuad('window', [-2.0, TOP + 1.1, -1.46], [2.0, TOP + 1.1, -1.46], [2.0, TOP + 2.1, -1.46], [-2.0, TOP + 2.1, -1.46], [0, 0, 1], { uv4: [[0, 0.5], [1, 0.5], [1, 1], [0, 1]] });
+    sol('paint', -2.7, TOP + 2.7, -6.3, 2.7, TOP + 3.0, -1.2, C.orange);
+    box('paint', -1.0, TOP + 3.0, -4.6, 1.0, TOP + 3.6, -2.6, { tint: 0xd84ab8 });
+    antenna(-1.5, TOP + 3.0, -2.2, 4.5, 0xff4040); antenna(1.6, TOP + 3.0, -5.2, 3.2); antenna(0, TOP + 3.6, -3.6, 6.0, 0xff4040); antenna(-1.9, TOP + 3.0, -5.6, 2.6);
+    // ---- L2: the tower's side deck, the deck across its front, and the SKB block's roof ----
+    sol('concrete', -6, L2 - 0.45, -7.5, -3.5, L2, -0.5, C.cream, { top: 'paving' });
+    sol('concrete', -6, L2 - 0.45, -0.5, 3.5, L2, 1.5, C.cream, { top: 'paving' });
+    box('paint', -6.05, L2 - 0.47, 1.45, 10.05, L2 - 0.12, 1.6, { tint: C.orange, skip: 'y' });
+    for (let x = -5; x < 9.5; x += 2.6) light(x - 0.6, x + 0.6, L2 - 0.5, 1.55, 1);
+    rail([[-5.8, L2, 1.3], [9.8, L2, 1.3]]);
+    rail([[-5.8, L2, -7.3], [-5.8, L2, -6.7]]); rail([[-5.8, L2, -3.3], [-5.8, L2, 1.2]]); rail([[-5.8, L2, -7.3], [-3.6, L2, -7.3]]);
+    // the SKB block: podium to L2, the tag on its face, pipes down its left
+    sol('plaster', 3.5, L1, -7.5, 10, L2, 1.5, C.sand, { top: 'paving' });
+    box('paint', 3.45, L1, 1.48, 4.2, L2 - 0.5, 1.62, { tint: C.teal, bev: 0.02 });
+    slDecal('decal', 'sk8', [7.0, L1 + 2.4, 1.56], [1, 0, 0], [0, 1, 0], 3.6);
+    slIvy(3.5, 1.6, 10, 1.6, L2 - 0.5, 0, 1, 0.5, 0.6, 2.0);
+    rail([[3.6, L2, -7.3], [9.8, L2, -7.3]]); rail([[9.8, L2, -7.3], [9.8, L2, -6.7]]); rail([[9.8, L2, -3.3], [9.8, L2, 1.2]]);
+    // ---- THE TOP-RIGHT POD over the SKB block, its fan box, and THE TOP-LEFT DECK with the dish ----
+    const PY = L2 + 3.2;
+    pod(3.8, 9.6, -7, -1, PY, PY + 2.8, [3.8, L2, -7.0, 4.8, -6.0]);      // its neck against the tower, clear of the line from the front deck to R3
+    box('metal', 7.0, PY + 0.8, -1.0, 8.9, PY + 2.1, -0.4, { tint: 0xc9ced2 }); slGeo('dark', new THREE.CylinderGeometry(0.5, 0.5, 0.05, 16), slMat(7.95, PY + 1.45, -0.38, 0, 1, 1, 1, Math.PI / 2), { tint: 0x2a2f36 });
+    const TL = L2 + 6.4;
+    sol('concrete', -6.2, TL - 0.4, -6.6, -3.5, TL, -1.4, C.cream, { top: 'paving' });
+    box('paint', -6.25, TL - 0.42, -6.65, -3.5, TL - 0.12, -1.35, { tint: C.teal, skip: 'y' });
+    rail([[-3.6, TL, -1.6], [-6.0, TL, -1.6], [-6.0, TL, -6.4], [-3.6, TL, -6.4]], { step: 1.6 });
+    slGeo('metal', new THREE.CylinderGeometry(0.1, 0.14, 1.4, 8), slMat(-4.8, TL + 0.7, -4.4), { smooth: true, tint: 0x5a6068 });
+    slGeo('metal', new THREE.SphereGeometry(1.5, 18, 8, 0, Math.PI * 2, 0, 0.75), slMat(-4.8, TL + 1.9, -4.4, 0.6, 1, 0.55, 1, -1.0), { smooth: true, tint: 0xd8dde2 });
+    antenna(-5.6, TL, -2.0, 2.2);
+    // ---- R3: down from the SKB roof to the right balcony ----
+    ramp(10, L2, 14.5, B, -6.5, -3.5);
+    rail([[10.1, L2, -6.35], [14.4, B, -6.35]]); rail([[10.1, L2, -3.65], [14.4, B, -3.65]]);
+    // ---- THE RIGHT BALCONY, its mushroom pier and the beacon pole; its open front drops back to the podium ----
+    sol('concrete', 14.5, B - 0.4, -8, 19, B, -1.5, C.cream, { top: 'paving' });
+    box('paint', 14.45, B - 0.42, -8.05, 19.05, B - 0.1, -1.45, { tint: C.teal, skip: 'y' });
+    light(15.2, 18.3, B - 0.44, -1.45, 1);
+    sol('plaster', 15.2, L1, -7.4, 17.8, B - 0.4, -4.6, C.cream);
+    box('paint', 15.15, B - 1.0, -4.62, 17.85, B - 0.4, -4.5, { tint: C.orange });
+    slDecal('decal', 'alien', [16.5, L1 + 1.4, -4.56], [1, 0, 0], [0, 1, 0], 1.5);
+    rail([[18.8, B, -7.8], [18.8, B, -1.7]]); rail([[14.7, B, -7.8], [18.8, B, -7.8]]); rail([[14.7, B, -3.3], [14.7, B, -1.7]]);
+    rail([[14.9, B, -1.7], [15.6, B, -1.7]]); rail([[17.9, B, -1.7], [18.8, B, -1.7]]);
+    sol('metal', 18.4, B, -7.6, 18.75, B + 3.2, -7.25, 0x4a5058);
+    for (const [y, c] of [[B + 3.4, 0xff8a1e], [B + 3.85, 0x2b9f9a], [B + 4.25, 0xff4040]]) { slGeo('paint', new THREE.SphereGeometry(0.22, 10, 8), slMat(18.58, y, -7.42), { smooth: true, tint: c }); }
+    slGlow(18.58, B + 4.25, -7.42, 1.4, 0xff4040, 0.8);
+    // ivy spilling off the balconies, plants on the decks
+    slIvy(-17.5, 3.1, -11.2, 3.1, B - 0.4, 0, 1, 0.5, 0.8, 2.6); slIvy(14.5, -1.4, 19, -1.4, B - 0.4, 0, 1, 0.6, 0.8, 2.4);
+    for (const [x, y, z] of [[-16.6, B, 2.2], [-12.3, B, -7.2], [18.2, B, -2.4], [-5.4, L2, 0.9], [9.2, L2, -6.8], [15.6, L1, -7.2]]) slBush(x, y, z, 0.45);
+  } finally { slFrame(null); }
+  // keep the seam dressing off its front, and off the building itself
+  BLEND.clear.push([TX - 27, TZ - 11, TX + 27, TZ + 27]);
+  CITY.spots['skb tower'] = [TX - 6, 0, TZ + 26, Math.PI];
+  CITY.spots['skb deck'] = [TX + 6, L2, TZ - 2, Math.PI / 2];
+  S.stops = ['skb tower', 'skb deck'];
+  S.built = 1;
+}
+function skbRails() {
+  if (!SKB.built) return;
+  for (const pts of SKB.rails) { const P = pts.map(p => SLV(p[0], p[1], p[2]));
+    if (P.length === 2) railPath(railLine(P[0], P[1], 2), { name: 'skb rail' }); else railPath(P, { name: 'skb rail' }); }
+}
 // r109: THE CROSSTOWN. A tram line round the hub's south side, at grade in the belt between the hub's outer bank and the
 // districts, joining three of them: the Shores gate (east), the Orbital gate (south) and the foot of the Mothership's beam
 // (west). Three long cars, each one's roof a row of six overlapping discs (a MOVING FLOOR each, `DYN` is round or an
@@ -17016,7 +17213,7 @@ async function init() {
 }
 
 // THE CONSOLE HANDLE. Every tunable is live: `rg.SK.grip = 3` and she skids.
-window.rg = { WINGROW, arcPaint, WING, WG, wingFold, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
+window.rg = { SKB, buildSkb, WINGROW, arcPaint, WING, WG, wingFold, JUMP2, jump2, wingStart, wingEnd, wingFly, wingSet, GUN, gun, gunSwivel, GUNROW, gunRowPaint, gunSet, gunMount, gunTracks, gunPose, gunTwist, gunUntwist, gunZap, gunStep, gunBarrel, gunFire, gunAim, gunMuzzle, stepBolts, BOLTS, padUp, speedStep, SK, AIR, SURF, solidSides, S3A, surfCatch, surfLoop, ATMO, stepAtmo, atmoMix, rimLight: rim, hemi, CAM, RIG, ANIM, TAIL, CHARS, TRI, LIGHT, player, girl, cam, scene, renderer, camera,
   groundAt, wrapAngle, respawn, BUILD, PARK, normaliseClips, groundQ, leaveGround, stepPlayer, stepCam, girlAnim, stick, keys, stickWorld, SPAWN, BOWL,
   clipCyclic, trackSwing, clipRoles, tailFind, tailStep, tailWave, capDist, wearChar, TAIL_DEF, tailPanel, tailLoad,
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
