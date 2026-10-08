@@ -100,6 +100,24 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE RIGHT PAD OPENS THE WINGS, AND IN FLIGHT THE BLASTER AIMS IN 3D (r146, `WING.flick`, `GUN.fly`, `gunFly`, `p.gDir`,
+  `twistApply`, `npm run sim wingfly`).** *"In the air you click up on the right stick -- that's how you take your glider out, and
+  clicking down while you're flying puts it away ... press and hold in the middle of the stick, the gun comes out, it charges, you
+  move the aimer in three dimensions, let go and it shoots that way."*
+  - **A right flick up in the air opens the wings** (in `rightFlick`, AFTER the transfer branches -- the coyote moment off a vert
+    lip and a locked air's first `tapWin` are still the transfer) **unless a rail is in kick reach that way** (`kickTarget`): then
+    it is still r39's kick onto the rail. Flying, a right flick DOWN (within `CTRL.rDownCone`) folds them; nothing else flicks.
+    `melee`'s open-air strike row sets `WING.flick` 0, and `tap`'s air swipe-up row now expects the wings.
+  - **Flying, `gunStep` hands over to `gunFly`**: a right thumb held with travel under `fly.far` for `holdT` (0.25 s, past a flick)
+    arms it and takes the blaster out if it was holstered (`p.gTemp`; `wingEnd` puts it back). The thumb's offset from where it
+    landed is the aim: x is up to `yaw` either side of `cam.az` (negated -- +yaw is her left), y up to `pitch` (pad +Y is down).
+    `gunAim` walks `p.gDir` in 3D, so the reticle and the bolt are one answer, as on the ground. A thumb that moved first is a
+    drag (`gHold` 0.0001 until it lifts) and the release of an aim is never a tap-jump.
+  - **The lens keeps following while she aims in flight** and the right pad's x does not orbit it. The swivel is off in flight (a
+    turn of the model's Y is a roll when she is laid forward); the spine twist is the 3D rotation barrel -> `p.gDir`, eased by a
+    fraction (`gun.tw3`), through the same `twistApply` and taken off by the same `gunUntwist`.
+  - **Not verifiable here**: how the sighted pose looks laid forward, and how far the spine can bring the barrel round.
+
 - **PUSH UP TO CLIMB (r145, `WING.pull` 0, `UI_VER` 144).** *"It's inverted -- I want up on the left stick to go up and down to go
   down."* The airplane sense (pull back to climb) is the panel's other setting now. **`UI_VER` 144 drops his saved `WING.pull`**:
   the panel saves every row on every drag, so r142's 1 was already stored on his phone and a new default alone would never

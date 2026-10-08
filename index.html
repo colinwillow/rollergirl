@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r145</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r146</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -237,7 +237,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r145';
+const BUILD = 'r146';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -389,6 +389,12 @@ const GUN = {
   // hysteresis). Let go facing more than a quarter turn round and the turn is KEPT -- the stance flips, the same three lines as
   // the swivel tap -- so she does not spin back. There are no left/right skates yet; sideways she uses the nearer of the two.
   swivel: { on: 1, ease: 0.12, hold: 0.35, back: 1.75, fwd: 1.40, minV: 1.0 },
+  // r146: THE AIM IN FLIGHT IS THREE-DIMENSIONAL. *"Press and hold in the middle of the stick, the gun comes out, your blaster
+  // charges, and you can move the aimer in three dimensions with the stick -- when you let go it shoots that way."* A right thumb
+  // held still near where it landed (travel under `far`) for `holdT` arms it -- longer than a flick, so a flick never does -- and
+  // takes the blaster out if it was holstered (put away again when she lands). From there the thumb's offset from where it landed
+  // IS the aim: across turns it up to `yaw` either side of the lens, up and down tilts it up to `pitch`. Eased (`ease`).
+  fly: { on: 1, holdT: 0.25, far: 0.30, yaw: 65 * Math.PI / 180, pitch: 55 * Math.PI / 180, ease: 0.05, twist: 1 },
 };
 // r142: THE DOUBLE JUMP. *"Your second tap in the air after you jump propels you upward -- she probably does a flip on her second
 // jump. It'll be fun for launching off stuff and then double jumping and then opening the wingsuit."* A right-pad TAP in the air that
@@ -407,7 +413,7 @@ const JUMP2 = { on: 1, k: 0.85, flip: 1, pts: 10 };
 // touching anything -- the wings fold and she rolls away with her speed -- or tap the segment again and she drops.
 // THE WINGS ARE PROCEDURAL STAND-INS for his model: a pack on her back, two arms of three panels that unfold one after another, a
 // jet at each tip. They ride HER BODY's frame at her upper back (Spine2), not a bone's -- a bone's frame is the armature's 0.01.
-const WING = { on: 1, out: 0, open: 0, openT: 0.45, v0: 14, cruise: 20, vmin: 9, vmax: 36, thrust: 0.9, gk: 1,
+const WING = { on: 1, flick: 1, out: 0, open: 0, openT: 0.45, v0: 14, cruise: 20, vmin: 9, vmax: 36, thrust: 0.9, gk: 1,
   turn: 1.7, pitchRate: 1.5, climb: 55 * Math.PI / 180, dive: 70 * Math.PI / 180, levelHL: 0.7, pull: 0,      // r144: push UP to climb (his call; 1 is the airplane way)
  
   lie: 80 * Math.PI / 180, bank: 0.7, bankHL: 0.15, clip: 'in_air', camFollow: 3.0, settle: 7, trailLife: 0.55,
@@ -14218,7 +14224,11 @@ bindStick(document.getElementById('stkR'), stick.R, null, (dx, dy) => {
   // camera never also jumps.
   // r39: ON THE GROUND (flat) IT IS THE MELEE CHAIN; a swipe UP on a steep face, a rail or off a lip is
   // still the transfer; IN THE AIR it is the flying kick, aimed at a rail if there is one that way.
-  if (player.wing) return;      // r142: and not a strike or a dive either
+  // r142: flying, not a strike or a dive either. r146: *"clicking down while you're flying will put it away"* -- a flick DOWN
+  // folds the wings; nothing else. A release that ends an aim is the shot, never a flick.
+  if (player.wing) { if (player.gAim) return;
+    if (WING.flick > 0.5 && dy > 0 && Math.abs(dx) < dy * Math.tan(CTRL.rDownCone)) { wingSet(0); const s = STICKS[1]; if (s && s.pop) s.pop(); }
+    return; }
   if (rightFlick(dx, dy)) { const s = STICKS[1]; if (s && s.pop) s.pop(); }
 }, (far, held) => {
   // A TAP IS A JUMP, AND `far` IS NOW MEASURED FROM WHERE THE THUMB LANDED, so it is genuinely
@@ -14227,6 +14237,7 @@ bindStick(document.getElementById('stkR'), stick.R, null, (dx, dy) => {
   // jump could not fire at all -- which is exactly "I'm having trouble jumping, I can't tell if
   // it's a thumb location thing".
   if (far >= AIR.tapFar || held > AIR.tapT) return;      // a drag or a hold: neither is a jump
+  if (player.gAim || (player.gHold || 0) > 0.12) return;      // r146: the release of a flight aim is the shot, not a jump
   player.jump = 1;
   const s = STICKS[1]; if (s && s.pop) s.pop();          // and it says so
 });
@@ -15413,6 +15424,12 @@ function rightFlick(dx, dy) {
     if (!p.grounded && p.coyote > 0 && p.leftN != null && p.leftN < MELEE.xferN) { p.jump = 2; return 'transfer'; }
     if (!p.grounded && p.vertLock && p.airT < VERT.tapWin && vertRelease(true)) { trick('TRANSFER', SCORE.xfer); return 'transfer'; }
   }
+  // r146: *"In the air you click up on the right stick -- that's how you take your glider out."* After the transfer above (the
+  // coyote moment off a vert lip and the first moment of a locked air are still the transfer), a flick up in the air opens them.
+  // A flick up AT A RAIL in reach is still the kick onto it (r39) -- the wings are the flick up with nothing to kick at.
+  if (dir === 'up' && WING.on && WING.flick > 0.5 && !p.grounded && !p.grind && !p.wall && !p.wing && !(p.coyote > 0) && !(p.bailT > 0)
+      && !(MELEE.aimR > 0 && kickTarget(w.x, w.z))) {
+    wingSet(1); return p.wing ? 'wings' : null; }
   // r82: THE RIGHT PAD -- on the ground up is the BOOST and down SWITCHES STANCE; in the air every flick is a FLIP, except
   // a flick down with a rail or ledge in reach, which is r81's dive at it (in the grind pose)
   if (ctrl82() && !p.grind) {
@@ -15847,15 +15864,33 @@ const _gtQ = new THREE.Quaternion(), _gtP = new THREE.Quaternion(), _gtT = new T
 function gunTwist(dt) {
   const p = player, T = GUN.twist;
   const live = T.on && gun.out > 0.5 && (p.gAim || p.gFireT > 0 || T.carry) && !(p.bailT > 0) && gun.twB.length;
+  // r146: FLYING, THE TURN IS THREE-DIMENSIONAL -- the rotation that takes the barrel onto `p.gDir`, about whatever axis that
+  // is, eased in by a fraction rather than by an angle (the axis moves every frame, an eased fraction of a fresh answer does not)
+  const fly = GUN.fly.twist && p.wing && p.gDir && T.on && gun.out > 0.5 && (p.gAim || p.gFireT > 0) && gun.twB.length && gun.mount;
+  gun.tw3 = damp(gun.tw3 || 0, fly ? 1 : 0, T.ease, dt);
+  if (p.wing) {
+    gun.twist = 0;
+    if (!fly || gun.tw3 < 0.002) return;
+    gun.mount.updateWorldMatrix(true, false); _gbv.set(-1, 0, 0).transformDirection(gun.mount.matrixWorld);
+    _gtT.setFromUnitVectors(_gbv, p.gDir);
+    const ang = 2 * Math.acos(clamp(_gtT.w, -1, 1)), sn = Math.sqrt(Math.max(0, 1 - _gtT.w * _gtT.w));
+    if (sn < 1e-5) return;
+    _gtA.set(_gtT.x / sn, _gtT.y / sn, _gtT.z / sn);
+    twistApply(_gtA, Math.min(ang, T.max) * gun.tw3 / gun.twB.length);
+    return;
+  }
   let want = 0;
   if (live) { const b = gunBarrel(); if (b !== null) want = clamp(wrapAngle(cam.az - b), -T.max, T.max); }
   gun.twist = damp(gun.twist, want, T.ease, dt);
   if (Math.abs(gun.twist) < 0.002) return;
-  const per = gun.twist / gun.twB.length;
+  twistApply(_gtY, gun.twist / gun.twB.length);
+}
+const _gtA = new THREE.Vector3();
+function twistApply(axis, per) {
   for (let i = 0; i < gun.twB.length; i++) {
     const b = gun.twB[i]; if (!b.parent) continue;
     b.parent.updateWorldMatrix(true, false); b.parent.getWorldQuaternion(_gtP);
-    _gtQ.setFromAxisAngle(_gtY, per);
+    _gtQ.setFromAxisAngle(axis, per);
     _gtT.copy(_gtP).invert().multiply(_gtQ).multiply(_gtP);
     b.quaternion.premultiply(_gtT);
     (gun.twD[i] || (gun.twD[i] = new THREE.Quaternion())).copy(_gtT); gun.twD.n = i + 1;
@@ -15867,7 +15902,7 @@ function gunTwist(dt) {
 // where `centreOffset` keeps her hips on the axis) and the twist covers this frame's residual exactly.
 function gunSwivel(dt) {
   const p = player, S = GUN.swivel;
-  const ok = S.on && gun.out > 0.5 && !(p.bailT > 0) && !p.grind && !p.wall && !p.mel;
+  const ok = S.on && gun.out > 0.5 && !(p.bailT > 0) && !p.grind && !p.wall && !p.mel && !p.wing;      // r146: laid forward, a turn of the model's Y is a ROLL
   if (ok && (p.gAim || p.gFireT > 0)) gun.swT = S.hold; else gun.swT = Math.max(0, gun.swT - dt);
   let want = 0;
   if (ok && gun.swT > 0) { const b = gunBarrel(); want = b === null ? gun.body : wrapAngle(gun.body + wrapAngle(cam.az - b)); }
@@ -15906,6 +15941,8 @@ function padUp(on) {
 function gunStep(dt) {
   const p = player;
   p.gFireT = Math.max(0, (p.gFireT || 0) - dt);
+  if (p.wing && GUN.on && GUN.fly.on && !GUN.failed) { gunFly(dt); return; }
+  p.gHold = 0; p.gDir = null;
   if (!GUN.out || GUN.failed) { p.gAim = 0; p.gArm = 0; p.gChg = 0; return; }
   const busy = p.bailT > 0 || !!p.mel || !!p.wall;
   if (!busy && padUp(p.gAim)) {
@@ -15915,6 +15952,31 @@ function gunStep(dt) {
     if (p.gAim && !busy && (p.gChg || 0) >= GUN.minChg) gunFire(p.gChg);
     p.gAim = 0; p.gArm = 0; p.gChg = 0;
   }
+}
+// r146: the flight trigger (see `GUN.fly`)
+function gunFly(dt) {
+  const p = player, F = GUN.fly, R = stick.R;
+  if (!p.gAim) {
+    p.gChg = 0; p.gArm = 0;
+    if (R.down && !(p.bailT > 0) && (R.far || 0) < F.far) {
+      if ((p.gHold = (p.gHold || 0) + dt) >= F.holdT) {
+        p.gAim = 1; p.gChg = 0; p.gYaw = 0; p.gPit = 0;
+        if (!GUN.out) { GUN.out = 1; gunLoad(); gunRowPaint(); p.gTemp = 1; }
+      }
+    } else if (!R.down) p.gHold = 0;
+    else p.gHold = 0.0001;      // a thumb that travelled is a drag, not an aim; it stays one until it lifts (and is not a tap)
+    if (!p.gAim) return;
+  }
+  if (R.down) {
+    p.gChg = Math.min(1, (p.gChg || 0) + dt / GUN.chargeT);
+    p.gYaw = damp(p.gYaw || 0, -clamp(R.x, -1, 1) * F.yaw, F.ease, dt);      // NEGATED: a thumb right is a bearing toward -yaw (her right)
+    p.gPit = damp(p.gPit || 0, clamp(-R.y, -1, 1) * F.pitch, F.ease, dt);   // the pad's +Y is DOWN the screen
+    const a = cam.az + p.gYaw, c = Math.cos(p.gPit);
+    (p.gDir || (p.gDir = new THREE.Vector3())).set(Math.sin(a) * c, Math.sin(p.gPit), Math.cos(a) * c);
+    return;
+  }
+  if ((p.gChg || 0) >= GUN.minChg) gunFire(p.gChg);
+  p.gAim = 0; p.gArm = 0; p.gChg = 0; p.gHold = 0;
 }
 function gunSet(on) {
   GUN.out = on ? 1 : 0;
@@ -15958,18 +16020,20 @@ function gunBlocked(x, y, z) { const g = groundAt(x, z, y, 0.3); return (g.hit &
 // promise the gun keeps by construction (weirdport's m20).
 const _gAim = new THREE.Vector3();
 function gunAim(m) {
-  const dx = Math.sin(cam.az), dz = Math.cos(cam.az), step = 1.1, R = GUN.range;
+  // r146: flying, the aim is the 3D direction the right thumb holds (`p.gDir`); on the ground, level along the lens
+  const D = player.wing && player.gDir ? player.gDir : null;
+  const dx = D ? D.x : Math.sin(cam.az), dy = D ? D.y : 0, dz = D ? D.z : Math.cos(cam.az), step = 1.1, R = GUN.range;
   let d = 0, hit = 0;
-  for (; d < R; d += step) if (gunBlocked(m.x + dx * Math.min(R, d + step), m.y, m.z + dz * Math.min(R, d + step))) { hit = 1; break; }
-  if (hit) { let lo = d, hi = Math.min(R, d + step); for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (gunBlocked(m.x + dx * mid, m.y, m.z + dz * mid)) hi = mid; else lo = mid; } d = lo; }
+  for (; d < R; d += step) { const e = Math.min(R, d + step); if (gunBlocked(m.x + dx * e, m.y + dy * e, m.z + dz * e)) { hit = 1; break; } }
+  if (hit) { let lo = d, hi = Math.min(R, d + step); for (let k = 0; k < 6; k++) { const mid = (lo + hi) / 2; if (gunBlocked(m.x + dx * mid, m.y + dy * mid, m.z + dz * mid)) hi = mid; else lo = mid; } d = lo; }
   else d = R;
-  return _gAim.set(m.x + dx * d, m.y, m.z + dz * d);
+  return _gAim.set(m.x + dx * d, m.y + dy * d, m.z + dz * d);
 }
 const _gmz = new THREE.Vector3();
 function gunFire(chg) {
   const p = player, m = gunMuzzle(_gmz).clone(), a = gunAim(m);
   const dir = new THREE.Vector3(a.x - m.x, a.y - m.y, a.z - m.z);
-  if (dir.lengthSq() < 0.25) dir.set(Math.sin(cam.az), 0, Math.cos(cam.az));
+  if (dir.lengthSq() < 0.25) { if (p.wing && p.gDir) dir.copy(p.gDir); else dir.set(Math.sin(cam.az), 0, Math.cos(cam.az)); }
   dir.normalize();
   const size = lerp(GUN.ball0, GUN.ball1, chg), g = glowBall(size);
   g.position.copy(m); scene.add(g);
@@ -16080,6 +16144,8 @@ function wingEnd() {
   WING.out = 0; arcPaint(WINGROW);
   if (!p.wing) return;
   p.wing = 0;
+  if (p.gTemp) { p.gTemp = 0; if (!p.gAim) { GUN.out = 0; gunRowPaint(); } }      // r146: the blaster the flight aim took out goes back
+  p.gDir = null; p.gHold = 0;
   _wkq.setFromAxisAngle(YAX, p.heading);
   girl.wingRes = (girl.wingRes || new THREE.Quaternion()).copy(_wkq).invert().multiply(p.bq);
   p.bq.copy(_wkq); p.faceH = p.heading; p.drift = 0;
@@ -16266,9 +16332,9 @@ function stepCam(dt) {
   // camera you spend the whole session putting back.
   // r55: in the air the right pad is the GRABS, so it does not also orbit -- held left it was swinging the lens round
   // her for the whole flight while she held the grab
-  const rx = ((!p.grounded && !p.grind && MOVES.grab && !p.gAim && !p.wing) || p.speedSk) ? 0 : stick.R.x;      // r140: aiming, the right pad's x IS the aim, in the air too      // r122: and a held speed skate does not swing the lens
+  const rx = ((!p.grounded && !p.grind && MOVES.grab && !p.gAim && !p.wing) || p.speedSk || (p.wing && (p.gAim || (p.gHold || 0) > 0))) ? 0 : stick.R.x;      // r146: flying, an aim is the 3D aimer, not an orbit      // r140: aiming, the right pad's x IS the aim, in the air too      // r122: and a held speed skate does not swing the lens
   const yaw = Math.abs(rx) > 0.05 ? -rx * CAM.yawRate * dt : 0;
-  if (yaw || p.gAim) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;      // r140: a held trigger owns the bearing -- no follow
+  if (yaw || (p.gAim && !p.wing)) { cam.az += yaw; cam.idle = 0; } else cam.idle += dt;      // r146: flying, the lens keeps following while she aims      // r140: a held trigger owns the bearing -- no follow
   if (!stick.L.down) { cam.steerAz = cam.az; cam.thA = null; }   // no left thumb: the frames agree (see stickWorld)
   // r47: A HELD THUMB IS A FIXED DIRECTION. *"I'm pushing this direction and she's not going that direction."*
   // The follow camera used to drag the steering frame round with it, so a thumb held still pointed somewhere new
@@ -16582,6 +16648,8 @@ const TAILUI = [
   ['JUMP2.k',        'Double jump height (x the jump)', 0.3, 1.5, 0.05, ''],
   ['JUMP2.flip',     'Double jump flips', 0, 1, 1, ''],
   ['WING.pull',      'Wings: pull back to climb (0 = push up)', 0, 1, 1, ''],
+  ['WING.flick',     'Wings: right flick up opens, down folds', 0, 1, 1, ''],
+  ['GUN.fly.on',     'Flying: hold right stick still to aim in 3D', 0, 1, 1, ''],
   ['WING.cruise',    'Wings cruise m/s', 8, 36, 1, ''],
   ['WING.turn',      'Wings turn rate', 0.5, 4, 0.1, ''],
   ['WING.pitchRate', 'Wings pitch rate', 0.4, 4, 0.1, ''],
@@ -16771,7 +16839,7 @@ const TAILUI = [
 ];
 // A ROW NAMES ITS VALUE BY PATH, so one table drives dials on any of the live objects. `89` on the
 // vert lock is OFF in practice: no wall in the park is steeper than 88 degrees.
-const UIOBJ = { WING, JUMP2, WORLD, WPP, WPT, DEC, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
+const UIOBJ = { GUN, WING, JUMP2, WORLD, WPP, WPT, DEC, LEVEL, SCORE, S3, WALL, RAILNET, TAIL, LAND, MOVES, VERT, DASH, BOOST, SPEED, CTRL, STOP, AIR, GRIND, SK, FLIPP, RIG, CAM, LOOK, FOOTIK, TRAIL, MELEE, SOLID, RAILX, HYD, GEY, GEM, ORB, SH, DETAIL, BLEND };
 const uiRef = path => { const a = path.split('.'); let o = UIOBJ[a[0]];
   for (let i = 1; i < a.length - 1; i++) o = o[a[i]]; return [o, a[a.length - 1]]; };
 const uiGet = path => { const [o, k] = uiRef(path); return o[k]; };

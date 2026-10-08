@@ -560,8 +560,9 @@ CASES.tap = async () => {
     const keepM = rg.girl.moves; rg.girl.moves = gameClips('models/alien_rollerskate_blue.glb').moves;
     const air = () => { place(60, 1, -60, 0, 6); P.grounded = false; P.coyote = 0; P.pos.y += 6; P.vel.y = 3; P.flip = null; };
     air(); await swipe(0, -52);
-    good = P.jump === 0 && !P.flip && P.mel && P.mel.kind === 'strike' && P.mel.air;     // r44: the air melee
-    console.log(`  RIGHT swipe up in the air     -> ${P.flip ? P.flip.dir + ' flip (WRONG)' : what()}${good ? '' : '   <- WRONG'}`);
+    good = P.jump === 0 && !P.flip && P.wing === 1;     // r44: the air melee; r146: the WINGS now (with no rail to kick at)
+    rg.wingSet(0);
+    console.log(`  RIGHT swipe up in the air     -> ${P.flip ? P.flip.dir + ' flip (WRONG)' : good ? 'wings' : what()}${good ? '' : '   <- WRONG'}`);
     if (!good) ok = false;
     const L = document.getElementById('stkL');
     const evL = (type, x, y) => ({ type, pointerId: 77, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: L });
@@ -2668,8 +2669,9 @@ function meleeCase() {
   // r44: THE AIR MELEE, open plaza: the same chain, shoved toward the flick, played from its AIRBORNE window,
   // a second flick queued and strung, and each one ends IN THE AIR -- back to the air pose, not a standing one
   flat(); P.grounded = false; P.coyote = 0; P.pos.y += 12; P.vel.set(0, 2, 2);
+  const keepWF = rg.WING.flick; rg.WING.flick = 0;         // r146: with the wings on it, an open-air flick up opens them
   rg.rightFlick(0, -52);                                   // up = away from the lens = +Z
-  const first = P.mel && { ...P.mel }, kv = P.vel.z; rg.rightFlick(0, -52);
+  const first = P.mel && { ...P.mel }, kv = P.vel.z; rg.rightFlick(0, -52); rg.WING.flick = keepWF;
   const airSeen = []; let endedInAir = 0, groundedAtEnd = 0;
   run(2.5, () => { rg.stick.L.x = rg.stick.L.y = 0;
     if (P.mel && airSeen[airSeen.length - 1] !== P.mel.nm) airSeen.push(P.mel.nm);
@@ -2779,6 +2781,50 @@ CASES.wing = () => {
   run(0.3, hands); P.jump = 1; run(0.3, hands); rg.wingSet(1); run(1, hands);
   say('jump, double jump, then the wings: flying', P.wing && !P.grounded, `wing ${P.wing}, ${fix(P.vel.length(), 1)} m/s`);
   rg.wingSet(0); hands(); place(60, 0.1, -60, 0, 0);
+  return ok;
+};
+// r146: the right pad opens and folds the wings in the air, and in flight a still thumb held in the middle is a 3D aim
+CASES.wingfly = async () => {
+  let ok = true; const say = (l, c, x) => { console.log(`  ${l.padEnd(60)} ${c ? 'ok' : 'WRONG'} ${x}`); if (!c) ok = false; };
+  const W = rg.WING, GUN = rg.GUN, Rs = rg.stick.R, L = rg.stick.L, D = 180 / Math.PI;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const R = document.getElementById('stkR');
+  const ev = (type, x, y) => ({ type, pointerId: 72, clientX: x, clientY: y, stopPropagation() {}, preventDefault() {}, target: R });
+  const flick = async (dx, dy) => { await wait(160); R.dispatchEvent(ev('pointerdown', 150, 150)); R.dispatchEvent(ev('pointermove', 150 + dx, 150 + dy));
+    run(0.05); await wait(30); R.dispatchEvent(ev('pointerup', 150 + dx, 150 + dy)); };
+  const hands = () => { L.x = 0; L.y = 0; L.down = 0; };
+  const air = () => { hands(); place(60, 0.1, -60, 0, 8); P.pos.y += 30; P.grounded = false; P.airT = 0.5; P.coyote = 0; P.vel.y = 1; rg.cam.az = 0; };
+  air(); await flick(0, -70);
+  say('in the air, RIGHT flick up: the wings come out', P.wing === 1 && W.out === 1, `wing ${P.wing}`);
+  run(0.5, hands); await flick(70, 0);
+  say('flying, a sideways flick does nothing', P.wing === 1, `wing ${P.wing}`);
+  await flick(0, 70);
+  say('flying, RIGHT flick down: folded', !P.wing && W.out === 0, `wing ${P.wing}`);
+  hands(); place(60, 0.1, -60, 0, 4); await flick(0, -70);
+  say('on the ground, the same flick up is not the wings', !P.wing, `wing ${P.wing}`);
+  // the 3D aim: the stick state driven directly (bindStick's own numbers), the shipped gunStep reading it
+  const keepF = GUN.failed; GUN.failed = 0; GUN.out = 0; rg.gunRowPaint();
+  air(); rg.wingSet(1); run(0.5, hands);
+  Rs.down = 1; Rs.x = 0; Rs.y = 0; Rs.far = 0; run(0.15, hands);
+  say('flying, thumb held still 0.15 s: not yet an aim', !P.gAim, `gAim ${P.gAim}`);
+  run(0.2, hands);
+  say('...held 0.35 s: armed, and the blaster came out by itself', P.gAim === 1 && GUN.out === 1 && P.gTemp === 1, `gAim ${P.gAim}, out ${GUN.out}, temp ${P.gTemp}`);
+  const n0 = rg.BOLTS.length;
+  Rs.x = 0; Rs.y = -1; Rs.far = 1; run(0.6, hands);
+  const az = rg.cam.az; Rs.down = 0; Rs.x = 0; Rs.y = 0; run(1 / 60, hands);
+  const b = rg.BOLTS[rg.BOLTS.length - 1], up = b ? Math.asin(b.vel.y / b.vel.length()) : 0;
+  say('thumb pushed UP, let go: a bolt fired UPWARD', rg.BOLTS.length === n0 + 1 && up > 0.6, `${rg.BOLTS.length - n0} bolt, ${fix(up * D, 0)} deg up`);
+  run(0.3, hands); Rs.down = 1; Rs.x = 0; Rs.y = 0; Rs.far = 0; run(0.35, hands); Rs.x = 1; Rs.y = 0.6; Rs.far = 1; run(0.6, hands);
+  const az2 = rg.cam.az; Rs.down = 0; Rs.x = 0; Rs.y = 0; run(1 / 60, hands);
+  const c = rg.BOLTS[rg.BOLTS.length - 1], cy = Math.atan2(c.vel.x, c.vel.z), cp = Math.asin(c.vel.y / c.vel.length());
+  say('thumb RIGHT and down: the bolt goes right of the lens and down', wrap(cy - az2) < -0.6 && cp < -0.3, `${fix(wrap(cy - az2) * D, 0)} deg off the lens, ${fix(cp * D, 0)} deg`);
+  console.log(`    (lens bearing ${fix(az * D, 0)} -> ${fix(az2 * D, 0)} deg while she aimed: it keeps following)`);
+  run(0.3, hands); Rs.down = 1; Rs.x = 0.8; Rs.y = 0; Rs.far = 0.8; run(0.6, hands);
+  say('a thumb that moved first is a drag, never an aim', !P.gAim, `gAim ${P.gAim}`);
+  Rs.down = 0; Rs.x = 0; Rs.far = 0; run(0.1, hands);
+  rg.wingSet(0); run(4, hands);
+  say('landed: the blaster the aim took out is put away', P.grounded && GUN.out === 0 && !P.gTemp, `grounded ${P.grounded}, out ${GUN.out}`);
+  GUN.failed = keepF; GUN.out = 0; rg.gunRowPaint(); hands(); place(60, 0.1, -60, 0, 0);
   return ok;
 };
 CASES.gun = () => {

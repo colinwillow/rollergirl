@@ -667,3 +667,10 @@ jump: the second tap in the air propels you upward and she does a flip."*
 ## r145 -- push up to climb
 
 - Flying the wings, left stick UP climbs and DOWN dives. The airplane way (pull back to climb) is still on the panel.
+
+## r146 -- the right pad and the wings; a 3D aim in flight
+Right flick up in the air opens the wings (a rail in kick reach still takes the kick), flick down while flying folds them. Flying,
+hold the right thumb still 0.25 s: the blaster comes out (and goes back on landing if it was holstered), charges, and the thumb's
+offset aims it in 3D -- up to 65 deg either side and 55 deg up/down. Release fires along it; the reticle walks the same line.
+`npm run sim wingfly`.
+
