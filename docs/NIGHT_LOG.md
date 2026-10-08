@@ -696,3 +696,9 @@ island's edge, and five of his kit buildings (SkateHQ, SciFiTower, SkatePark, Ki
 colliders. His kit is meshopt; the decoder is vendored. ➤ stops: city plaza, city bowl, city north ramp, city south-east ramp,
 city west ribbon, city east ribbon, city ring road. `npm run sim skatecity` rides every link.
 
+## r152 -- SKATE CITY's streets are his Weirdport kit
+48 of his 22 m street tiles round the ring plaza (crossings, straights, dead ends at the harbour), lowered 0.2 m so the grass meets
+the plaza flush; a rasterised collider (road -0.2, sidewalk 0.07, grass 0); his streetlights, wired telephone poles, trees and signs
+along every sidewalk, kept off the ramps' and ribbons' lines; his tint and anti-tiling shaders; a harbour wall with a rail round the
+island. `npm run sim skatecity` loads his real files and rides the road, the kerb and a street to the dead end.
+

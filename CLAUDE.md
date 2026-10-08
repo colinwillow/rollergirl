@@ -100,6 +100,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **HIS WEIRDPORT KIT IS SKATE CITY'S STREETS (r152, `CTYK`, `ctyKitLoad`, `ctyTiles`, `ctyTileGrid`, `ctyKitTiles`, `ctyKitStreets`,
+  `zones/weirdport_kit/`).** *"The Weirdport kit is done ... run the three helper scripts on everything it loads."* The ring road and
+  the four streets on from it are his 22 m tiles (48: crossings at the four corners, straights, a dead end at each street's end),
+  with a streetlight and a telephone pole (wired pole to pole) each tile, trees on the grass strips and signs at the crossings.
+  - **THE GRID IS HIS, SO THE PLAZA MOVED ONTO IT.** Road centres at +/-44 (4 x 22 m), tile bands |x| or |z| in 33..55, island
+    +/-143, plaza floor cells 5.5 m so they end exactly on the band edges. The painted fallback (no kit) uses the same bands.
+  - **THE TILES ARE LOWERED 0.2 m** so their grass edge is flush with the plaza at 0; the road is -0.2 between 0.34 m kerbs.
+  - **THE COLLIDER IS A RASTER, NOT HIS MESH**: each tile kind is rasterised once onto a 0.5 m grid of road / grass / walk and the
+    runs are flat `noDraw` quads (-0.2 / 0 / 0.07) -- ~23k triangles for 48 tiles. `npm run sim skatecity` loads his REAL files
+    (`window.__ctyKit`, textures cut) and checks the collider against the drawn street at 112 points: worst 0.07 m.
+  - **His tint is `wpTint`** (world 4's port of `weirdkit_tint.js`, the same shader body) via `wpDress`, and his anti-tiling is his
+    `js/weirdkit_detile.js` imported as it is, over all the kit roots (the carriers included). No iridescent material is used yet.
+  - **His streetlight's post is 0.85 m along its local -x** and its arm reaches +x; it is turned so the arm is over the road.
+  - **A HARBOUR WALL** (0.8 m, a grind rail on top) rings the island now: a street run to a dead end stops there, not in the sea.
+  - Not yet: his building pieces, the 60 kit buildings, props, plants, breakables, the decal sheets. Chip: `NO WP KIT <files>`.
+
 - **SKATE CITY: A SEVENTH WORLD, BUILT ONE REGION AT A TIME, AND THE FIRST REGION IS THE RING PLAZA (r151, `WORLD.zones` 6,
   `?world=city`, `CTY`, `cityWorld`, `ctyRing`, `npm run sim skatecity`).** *"Go ahead, start with the central plaza."* From his
   concept painting at **0.3 m a pixel about the ring's centre (797, 475)** -- the cars say ~0.12, exaggerated on purpose: the

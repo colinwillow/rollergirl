@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r151</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r152</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -238,7 +238,7 @@ import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r151';
+const BUILD = 'r152';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -257,7 +257,7 @@ const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); ret
 // what it has for ever. A file that changed gets a new URL and arrives; one that did not keeps
 // its URL and stays cached. Every runtime asset URL goes through A().
 /* ASSETS:START */
-const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"4d7e5824","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_kit.glb":"2cdf7243","models/wpprops/wp_props.glb":"1ea211af","models/wpprops/tex/brick.webp":"37aea86b","models/wpprops/tex/brick_n.webp":"393bbe15","models/wpprops/tex/curb.webp":"212eabd5","models/wpprops/tex/curb_n.webp":"232902fb","models/wpprops/tex/decals.webp":"ca166bfb","models/wpprops/tex/floor.webp":"32db72cd","models/wpprops/tex/floor_n.webp":"26d29278","models/wpprops/tex/graffiti.webp":"6038adee","models/wpprops/tex/pave.webp":"1d39ddda","models/wpprops/tex/pave_n.webp":"5963621d","models/wpprops/tex/wall.webp":"90ca36f9","models/wpprops/tex/wall_n.webp":"f0ba3697","models/wpprops/tex/wood.webp":"ca2c416e","models/wpprops/tex/wood_n.webp":"b774078a","models/wpprops/tex/wptex.json":"85caa6f9","models/weapons/alien_antenna_blaster_game.glb":"54083b44","zones/kit_skate_city/catalog.json":"805f9670","zones/kit_skate_city/preview_buildings.png":"0d3e432a","zones/kit_skate_city/preview_ramps.png":"0f1b6116","zones/kit_skate_city/buildings/AlienIsland.glb":"a9cd658f","zones/kit_skate_city/buildings/CosmicFuel.glb":"d7260acf","zones/kit_skate_city/buildings/FloatIsland.glb":"c0d26ef0","zones/kit_skate_city/buildings/KickflipShop.glb":"bff6a9e3","zones/kit_skate_city/buildings/SciFiTower.glb":"62fa639a","zones/kit_skate_city/buildings/SkateHQ.glb":"d46c3841","zones/kit_skate_city/buildings/SkatePark.glb":"123dffca","zones/kit_skate_city/buildings/SkatePlatform.glb":"442f18f0","zones/kit_skate_city/buildings/SkyBridge.glb":"270140ed","zones/kit_skate_city/highway/BridgePath_Demo.glb":"2c59e550","zones/kit_skate_city/highway/HubA.glb":"60446030","zones/kit_skate_city/highway/HubB.glb":"5ec4513c","zones/kit_skate_city/highway/HubC.glb":"12130a74","zones/kit_skate_city/highway/HubD.glb":"712067c9","zones/kit_skate_city/highway/Mock_A_to_B.glb":"6062ea6f","zones/kit_skate_city/highway/Mock_A_to_D.glb":"eef15e4a","zones/kit_skate_city/highway/Mock_B_to_C.glb":"8a4fcc06","zones/kit_skate_city/highway/Mock_D_Loop_C.glb":"d48ddde2","zones/kit_skate_city/highway/Mock_RampIn.glb":"90b34723","zones/kit_skate_city/highway/Mock_RampOut.glb":"82ec1985","zones/kit_skate_city/rails/Rail_AngleLedge.glb":"1c6c7194","zones/kit_skate_city/rails/Rail_Bracket.glb":"78542779","zones/kit_skate_city/rails/Rail_Double.glb":"a6b2cba1","zones/kit_skate_city/rails/Rail_FlatBar.glb":"9382710a","zones/kit_skate_city/rails/Rail_HQ_Slide.glb":"de579000","zones/kit_skate_city/rails/Rail_Kink.glb":"ec974eb0","zones/kit_skate_city/rails/Rail_OverFunbox.glb":"a910c74e","zones/kit_skate_city/rails/Rail_Rainbow.glb":"7358fc28","zones/kit_skate_city/rails/Rail_SCurve.glb":"6200680c","zones/kit_skate_city/rails/Rail_Spiral.glb":"ee7e6c50","zones/kit_skate_city/ramps/BankRamp.glb":"909d7e61","zones/kit_skate_city/ramps/BigWedge.glb":"ab6a18cb","zones/kit_skate_city/ramps/Bowl.glb":"825a03a7","zones/kit_skate_city/ramps/CurveRail.glb":"b3774168","zones/kit_skate_city/ramps/CurvedWall.glb":"1a43dc4c","zones/kit_skate_city/ramps/FlatRail.glb":"9783c18a","zones/kit_skate_city/ramps/Funbox.glb":"e1fa297a","zones/kit_skate_city/ramps/HalfPipe.glb":"cffea83a","zones/kit_skate_city/ramps/HubbaLedge.glb":"74daa04e","zones/kit_skate_city/ramps/Hump.glb":"6bf859f9","zones/kit_skate_city/ramps/Kicker.glb":"0b1492e0","zones/kit_skate_city/ramps/KinkRail.glb":"377bf5b1","zones/kit_skate_city/ramps/LaunchRamp.glb":"6046801d","zones/kit_skate_city/ramps/Ledge.glb":"a54ba344","zones/kit_skate_city/ramps/Loop.glb":"186bc11f","zones/kit_skate_city/ramps/ManualPad.glb":"0ef67e22","zones/kit_skate_city/ramps/MiniQuarter.glb":"0f18ac63","zones/kit_skate_city/ramps/Plat_CurveRail.glb":"98183b56","zones/kit_skate_city/ramps/Plat_Funbox.glb":"8c151a67","zones/kit_skate_city/ramps/Plat_Kicker.glb":"f5fc5788","zones/kit_skate_city/ramps/Plat_Ledge.glb":"8283f484","zones/kit_skate_city/ramps/Plat_Manual.glb":"9ea00e63","zones/kit_skate_city/ramps/Plat_MiniRamp.glb":"ad50dd57","zones/kit_skate_city/ramps/Plat_QP_NE.glb":"52d30598","zones/kit_skate_city/ramps/Plat_QP_SE.glb":"3bde109e","zones/kit_skate_city/ramps/Plat_Rail.glb":"3dcb195c","zones/kit_skate_city/ramps/QuarterPipe.glb":"cb6a7830","zones/kit_skate_city/ramps/RG_Bank.glb":"a3868d38","zones/kit_skate_city/ramps/RG_Funbox.glb":"6310cebb","zones/kit_skate_city/ramps/RG_Ledge.glb":"6dde2e09","zones/kit_skate_city/ramps/RG_Stairs.glb":"ce47c152","zones/kit_skate_city/ramps/RoundRail.glb":"c1c27e67","zones/kit_skate_city/ramps/SpineRamp.glb":"7d2347af","zones/kit_skate_city/ramps/StairRail.glb":"53f31552","zones/kit_skate_city/ramps/StairSet.glb":"8396b422","zones/kit_skate_city/ramps/TallKicker.glb":"5f113189","zones/kit_skate_city/ramps/WallRide.glb":"ad47a40a","zones/kit_skate_city/ramps/Wedge.glb":"33d41477","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
+const ASSETS = {"parks/mega_skatepark.json":"19c7ad41","parks/mega_skatepark.webp":"7c1018d0","parks/mega_skatepark_oblique.webp":"6cbc28ac","parks/mega_skatepark_v1.webp":"7b14712a","images/HDRI_01_2K.jpg":"69af8105","images/hdri_game.png":"dac55f41","models/alien_rollerskate_blue.glb":"6e98dd0a","models/alien_rollerskate_blue_test.glb":"ed7cf656","models/melee_zap.glb":"4d7e5824","models/roller_girl.glb":"7efbefe3","models/kit/building_kit_collision.glb":"cb0ddd7e","models/kit/building_kit_generated_visual.glb":"97cbdd9d","models/kit/building_kit_pieces.glb":"04974292","models/props/prop_hydrant.glb":"f157fee9","models/wpcity/toon_city_collision.glb":"5540a364","models/wpcity/toon_city_kit_buildings_ktx2.glb":"e6dff3a3","models/wpcity/toon_city_visual_ktx2.glb":"f26a6984","models/wpprops/wp_kit.glb":"2cdf7243","models/wpprops/wp_props.glb":"1ea211af","models/wpprops/tex/brick.webp":"37aea86b","models/wpprops/tex/brick_n.webp":"393bbe15","models/wpprops/tex/curb.webp":"212eabd5","models/wpprops/tex/curb_n.webp":"232902fb","models/wpprops/tex/decals.webp":"ca166bfb","models/wpprops/tex/floor.webp":"32db72cd","models/wpprops/tex/floor_n.webp":"26d29278","models/wpprops/tex/graffiti.webp":"6038adee","models/wpprops/tex/pave.webp":"1d39ddda","models/wpprops/tex/pave_n.webp":"5963621d","models/wpprops/tex/wall.webp":"90ca36f9","models/wpprops/tex/wall_n.webp":"f0ba3697","models/wpprops/tex/wood.webp":"ca2c416e","models/wpprops/tex/wood_n.webp":"b774078a","models/wpprops/tex/wptex.json":"85caa6f9","models/weapons/alien_antenna_blaster_game.glb":"54083b44","zones/kit_skate_city/catalog.json":"805f9670","zones/kit_skate_city/preview_buildings.png":"0d3e432a","zones/kit_skate_city/preview_ramps.png":"0f1b6116","zones/kit_skate_city/buildings/AlienIsland.glb":"a9cd658f","zones/kit_skate_city/buildings/CosmicFuel.glb":"d7260acf","zones/kit_skate_city/buildings/FloatIsland.glb":"c0d26ef0","zones/kit_skate_city/buildings/KickflipShop.glb":"bff6a9e3","zones/kit_skate_city/buildings/SciFiTower.glb":"62fa639a","zones/kit_skate_city/buildings/SkateHQ.glb":"d46c3841","zones/kit_skate_city/buildings/SkatePark.glb":"123dffca","zones/kit_skate_city/buildings/SkatePlatform.glb":"442f18f0","zones/kit_skate_city/buildings/SkyBridge.glb":"270140ed","zones/kit_skate_city/highway/BridgePath_Demo.glb":"2c59e550","zones/kit_skate_city/highway/HubA.glb":"60446030","zones/kit_skate_city/highway/HubB.glb":"5ec4513c","zones/kit_skate_city/highway/HubC.glb":"12130a74","zones/kit_skate_city/highway/HubD.glb":"712067c9","zones/kit_skate_city/highway/Mock_A_to_B.glb":"6062ea6f","zones/kit_skate_city/highway/Mock_A_to_D.glb":"eef15e4a","zones/kit_skate_city/highway/Mock_B_to_C.glb":"8a4fcc06","zones/kit_skate_city/highway/Mock_D_Loop_C.glb":"d48ddde2","zones/kit_skate_city/highway/Mock_RampIn.glb":"90b34723","zones/kit_skate_city/highway/Mock_RampOut.glb":"82ec1985","zones/kit_skate_city/rails/Rail_AngleLedge.glb":"1c6c7194","zones/kit_skate_city/rails/Rail_Bracket.glb":"78542779","zones/kit_skate_city/rails/Rail_Double.glb":"a6b2cba1","zones/kit_skate_city/rails/Rail_FlatBar.glb":"9382710a","zones/kit_skate_city/rails/Rail_HQ_Slide.glb":"de579000","zones/kit_skate_city/rails/Rail_Kink.glb":"ec974eb0","zones/kit_skate_city/rails/Rail_OverFunbox.glb":"a910c74e","zones/kit_skate_city/rails/Rail_Rainbow.glb":"7358fc28","zones/kit_skate_city/rails/Rail_SCurve.glb":"6200680c","zones/kit_skate_city/rails/Rail_Spiral.glb":"ee7e6c50","zones/kit_skate_city/ramps/BankRamp.glb":"909d7e61","zones/kit_skate_city/ramps/BigWedge.glb":"ab6a18cb","zones/kit_skate_city/ramps/Bowl.glb":"825a03a7","zones/kit_skate_city/ramps/CurveRail.glb":"b3774168","zones/kit_skate_city/ramps/CurvedWall.glb":"1a43dc4c","zones/kit_skate_city/ramps/FlatRail.glb":"9783c18a","zones/kit_skate_city/ramps/Funbox.glb":"e1fa297a","zones/kit_skate_city/ramps/HalfPipe.glb":"cffea83a","zones/kit_skate_city/ramps/HubbaLedge.glb":"74daa04e","zones/kit_skate_city/ramps/Hump.glb":"6bf859f9","zones/kit_skate_city/ramps/Kicker.glb":"0b1492e0","zones/kit_skate_city/ramps/KinkRail.glb":"377bf5b1","zones/kit_skate_city/ramps/LaunchRamp.glb":"6046801d","zones/kit_skate_city/ramps/Ledge.glb":"a54ba344","zones/kit_skate_city/ramps/Loop.glb":"186bc11f","zones/kit_skate_city/ramps/ManualPad.glb":"0ef67e22","zones/kit_skate_city/ramps/MiniQuarter.glb":"0f18ac63","zones/kit_skate_city/ramps/Plat_CurveRail.glb":"98183b56","zones/kit_skate_city/ramps/Plat_Funbox.glb":"8c151a67","zones/kit_skate_city/ramps/Plat_Kicker.glb":"f5fc5788","zones/kit_skate_city/ramps/Plat_Ledge.glb":"8283f484","zones/kit_skate_city/ramps/Plat_Manual.glb":"9ea00e63","zones/kit_skate_city/ramps/Plat_MiniRamp.glb":"ad50dd57","zones/kit_skate_city/ramps/Plat_QP_NE.glb":"52d30598","zones/kit_skate_city/ramps/Plat_QP_SE.glb":"3bde109e","zones/kit_skate_city/ramps/Plat_Rail.glb":"3dcb195c","zones/kit_skate_city/ramps/QuarterPipe.glb":"cb6a7830","zones/kit_skate_city/ramps/RG_Bank.glb":"a3868d38","zones/kit_skate_city/ramps/RG_Funbox.glb":"6310cebb","zones/kit_skate_city/ramps/RG_Ledge.glb":"6dde2e09","zones/kit_skate_city/ramps/RG_Stairs.glb":"ce47c152","zones/kit_skate_city/ramps/RoundRail.glb":"c1c27e67","zones/kit_skate_city/ramps/SpineRamp.glb":"7d2347af","zones/kit_skate_city/ramps/StairRail.glb":"53f31552","zones/kit_skate_city/ramps/StairSet.glb":"8396b422","zones/kit_skate_city/ramps/TallKicker.glb":"5f113189","zones/kit_skate_city/ramps/WallRide.glb":"ad47a40a","zones/kit_skate_city/ramps/Wedge.glb":"33d41477","zones/weirdport_kit/catalog.json":"8d8848ab","zones/weirdport_kit/preview_buildings.png":"180294cc","zones/weirdport_kit/preview_streets_props.png":"3e3d89b8","zones/weirdport_kit/buildings/building_pieces.glb":"4d2d4428","zones/weirdport_kit/buildings/kit_buildings.glb":"ea5067eb","zones/weirdport_kit/decals/graffiti_paint_sheet.png":"ad339e9f","zones/weirdport_kit/decals/paint_atlas.json":"58086a79","zones/weirdport_kit/decals/paint_atlas.png":"7a2e74e5","zones/weirdport_kit/decals/sticker_sheet_6x6.png":"a570ffdf","zones/weirdport_kit/materials/detile_carriers.glb":"27a33a2e","zones/weirdport_kit/props/breakables.glb":"0e069566","zones/weirdport_kit/props/plants.glb":"3e04a5be","zones/weirdport_kit/props/props.glb":"5d7b673b","zones/weirdport_kit/props/street_furniture.glb":"838194b3","zones/weirdport_kit/props/trees.glb":"7ccf541e","zones/weirdport_kit/streets/street_tiles.glb":"a08b3e8b","zones/zone_skyline/zone_skyline_collision.glb":"8d74fa01","zones/zone_skyline/zone_skyline_visual.glb":"be0f4749","zones/zone_skyline/assets_skyline/BUILDING_01.glb":"3c534ea4","zones/zone_skyline/assets_skyline/BUILDING_02.glb":"62b1967d","zones/zone_skyline/assets_skyline/BUILDING_03.glb":"83c45775","zones/zone_skyline/assets_skyline/BUILDING_04.glb":"2c525479","zones/zone_skyline/assets_skyline/BUILDING_05.glb":"19924ebd","zones/zone_skyline/assets_skyline/BUILDING_06.glb":"5c6041e2","zones/zone_skyline/assets_skyline/BUILDING_07.glb":"0194661c","zones/zone_skyline/assets_skyline/BUILDING_08.glb":"5062e366","zones/zone_skyline/assets_skyline/BUILDING_09.glb":"7f87a5b9","zones/zone_skyline/assets_skyline/BUILDING_10.glb":"6900b3c1","zones/zone_skyline/assets_skyline/BUILDING_11.glb":"772e216b","zones/zone_skyline/assets_skyline/BUILDING_12.glb":"f8c372fe","zones/zone_skyline/assets_skyline/BUILDING_13.glb":"d0f7e133","zones/zone_skyline/assets_skyline/BUILDING_14.glb":"4023f824","zones/zone_skyline/assets_skyline/BUILDING_15.glb":"8cdd95f0","zones/zone_skyline/assets_skyline/BUILDING_16.glb":"5a8179d6","zones/zone_skyline/assets_skyline/GARDEN_NORTH.glb":"b3933595","zones/zone_skyline/assets_skyline/GARDEN_SOUTH.glb":"c13e1104","zones/zone_skyline/assets_skyline/MARKET_EAST.glb":"c1c9ed6a","zones/zone_skyline/assets_skyline/MARKET_WEST.glb":"98b12143","zones/zone_skyline/assets_skyline/SK8_TOWER.glb":"70044454","zones/zone_skyline/assets_skyline/SKY_ISLAND_01.glb":"fd5259c5","zones/zone_skyline/assets_skyline/SKY_ISLAND_02.glb":"c2e81c28","zones/zone_skyline/assets_skyline/SKY_ISLAND_03.glb":"6fdfc80c","zones/zone_skyline/assets_skyline/SKY_ISLAND_04.glb":"85c6f870","zones/zone_skyline/assets_skyline/SKY_ISLAND_05.glb":"3a9a2c78","zones/zone_skyline/assets_skyline/SKY_ISLAND_06.glb":"b58b1345","zones/zone_skyline/assets_skyline/SKY_ISLAND_07.glb":"58e2bc78","zones/zone_skyline/assets_skyline/SKY_ISLAND_08.glb":"c49941fa","zones/zone_skyline/assets_skyline/SKY_ISLAND_09.glb":"628f18e6","zones/zone_skyline/assets_skyline/SKY_ISLAND_10.glb":"05fa71a2","zones/zone_skyline/assets_skyline/SKY_ISLAND_11.glb":"b67e63e3","zones/zone_skyline/assets_skyline/SKY_ISLAND_12.glb":"87db87c9","zones/zone_skyline/assets_skyline/START_PLAZA.glb":"82d15c96","zones/zone_skyline/assets_skyline/TOWER_A.glb":"4be11da3","zones/zone_skyline/assets_skyline/TOWER_B.glb":"cbeef7d7","zones/zone_skyline/assets_skyline/TOWER_C.glb":"8a884f91","zones/zone_skyline/assets_skyline/TOWER_D.glb":"d90761e2","zones/zone_skyline/assets_skyline/TOWER_E.glb":"6e3b69fa","zones/zone_skyline/assets_skyline/TOWER_F.glb":"c26d648f","zones/zone_skyline/assets_skyline/TOWER_G.glb":"79ffb954","zones/zone_skyline/assets_skyline/TOWER_H.glb":"5cc7b11e","zones/zone_skyline/assets_skyline/WATERFALL_BIGSOUTHFALL.glb":"253a98c6","zones/zone_skyline/assets_skyline/WATERFALL_CRYSTALFALL.glb":"c22a0976","zones/zone_skyline/assets_skyline/WATERFALL_HALOFALL.glb":"0462bc64","zones/zone_skyline/assets_skyline/WATERFALL_HALOSOUTHFALL.glb":"d0dab222","zones/zone_skyline/assets_skyline/WATERFALL_PLAZAFALL.glb":"dd6f2729","zones/zone_skyline/assets_skyline/WATERFALL_S.glb":"ed76a85c","zones/zone_skyline/assets_skyline/catalog.json":"f746ae62","zones/zone_skyline/assets_skyline/preview.png":"b7bb2e06"};
 /* ASSETS:END */
 const A = p => ASSETS[p] ? p + '?v=' + ASSETS[p] : p;
 
@@ -4387,9 +4387,9 @@ function stepSpillway(dt) { if (!SPW.built) return; SPW.t += dt; if (SPW.g > 0) 
 // box colliders until each one gets its real ones).
 //   THE PAINTING'S SCALE: 0.3 m a pixel about the ring's centre (797, 475) -- exaggerated over the cars' ~0.12, because a
 //   skater at 24 m/s needs the room. The ring is 87 px across its outer edge, so 26 m; the roads are about 40 px, 12 m.
-const CTY = { built: 0, go: [], rails: [], paths: [], t: 0, S: 148, sea: -6,
+const CTY = { built: 0, go: [], rails: [], paths: [], t: 0, S: 143, cell: 5.5, sea: -6,      // r152: the island and its floor cells end on his 22 m street grid
   ring: { r0: 18.6, r1: 26, y: 4.8, qpSweep: 80, wallH: 0.6, wallT: 0.4 },
-  road: { a: 40, b: 52, walk: 4 },          // the ring road: a square band |x| or |z| in [a, b), sidewalks `walk` wide either side
+  road: { a: 38.5, b: 49.5, walk: 5.5 },    // the ring road: a square band |x| or |z| in [a, b), sidewalks `walk` wide either side (his tiles: 44 +/- 11)
   ramps: [{ A: Math.PI, w: 9, ang: 17, name: 'north' }, { A: 0, w: 9, ang: 17, name: 'south' }, { A: Math.PI / 4, w: 8, ang: 11, name: 'south-east' }],
   ribbons: [{ A: -Math.PI / 2 - 0.12, name: 'west', pts: [[-25.6, 4.82, -3.1], [-34, 5.6, -6], [-46, 6.6, -9], [-58, 5.2, -12], [-70, 2.4, -13], [-80, 0.02, -13]] },
             { A: Math.PI / 2 + 0.2, name: 'east', pts: [[25.1, 4.82, -5.2], [34, 5.6, -9], [46, 6.6, -14], [58, 5.4, -18], [70, 2.6, -20], [80, 0.02, -20]] }],
@@ -4397,32 +4397,155 @@ const CTY = { built: 0, go: [], rails: [], paths: [], t: 0, S: 148, sea: -6,
   // his buildings, the painting's corners: [file, x, z, w, d, h] -- w/d/h from his catalog, yaw turned to face the plaza
   bld: [['buildings/SkateHQ', -86, -84, 25.04, 18.2, 31.76], ['buildings/SciFiTower', 84, -86, 15.39, 14.12, 32.46],
         ['buildings/SkatePark', -88, 88, 32.2, 24.2, 21.83], ['buildings/KickflipShop', 84, 84, 20.2, 14.9, 12.15],
-        ['buildings/CosmicFuel', -104, 28, 29.2, 17.2, 13.9]],
+        ['buildings/CosmicFuel', -110, 12, 29.2, 17.2, 13.9]],
   col: { pave: 0xe9dfe6, pave2: 0xdcd0dc, walk: 0xd8d2e2, road: 0x46455a, line: 0xf4f1ea, kerb: 0xbdb6c8, deck: 0xf1d9c6, qp: 0xe8c9b4,
          garden: 0x9fd08c, rock: 0x8d7ca8, neonC: 0x3ff0e0, neonP: 0xff6fd0, teal: 0x46e0d2, trim: 0xf6eee8 } };
 const ctyA = (A, r, y) => [r * Math.sin(A), y, r * Math.cos(A)];           // the ring's own angle convention (`acRP` about the origin)
 function ctyInGap(A, gaps) { for (const [g, hw] of gaps) { let d = A - g; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) < hw) return true; } return false; }
 function ctyFloor() {
   const k = CTY.col, S = CTY.S, R = CTY.road, band = v => { const a = Math.abs(v); return a >= R.a && a < R.b ? 2 : (a >= R.a - R.walk && a < R.a) || (a >= R.b && a < R.b + R.walk) ? 1 : 0; };
-  for (let x = -S; x < S; x += 4) for (let z = -S; z < S; z += 4) {
-    const cx = x + 2, cz = z + 2, bx = band(cx), bz = band(cz), inX = true, inZ = true;      // the ring road's four sides run on to the island's edge as streets
-    const road = (bx === 2 && inX) || (bz === 2 && inZ), walk = !road && ((bx === 1 && inX) || (bz === 1 && inZ)), r = Math.hypot(cx, cz);
-    const P = [[x, 0, z], [x + 4, 0, z], [x + 4, 0, z + 4], [x, 0, z + 4]];
+  const C = CTY.cell, N = Math.round(2 * S / C), kit = ctyKitOn();
+  for (let ix = 0; ix < N; ix++) for (let iz = 0; iz < N; iz++) {
+    const x = -S + ix * C, z = -S + iz * C, cx = x + C / 2, cz = z + C / 2, bx = band(cx), bz = band(cz);      // the ring road's four sides run on to the island's edge as streets
+    if (kit && (bx || bz)) continue;      // r152: his tiles lie there
+    const road = bx === 2 || bz === 2, walk = !road && (bx === 1 || bz === 1), r = Math.hypot(cx, cz);
+    const P = [[x, 0, z], [x + C, 0, z], [x + C, 0, z + C], [x, 0, z + C]];
     let mk = 'paving', t;
     if (road) { mk = 'concrete'; t = spwMix(k.road, 0x535266, slHash(x | 0, z | 0, 7) * 0.5); }
     else if (walk) t = spwMix(k.walk, 0xcac2d6, slHash(x | 0, z | 0, 9) * 0.6);
     else if (r < CTY.ring.r0 - 5.5) t = spwMix(k.garden, 0x8cc47a, slHash(x | 0, z | 0, 3));
     else { const nz = spwNoise(cx, cz, 22); t = spwMix(k.pave2, k.pave, clamp(nz * 0.8 + slHash(x | 0, z | 0, 31) * 0.25, 0, 1)); }
     slQuad(mk, P[0], P[1], P[2], P[3], [0, 1, 0], { solid: true, tint: t, base: 0 }); }
+  // r152: THE HARBOUR WALL round the island, a knee-high ledge whose top is a grind rail, so a street run out to the edge stops there
+  for (const s of [-1, 1]) { const y1 = 0.8, t = 0.7;
+    slBox('stone', -S, -0.3, s * S - (s > 0 ? t : 0), S, y1, s * S + (s < 0 ? t : 0), { top: 'stone', bev: 0.05, solid: true, tag: 'city harbour wall', tint: k.trim, base: 0 });
+    slBox('stone', s * S - (s > 0 ? t : 0), -0.3, -S + t, s * S + (s < 0 ? t : 0), y1, S - t, { top: 'stone', bev: 0.05, solid: true, tag: 'city harbour wall', tint: k.trim, base: 0 });
+    const e = s * (S - t / 2); CTY.rails.push({ pts: [[-S + 1, y1 + 0.05, e], [S - 1, y1 + 0.05, e]], name: 'city harbour', bare: 1 }, { pts: [[e, y1 + 0.05, -S + 1], [e, y1 + 0.05, S - 1]], name: 'city harbour', bare: 1 }); }
   // the island's edge into the sea, all four sides
   for (const [a, b, n] of [[[-S, -S], [S, -S], [0, 0, -1]], [[S, -S], [S, S], [1, 0, 0]], [[S, S], [-S, S], [0, 0, 1]], [[-S, S], [-S, -S], [-1, 0, 0]]])
     slQuad('masonry', [a[0], CTY.sea - 2, a[1]], [b[0], CTY.sea - 2, b[1]], [b[0], 0, b[1]], [a[0], 0, a[1]], n, { tint: k.rock, base: CTY.sea - 2 });
-  // THE ROAD MARKINGS: a dashed centre line round the band, kerb strips, zebra crossings where the ramps and ribbons land
+  if (kit) return;
+  // THE ROAD MARKINGS (the painted fallback, when his tiles never arrive): a dashed centre line, kerb strips, zebra crossings
   const m = (R.a + R.b) / 2, L = (x0, z0, x1, z1, t) => slQuad('stone', [x0, 0.012, z0], [x1, 0.012, z0], [x1, 0.012, z1], [x0, 0.012, z1], [0, 1, 0], { tint: t || k.line });
   for (const s of [-1, 1]) for (let u = -S + 2; u < S - 2; u += 5) { L(u, s * m - 0.1, u + 2.6, s * m + 0.1); L(s * m - 0.1, u, s * m + 0.1, u + 2.6); }
   for (const s of [-1, 1]) for (const e of [R.a, R.b]) { L(-S, s * e - 0.12, S, s * e + 0.12, k.kerb); L(s * e - 0.12, -S, s * e + 0.12, S, k.kerb); }
   const zebra = (cx, cz, alongX) => { for (let i = -4; i <= 4; i++) { const o = i * 1.1; if (alongX) L(cx + o - 0.35, cz - 4.5, cx + o + 0.35, cz + 4.5); else L(cx - 4.5, cz + o - 0.35, cx + 4.5, cz + o + 0.35); } };
   zebra(0, -m, true); zebra(0, m, true); zebra(-m, -13, false); zebra(m, -20, false);
+}
+// ===== r152: HIS WEIRDPORT KIT ON SKATE CITY'S STREETS (`CTYK`, `ctyKitLoad`, `ctyTiles`, `ctyKitStreets`). The ring road and
+// the four streets running on from it to the island's edge are his painted 22 m tiles (`zones/weirdport_kit/streets/`), and
+// the sidewalks carry his streetlights, telephone poles (with wires), trees and signs. Everything is merged per material.
+//   THE GRID IS HIS: a 10 m road down the middle of every 22 m tile, so the road centres sit at +/-44 (4 x 22 m apart) and the
+//   bands |x| or |z| in 33..55 are tile. The plaza floor is cut on a 5.5 m grid so its cells end exactly on those edges.
+//   THE TILES ARE LOWERED 0.2 m (`lower`): their grass edge is then flush with the plaza at 0 and the road sits at -0.2 between
+//   0.34 m kerbs -- every step under her 0.42 m roll-up.
+//   THE COLLIDER IS NOT HIS MESH: each tile kind is rasterised once at load onto a 0.5 m grid of three classes (road, grass,
+//   walk), and the runs become flat quads (`noDraw`). ~23k triangles for 48 tiles, against ~200k for the tiles themselves.
+//   NOTHING STANDS IN A LINE: a lamp, pole or tree within reach of a ramp's or a ribbon's path is left out.
+const CTYK = { dir: 'zones/weirdport_kit/', on: 1, wait: 30, lower: 0.2, tile: 22, rc: 44, cell: 0.5, walkY: 0.27,
+  files: { tiles: 'streets/street_tiles.glb', furn: 'props/street_furniture.glb', trees: 'props/trees.glb', carriers: 'materials/detile_carriers.glb' },
+  lib: {}, failed: [], parts: {}, grids: {}, bk: new Map(), meshes: [], tiles: [], dt: -1, n: { lamp: 0, pole: 0, tree: 0, sign: 0, wire: 0 } };
+async function ctyKitLoad() {
+  if (!CTYK.on) return;
+  const to = new Promise(r => setTimeout(() => r('timeout'), CTYK.wait * 1000));
+  const one = async (k, f) => { try { const g = await Promise.race([typeof window !== 'undefined' && window.__ctyKit ? window.__ctyKit(k, f) : loadGLB(CTYK.dir + f), to]);
+      if (g === 'timeout' || !g) throw new Error('timeout'); const r = g.scene || g; r.updateMatrixWorld(true); wpDress(r); CTYK.lib[k] = r; }
+    catch (e) { CTYK.failed.push(k); console.warn('[skate city] kit ' + f + ' did not arrive', e && e.message); } };
+  await Promise.all(Object.entries(CTYK.files).map(([k, f]) => one(k, f)));
+}
+const ctyKitOn = () => !!(CTYK.on && CTYK.lib.tiles);
+// a piece's meshes in its own frame (root at the origin), normalised so a whole material merges
+function ctyPart(lib, name) {
+  const key = lib + '/' + name; if (CTYK.parts[key]) return CTYK.parts[key];
+  const root = CTYK.lib[lib], r = root && root.getObjectByName(name); if (!r) return (CTYK.parts[key] = null);
+  r.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(r.matrixWorld).invert(), out = [];
+  r.traverse(o => { if (!o.isMesh || !o.geometry.attributes.position) return; const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    out.push({ geo: skyGeo(o.geometry).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)), mat: m }); });
+  return (CTYK.parts[key] = out);
+}
+const _ckM = new THREE.Matrix4(), _ckQ = new THREE.Quaternion(), _ckP = new THREE.Vector3(), _ckS = new THREE.Vector3();
+function ctyPut(lib, name, x, y, z, rot, s, cast) {
+  const P = ctyPart(lib, name); if (!P) return false;
+  _ckM.compose(_ckP.set(x, y, z), _ckQ.setFromAxisAngle(UP, rot || 0), _ckS.set(s || 1, s || 1, s || 1));
+  for (const { geo, mat } of P) { const key = mat.uuid + (cast ? '|c' : ''); let B = CTYK.bk.get(key); if (!B) CTYK.bk.set(key, B = { mat, cast, gs: [] }); B.gs.push(geo.clone().applyMatrix4(_ckM)); }
+  return true;
+}
+function ctyKitFlush() {
+  for (const [key, B] of CTYK.bk) { const g = mergeGeometries(B.gs); for (const q of B.gs) q.dispose(); B.gs = [];
+    if (!g) { console.warn('[skate city] kit bucket did not merge ' + key); continue; }
+    g.computeBoundingSphere(); const m = new THREE.Mesh(g, B.mat); m.name = 'city kit:' + B.mat.name; m.receiveShadow = true; m.castShadow = !!B.cast; scene.add(m); CTYK.meshes.push(m); }
+  CTYK.bk.clear();
+}
+// THE COLLIDER CLASSES of a tile kind, in its own frame: 0 road, 1 grass/lot, 2 walk (kerb, sidewalk, planting)
+function ctyTileGrid(name) {
+  if (CTYK.grids[name]) return CTYK.grids[name];
+  const P = ctyPart('tiles', name), c = CTYK.cell, h = CTYK.tile / 2, n = Math.round(CTYK.tile / c), Y = new Float32Array(n * n).fill(-9), K = new Uint8Array(n * n).fill(1);
+  for (const { geo, mat } of P || []) { const nm = mat.name || '', cls = /Asphalt|Paint|Iron/.test(nm) ? 0 : /Lot|Dirt/.test(nm) ? 1 : /Plant/.test(nm) ? -1 : 2; if (cls < 0) continue;
+    const p = geo.attributes.position.array, I = geo.index.array;
+    for (let t = 0; t < I.length; t += 3) { const a = I[t] * 3, b = I[t + 1] * 3, d = I[t + 2] * 3, ax = p[a], ay = p[a + 1], az = p[a + 2], bx = p[b], by = p[b + 1], bz = p[b + 2], cx = p[d], cy = p[d + 1], cz = p[d + 2];
+      const ux = bx - ax, uz = bz - az, vx = cx - ax, vz = cz - az, ny = uz * vx - ux * vz, det = ux * vz - uz * vx; if (Math.abs(det) < 1e-9) continue;
+      const i0 = Math.max(0, Math.floor((Math.min(ax, bx, cx) + h) / c)), i1 = Math.min(n - 1, Math.floor((Math.max(ax, bx, cx) + h) / c)), j0 = Math.max(0, Math.floor((Math.min(az, bz, cz) + h) / c)), j1 = Math.min(n - 1, Math.floor((Math.max(az, bz, cz) + h) / c));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const x = -h + (i + 0.5) * c - ax, z = -h + (j + 0.5) * c - az, s = (x * vz - z * vx) / det, tt = (ux * z - uz * x) / det;
+        if (s < -1e-4 || tt < -1e-4 || s + tt > 1 + 1e-4) continue; const y = ay + s * (by - ay) + tt * (cy - ay), q = j * n + i; if (y > Y[q]) { Y[q] = y; K[q] = cls; } } } }
+  for (let q = 0; q < n * n; q++) if (Y[q] < -1) K[q] = 1;
+  return (CTYK.grids[name] = { n, K });
+}
+// the tile layout: the ring road at +/-rc and the four streets on from it, a dead end at the island's edge
+function ctyTiles() {
+  const c = CTYK.rc, T = CTYK.tile, L = [], seen = new Set(), add = (name, x, z, rot, dir) => { const k = x + ',' + z; if (seen.has(k)) return; seen.add(k); L.push({ name, x, z, rot, dir }); };
+  const end = Math.floor((CTY.S - T / 2) / T) * T;
+  for (const s of [-1, 1]) for (let u = -end; u <= end + 1e-6; u += T) {
+    if (Math.abs(Math.abs(u) - c) < 1e-6) { add('street_cross', u, s * c, 0, null); add('street_cross', s * c, u, 0, null); continue; }
+    if (Math.abs(Math.abs(u) - end) < 1e-6) { add('street_deadend', u, s * c, u > 0 ? Math.PI : 0, 'x'); add('street_deadend', s * c, u, u > 0 ? Math.PI / 2 : -Math.PI / 2, 'z'); continue; }
+    add('street_straight', u, s * c, 0, 'x'); add('street_straight', s * c, u, Math.PI / 2, 'z'); }
+  return L;
+}
+function ctyKitTiles() {
+  const y0 = -CTYK.lower, c = CTYK.cell, YC = [y0, 0.2 - CTYK.lower, CTYK.walkY - CTYK.lower];
+  for (const t of ctyTiles()) { ctyPut('tiles', t.name, t.x, y0, t.z, t.rot, 1, false); CTYK.tiles.push(t);
+    const G = ctyTileGrid(t.name), n = G.n, h = CTYK.tile / 2, co = Math.cos(t.rot), si = Math.sin(t.rot), W = (x, z, y) => [t.x + x * co + z * si, y, t.z - x * si + z * co];
+    for (let j = 0; j < n; j++) { let i = 0; while (i < n) { const k = G.K[j * n + i]; let e = i; while (e + 1 < n && G.K[j * n + e + 1] === k) e++;
+        const x0 = -h + i * c, x1 = -h + (e + 1) * c, z0 = -h + j * c, z1 = z0 + c, y = YC[k];
+        slQuad('paving', W(x0, z0, y), W(x1, z0, y), W(x1, z1, y), W(x0, z1, y), [0, 1, 0], { solid: true, noDraw: true }); i = e + 1; } } }
+}
+// is a point clear of every line through the plaza (the ramps' and ribbons' footprints)?
+function ctyClear(x, z, pad) {
+  for (const q of CTY.ramps) { if (!q.end) continue; const ax = Math.sin(q.A) * CTY.ring.r1, az = Math.cos(q.A) * CTY.ring.r1, dx = q.end[0] - ax, dz = q.end[2] - az, l2 = dx * dx + dz * dz, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1.15);
+    if (Math.hypot(x - ax - dx * t, z - az - dz * t) < q.w / 2 + pad) return false; }
+  for (const q of CTY.ribbons) for (let i = 0; i < q.pts.length - 1; i++) { const [ax, , az] = q.pts[i], [bx, , bz] = q.pts[i + 1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1);
+    if (Math.hypot(x - ax - dx * t, z - az - dz * t) < CTY.rw / 2 + pad) return false; }
+  return Math.max(Math.abs(x), Math.abs(z)) < CTY.S - 1;
+}
+// THE SIDEWALKS: a streetlight on one side of every road and a telephone pole on the other, each 22 m, between the tiles' middles
+// so nothing stands on a crossing; wires pole to pole; a tree on the grass beside each lamp; a sign at every corner of a crossing
+function ctyKitStreets() {
+  const c = CTYK.rc, T = CTYK.tile, end = Math.floor((CTY.S - T / 2) / T) * T, side = 7.35, grass = 10.1, y0 = 0.27 - CTYK.lower, poles = [];
+  const TREES = ['tree_palm_mid', 'tree_palm_small', 'tree_palm_bushy', 'tree_round_tree', 'tree_pink_blossom', 'tree_banana_plant'];
+  for (const s of [-1, 1]) for (const ax of ['x', 'z']) { const run = [];
+    for (let u = -end + T / 2; u <= end - T / 2 + 1e-6; u += T) { if (Math.abs(Math.abs(u) - c) < T / 2 + 1) continue;
+      // a road along ax at the line s*c: d its direction, nrm its normal; the lamp side faces the higher-index neighbour
+      const P = (along, off) => ax === 'x' ? [along, s * c + off] : [s * c + off, along], d = ax === 'x' ? [1, 0] : [0, 1], nrm = ax === 'x' ? [0, 1] : [1, 0];
+      const k = Math.round(u / T) + (s > 0 ? 7 : 0) + (ax === 'z' ? 3 : 0);
+      { const [x, z] = P(u, side); if (ctyClear(x, z, 1.5)) {      // his lamp's post is 0.85 m back along its local -x, its arm out along +x: turned to reach over the road
+          const rot = Math.atan2(nrm[1], -nrm[0]);
+          if (ctyPut('furn', 'streetlight', x - 0.85 * nrm[0], y0, z - 0.85 * nrm[1], rot, 1, true)) { solidAdd(x, z, 0.16, 0.16, y0, y0 + 5.2, 0, { top: false, tag: 'city lamp' }); CTYK.n.lamp++; } } }
+      { const [x, z] = P(u, -side); if (ctyClear(x, z, 1.5)) { const rot = Math.atan2(-nrm[1], nrm[0]), nm = k % 5 === 2 ? 'telephone_pole_transformer' : 'telephone_pole';
+          if (ctyPut('furn', nm, x, y0, z, rot, 1, true)) { solidAdd(x, z, 0.18, 0.18, y0, y0 + 7.6, 0, { top: false, tag: 'city pole' }); CTYK.n.pole++;
+            const ca = Math.cos(rot), sa = Math.sin(rot), top = nm === 'telephone_pole' ? 7.72 : 8.45; run.push({ u, pts: [-1.08, 1.08].map(e => [x + e * ca, y0 + top, z - e * sa]) }); } } else run.push(null); }
+      for (const g of [grass, -grass]) { const [x, z] = P(u + (g > 0 ? 5 : -5), g); if (!ctyClear(x, z, 2.5)) continue;
+        if (ctyPut('trees', TREES[(k + (g > 0 ? 0 : 3)) % TREES.length], x, y0 - 0.07, z, (k * 2.3) % 6.28, 1, true)) { solidAdd(x, z, 0.25, 0.25, y0, y0 + 3, 0, { top: false, tag: 'city tree' }); CTYK.n.tree++; } } }
+    // the wires: pole to pole along this side, a gentle sag, across a crossing only if it is one tile wide
+    for (let i = 0; i + 1 < run.length; i++) { const a = run[i], b = run[i + 1]; if (!a || !b || b.u - a.u > 2 * T + 1) continue;
+      for (let w = 0; w < 2; w++) { const A = a.pts[w], B = b.pts[w], pts = []; for (let q = 0; q <= 8; q++) { const t = q / 8; pts.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t - 0.55 * 4 * t * (1 - t), A[2] + (B[2] - A[2]) * t]); }
+        slTube('metal', pts, 0.018, { tint: 0x2a2630 }); CTYK.n.wire++; } } }
+  // signs at the corners of every crossing
+  let si = 0; for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const [ox, oz] of [[1, 1], [-1, -1]]) { const x = sx * c + ox * 6.6, z = sz * c + oz * 6.6; if (!ctyClear(x, z, 1)) continue;
+    if (ctyPut('furn', 'street_sign_' + String((si * 7) % 25).padStart(2, '0'), x, y0, z, Math.atan2(-ox, -oz), 1, true)) { solidAdd(x, z, 0.08, 0.08, y0, y0 + 2.6, 0, { top: false, tag: 'city sign' }); CTYK.n.sign++; } si++; }
+}
+// his anti-tiling, once every file is in: it finds each material's partner texture by name across all the roots
+function ctyKitDetile() {
+  const roots = Object.values(CTYK.lib); if (!roots.length) return;
+  import('./' + A(CTYK.dir + 'js/weirdkit_detile.js')).then(mod => { CTYK.dt = mod.applyDetile(roots); console.log('[skate city] detile ' + CTYK.dt + ' materials'); }, e => { CTYK.dt = -2; console.warn('[skate city] detile', e && e.message); });
 }
 // THE RING: a deck at 4.8 m from the coping (r0) to the outer wall (r1); inside it a quarter pipe all the way round down to
 // the statue garden, so the plaza is a BOWL with a promenade on its rim. Every piece's height is the kit's 1.2 m ladder (4.8 = XL).
@@ -4496,9 +4619,10 @@ function ctyRibbons() {
 // THE STREETS: lamps along the sidewalks, palms in the corners, benches, the corner blocks' planters
 function ctyStreets() {
   const R = CTY.road, m = R.b + R.walk / 2;
-  for (const s of [-1, 1]) for (let u = -R.b; u <= R.b; u += 16) { if (Math.abs(u) < 10) continue; slLamp(u, 0, s * (R.a - 2)); slLamp(s * (R.a - 2), 0, u); slLamp(u, 0, s * m); slLamp(s * m, 0, u); }
+  if (ctyKitOn()) ctyKitStreets();
+  else for (const s of [-1, 1]) for (let u = -R.b; u <= R.b; u += 16) { if (Math.abs(u) < 10) continue; slLamp(u, 0, s * (R.a - 2.5)); slLamp(s * (R.a - 2.5), 0, u); slLamp(u, 0, s * m); slLamp(s * m, 0, u); }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const cx = sx * (R.a - 9), cz = sz * (R.a - 9); slPalm(cx, 0, cz, 7, undefined, 0.15); slPalm(cx + sx * 3.5, 0, cz - sz * 2, 6, 0xffb8e8, 0.1);
-    slPlanter(sx * (R.a - 15), 0, sz * (R.a - 5), 5, 1.4, 0.45); slBench(sx * (R.a - 5), 0, sz * (R.a - 15), sx > 0 ? -Math.PI / 2 : Math.PI / 2); }
+    slPlanter(sx * (R.a - 15), 0, sz * (R.a - 6.5), 5, 1.4, 0.45); slBench(sx * (R.a - 7), 0, sz * (R.a - 15), sx > 0 ? -Math.PI / 2 : Math.PI / 2); }
 }
 // HIS BUILDINGS: art (loaded after she is skating) on a box collider each, turned to face the plaza. A placeholder collider
 // -- the box is his catalog's footprint and height -- until each building gets the colliders its decks and stairs deserve.
@@ -4514,7 +4638,7 @@ function ctyBuildings() {
 function cityWorld() {
   CITY.on = 0; SLC.built = 1; SLC.canal = { x0: -480, x1: 480, z0: -480, z1: 480 }; SLC.WY = CTY.sea; SLC.railQ = []; SLC.railC = [];
   _slseed = 6161; SKYART.dir = 'zones/kit_skate_city/'; SKYART.tex = 1024;
-  ctyFloor(); ctyRing(); ctyGarden(); ctyRibbons(); ctyStreets(); ctyBuildings();
+  ctyFloor(); ctyRing(); ctyGarden(); ctyRibbons(); if (ctyKitOn()) ctyKitTiles(); ctyStreets(); ctyBuildings();
   const Rg = CTY.ring;
   SPAWN.set(7, Rg.y, Rg.r1 - 3.5); SPAWN.h = Math.PI;      // off the statue's line, so the first drop in clears its ledge
   CITY.spots['city plaza'] = [7, Rg.y, Rg.r1 - 3.5, Math.PI];
@@ -4535,8 +4659,9 @@ function cityWorld() {
   ORB.built = 1; splashMake(m => scene.add(m));
   gemBuild();
   sliceMeshes();
+  if (ctyKitOn()) { ctyKitFlush(); ctyKitDetile(); }
   CTY.built = 1;
-  console.log(`[skate city] ${CTY.paths.length} rails, ring r ${Rg.r0}-${Rg.r1} at ${Rg.y}, bowl floor r ${CTY.rb.toFixed(1)}, ${CTY.bld.length} buildings`);
+  console.log(`[skate city] ${ctyKitOn() ? CTYK.tiles.length + ' kit tiles, ' + JSON.stringify(CTYK.n) + ', ' + CTYK.meshes.length + ' kit meshes, ' : 'NO KIT (painted roads), '}${CTY.paths.length} rails, ring r ${Rg.r0}-${Rg.r1} at ${Rg.y}, bowl floor r ${CTY.rb.toFixed(1)}, ${CTY.bld.length} buildings`);
 }
 // THE KIT WORLD (`WORLD.zones` 2): the floor, every piece, and nothing else
 function kitWorld() {
@@ -16861,7 +16986,7 @@ function hud(dt) {
       // r45: "the buildings are grey boxes" is the kit not arriving; "his buildings are missing" is the import
       (KIT.failed ? ' · NO KIT GLB' : '') + (LEVEL.failed.length ? ' · NO LEVEL ' + LEVEL.failed.join(', ').toUpperCase() : '') +
       // r64: IN HIS ZONES, which ones are up -- "the island is grey" is the visual still coming, "I fell through" is the collider
-      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + ((!WORLD.zones || WORLD.zones >= 5) && WPP.failed ? ' · NO WP PROPS' : '') + (WPT.on && WPT.failed && WORLD.zones !== 4 ? ' · NO WP TEX' + (WPT.n ? ' ' + WPT.n + '/6' : '') : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
+      (WORLD.zones === 2 ? ' · KIT ' + KITW.pieces.length : '') + (WORLD.zones === 6 && CTYK.failed.length ? ' · NO WP KIT ' + CTYK.failed.join('/').toUpperCase() : '') + ((!WORLD.zones || WORLD.zones >= 5) && WPP.failed ? ' · NO WP PROPS' : '') + (WPT.on && WPT.failed && WORLD.zones !== 4 ? ' · NO WP TEX' + (WPT.n ? ' ' + WPT.n + '/6' : '') : '') + (WORLD.zones === 4 ? ' · WPC ' + WPC.done.length + '/2' + (WPC.dt >= 0 ? ' DT' + WPC.dt : '') + (WPC.failed.length ? ' · NO ' + WPC.failed.join('/').toUpperCase() : '') : '') + (WORLD.zones === 1 ? ' · ZONES ' + Object.keys(LEVEL.stats).length + '/' + LEVEL.zones.length + (LEVEL.done.length < LEVEL.zones.length ? ' (pics ' + LEVEL.done.length + ')' : '') : '') +
       (HYD.failed ? ' · NO HYDRANT GLB' : '') + (performance.now() - (CITY.goAt || -1e9) < 3000 ? ' · → ' + CITY.goMsg : '') + (player.grind && player.grind.rail && player.grind.rail.path.name !== 'park' ? ' ' + player.grind.rail.path.name : '');
     if (gemsB) { gemsB.textContent = GEM.got; gemsN.textContent = GEM.list.length; } }
 }
@@ -17393,6 +17518,7 @@ async function init() {
   setBoot(WORLD.zones === 6 ? 'building skate city' : WORLD.zones === 5 ? 'building the spillway' : WORLD.zones === 4 ? 'loading weirdport city' : WORLD.zones === 1 ? 'loading the zones' : WORLD.zones === 2 ? 'building the ramp kit' : WORLD.zones === 3 ? 'building sk8 sky' : 'building the park', 0.05);
   if (!WORLD.zones || WORLD.zones >= 5) { setBoot('loading weirdport props', 0.04); await Promise.all([wppLoad(), wptLoad()]); }      // r127: before the park builds, so its props can be his (r133: the spillway too)
   else if (WORLD.zones !== 4) await wptLoad();      // r129: his painted surfaces, before anything asks `detailTex`
+  if (WORLD.zones === 6) { setBoot('loading the weirdport kit', 0.05); await ctyKitLoad(); }      // r152: his street tiles, before skate city builds (they are its collider)
   if (WORLD.zones === 2 || (!WORLD.zones && PARKD.on)) await schematicLoad();      // r73: the park his schematic describes, built with the kit (r90: and the main world's park district)
   buildPark();
   if (!WORLD.zones || WORLD.zones >= 5) { try { wppBuild(); } catch (e) { console.warn('[wpp] build', e); WPP.failed = 2; } }
@@ -17441,7 +17567,7 @@ window.rg = { SKB, buildSkb, wingTrick, wingBoost, WINGROW, arcPaint, WING, WG, 
   mirrorClip, mirrorName, buildMoves, MOVES, FACEFIX, flickFlip, setStance, enterGrind, bodyYaw, airPivot, hipHeight, centreOffset, swingOf, leanWant, FLIPP, flipShape, flipTurn, flipQ, isOnce, LAND, startFlip, landStance, girlAnimMoves, prepClips, VERT, UI_DEF, uiGet,
   WORLD, WPC, WPP, WPT, DEC, decBuild, wptLoad, wptFor, detailTex, detailPatch, DETAIL_Q, wkBuilding, wkPipe, wkKey, wppLoad, wppBuild, wppClutter, wppAt, wpTint, wpFill, wpCityLoad, meshParts, KITW, KSZ, KPARK, colliderReset, KIT_KINDS, kitPiece, kT, kitFlush, kitRailsDraw, putBack, railUps, levelRibbon, levelStair, lineChain, inTris, levelImports, splashMake,
   launchSolve, CITY, SOLID, kitFrom, hydFrom, solidAdd, solidBuild, solidAt, solidPush, building, KIT, LEVEL, levelIngest, obbOf, HYD, GEY, hydBreak, GEM, PATHS, railPath, railLine, RAILX, goSpot, stepCity, camBlocked,
-  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SPW, SPWF, SPWISLES, spwP, spwChuteYs, spillwayWorld, CTY, cityWorld, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
+  STK, stackKit, SKR, UFO, WRK, DRN, PYR, LCH, GAR, TRAM, tramS, tramAt, stepTram, STN, skrBranchPts, WIRE, NW, CANNON, DNT, donutAim, SAU, ORT, DTN, dtFaces, CPK, SPEED, BLEND, blendW, blendSet, detailPatch, PARKD, parkDistrict, LINKS, S3, sk8World, SPW, SPWF, SPWISLES, spwP, spwChuteYs, spillwayWorld, CTY, CTYK, cityWorld, ctyTiles, ctyTileGrid, ctyClear, SKYART, S3ISLES, skyArtLoad, skyIngest, skyFlush, dynIn, HT, DYN, stepDyn, stepHeights, ACR, acTwin, acSlope, acPoly, COMBOS, COMBO_DEFS, comboBuild, KIT_ROUND_ROW, parkApron, triMasked, get GO() { return GO; },
   HRING, hubRing, vertRelease, bodyAlign, kP, STOP, speedStop, UI_VER, UI_FRESH, tailLoad, tailSave, DASH, dashOk, dashGo, diveMark, CTRL, padWorld, BOOST, boostGo, boostStep, vlipFind, vlipNear, SHEET, kitSheet, schematicLoad, SLC, NEX, HUB, RAILNET, SKYW, SCORE, trick, scoreStep, railLink, railWeave, railPick, railExit, SH, shSolid, ORB, laneAt, inWater, stepOrbital, railPoint, orbAtlas, SIGNS, grindSwitch, grindTrick, RAILS, RAIL_DEF, GRIND, grindDown, grindTarget, lipEdges, lipTrace, ledgePath, ledgeClear, LEDGE, railCatch, stepGrind, grindLeave, SPARK, swivel, railHome, hipLeanApply, hipLeanUndo, grabStep, bodyG, MELEE, meleeStrike, meleeSlide, kickTarget, stepMelee, rightFlick, flickWorld, FOOTIK, legIK, footFind, TRAIL, trailBuild, trailAmount,
   char(k) { const i = CHARS.findIndex(c => c.key === k); return wearChar(i < 0 ? charI + 1 : i, null); },
   ready: () => ready,

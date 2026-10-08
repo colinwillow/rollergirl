@@ -47,6 +47,12 @@ globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : 
 if (process.argv[2] === 'city') globalThis.localStorage.setItem('rg.city', '1');
 // r127: `wpp` boots with a STAND-IN prop library (boxes under his kind names) -- headless there is no KTX2 and no draco worker,
 // and what is under test is the swap and the clutter pass, not his meshes
+// r152: skate city boots with HIS real weirdport kit (textures cut, `glbNoTex`), so the tile collider is the one the phone gets
+if (process.argv[2] === 'skatecity') {
+  globalThis.window = globalThis.window || globalThis;
+  globalThis.window.__ctyKit = async (k, f) => { const { GLTFLoader } = await import(pathToFileURL(path.resolve('vendor/GLTFLoader.js')).href);
+    return new Promise((res, rej) => new GLTFLoader().parse(glbNoTex('zones/weirdport_kit/' + f), '', res, rej)); };
+}
 if (process.argv[2] === 'wpp') {
   const fams = ['prop_crate', 'prop_cardboard_box', 'prop_tree_round_tree', 'prop_tree_pink_blossom', 'prop_tree_banana_plant', 'prop_tree_palm_mid', 'prop_tree_palm_small',
     'prop_tree_palm_bushy', 'plant_bush_round', 'plant_weed_small', 'plant_weed_leafy', 'plant_weed_tall_a', 'plant_weed_tall_b', 'plant_weed_spiky', 'plant_dandelion',
@@ -6392,6 +6398,21 @@ CASES.skatecity = async () => {
   for (const q of C.ribbons) { const a = q.pts[0], e = q.pts[q.pts.length - 1], pts = q.pts; go(a[0] * 0.92, a[2] * 0.92, Math.atan2(pts[1][0] - a[0], pts[1][2] - a[2]), 4, Rg.y); let i = 1, down = 0, over = 0;
     const r = ride(14, () => { while (i < pts.length - 1 && Math.hypot(P.pos.x - pts[i][0], P.pos.z - pts[i][2]) < 4) i++; steerTo(pts[i][0], pts[i][2]); if (Math.abs(P.pos.x - pts[2][0]) < 2 && P.pos.y > 5.5) over = 1; if (P.grounded && P.pos.y < 0.2 && Math.hypot(P.pos.x - e[0], P.pos.z - e[2]) < 6) down = 1; }, () => down);
     say(`the ${q.name} ribbon: over the ring road and down`, down && over && r.clean, `${over ? 'over the road' : 'NEVER OVER THE ROAD'}, ${down ? 'down at ' + at() : 'never down, ends ' + at()}${cl(r)}`); }
+  // r152: HIS STREET TILES: along the ring road, up the kerb onto the plaza, and out along a street to the harbour wall
+  if (rg.CTYK && rg.CTYK.tiles.length) {
+    { const rc = new THREE.Raycaster(), ms = rg.CTYK.meshes.filter(m => /Asphalt|Stone|Curb|Lot|Dirt|Paint/.test(m.material.name)); let worst = 0, wAt = '', n = 0;
+      for (let i = 0; i < 120; i++) { const t = (i * 0.6180339) % 1, u = -130 + 260 * ((i * 0.381966) % 1), off = -10.5 + 21 * t, x = i % 2 ? 44 + off : u, z = i % 2 ? u : -44 + off;
+        if (!rg.ctyClear(x, z, 0.5)) continue; rc.set(new THREE.Vector3(x, 3, z), new THREE.Vector3(0, -1, 0)); const hit = rc.intersectObjects(ms, false).find(q => q.face && q.face.normal.y > 0.5); if (!hit) continue;
+        const g = rg.groundAt(x, z, 1, 1); if (!g.hit) { worst = 9; wAt = `${fix(x, 1)},${fix(z, 1)} no floor`; continue; } n++;
+        const d = Math.abs(g.floor - hit.point.y); if (d > worst) { worst = d; wAt = `${fix(x, 1)},${fix(z, 1)} drawn ${fix(hit.point.y)} collider ${fix(g.floor)}`; } }
+      say('his tiles: the collider sits on the drawn street', worst < 0.12, `${n} points, worst ${fix(worst)} at ${wAt}`); }
+    { go(-44, -25, 0, 6, -0.2); let lo = 9, hi = -9; const x0 = P.pos.z; const r = ride(2.5, (t) => { steerTo(-44, 60); if (P.grounded) { lo = Math.min(lo, P.pos.y); hi = Math.max(hi, P.pos.y); } });
+      say('his tiles: along the ring road on the asphalt (west side, under the ribbon)', r.clean && P.pos.z - x0 > 15 && hi < 0, `${fix(P.pos.z - x0, 1)} m, grounded y ${fix(lo)}..${fix(hi)}${cl(r)}`); }
+    { go(-20, -44, 0, 4, -0.2); let curb = 0; const r = ride(3, () => { steerTo(-20, 0); if (P.grounded && P.pos.y > 0.02 && P.pos.z > -40 && P.pos.z < -34) curb = 1; }, () => P.pos.z > -28);
+      say('his tiles: off the road over the kerb and sidewalk onto the plaza', r.clean && curb && P.pos.z > -28 && Math.abs(P.pos.y) < 0.05, `ends ${at()}${curb ? '' : ' NEVER ON THE SIDEWALK'}${cl(r)}`); }
+    { go(44, -60, Math.PI, 8, -0.2); const r = ride(9, () => steerTo(44, -200));
+      say('his tiles: a street run north to the dead end stops at the harbour wall', !r.falls && P.pos.z < -120 && P.pos.z > -rg.CTY.S && P.pos.y > -0.5, `ends ${at()}${cl(r)}`); }
+  } else say('his tiles loaded', false, 'NO KIT -- ' + (rg.CTYK ? rg.CTYK.failed.join(',') : 'no CTYK'));
   // THE COPING: a grind round the lip stays on it for three seconds
   { const Pth = C.paths.find(p => p.name === 'city coping'), S0 = Pth.segs[0]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 9); P.grounded = false;
     rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 9, side: 'left' }); let on = 0; const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === Pth) on++; });
