@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r155</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r156</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -238,7 +238,7 @@ import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r155';
+const BUILD = 'r156';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -420,6 +420,7 @@ const WING = { on: 1, flick: 0, dbl: 1, dblT: 0.32, boostV: 9, boostHL: 0.9, boo
   turn: 1.7, pitchRate: 1.5, climb: 55 * Math.PI / 180, dive: 70 * Math.PI / 180, levelHL: 0.7, pull: 0,      // r144: push UP to climb (his call; 1 is the airplane way)
  
   lie: 80 * Math.PI / 180, bank: 0.7, bankHL: 0.15, clip: 'in_air', camFollow: 3.0, settle: 7, trailLife: 0.55,
+  spinAt: 60 * Math.PI / 180, spinT: 0.55,      // r156: opened facing away from her line, she TWISTS round to it over `spinT`
   seg: [0.44, 0.38, 0.32], chord: [0.30, 0.24, 0.17] };
 
 // THE ROSTER. ONE CHARACTER AT A TIME -- a switch is a menu action, not a parade, so there is
@@ -772,6 +773,8 @@ const AIR = {
   settleDrag: 4,       // per second: how fast her horizontal speed bleeds off while settling
   slam: 1, slamMin: 12, slamAdd: 12, slamMax: 24, slamIn: 0.35, slamK: 9, slamKeep: 0.85,   // r61: the settle over a ramp DIVES down its face (see `stepAir`)
   settleEase: 9,       // per second: how fast her body turns onto the face below
+  // r156: the DROP-IN -- the same hold, with nothing steep straight below, looks AHEAD for a ramp or decline (`dropFind`)
+  drop: 1, dropHold: 0.2, dropFar: 18, dropStep: 2, dropSide: [0, -3, 3, -6, 6], dropV: 10, dropG: 6, dropFace: 0.1,
   preAlign: 0.4,       // seconds: falling, this close to touchdown, she turns to match the surface
   pitch: 0,            // 1 leans her into the arc instead; 0 is plumb
   // THE BAIL IS OFF. It compared her own up to the face she landed on, which only means anything
@@ -15527,6 +15530,33 @@ function stepGround(dt) {
   n.copy(_N);
 }
 
+// r156: the drop-in's look ahead. Along her line (her travel, or her heading when she has none) at `dropStep` out to `dropFar`,
+// and a fan of `dropSide` offsets across it: the first face (nearest first) that is a ramp by the settle's own test
+// (`settleN`), is below her, and FALLS AWAY along her line (its normal leans the way she is going, a decline she can ride
+// down -- not the up face of a quarter pipe coming at her). Returns { x, y, z, n } or null.
+function dropFalls(p, g) {
+  const hs = Math.hypot(p.vel.x, p.vel.z), fx = hs > 1 ? p.vel.x / hs : Math.sin(p.heading), fz = hs > 1 ? p.vel.z / hs : Math.cos(p.heading);
+  return (g.nx * fx + g.nz * fz) / (Math.hypot(g.nx, g.nz) || 1) >= AIR.dropFace;
+}
+function dropFind(p) {
+  const hs = Math.hypot(p.vel.x, p.vel.z);
+  let fx = hs > 1 ? p.vel.x / hs : Math.sin(p.heading), fz = hs > 1 ? p.vel.z / hs : Math.cos(p.heading);
+  const rx = -fz, rz = fx;
+  let best = null, bd = 1e9;
+  for (let d = AIR.dropStep; d <= AIR.dropFar + 1e-6; d += AIR.dropStep) {
+    for (const w of AIR.dropSide) {
+      const x = p.pos.x + fx * d + rx * w, z = p.pos.z + fz * d + rz * w;
+      const g = groundAt(x, z, p.pos.y - 0.3, 0.05);
+      if (!g.hit || g.ny >= AIR.settleN || g.floor > p.pos.y - 0.3) continue;
+      const hn = Math.hypot(g.nx, g.nz) || 1;
+      if ((g.nx * fx + g.nz * fz) / hn < AIR.dropFace) continue;
+      const cost = Math.hypot(d, w);
+      if (cost < bd) { bd = cost; best = { x, y: g.floor, z, n: new THREE.Vector3(g.nx, g.ny, g.nz) }; }
+    }
+    if (best) break;
+  }
+  return best;
+}
 function stepAir(dt) {
   const p = player;
   p.airT += dt; p.coyote -= dt;
@@ -15646,7 +15676,23 @@ function stepAir(dt) {
   // of flight wide in plan, and letting go of it the moment she drifts past would hand her straight back her speed.
   const SP = airR() ? stick.L : stick.R;      // r82: the settle is held down on whichever pad grabs (r89: the right in map 4)
   const padDown = AIR.settleRamp > 0.5 && SP.down && (airR() ? p.lAir : p.rAir) && SP.y > AIR.settleAt && Math.abs(SP.x) < SP.y;
-  if (!padDown) p.settleLatch = 0; else if (overRamp) p.settleLatch = 1;
+  // r156: THE DROP-IN. *"If we just press and hold down ... there's basically like a raycast arrow downward or in the
+  // general area, and if there's anything like a ramp or just a decline, it aligns the character to that and gains some
+  // downward velocity -- Tony Hawk did this."* Nothing steep straight below, the hold looks AHEAD along her line (and a
+  // fan either side) for a face that falls away from her; found, she is aimed at it, diving, and the moment she is over
+  // it r61's dive down its fall line takes over. It waits `dropHold`, longer than a swipe takes, so a swipe down is still
+  // the grind and never also a drop-in.
+  p.dropHold = padDown ? (p.dropHold || 0) + dt : 0;
+  // A face below that falls along her line is the drop itself; one RISING at her (the back of the deck she is coming off)
+  // is not, so a target ahead is looked for first and r56's settle onto it is only the fallback.
+  if (!padDown) { p.settleLatch = 0; p.dropTo = null; }
+  else if (overRamp && dropFalls(p, below)) { p.settleLatch = 1; p.dropTo = null; }
+  else {
+    if (!p.dropTo && AIR.drop > 0.5 && AIR.slam > 0.5 && !(p.settleLatch && !p.dropTo) && !p.flip && p.dropHold >= AIR.dropHold) {
+      const t = dropFind(p); if (t) { p.dropTo = t; p.settleLatch = 1; }
+    }
+    if (overRamp && !p.dropTo && (p.dropHold >= AIR.dropHold || !(AIR.drop > 0.5))) p.settleLatch = 1;      // only once the look ahead has had its go
+  }
   const settle = !p.flip && ((padDown && p.settleLatch) || keys.f);
   p.settling = !!settle;
   swingOf(_q, _qb);
@@ -15654,6 +15700,7 @@ function stepAir(dt) {
   if (below.hit) {
     let w = 0;
     if (settle) { w = 1; rate = AIR.settleEase; }
+    if (settle && p.dropTo) { _qb.slerp(_q3.setFromUnitVectors(UP, p.dropTo.n), 1); w = 0; }
     else if (p.vel.y < -0.5 && AIR.preAlign > 0 && !p.flip) {
       // BY TIME TO TOUCHDOWN, NOT HEIGHT: a fast fall crosses a fixed height band too quickly to
       // turn in it (2.4 m left her 26 deg out on a 39 deg face). Inside `preAlign` seconds the target
@@ -15669,8 +15716,22 @@ function stepAir(dt) {
   // at a graze and the landing keeps it -- at no less than `slamMin` and gaining `slamAdd` a second while held, so she
   // hits the wall going and carries it out across the bowl. The face is remembered (`p.slamN`), so drifting past a
   // narrow wall does not turn the dive into a dive at the flat. `slam` 0 is r33's brake.
-  if (!settle) p.slamN = null;
-  if (settle && AIR.slam > 0.5 && (overRamp || p.slamN)) {
+  if (!settle) { p.slamN = null; p.dropTo = null; }
+  if (settle && AIR.slam > 0.5 && p.dropTo) {
+    // r156: aimed at the face ahead -- straight at it, never climbing, at the dive's own speed; its normal is kept so that
+    // once she is over it (or drifts past a narrow one) the dive goes on down its fall line
+    // horizontally AT the face, at no less than `dropV`; vertically never climbing and pulled down `dropG` harder than
+    // gravity -- not a straight line at the face, which would go through the deck she is dropping in off
+    const D = p.dropTo;
+    let dx = D.x - p.pos.x, dz = D.z - p.pos.z; const hd = Math.hypot(dx, dz) || 1; dx /= hd; dz /= hd;
+    const hs = Math.hypot(p.vel.x, p.vel.z), hT = Math.min(AIR.slamMax, Math.max(hs, AIR.dropV) + AIR.slamAdd * 0.5 * dt), a = 1 - Math.exp(-AIR.slamK * dt);
+    p.vel.x += (dx * hT - p.vel.x) * a; p.vel.z += (dz * hT - p.vel.z) * a;
+    p.vel.y = Math.min(p.vel.y, 0) - AIR.dropG * dt;
+    const sT = p.vel.length();
+    (p.slamN || (p.slamN = new THREE.Vector3())).copy(D.n);
+    if (!p.slamS) trick('DROP IN', SCORE.dive);
+    p.slamS = Math.max(p.slamS || 0, sT);
+  } else if (settle && AIR.slam > 0.5 && (overRamp || p.slamN)) {
     if (overRamp) (p.slamN || (p.slamN = new THREE.Vector3())).set(below.nx, below.ny, below.nz);
     const n = p.slamN, k = AIR.slamIn;
     let dx = n.x * n.y - n.x * k, dy = n.y * n.y - 1 - n.y * k, dz = n.z * n.y - n.z * k;   // straight down, laid on the face, tipped in
@@ -16782,8 +16843,14 @@ function wingStart() {
   p.vertLock = 0; p.xferKick = null; p.autoTurn = null; p.vlip = null; p.kickRail = null; p.grindWant = 0; p.grab = null; p.dive = null;
   p.flip = null;      // a flip in progress leaves its turn in `girl.flipRes`, which settles out on its own
   const v = p.vel.length(), hs = Math.hypot(p.vel.x, p.vel.z);
+  const face0 = p.faceH;
   if (hs > 1) p.heading = Math.atan2(p.vel.x, p.vel.z);      // she flies along where she was going, facing it
   setStance(1, 'wings');
+  // r156: *"If you're riding backwards and you pull out the wingsuit, she just teleports to being forward -- she needs to
+  // flip or spin, like a twist, every time the wings come out."* The body she had is handed to `girl.wingSpin` as a twist
+  // about her own spine, which `poseGirl` winds out over `spinT`: she visibly comes round to her line.
+  const tw = wrapAngle(face0 - p.heading);
+  if (Math.abs(tw) > WING.spinAt) { girl.wingSpin = { a: tw, t: 0 }; trick('WING TWIST', SCORE.air); }
   p.wPitch = v > 1 ? clamp(Math.asin(clamp(p.vel.y / v, -1, 1)), -WING.dive, WING.climb) : WING.climb * 0.6;
   p.wV = Math.max(v, WING.v0); p.wBank = 0; p.wTrick = null; p.wBoost = 0; p.wBoostCool = 0;
   p.grounded = false; p.wing = 1;
@@ -16970,6 +17037,11 @@ function poseGirl(dt) {
   if (girl.wingRes) {
     girl.wingRes.slerp(_fq.identity(), Math.min(1, WING.settle * dt));
     if (Math.abs(girl.wingRes.w) > 0.99995) girl.wingRes = null; else bodyG.quaternion.multiply(girl.wingRes);
+  }
+  if (girl.wingSpin) {      // r156: the twist the wings come out with -- smoothstep, so it starts and lands softly
+    const S = girl.wingSpin; S.t += dt;
+    const u = Math.min(1, S.t / WING.spinT), k = 1 - u * u * (3 - 2 * u);
+    if (u >= 1) girl.wingSpin = null; else bodyG.quaternion.multiply(_fq.setFromAxisAngle(YAX, S.a * k));
   }
   // WHICH WAY HER EXPORT FACES IS THE ONE THING NO OFFLINE CHECK HERE CAN SETTLE, so it is
   // applied every frame rather than baked in at load: `rg.RIG.spin = Math.PI` turns her

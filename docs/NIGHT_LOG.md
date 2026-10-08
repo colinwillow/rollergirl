@@ -717,3 +717,8 @@ L at every street's dead end against the harbour wall. `npm run sim skatecity` c
 
 ## r155 -- Skate City memory: the phone killed the tab
 Kit textures cut to 512 px at load, the kit's source meshes dropped after the merge, his hero buildings' textures 512.
+
+## r156 -- the drop-in, and the wings twist her round
+Right pad held down in the air with no ramp straight below looks ahead along her line for a ramp or decline falling away from
+her, aims her at it and dives her down it (DROP IN). A quick swipe down is still the grind. Wings opened in fakie twist her round
+to her line over 0.55 s instead of snapping (WING TWIST). Try it off the back deck of the hub half pipe.

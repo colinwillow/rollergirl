@@ -100,6 +100,22 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **HOLD DOWN IN THE AIR IS A DROP-IN NOW, AND THE WINGS TWIST HER ROUND (r156, `AIR.drop*`, `dropFind`, `dropFalls`, `p.dropTo`,
+  `WING.spinAt/spinT`, `girl.wingSpin`).** *"Press and hold down ... a raycast arrow downward or in the general area, and if there's
+  a ramp or just a decline it aligns her to it and gains downward velocity -- Tony Hawk did this."* The right pad held down in the
+  air (r56's settle) with nothing steep straight below now LOOKS AHEAD after `dropHold` (0.2 s, longer than a swipe, so the swipe
+  down is still the grind): along her line every `dropStep` to `dropFar` and a fan of `dropSide` offsets, the nearest face that is a
+  ramp (`settleN`), below her, and FALLS AWAY along her line (`dropFace`). Found, she is steered at it horizontally (at least
+  `dropV`), never climbing and pulled down `dropG` -- not a straight line at it, which went through the deck she was dropping off --
+  and body-aligned to it; once over it r61's dive down its fall line takes over. Scores DROP IN.
+  - **A FACE RISING AT HER IS NOT THE DROP.** Over the back of a deck, r56's settle dove her down THAT face -- straight back the way
+    she came. The look ahead now gets its go first; the settle onto a rising face only latches once `dropHold` has passed with
+    nothing ahead (so r56's settle onto a face she is flying away from is 0.2 s later than it was).
+  - **Opened in fakie the wings no longer snap her round**: the yaw she had is handed to `girl.wingSpin`, a twist about her own
+    spine (laid forward, that is a twist) wound out on a smoothstep over `spinT` in `poseGirl`. Scores WING TWIST.
+  - `npm run sim feel` rides off the hub half pipe's back deck (in the pipe at 13.7 m/s; without it she lands on the deck; a quick
+    swipe never aims); `npm run sim wing` checks the twist is set in fakie and not forward. How either LOOKS is his call.
+
 - **"A PROBLEM REPEATEDLY OCCURRED" IS iOS KILLING THE TAB FOR MEMORY, NOT A THROW (r155, `CTYK.tex`, `ctyTexCap`, `ctyKitTrim`).**
   *"It plays for a bit and then it reset ... played it again and then I got this."* Skate City after r153/r154 held his kit's
   textures at full 1024 px, every source mesh of nine kit files AFTER they were merged into the drawn meshes, and his hero

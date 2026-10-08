@@ -2748,6 +2748,12 @@ CASES.wing = () => {
   say('tapped on the ground: she pops up and flies', P.wing && !P.grounded && W.out === 1, `wing ${P.wing}, grounded ${P.grounded}, vy ${fix(P.vel.y, 1)}`);
   let low = 99; run(2.5, () => { hands(); low = Math.min(low, P.pos.y - y0); });
   say('hands off for 2.5 s: still flying, climbed out and levelling', P.wing && P.pos.y - y0 > 3 && Math.abs(P.wPitch) < 0.35, `up ${fix(P.pos.y - y0, 1)} m, pitch ${fix(P.wPitch * D, 1)} deg, ${fix(P.vel.length(), 1)} m/s`);
+  // r156: opened riding FAKIE she twists round to her line instead of snapping; opened forward, no twist
+  { rg.wingSet(0); rg.girl.wingSpin = null; air(30, 0, 8); P.stance = -1; P.heading = P.faceH = Math.PI; rg.wingSet(1);
+    const S = rg.girl.wingSpin; const tw = S ? Math.abs(S.a) * D : 0;
+    rg.wingSet(0); rg.girl.wingSpin = null; air(30, 0, 8); rg.wingSet(1); const S2 = rg.girl.wingSpin;
+    say('wings out in fakie: she twists round to face her line', tw > 170 && P.heading === 0 && !S2, `twist ${fix(tw, 0)} deg over ${W.spinT} s; forward ${S2 ? 'twisted too' : 'no twist'}`);
+    rg.wingSet(0); rg.girl.wingSpin = null; }
   // 2. the cruise
   air(80, 0, 10); rg.wingSet(1); const yA = P.pos.y; run(4, hands);
   say(`level, hands off: the jets bring her to cruise (${W.cruise})`, Math.abs(P.vel.length() - W.cruise) < 2 && Math.abs(P.pos.y - yA) < 4, `${fix(P.vel.length(), 1)} m/s, height ${fix(P.pos.y - yA, 1)} m`);
@@ -3134,6 +3140,22 @@ CASES.feel = () => {
         if (fired && P.grounded && P.pos.y < -0.3 && !inB) inB = { v: P.speed, y: P.pos.y }; });
       Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 });
       chk('ollie over the bowl rim, hold down: drops in fast', !!inB && inB.v > 12, inB ? `in the bowl at ${fix(inB.v, 1)} m/s (y ${fix(inB.y, 2)})` : 'never got into the bowl'); }
+    // r156: THE DROP-IN. Off the back of the half pipe's deck, nothing steep below her (the back bank faces her), held
+    // down: she finds the transition AHEAD (falling away from her) and dives down it. Without it she floats onto the deck.
+    // And a quick swipe down (under `dropHold`) never drops in.
+    { const ride = (on, hold) => { const keepD = rg.AIR.drop; rg.AIR.drop = on;
+        place(0, 1, 41, Math.PI, 0); P.grounded = false; P.pos.y = 5.5; P.vel.set(0, 1, -5); P.airT = 0.3; P.rHold = 0; P.dropTo = null; P.dropHold = 0;
+        let t = 0, inP = null, aimed = 0;
+        run(2.2, () => { t += DT; rg.stick.L.x = rg.stick.L.y = 0;
+          Object.assign(rg.stick.R, t < hold ? { down: 1, x: 0, y: 1 } : { down: 0, x: 0, y: 0 });
+          if (P.dropTo) aimed = 1;
+          if (!inP && P.grounded && P.pos.z < 35.6 && P.pos.z > 20 && P.pos.y < 1.2) inP = { v: P.speed, z: P.pos.z, vz: P.vel.z }; });
+        Object.assign(rg.stick.R, { down: 0, x: 0, y: 0 }); rg.AIR.drop = keepD; return { inP, aimed }; };
+      const on = ride(1, 9), off = ride(0, 9), quick = ride(1, 0.12);
+      chk('drop-in: held down off the deck, she dives into the pipe', !!on.inP && on.aimed && on.inP.v > 9 && on.inP.vz < 0,
+          on.inP ? `in the pipe at z ${fix(on.inP.z, 1)} doing ${fix(on.inP.v, 1)} m/s` : `never on the transition (aimed ${on.aimed})`);
+      chk('...without it she does not', !off.aimed && !(off.inP && off.inP.v > 9), off.inP ? `${fix(off.inP.v, 1)} m/s` : 'lands on the deck');
+      chk('...and a quick swipe down never drops in', !quick.aimed, `aimed ${quick.aimed}`); }
     // and the same without it is still upright up there
     place(0, 1, 34.6, 0, 0); P.grounded = false; P.pos.y = n0.floor + 14; P.vel.set(0, 2, 8); P.airT = 0.3;
     run(0.7, () => { rg.stick.L.x = rg.stick.L.y = 0; });
