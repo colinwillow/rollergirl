@@ -76,7 +76,7 @@ carve that ate two thirds of her speed. **Not one of those was visible from read
   `building_kit_generated_visual.glb` + `building_kit_collision.glb` are his four generated buildings BKG0-3, imported
   whole. No draco (custom attributes), WebP textures. `models/props/prop_hydrant.glb` is his hydrant.
 - `vendor/` — three r180 (module + core), GLTFLoader, DRACOLoader + wasm, BufferGeometryUtils,
-  SkeletonUtils. From the city repo. Since r126 also weirdport's KTX2Loader (+ WorkerPool, ktx-parse, zstddec) and `basis/`.
+  SkeletonUtils. From the city repo. `meshopt_decoder.module.js` (r151, from peggy) for his skate city kit. Since r126 also weirdport's KTX2Loader (+ WorkerPool, ktx-parse, zstddec) and `basis/`.
 - `models/wpcity/` (r126, world 4), `models/wpprops/wp_props.glb` (r127), `wp_kit.glb` (r128) and `tex/` (r129, `npm run wptex`) — his weirdport city, and the
   prop and building-kit libraries `npm run wpprops` cuts from it. Re-run that after every export of his city.
 - `handoff/` — **the level-building brief for his Blender session (r83)**: `LEVEL_BUILDING.md`, `rollergirl_blender.py`,
@@ -99,6 +99,22 @@ way round. Measuring components made a six-frame stride and a static clip look i
 honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
+
+- **SKATE CITY: A SEVENTH WORLD, BUILT ONE REGION AT A TIME, AND THE FIRST REGION IS THE RING PLAZA (r151, `WORLD.zones` 6,
+  `?world=city`, `CTY`, `cityWorld`, `ctyRing`, `npm run sim skatecity`).** *"Go ahead, start with the central plaza."* From his
+  concept painting at **0.3 m a pixel about the ring's centre (797, 475)** -- the cars say ~0.12, exaggerated on purpose: the
+  ring deck at 4.8 m (r 18.6-26), a quarter pipe all the way round inside it down to a garden floor (r 12.9) with the bunny
+  statue on a 0.5 m ledge island (a grind ring), the coping a closed grind ring, a parapet with a rail broken where three
+  ramps (N, S, SE) and two ribbons (W, E, `slDeck`, over the ring road and down to the street) leave the deck; a square ring
+  road at |x|/|z| 40-52 running on to the island's edge, sidewalks, markings, zebras where the ramps land.
+  - **HIS KIT IS MESHOPT** (`EXT_meshopt_compression`): `vendor/meshopt_decoder.module.js` (from peggy) is set on the shared
+    loader. His buildings load through `SKYART` (`SKYART.dir` is `zones/kit_skate_city/` in this world, textures kept at
+    1024) and each stands on a PLACEHOLDER box collider of his catalog size, with a plain stand-in block until the art lands.
+    **Which way his buildings face is assumed (+Z front, turned to face the plaza) -- unverified, his call on the phone.**
+  - **A DROP IN ACROSS A BOWL WITH THE STATUE IN THE MIDDLE HITS THE STATUE**: the spawn is at x 7, off its line, and the
+    garden floor has no planters on it (a ledge at the bottom of a bowl is a wall).
+  - **The sim rides the bowl with `GRIND.intent` ON**: with the old auto catch she rolled onto the coping ring and grinded it.
+  - Next: ramp art over kit colliders, the highway spans, the outer ring and towers, and his Weirdport street dressing.
 
 - **DOUBLE TAPS, NOT FLICKS, FOR THE WINGS; A LEFT DOUBLE TAP IN FLIGHT IS A BOOST (r150, `WING.dbl`/`dblT`, `_tapR`/`_tapL`,
   `wingBoost`, `p.wBoost`, `UI_VER` 150).** *"Sometimes I'm falling and I try to get out the wingsuit and it just melees."* The right

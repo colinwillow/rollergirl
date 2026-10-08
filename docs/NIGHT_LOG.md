@@ -688,3 +688,11 @@ Where: anywhere you can fly.
 ## r150 -- double taps for the wings, a left double tap boosts in flight
 What: right double tap opens/folds the wings (flick up is a melee again); flying, left double tap = speed burst.
 Where: anywhere you can fly.
+
+## r151 -- SKATE CITY, the central plaza (world 6)
+A new world from his concept painting, built region by region: the raised ring plaza (deck 4.8 m, r 18.6-26) with a quarter-pipe
+bowl inside down to the bunny statue's garden, ramps off it N / S / SE, ribbons W and E over a square ring road, streets on to the
+island's edge, and five of his kit buildings (SkateHQ, SciFiTower, SkatePark, KickflipShop, CosmicFuel) as art on placeholder
+colliders. His kit is meshopt; the decoder is vendored. ➤ stops: city plaza, city bowl, city north ramp, city south-east ramp,
+city west ribbon, city east ribbon, city ring road. `npm run sim skatecity` rides every link.
+

@@ -42,7 +42,7 @@ const stubs = boot.slice(boot.indexOf('// STUBS:START'), boot.indexOf('// STUBS:
 (0, eval)(stubs);
 // r64: WHICH WORLD. Every case but `zones` measures the built-in park, and his zones stand on the same ground, so
 // the page is booted in the world the case is about (`rg.world` is what the game reads at load).
-globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : process.argv[2] === 'sky' ? '3' : process.argv[2] === 'wpcity' ? '4' : process.argv[2] === 'spillway' ? '5' : '0');
+globalThis.localStorage.setItem('rg.world', process.argv[2] === 'zones' ? '1' : (process.argv[2] === 'kit' || process.argv[2] === 'combos' || process.argv[2] === 'parkref' || process.argv[2] === 'parkdump') ? '2' : process.argv[2] === 'sky' ? '3' : process.argv[2] === 'wpcity' ? '4' : process.argv[2] === 'spillway' ? '5' : process.argv[2] === 'skatecity' ? '6' : '0');
 // r90: the main world's north district is the skate park now; the City it replaced is one switch away, and `city` boots with it
 if (process.argv[2] === 'city') globalThis.localStorage.setItem('rg.city', '1');
 // r127: `wpp` boots with a STAND-IN prop library (boxes under his kind names) -- headless there is no KTX2 and no draco worker,
@@ -6356,6 +6356,51 @@ if (process.argv[2] === 'parkdump') {
   fs.writeFileSync(process.argv[3], JSON.stringify(out)); process.exit(0);
 }
 // r132: THE SPILLWAY, booted in world 5 -- every line through the shipped step over the real dam
+// r151: SKATE CITY's central plaza -- the stops, the drop into the bowl, every ramp and ribbon off the ring deck, the coping
+CASES.skatecity = async () => {
+  let ok = true;
+  const say = (label, good, msg) => { console.log(`  ${label.padEnd(66)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
+  if (rg.WORLD.zones !== 6) { console.log('  booted in another world -- run `npm run sim skatecity`'); return false; }
+  const C = rg.CTY; if (!C.built) { console.log('  skate city was not built'); return false; }
+  say(`built: ${C.paths.length} rails, bowl floor r ${fix(C.rb, 1)}, ${rg.SKYART.place.length} art placements`, C.paths.length >= 5, '');
+  say('no NaN vertex anywhere', !rg.MESHBAD || !rg.MESHBAD(), '');
+  const city = () => rg.stepCity(DT), Rg = C.ring;
+  const reset = () => { P.mel = null; P.melQ = null; P.flip = null; P.grab = null; P.jump = 0; P.kickRail = null; P.grindWant = 0; P.lift = null; rg.ORB.safe = null; P.flatT = 0; P.rHold = 0; P.braked = 0; P.rest = 0; };
+  const go = (x, z, h, v, y) => { reset(); place(x, (y || 0) + 0.3, z, h, v); const q = rg.groundAt(x, z, (y || 0) + 0.6, 1); if (q.hit) P.pos.y = q.floor; };
+  const at = () => `${fix(P.pos.x, 1)},${fix(P.pos.y, 2)},${fix(P.pos.z, 1)}`;
+  const ride = (sec, drive, stop) => { const r = { bail: 0, deep: 0, top: -99, low: 999, falls: rg.ORB.falls || 0, vmax: 0 }; let done = 0;
+    run(sec, (t, i) => { if (done || (stop && stop(t))) { done = 1; P.vel.set(0, 0, 0); return; } if (drive) drive(t, i); else rg.stick.L.x = rg.stick.L.y = 0; city();
+      if (P.bailT > 0) r.bail = 1; r.top = Math.max(r.top, P.pos.y); r.low = Math.min(r.low, P.pos.y); r.vmax = Math.max(r.vmax, P.speed || 0);
+      const q = rg.groundAt(P.pos.x, P.pos.z, P.pos.y + 2, 0); if (q.hit && !P.grind && q.floor - P.pos.y < 2 && q.floor - P.pos.y > r.deep) { r.deep = q.floor - P.pos.y; r.deepAt = at() + ' t' + fix(t, 1); } });
+    r.falls = (rg.ORB.falls || 0) - r.falls; r.clean = !r.bail && !r.falls && r.deep < 0.12; return r; };
+  const cl = r => `${r.bail ? ' BAIL' : ''}${r.falls ? ' FELL' : ''}${r.deep >= 0.12 ? ' INSIDE ' + fix(r.deep) + ' at ' + r.deepAt : ''}`;
+  const steerTo = (x, z) => { const h = Math.atan2(x - P.pos.x, z - P.pos.z); rg.cam.az = h; rg.cam.steerAz = h; rg.stick.L.x = 0; rg.stick.L.y = -1; };
+  // the stops
+  { const bad = []; for (const n of C.go) { reset(); rg.goSpot(n); P.vel.set(0, 0, 0); const y0 = P.pos.y; let gr = 0;
+      run(1, () => { rg.stick.L.x = rg.stick.L.y = 0; city(); gr = P.grounded ? gr + 1 : gr; }); if (gr < 30 || Math.abs(P.pos.y - y0) > 0.6) bad.push(`${n} (y ${fix(y0)} -> ${fix(P.pos.y)})`); }
+    say('every ➤ stop stands her on a floor', !bad.length, bad.join('; ') || `${C.go.length} stops`); }
+  // THE BOWL: from the spawn on the south deck, a push over the coping, hands off down the quarter pipe and across the garden floor
+  { const gi = rg.GRIND.intent; rg.GRIND.intent = 1; go(7, Rg.r1 - 3.5, Math.PI, 4, Rg.y); let floor = 0, far = 0;      // the shipped grind: a coping is swiped onto, never caught rolling over it
+    const r = ride(6, (t, i) => { if (process.env.CTYTR && i % 10 === 0) console.log("    " + fix(t, 2) + " " + at() + " v" + fix(P.speed, 1) + (P.grounded ? "" : " air")); if (t < 0.8) steerTo(7, 0); else rg.stick.L.x = rg.stick.L.y = 0; if (P.grounded && P.pos.y < 0.3 && Math.hypot(P.pos.x, P.pos.z) < C.rb) floor = 1; if (floor && P.pos.y > 1.5 && P.pos.z < 0) far = 1; });
+    rg.GRIND.intent = gi;
+    say('the bowl: drop in off the south deck, down to the garden, up the far wall', floor && far && r.clean, `${floor ? 'on the floor' : 'NEVER ON THE FLOOR'}, ${far ? 'up the north wall' : 'never up the far wall'}, ${fix(r.vmax, 1)} m/s${cl(r)}`); }
+  // THE RAMPS: from the deck behind each ramp's top, push out and roll down it to the street, clean
+  for (const q of C.ramps) { const p = [Math.sin(q.A) * (Rg.r1 - 4), Math.cos(q.A) * (Rg.r1 - 4)]; go(p[0], p[1], q.A, 3, Rg.y); let down = 0;
+    const r = ride(8, () => { steerTo(q.end[0] * 1.3, q.end[2] * 1.3); if (P.grounded && P.pos.y < 0.1 && Math.hypot(P.pos.x, P.pos.z) > Math.hypot(q.end[0], q.end[2]) - 1) down = 1; }, () => down);
+    say(`the ${q.name} ramp: the deck to the street`, down && r.clean, `${down ? 'down at ' + at() : 'never down, ends ' + at()}${cl(r)}`); }
+  // THE RIBBONS: off the deck, over the ring road, down to the street beyond it
+  for (const q of C.ribbons) { const a = q.pts[0], e = q.pts[q.pts.length - 1], pts = q.pts; go(a[0] * 0.92, a[2] * 0.92, Math.atan2(pts[1][0] - a[0], pts[1][2] - a[2]), 4, Rg.y); let i = 1, down = 0, over = 0;
+    const r = ride(14, () => { while (i < pts.length - 1 && Math.hypot(P.pos.x - pts[i][0], P.pos.z - pts[i][2]) < 4) i++; steerTo(pts[i][0], pts[i][2]); if (Math.abs(P.pos.x - pts[2][0]) < 2 && P.pos.y > 5.5) over = 1; if (P.grounded && P.pos.y < 0.2 && Math.hypot(P.pos.x - e[0], P.pos.z - e[2]) < 6) down = 1; }, () => down);
+    say(`the ${q.name} ribbon: over the ring road and down`, down && over && r.clean, `${over ? 'over the road' : 'NEVER OVER THE ROAD'}, ${down ? 'down at ' + at() : 'never down, ends ' + at()}${cl(r)}`); }
+  // THE COPING: a grind round the lip stays on it for three seconds
+  { const Pth = C.paths.find(p => p.name === 'city coping'), S0 = Pth.segs[0]; reset(); place(S0.a.x, S0.a.y, S0.a.z, Math.atan2(S0.hx, S0.hz), 9); P.grounded = false;
+    rg.enterGrind({ rail: S0, t: 0, dir: 1, s: 9, side: 'left' }); let on = 0; const r = ride(3, () => { rg.stick.L.x = rg.stick.L.y = 0; if (P.grind && P.grind.rail.path === Pth) on++; });
+    say('the coping ring: grind it round the bowl', on > 170, `${on} frames on it${cl(r)}`); }
+  // the plaza walls: skating at the outer parapet from the deck does not go through it
+  { go(0, -Rg.r1 + 4, Math.PI * 0.75, 8, Rg.y); const r = ride(2.5, () => steerTo(-Rg.r1 * 1.5, -Rg.r1 * 1.5));
+    say('the parapet: skating at it from the deck stays on the deck', P.pos.y > Rg.y - 0.3 && Math.hypot(P.pos.x, P.pos.z) < Rg.r1 + 0.2, `ends ${at()}${cl(r)}`); }
+  return ok;
+};
 CASES.spillway = async () => {
   let ok = true;
   const say = (label, good, msg) => { console.log(`  ${label.padEnd(66)} ${good ? 'ok' : 'FAIL'} ${msg}`); if (!good) ok = false; };
@@ -6496,10 +6541,10 @@ for (const k of Object.keys(CASES)) {
   console.log(`\n== ${k} ==`);
   let ok = false;
   // the zones case needs a page booted in the OTHER world, so a full run hands it to a process of its own
-  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky' || k === 'wpcity' || k === 'wpp' || k === 'spillway') && !only) {
+  if ((k === 'zones' || k === 'kit' || k === 'combos' || k === 'parkref' || k === 'city' || k === 'sky' || k === 'wpcity' || k === 'wpp' || k === 'spillway' || k === 'skatecity') && !only) {
     const { spawnSync } = await import('child_process');
     const r = spawnSync(process.execPath, [process.argv[1], k], { encoding: 'utf8', maxBuffer: 64 << 20 });
-    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky|wpcity|wpp|spillway) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
+    process.stdout.write((r.stdout || '').split('\n').filter(l => !/^== (zones|kit|combos|parkref|city|sky|wpcity|wpp|spillway|skatecity) ==|all cases pass|case\(s\) failed/.test(l)).join('\n'));
     ok = r.status === 0;
   } else
   try { rg.GRIND.intent = 0; rg.CTRL.map = 1; rg.LAND.flipBail = 0; rg.VERT.flickBoost = k === 'vert86' ? 1 : 0; Object.assign(rg.SK, ROUTE.has(k) ? R83PUSH : PUSH84); if (process.env.SKOLD) Object.assign(rg.SK, JSON.parse(process.env.SKOLD)); if (process.env.NOFACE) rg.SK.faceCatch = 0; ok = await CASES[k](); } catch (e) { console.error('  THREW', e); }      // r71: and again before every case -- `panel` presses RESET, which puts it back on
