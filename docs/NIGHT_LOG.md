@@ -733,3 +733,8 @@ Cosmic Fuel and onto them.
 Thumb off, she rolled in frame 0 of `blade_medium`: arms out to the side and raised (measured, hands 7.7 shoulder widths
 out). The roll is now his `idle_arms_behind_back`, looping, in both stances -- hands in, hips square. `MOVES.rollAnim` 0
 puts back a held frame (now `casual` at .9, the riding frame with her arms in closest). `npm run sim rollpose` measures it.
+
+## r159 -- the blaster reticle sits behind her
+
+The reticle was a DOM overlay, so it always drew over her. It is a depth-tested sprite at the aim point now, constant size
+on screen, pulled 0.35 m toward the lens off whatever it lands on.

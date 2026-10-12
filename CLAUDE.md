@@ -100,6 +100,12 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **THE BLASTER RETICLE IS A SPRITE IN THE WORLD NOW, SO SHE HIDES IT (r159, `gunRet`, `GUNRET`).** *"It draws on top even though
+  it's further back in depth."* It was a DOM element (`#gunRet`, still in the page, unused), and a DOM mark cannot be
+  depth-tested. Now a `Sprite` at `gunAim`'s point with `depthTest` on, `sizeAttenuation` off (`GUNRET.px` px on screen, tightening
+  with the charge, gold when full), pulled `GUNRET.pull` m toward the lens so the wall it lands on does not bury half of it. Her body
+  and anything nearer than the point now cover it. Not verifiable here (no GPU): how it reads.
+
 - **SHE COASTS IN AN ANIMATED IDLE, NOT A FROZEN STRIDE (r158, `MOVES.rollAnim`/`rollIdle`, `npm run sim rollpose`).** *"Stuck in a
   weird pose, arms to the side, rather than drifting in a more neutral idle."* r131's roll was frame 0 of `blade_medium`, held --
   measured, her hands 7.7 shoulder widths out and 0.6 legs above her hips. `blade_roll_*` is now a looping clone of
