@@ -100,6 +100,13 @@ honest number is `2·acos(|dot|)`, which is sign-insensitive by construction.
 
 ## Landmines
 
+- **SHE COASTS IN AN ANIMATED IDLE, NOT A FROZEN STRIDE (r158, `MOVES.rollAnim`/`rollIdle`, `npm run sim rollpose`).** *"Stuck in a
+  weird pose, arms to the side, rather than drifting in a more neutral idle."* r131's roll was frame 0 of `blade_medium`, held --
+  measured, her hands 7.7 shoulder widths out and 0.6 legs above her hips. `blade_roll_*` is now a looping clone of
+  `idle_arms_behind_back` (hands 0.95 in, hips 5 deg off square), both stances. `rollAnim` 0 is the held frame, now `casual`
+  at .9 (hands 0.3-0.4 in). `rollpose` measures every frame of every clip (`SWEEP=1` prints the table) and fails the roll if
+  its hands are over `rollOut` out or it faces over 30 deg off. Not verifiable here: whether her legs read as a glide.
+
 - **HIS HERO BUILDINGS ARE THEIR OWN COLLIDERS NOW (r157, `CTYH`, `ctyHeroCol`, `SKYART.col`).** *"They have ramps on them, they
   have grind rails, and there's just a giant box collider around them -- you float at the top."* r151's placeholder box (his catalog's
   footprint and height) stood until the art landed and then FOR EVER. Now `skyIngest` hands each file to `SKYART.col[f]` BEFORE its

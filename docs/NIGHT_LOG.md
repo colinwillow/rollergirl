@@ -727,3 +727,9 @@ to her line over 0.55 s instead of snapping (WING TWIST). Try it off the back de
 The placeholder box round each of his five hero buildings is taken out the moment the art lands; his decks, ramps and stairs are
 floors and his walls are walls, built from the drawn triangles. Ride up to SkateHQ, the SciFi tower, the skate park, Kickflip and
 Cosmic Fuel and onto them.
+
+## r158 -- the coasting pose is an idle, not a frozen stride
+
+Thumb off, she rolled in frame 0 of `blade_medium`: arms out to the side and raised (measured, hands 7.7 shoulder widths
+out). The roll is now his `idle_arms_behind_back`, looping, in both stances -- hands in, hips square. `MOVES.rollAnim` 0
+puts back a held frame (now `casual` at .9, the riding frame with her arms in closest). `npm run sim rollpose` measures it.

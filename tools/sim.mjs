@@ -1526,13 +1526,12 @@ CASES.moves = () => {
   if (moves.fwd.push.join() !== 'blade_casual_forward,blade_hard_forward' ||
       moves.back.push.join() !== 'blade_casual_backward,blade_casual_backward' ||
       moves.fwd.roll !== 'blade_roll_forward' || moves.back.roll !== 'blade_roll_backward') { console.log('  -> wrong push / roll clips'); ok = false; }
-  // r131: the rolling pose is ONE held frame of his medium riding clip, not his standing idle
-  for (const [nm, src] of [['blade_roll_forward', 'blade_medium_forward'], ['blade_roll_backward', 'blade_medium_backward']]) {
-    const c = clips.find(c => c.name === nm), s0 = clips.find(c => c.name === src);
-    const hips = c && c.tracks.find(t => /Hips\.quaternion$/.test(t.name)), hs = s0 && s0.tracks.find(t => /Hips\.quaternion$/.test(t.name));
-    const one = c && c.tracks.every(t => t.times.length === 1), same = hips && hs && [0, 1, 2, 3].every(i => Math.abs(hips.values[i] - hs.values[i]) < 1e-5);
-    const good = !!(one && same && c.tracks.length === s0.tracks.length); if (!good) ok = false;
-    console.log(`  ${(nm + ': one held frame of ' + src).padEnd(36)} ${good ? 'ok' : 'WRONG'} ${c ? `${c.tracks.length} tracks, ${one ? 'one key each' : 'NOT one key'}, hips ${same ? '= frame 0' : 'differ'}` : 'missing'}`);
+  // r158: the rolling pose is his arms-behind-the-back IDLE, animated (r131 held a frame of medium: arms out to the side)
+  for (const nm of ['blade_roll_forward', 'blade_roll_backward']) {
+    const c = clips.find(c => c.name === nm), s0 = clips.find(c => c.name === rg.MOVES.rollIdle[0]);
+    const anim = c && c.tracks.some(t => t.times.length > 1), good = !!(anim && s0 && c.tracks.length === s0.tracks.length && Math.abs(c.duration - s0.duration) < 1e-6);
+    if (!good) ok = false;
+    console.log(`  ${(nm + ': ' + rg.MOVES.rollIdle[0] + ', animated').padEnd(36)} ${good ? 'ok' : 'WRONG'} ${c ? `${c.tracks.length} tracks, ${c.duration.toFixed(2)} s` : 'missing'}`);
   }
   if (Object.keys(moves.flip).length !== 4 || R.solo || !/^idle/.test(R.fallback)) ok = false;
   const keep = { a: rg.girl.actions, cw: rg.girl.cw, len: rg.girl.clipLen, m: rg.girl.moves, r: rg.girl.ready };
@@ -1666,6 +1665,41 @@ CASES.facing = () => {
   }
   console.log(`  ${wasBack} clips authored facing backwards, turned: ${rg.FACEFIX.turned.length}`);
   if (wasBack < 10) { console.log('  -> the unfixed export should read backwards; the measurement is not measuring'); ok = false; }
+  return ok;
+};
+
+// ---------------------------------------------------------------- the coasting pose (r158)
+// *"She's stuck in a weird pose arms to the side rather than drifting in a more neutral idle."* Poses his real
+// skeleton in every candidate frame and reads how far her HANDS are out from her body (lateral distance from the
+// spine over shoulder width) and how high (over the hips, in leg lengths), plus which way her hips face. Then
+// checks the shipped `blade_roll_*` against it: arms down, facing forward.
+function poseRead(g, clips, nm, at) {
+  const S = skelFromGLB(g.json), clip = clips.find(c => c.name === nm);
+  const m = new THREE.AnimationMixer(S.root), a = m.clipAction(clip); a.play(); a.time = at * clip.duration; m.update(0);
+  S.root.updateMatrixWorld(true);
+  const P = n => new THREE.Vector3().setFromMatrixPosition(S.by['mixamorig_' + n].matrixWorld);
+  const L = P('LeftUpLeg'), R = P('RightUpLeg'), hip = P('Hips'), sh = P('LeftShoulder').distanceTo(P('RightShoulder'));
+  const side = R.clone().sub(L); side.y = 0; side.normalize();
+  const fwd = new THREE.Vector3(0, 1, 0).cross(side);
+  const leg = P('LeftUpLeg').distanceTo(P('LeftFoot'));
+  const out = n => Math.abs(P(n).sub(hip).dot(side)) / sh, up = n => (P(n).y - hip.y) / leg;
+  return { yaw: Math.atan2(fwd.x, fwd.z) * 180 / Math.PI, out: Math.max(out('LeftHand'), out('RightHand')),
+    up: Math.max(up('LeftHand'), up('RightHand')) };
+}
+CASES.rollpose = () => {
+  const f = 'models/alien_rollerskate_blue.glb', g = readGLB(f);
+  const clips = rg.prepClips(rg.normaliseClips(buildClips(g, THREE)), skelFromGLB(g.json).root);
+  if (process.env.SWEEP) for (const c of clips.filter(c => /^(blade_|idle_)/.test(c.name) && !/flip/.test(c.name))) {
+    const row = []; for (let i = 0; i <= 10; i++) { const r = poseRead(g, clips, c.name, i / 10); row.push(`${r.out.toFixed(1)}/${r.up.toFixed(1)}/${r.yaw.toFixed(0)}`); }
+    console.log(`  ${c.name.padEnd(30)} ${row.join(' ')}`);
+  }
+  let ok = true;
+  for (const nm of rg.MOVES.roll) {
+    if (!clips.find(c => c.name === nm)) { console.log(`  ${nm} not built`); ok = false; continue; }
+    const r = poseRead(g, clips, nm, 0), good = r.out < rg.MOVES.rollOut && Math.abs(r.yaw) < 30;
+    console.log(`  ${nm.padEnd(22)} hands out ${r.out.toFixed(2)} shoulder widths, up ${r.up.toFixed(2)} legs, facing ${r.yaw.toFixed(0)} deg${good ? '' : '   <- WRONG'}`);
+    if (!good) ok = false;
+  }
   return ok;
 };
 

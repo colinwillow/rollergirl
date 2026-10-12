@@ -211,7 +211,7 @@
   <div class="bn">build <span id="bootB">r1</span></div>
 </div>
 
-<div class="chip" id="build"><b id="buildN">r157</b><i id="buildI"></i></div>
+<div class="chip" id="build"><b id="buildN">r158</b><i id="buildI"></i></div>
 <div class="chip" id="speed"><b>0.0</b> m/s</div>
 <div class="chip" id="gems">&#9670; <b>0</b>/<span>0</span></div>
 <div class="chip" id="score">&#9733; <b>0</b><i></i></div>
@@ -238,7 +238,7 @@ import { DRACOLoader } from './vendor/DRACOLoader.js';
 import { MeshoptDecoder } from './vendor/meshopt_decoder.module.js';
 import { mergeGeometries } from './vendor/BufferGeometryUtils.js';
 
-const BUILD = 'r157';
+const BUILD = 'r158';
 const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 1400);
 
 // ---------- helpers ----------
@@ -13954,7 +13954,12 @@ const MOVES = {
   // `rollFrom` that the skin has, frozen (`holdClip`, built at load) -- squared up in a skating crouch, facing her travel.
   // A skin with none of them falls back to its idle, as before. Change these and reload.
   roll: ['blade_roll_forward', 'blade_roll_backward'],
-  rollFrom: ['medium', 'casual', 'soft', 'hard'], rollAt: 0,
+  // r158: *"Stuck in a weird pose, arms to the side, rather than drifting in a more neutral idle."* `blade_medium`'s frame 0
+  // has her hands 7.7 shoulder widths out and raised (`npm run sim rollpose` measures every frame of every clip). The roll is
+  // now an ANIMATED idle, `rollIdle` (his arms-behind-the-back idle: hands in, hips square, a speed skater's glide), looping,
+  // for both stances. `rollAnim` 0 is r131's held frame -- of `casual` at .9 now, the riding frame with her arms in closest.
+  rollAnim: 1, rollIdle: ['idle_arms_behind_back', 'idle_normal'], rollOut: 2,
+  rollFrom: ['casual', 'soft', 'medium', 'hard'], rollAt: 0.9,
   // *"Maybe don't use the backwards versions?"* -- 0 plays the FORWARD clips in fakie too, which
   // is a forward stroke while she rolls backwards. Kept as a switch for the A/B; 1 is the fix.
   useBack: 1,
@@ -14085,6 +14090,8 @@ function prepClips(clips, root) {
   // is already turned to face her nose.
   ['forward', 'backward'].forEach((d, i) => {
     const nm = MOVES.roll[i]; if (clips.some(c => c.name === nm)) return;
+    const idle = MOVES.rollAnim ? MOVES.rollIdle.map(n => clips.find(c => c.name === n)).find(Boolean) : null;
+    if (idle) { const c = idle.clone(); c.name = nm; clips.push(c); return; }      // r158: an animated idle, looping
     const src = MOVES.rollFrom.map(t => clips.find(c => c.name === `blade_${t}_${d}`)).find(Boolean);
     if (src) clips.push(holdClip(src, nm, MOVES.rollAt));
   });
